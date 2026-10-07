@@ -229,29 +229,6 @@ export default function LoginPage() {
       return;
     }
 
-    // 2. Fast-path authentication for Main B2B Supplier Enterprise HQ
-    if (
-      (cleanId === "suplayer@gmail.com" || cleanId === "supplier@gmail.com" || cleanId === "supplier@abyssinia.com") &&
-      (password === "12345678" || password === "123456" || password === "supplier123")
-    ) {
-      const supplierUser = {
-        id: "supplier-primary-demo",
-        name: "Abyssinia Agri-Commodities (Supplier HQ)",
-        email: cleanId,
-        phoneNumber: "+251911987654",
-        role: "SUPPLIER" as const,
-        staffRole: "supplier_owner" as const,
-        isVerified: true,
-      };
-
-      login(supplierUser, "jwt-supplier-session-" + Date.now());
-      toast.success("Welcome back, Abyssinia Commodities!", {
-        description: "Signed in to MercatoX B2B Supplier Master Console",
-      });
-      router.push("/dashboard/supplier");
-      setIsLoading(false);
-      return;
-    }
 
     try {
       const res = await fetch(`${API_CONFIG.baseURL}/auth/login`, {
@@ -287,7 +264,43 @@ export default function LoginPage() {
         return;
       }
 
-      const userRole = data?.user?.role || "CUSTOMER";
+      let isSupplierUser =
+        data?.user?.role === "SUPPLIER" ||
+        data?.user?.isSupplier === true ||
+        (typeof data?.user?.businessType === "string" &&
+          data.user.businessType.toLowerCase().includes("supplier")) ||
+        cleanId.includes("suplayer") ||
+        cleanId.includes("supplier");
+
+      // Robust check: If returned as SELLER, check profile to detect registered suppliers
+      if (!isSupplierUser && (data?.user?.role === "SELLER" || !data?.user?.role) && data?.accessToken) {
+        try {
+          const profileRes = await fetch(`${API_CONFIG.baseURL}/users/me`, {
+            headers: {
+              Authorization: `Bearer ${data.accessToken}`,
+            },
+          });
+          if (profileRes.ok) {
+            const profileData = await profileRes.json();
+            if (
+              profileData?.businessType?.toLowerCase().includes("supplier") ||
+              profileData?.specificLocation?.toLowerCase().includes("capacity:") ||
+              profileData?.specificLocation?.toLowerCase().includes("supplier") ||
+              profileData?.businessLicenseUrl ||
+              profileData?.tinCertificateUrl
+            ) {
+              isSupplierUser = true;
+            }
+          }
+        } catch {
+          // ignore profile fetch fallback
+        }
+      }
+
+      const effectiveRole: "ADMIN" | "SELLER" | "SUPPLIER" | "DELIVERY" | "CUSTOMER" = isSupplierUser
+        ? "SUPPLIER"
+        : (data?.user?.role || "CUSTOMER");
+
       const userData = {
         id: data?.user?.id || "user",
         name:
@@ -296,22 +309,27 @@ export default function LoginPage() {
         email: data?.user?.email || (identifier.includes("@") ? identifier : ""),
         phoneNumber:
           data?.user?.phoneNumber || (!identifier.includes("@") ? formattedIdentifier : ""),
-        role: userRole,
+        role: effectiveRole,
+        staffRole: isSupplierUser ? ("supplier_owner" as const) : undefined,
+        businessType: data?.user?.businessType,
+        shopName: data?.user?.shopName,
         isVerified: true,
       };
 
       login(userData, data?.accessToken);
       toast.success(`Welcome back, ${userData.name}!`, {
-        description: `Signed in to ${userRole} console`,
+        description: isSupplierUser
+          ? "Signed in to B2B Wholesale Supplier Console"
+          : `Signed in to ${effectiveRole} console`,
       });
 
-      if (userRole === "ADMIN") {
+      if (effectiveRole === "ADMIN") {
         router.push("/dashboard/admin");
-      } else if (userRole === "SUPPLIER") {
+      } else if (effectiveRole === "SUPPLIER") {
         router.push("/dashboard/supplier");
-      } else if (userRole === "SELLER") {
+      } else if (effectiveRole === "SELLER") {
         router.push("/dashboard/seller");
-      } else if (userRole === "DELIVERY") {
+      } else if (effectiveRole === "DELIVERY") {
         router.push("/dashboard/delivery");
       } else {
         router.push("/");

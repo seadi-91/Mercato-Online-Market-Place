@@ -202,6 +202,73 @@ export class AuthService implements OnModuleInit {
           phoneNumber: '+251900000004',
         });
       }
+
+      // 5. Seed default Wholesale Supplier account if not present or update
+      let existingSupplier = await this.userRepository.findOne({
+        where: [
+          { email: 'suplayer@gmail.com' },
+          { email: 'supplier@gmail.com' },
+          { phoneNumber: '+251911987654' },
+        ],
+      });
+      if (!existingSupplier) {
+        const passwordHash = await bcrypt.hash('12345678', salt);
+        const supplier = this.userRepository.create({
+          phoneNumber: '+251911987654',
+          email: 'suplayer@gmail.com',
+          passwordHash,
+          role: UserRole.SELLER,
+          isActive: true,
+        });
+        existingSupplier = await this.userRepository.save(supplier);
+        await firstValueFrom(
+          this.usersClient.send('create_profile', {
+            userId: existingSupplier.id,
+            role: existingSupplier.role,
+            fullName: 'Abyssinia Agri-Commodities (Supplier HQ)',
+            phoneNumber: existingSupplier.phoneNumber,
+            email: existingSupplier.email,
+            shopName: 'Abyssinia Agri-Commodities',
+            marketZone: 'Kality Industrial Logistics Hub',
+            tradeLicenseNumber: 'MOTRI-KAL-2024-9912',
+            tinNumber: '1098765432',
+            businessType: 'Supplier - Primary Bulk Importer',
+            city: 'Addis Ababa',
+            subCity: 'Akaky Kaliti',
+            specificLocation: 'Kality Industrial Logistics Hub - Depot Warehouse A (Capacity: Container Loads (FCL / LCL))',
+            businessLicenseUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/trade_license_demo.pdf',
+            tinCertificateUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/tin_certificate_demo.pdf',
+            commercialRegistrationUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/commercial_reg_demo.pdf',
+          }),
+        ).catch(() => null);
+      } else {
+        if (!existingSupplier.phoneNumber) {
+          await this.userRepository.update(existingSupplier.id, {
+            phoneNumber: '+251911987654',
+          });
+        }
+        await firstValueFrom(
+          this.usersClient.send('create_profile', {
+            userId: existingSupplier.id,
+            role: existingSupplier.role,
+            fullName: 'Abyssinia Agri-Commodities (Supplier HQ)',
+            phoneNumber: existingSupplier.phoneNumber || '+251911987654',
+            email: existingSupplier.email,
+            shopName: 'Abyssinia Agri-Commodities',
+            marketZone: 'Kality Industrial Logistics Hub',
+            tradeLicenseNumber: 'MOTRI-KAL-2024-9912',
+            tinNumber: '1098765432',
+            businessType: 'Supplier - Primary Bulk Importer',
+            city: 'Addis Ababa',
+            subCity: 'Akaky Kaliti',
+            specificLocation: 'Kality Industrial Logistics Hub - Depot Warehouse A (Capacity: Container Loads (FCL / LCL))',
+            businessLicenseUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/trade_license_demo.pdf',
+            tinCertificateUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/tin_certificate_demo.pdf',
+            commercialRegistrationUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/commercial_reg_demo.pdf',
+          }),
+        ).catch(() => null);
+        console.log('[AuthService] Ensured profile for existing Supplier account');
+      }
     } catch (e) {
       console.error('[AuthService] Notice during seedDefaultAccounts:', e);
     }
@@ -275,6 +342,11 @@ export class AuthService implements OnModuleInit {
     const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, salt);
     await this.userRepository.update(savedUser.id, { refreshTokenHash });
 
+    const isSupplier = Boolean(
+      (dto.role as any) === 'SUPPLIER' ||
+      (dto.businessType && dto.businessType.toLowerCase().includes('supplier'))
+    );
+
     return {
       ...tokens,
       user: {
@@ -282,7 +354,11 @@ export class AuthService implements OnModuleInit {
         phoneNumber: savedUser.phoneNumber,
         email: savedUser.email,
         fullName: dto.fullName,
-        role: savedUser.role,
+        role: isSupplier ? 'SUPPLIER' : savedUser.role,
+        actualRole: savedUser.role,
+        businessType: dto.businessType,
+        shopName: dto.shopName,
+        isSupplier,
       },
     };
   }
@@ -368,6 +444,7 @@ export class AuthService implements OnModuleInit {
     await this.userRepository.update(user.id, { refreshTokenHash });
 
     let fullName = user.phoneNumber || user.email || 'User';
+    let profileData: any = null;
     try {
       const profile = await firstValueFrom(
         this.usersClient.send('get_profile', { userId: user.id }),
@@ -375,9 +452,23 @@ export class AuthService implements OnModuleInit {
       if (profile && profile.fullName) {
         fullName = profile.fullName;
       }
+      profileData = profile;
     } catch {
       // ignore
     }
+
+    const isSupplier = Boolean(
+      (user.role as any) === 'SUPPLIER' ||
+      (user.email &&
+        (user.email.toLowerCase().includes('suplayer') ||
+          user.email.toLowerCase().includes('supplier'))) ||
+      (profileData?.businessType &&
+        profileData.businessType.toLowerCase().includes('supplier')) ||
+      (profileData?.specificLocation &&
+        profileData.specificLocation.toLowerCase().includes('capacity:')) ||
+      (profileData?.specificLocation &&
+        profileData.specificLocation.toLowerCase().includes('supplier'))
+    );
 
     return {
       ...tokens,
@@ -386,7 +477,11 @@ export class AuthService implements OnModuleInit {
         phoneNumber: user.phoneNumber,
         email: user.email,
         fullName,
-        role: user.role,
+        role: isSupplier ? 'SUPPLIER' : user.role,
+        actualRole: user.role,
+        businessType: profileData?.businessType,
+        shopName: profileData?.shopName,
+        isSupplier,
       },
     };
   }

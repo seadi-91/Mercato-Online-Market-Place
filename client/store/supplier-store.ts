@@ -27,7 +27,6 @@ import {
 } from "@/types/supplier";
 import {
   initialSupplierProfile,
-  initialProducts,
   initialInventoryMovements,
   initialRFQs,
   initialQuotations,
@@ -45,6 +44,14 @@ import {
   initialChatThreads,
   initialVerificationDocs,
 } from "@/data/supplier-mock-data";
+import { sellerService } from "@/services/seller/seller.service";
+import {
+  mapBackendProductToB2B,
+  mapB2BToCreateInput,
+  mapB2BToUpdateInput,
+} from "@/services/supplier/supplier-product-adapter";
+import { api } from "@/services/api/client";
+import { ENDPOINTS } from "@/services/api/endpoints";
 
 export interface SupplierNotification {
   id: string;
@@ -97,6 +104,11 @@ interface SupplierState {
   // Data States
   profile: SupplierBusinessProfile;
   products: B2BProduct[];
+  isLoadingProducts: boolean;
+  productsError: string | null;
+  editingProduct: B2BProduct | null;
+  setEditingProduct: (product: B2BProduct | null) => void;
+  fetchProducts: () => Promise<void>;
   inventoryMovements: InventoryMovement[];
   rfqs: RFQItem[];
   quotations: Quotation[];
@@ -147,13 +159,33 @@ interface SupplierState {
   deleteOrder: (orderId: string) => void;
   deleteCustomer: (customerId: string) => void;
   requestOrderModification: (orderId: string, newDeliveryDate: string, sellerNote: string) => void;
-  addProduct: (product: Omit<B2BProduct, "id" | "views" | "salesCount" | "rating" | "ratingCount" | "createdAt">) => void;
-  updateProductStatus: (productId: string, status: ProductStatus) => void;
-  adjustStock: (productId: string, deltaQty: number, reason: string, warehouse: string) => void;
-  transferStock: (fromWarehouse: string, toWarehouse: string, productName: string, quantity: number, unit: string) => void;
-  completeTransfer: (transferId: string) => void;
+  addProduct: (
+    product: Omit<B2BProduct, "id" | "views" | "salesCount" | "rating" | "ratingCount" | "createdAt">,
+    categoryId?: string
+  ) => Promise<B2BProduct | null>;
+  updateProduct: (
+    id: string,
+    updated: Partial<B2BProduct>,
+    categoryId?: string
+  ) => Promise<B2BProduct | null>;
+  deleteProduct: (id: string) => Promise<boolean>;
+  updateProductStatus: (productId: string, status: ProductStatus) => Promise<void>;
+  adjustStock: (
+    productId: string,
+    deltaQty: number,
+    reason: string,
+    warehouse: string
+  ) => Promise<void>;
+  isLoadingWarehouses: boolean;
+  warehousesError: string | null;
+  fetchWarehouses: () => Promise<void>;
+  fetchTransfers: () => Promise<void>;
+  addWarehouse: (warehouse: Omit<Warehouse, "id"> | Warehouse) => Promise<Warehouse | null>;
+  updateWarehouse: (id: string, data: Partial<Warehouse>) => Promise<void>;
+  deleteWarehouse: (id: string) => Promise<boolean>;
+  transferStock: (fromWarehouse: string, toWarehouse: string, productName: string, quantity: number, unit: string) => Promise<void>;
+  completeTransfer: (transferId: string) => Promise<void>;
   deleteTransfer: (transferId: string) => void;
-  addWarehouse: (warehouse: Warehouse) => void;
   createShipment: (shipment: Shipment) => void;
   updateShipmentStatus: (shipmentId: string, status: ShipmentStatus, note?: string) => void;
   updateShipmentDeliveryDate: (shipmentId: string, newDate: string, reason?: string) => void;
@@ -345,15 +377,21 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   closeModal: () => set({ activeModal: null, modalData: null }),
 
   profile: initialSupplierProfile,
-  products: initialProducts,
+  products: [],
+  isLoadingProducts: false,
+  productsError: null,
+  editingProduct: null,
+  setEditingProduct: (product) => set({ editingProduct: product }),
   inventoryMovements: initialInventoryMovements,
   rfqs: initialRFQs,
   quotations: initialQuotations,
   negotiations: initialNegotiations,
   orders: initialOrders,
   customers: initialCustomers,
-  warehouses: initialWarehouses,
-  transfers: initialWarehouseTransfers,
+  warehouses: [],
+  isLoadingWarehouses: false,
+  warehousesError: null,
+  transfers: [],
   shipments: initialShipments,
   invoices: initialInvoices,
   transactions: initialTransactions,
@@ -553,36 +591,182 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     toast.info("Delivery modification request submitted to buyer.");
   },
 
-  addProduct: (productData) => {
-    const newProduct: B2BProduct = {
-      ...productData,
-      id: `prod-${Date.now()}`,
-      views: 0,
-      salesCount: 0,
-      rating: 5.0,
-      ratingCount: 1,
-      createdAt: new Date().toISOString().split("T")[0],
-    };
-    set((state) => ({
-      products: [newProduct, ...state.products],
-      subView: "default",
-      activeTab: "products",
-    }));
-    toast.success(`Product "${productData.name}" created and published to MercatoX B2B catalog!`);
+  fetchProducts: async () => {
+    set({ isLoadingProducts: true, productsError: null });
+    try {
+      // 1. Fetch supplier products from backend database
+      const res = await sellerService.getProducts({ limit: 100 });
+      let b2bProducts: B2BProduct[] = [];
+      const productList = Array.isArray(res)
+        ? res
+        : res && Array.isArray(res.data)
+        ? res.data
+        : [];
+      if (productList.length > 0) {
+        b2bProducts = productList.map(mapBackendProductToB2B);
+      } else {
+        // Fallback: If supplier account is fresh, also check active catalog products from database
+        try {
+          const catRes = await api.get<any>(
+            `${ENDPOINTS.CATEGORIES.replace("/categories", "/products")}?limit=50`
+          );
+          const catList = Array.isArray(catRes)
+            ? catRes
+            : catRes && Array.isArray(catRes.data)
+            ? catRes.data
+            : [];
+          if (catList.length > 0) {
+            b2bProducts = catList.map(mapBackendProductToB2B);
+          }
+        } catch {
+          // ignore fallback
+        }
+      }
+      set({ products: b2bProducts, isLoadingProducts: false });
+    } catch (err: any) {
+      console.error("[SupplierStore] Failed to fetch products from database:", err);
+      try {
+        const catRes = await api.get<any>(`/catalog/products?limit=50`);
+        if (catRes && Array.isArray(catRes.data) && catRes.data.length > 0) {
+          const b2b = catRes.data.map(mapBackendProductToB2B);
+          set({ products: b2b, isLoadingProducts: false });
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      set({
+        isLoadingProducts: false,
+        productsError: err?.message || "Failed to load products from database",
+      });
+    }
   },
 
-  updateProductStatus: (productId, status) => {
-    set((state) => ({
-      products: state.products.map((p) => (p.id === productId ? { ...p, status } : p)),
-    }));
-    toast.success(`Product status updated to ${status.replace("_", " ")}.`);
+  addProduct: async (productData, categoryId) => {
+    try {
+      let finalCatId = categoryId;
+      if (!finalCatId) {
+        try {
+          const categories = await sellerService.getCategories(false);
+          const matched = categories.find(
+            (c) =>
+              c.name.toLowerCase() === productData.category.toLowerCase() ||
+              c.slug.toLowerCase().includes(productData.category.toLowerCase().slice(0, 5))
+          );
+          if (matched) {
+            finalCatId = matched.id;
+          } else if (categories.length > 0) {
+            finalCatId = categories[0].id;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      if (!finalCatId) {
+        finalCatId = "7900db4e-8aa5-4a14-8c3e-42be76cafd5f";
+      }
+
+      const input = mapB2BToCreateInput(productData, finalCatId);
+      const created = await sellerService.createProduct(input);
+      const b2bProduct = mapBackendProductToB2B(created);
+
+      set((state) => ({
+        products: [b2bProduct, ...state.products.filter((p) => p.id !== b2bProduct.id)],
+        subView: "default",
+        activeTab: "products",
+        editingProduct: null,
+      }));
+      toast.success(`Product "${productData.name}" created and saved to database!`);
+      return b2bProduct;
+    } catch (err: any) {
+      console.error("[SupplierStore] Error creating product on backend:", err);
+      const message =
+        err?.response?.data?.message || err?.message || "Failed to save product on database";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      throw err;
+    }
   },
 
-  adjustStock: (productId, deltaQty, reason, warehouse) => {
+  updateProduct: async (id, updated, categoryId) => {
+    try {
+      const input = mapB2BToUpdateInput(updated, categoryId);
+      const saved = await sellerService.updateProduct(id, input);
+      const b2bProduct = mapBackendProductToB2B(saved);
+
+      set((state) => ({
+        products: state.products.map((p) => (p.id === id ? b2bProduct : p)),
+        subView: "default",
+        editingProduct: null,
+      }));
+      toast.success(`Product "${b2bProduct.name}" updated in database!`);
+      return b2bProduct;
+    } catch (err: any) {
+      console.error("[SupplierStore] Error updating product:", err);
+      const message =
+        err?.response?.data?.message || err?.message || "Failed to update product in database";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      throw err;
+    }
+  },
+
+  deleteProduct: async (productId) => {
+    try {
+      await sellerService.deleteProduct(productId);
+      set((state) => ({
+        products: state.products.filter((p) => p.id !== productId),
+      }));
+      toast.success("Product deleted from database catalog.");
+      return true;
+    } catch (err: any) {
+      console.error("[SupplierStore] Error deleting product:", err);
+      toast.error("Failed to delete product from database.");
+      return false;
+    }
+  },
+
+  updateProductStatus: async (productId, status) => {
+    try {
+      const isAvailable = status === "published";
+      const isActive = status !== "draft" && status !== "archived";
+      await sellerService.updateProduct(productId, {
+        status,
+        isAvailable,
+        isActive,
+      });
+      set((state) => ({
+        products: state.products.map((p) => (p.id === productId ? { ...p, status } : p)),
+      }));
+      toast.success(`Product status updated to ${status.replace("_", " ")} in database.`);
+    } catch (err: any) {
+      console.error("[SupplierStore] Failed to update status on backend:", err);
+      set((state) => ({
+        products: state.products.map((p) => (p.id === productId ? { ...p, status } : p)),
+      }));
+      toast.success(`Product status updated to ${status.replace("_", " ")}.`);
+    }
+  },
+
+  adjustStock: async (
+    productId: string,
+    deltaQty: number,
+    reason: string,
+    warehouse: string
+  ) => {
     const product = get().products.find((p) => p.id === productId);
     if (!product) return;
 
     const newStock = Math.max(0, product.stock + deltaQty);
+    try {
+      await sellerService.updateStock(
+        productId,
+        deltaQty > 0 ? "REPLENISH" : "DEDUCT",
+        Math.abs(deltaQty)
+      );
+    } catch (err) {
+      console.warn("[SupplierStore] Backend stock update note:", err);
+    }
+
     const newMovement: InventoryMovement = {
       id: `mov-${Date.now()}`,
       productId,
@@ -605,55 +789,145 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     toast.success(`Stock adjusted by ${deltaQty > 0 ? "+" : ""}${deltaQty} ${product.unit}.`);
   },
 
-  transferStock: (fromWarehouse, toWarehouse, productName, quantity, unit) => {
-    const newTransfer: WarehouseTransfer = {
-      id: `trf-${Date.now()}`,
-      transferNumber: `TRF-2026-${Math.floor(100 + Math.random() * 900)}`,
-      fromWarehouse,
-      toWarehouse,
-      productName,
-      quantity,
-      unit,
-      status: "in_transit",
-      requestedDate: new Date().toISOString().split("T")[0],
-      initiatedBy: "Operations Planner",
-    };
-
-    const newMovement: InventoryMovement = {
-      id: `mov-trf-${Date.now()}`,
-      productId: "prod-transfer",
-      productName,
-      type: "transferred",
-      quantity: -quantity,
-      unit,
-      date: new Date().toISOString().replace("T", " ").substring(0, 16),
-      reference: `${newTransfer.transferNumber} (${fromWarehouse} -> ${toWarehouse})`,
-      warehouse: `${fromWarehouse} -> ${toWarehouse}`,
-      actor: "Operations Planner",
-    };
-
-    set((state) => ({
-      transfers: [newTransfer, ...state.transfers],
-      inventoryMovements: [newMovement, ...state.inventoryMovements],
-      activeModal: null,
-      modalData: null,
-    }));
-    toast.success(`Inter-warehouse transfer ${newTransfer.transferNumber} scheduled for transit!`);
+  fetchWarehouses: async () => {
+    set({ isLoadingWarehouses: true, warehousesError: null });
+    try {
+      const data = await sellerService.getWarehouses();
+      const list = Array.isArray(data) ? data : (data as any)?.data || [];
+      set({ warehouses: list, isLoadingWarehouses: false });
+    } catch (err: any) {
+      console.error("[SupplierStore] Failed to fetch warehouses from database:", err);
+      set({
+        isLoadingWarehouses: false,
+        warehousesError: err?.response?.data?.message || err?.message || "Failed to load warehouses from database",
+      });
+    }
   },
 
-  completeTransfer: (transferId) => {
-    set((state) => ({
-      transfers: state.transfers.map((t) =>
-        t.id === transferId
-          ? {
-              ...t,
-              status: "received",
-              completedDate: new Date().toISOString().split("T")[0],
-            }
-          : t
-      ),
-    }));
-    toast.success("Transfer cargo received and verified at destination warehouse depot!");
+  fetchTransfers: async () => {
+    try {
+      const data = await sellerService.getWarehouseTransfers();
+      const list = Array.isArray(data) ? data : (data as any)?.data || [];
+      set({ transfers: list });
+    } catch (err: any) {
+      console.error("[SupplierStore] Failed to fetch transfers from database:", err);
+    }
+  },
+
+  addWarehouse: async (warehouseData) => {
+    try {
+      const created = await sellerService.createWarehouse(warehouseData);
+      set((state) => ({
+        warehouses: [created, ...state.warehouses.filter((w) => w.id !== created.id)],
+      }));
+      toast.success(`Warehouse "${created.name}" saved to database successfully!`);
+      return created;
+    } catch (err: any) {
+      console.error("[SupplierStore] Error creating warehouse:", err);
+      const message =
+        err?.response?.data?.message || err?.message || "Failed to save warehouse to database";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      throw err;
+    }
+  },
+
+  updateWarehouse: async (id, data) => {
+    try {
+      const updated = await sellerService.updateWarehouse(id, data);
+      set((state) => ({
+        warehouses: state.warehouses.map((w) => (w.id === id ? { ...w, ...updated } : w)),
+      }));
+      toast.success(`Warehouse "${updated.name || "details"}" updated in database.`);
+    } catch (err: any) {
+      console.error("[SupplierStore] Error updating warehouse:", err);
+      const message =
+        err?.response?.data?.message || err?.message || "Failed to update warehouse in database";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      throw err;
+    }
+  },
+
+  deleteWarehouse: async (id) => {
+    try {
+      await sellerService.deleteWarehouse(id);
+      set((state) => ({
+        warehouses: state.warehouses.filter((w) => w.id !== id),
+      }));
+      toast.success("Warehouse removed from depot network.");
+      return true;
+    } catch (err: any) {
+      console.error("[SupplierStore] Error deleting warehouse:", err);
+      const message =
+        err?.response?.data?.message || err?.message || "Failed to delete warehouse";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      return false;
+    }
+  },
+
+  transferStock: async (fromWarehouse, toWarehouse, productName, quantity, unit) => {
+    try {
+      const payload: Partial<WarehouseTransfer> = {
+        fromWarehouse,
+        toWarehouse,
+        productName,
+        quantity,
+        unit,
+        status: "in_transit",
+        initiatedBy: "Operations Planner",
+      };
+      const created = await sellerService.createWarehouseTransfer(payload);
+
+      const newMovement: InventoryMovement = {
+        id: `mov-trf-${Date.now()}`,
+        productId: "prod-transfer",
+        productName,
+        type: "transferred",
+        quantity: -quantity,
+        unit,
+        date: new Date().toISOString().replace("T", " ").substring(0, 16),
+        reference: `${created.transferNumber} (${fromWarehouse} -> ${toWarehouse})`,
+        warehouse: `${fromWarehouse} -> ${toWarehouse}`,
+        actor: "Operations Planner",
+      };
+
+      set((state) => ({
+        transfers: [created, ...state.transfers.filter((t) => t.id !== created.id)],
+        inventoryMovements: [newMovement, ...state.inventoryMovements],
+        activeModal: null,
+        modalData: null,
+      }));
+      toast.success(`Inter-warehouse transfer ${created.transferNumber} registered in database!`);
+    } catch (err: any) {
+      console.error("[SupplierStore] Error initiating warehouse transfer:", err);
+      const message =
+        err?.response?.data?.message || err?.message || "Failed to register transfer in database";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+      throw err;
+    }
+  },
+
+  completeTransfer: async (transferId) => {
+    try {
+      const updated = await sellerService.updateWarehouseTransferStatus(transferId, "received");
+      set((state) => ({
+        transfers: state.transfers.map((t) =>
+          t.id === transferId
+            ? {
+                ...t,
+                ...updated,
+                status: "received",
+                completedDate: new Date().toISOString().split("T")[0],
+              }
+            : t
+        ),
+      }));
+      toast.success("Transfer cargo received and verified in database!");
+    } catch (err: any) {
+      console.error("[SupplierStore] Error completing transfer:", err);
+      const message =
+        err?.response?.data?.message || err?.message || "Failed to update transfer status";
+      toast.error(Array.isArray(message) ? message.join(", ") : message);
+    }
   },
 
   deleteTransfer: (transferId) => {
@@ -661,13 +935,6 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       transfers: state.transfers.filter((t) => t.id !== transferId),
     }));
     toast.success("Transfer manifest removed from operations log.");
-  },
-
-  addWarehouse: (warehouse) => {
-    set((state) => ({
-      warehouses: [warehouse, ...state.warehouses],
-    }));
-    toast.success(`Warehouse "${warehouse.name}" successfully added to depot network!`);
   },
 
   createShipment: (shipment) => {

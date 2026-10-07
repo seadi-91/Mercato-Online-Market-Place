@@ -6,6 +6,8 @@ import { CatalogService } from './catalog.service';
 import { Product } from './entities/product.entity';
 import { Category } from './entities/category.entity';
 import { TieredPricing } from './entities/tiered-pricing.entity';
+import { Warehouse } from './entities/warehouse.entity';
+import { WarehouseTransfer } from './entities/warehouse-transfer.entity';
 
 @Module({
   imports: [
@@ -22,11 +24,17 @@ import { TieredPricing } from './entities/tiered-pricing.entity';
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('CATALOG_DB_NAME'),
-        entities: [Product, Category, TieredPricing],
+        entities: [Product, Category, TieredPricing, Warehouse, WarehouseTransfer],
         synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
       }),
     }),
-    TypeOrmModule.forFeature([Product, Category, TieredPricing]),
+    TypeOrmModule.forFeature([
+      Product,
+      Category,
+      TieredPricing,
+      Warehouse,
+      WarehouseTransfer,
+    ]),
   ],
   controllers: [CatalogController],
   providers: [CatalogService],

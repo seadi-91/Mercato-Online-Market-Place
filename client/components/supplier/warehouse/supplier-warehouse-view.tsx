@@ -54,7 +54,13 @@ export function SupplierWarehouseView() {
   const {
     warehouses,
     transfers,
+    isLoadingWarehouses,
+    warehousesError,
+    fetchWarehouses,
+    fetchTransfers,
     inventoryMovements,
+    products,
+    fetchProducts,
     orders,
     returns,
     openModal,
@@ -62,6 +68,7 @@ export function SupplierWarehouseView() {
     completeTransfer,
     deleteTransfer,
     addWarehouse,
+    deleteWarehouse,
     adjustStock,
     transferStock,
     currentStaffUser,
@@ -71,6 +78,15 @@ export function SupplierWarehouseView() {
   const isLight = theme === "light";
   const isSystem = theme === "system";
 
+  // Fetch warehouses and transfers from PostgreSQL database on mount
+  useEffect(() => {
+    fetchWarehouses();
+    fetchTransfers();
+    if (products.length === 0) {
+      fetchProducts();
+    }
+  }, [fetchWarehouses, fetchTransfers, fetchProducts, products.length]);
+
   const [activeWarehouseId, setActiveWarehouseId] = useState<string>(
     (user?.staffRole === "branch_manager" && user.branchId)
       ? user.branchId
@@ -79,13 +95,19 @@ export function SupplierWarehouseView() {
       : warehouses[0]?.id || ""
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (user?.staffRole === "branch_manager" && user.branchId) {
       setActiveWarehouseId(user.branchId);
     } else if (currentStaffUser?.role === "branch_manager" && currentStaffUser.branchId) {
       setActiveWarehouseId(currentStaffUser.branchId);
+    } else if (
+      warehouses.length > 0 &&
+      (!activeWarehouseId || !warehouses.some((w) => w.id === activeWarehouseId))
+    ) {
+      setActiveWarehouseId(warehouses[0].id);
     }
-  }, [user, currentStaffUser]);
+  }, [user, currentStaffUser, warehouses, activeWarehouseId]);
+
   const [activeTab, setActiveWarehouseTab] = useState<
     | "overview"
     | "stock"
@@ -111,6 +133,11 @@ export function SupplierWarehouseView() {
   const [isTransferModalOpen, setIsTransferModalOpen] = useState(false);
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
 
+  // Submitting & Deleting States
+  const [isSubmittingWh, setIsSubmittingWh] = useState(false);
+  const [isSubmittingTransfer, setIsSubmittingTransfer] = useState(false);
+  const [isDeletingWhId, setIsDeletingWhId] = useState<string | null>(null);
+
   // Add Warehouse Form State
   const [newWhForm, setNewWhForm] = useState({
     name: "",
@@ -129,17 +156,28 @@ export function SupplierWarehouseView() {
   const [transferForm, setTransferForm] = useState({
     fromWarehouse: warehouses[0]?.name || "",
     toWarehouse: warehouses[1]?.name || "",
-    productName: "Deformed High-Tensile Steel Rebar 16mm",
+    productName: products[0]?.name || "Deformed High-Tensile Steel Rebar 16mm",
     quantity: 20,
     unit: "Tons",
     carrierVehicle: "Mercedes Actros 40-Ton (Plate AA-3-98210)",
     driverName: "Mulugeta Tadesse (+251 91 144 2200)",
   });
 
+  // Keep transfer form warehouse options synced with loaded warehouses
+  useEffect(() => {
+    if (warehouses.length > 0) {
+      setTransferForm((prev) => ({
+        ...prev,
+        fromWarehouse: prev.fromWarehouse || warehouses[0]?.name || "",
+        toWarehouse: prev.toWarehouse || warehouses[1]?.name || warehouses[0]?.name || "",
+      }));
+    }
+  }, [warehouses]);
+
   // Adjust Form State
   const [adjustForm, setAdjustForm] = useState({
     warehouse: warehouses[0]?.name || "",
-    productName: "Deformed High-Tensile Steel Rebar 16mm",
+    productName: products[0]?.name || "Deformed High-Tensile Steel Rebar 16mm",
     deltaQty: 10,
     reason: "Routine Physical Cycle Count Reconciliation",
   });
@@ -151,36 +189,52 @@ export function SupplierWarehouseView() {
     return () => window.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  const activeWarehouse =
-    warehouses.find((w) => w.id === activeWarehouseId) || warehouses[0] || ({} as Warehouse);
+  const activeWarehouse: Warehouse =
+    warehouses.find((w) => w.id === activeWarehouseId) ||
+    warehouses[0] ||
+    ({
+      id: "loading",
+      name: "Loading Hub...",
+      code: "WH-LOAD",
+      region: "Addis Ababa",
+      city: "Addis Ababa",
+      address: "Logistics Hub",
+      managerName: "Depot Manager",
+      phone: "+251 11 000 0000",
+      totalCapacityM2: 10000,
+      usedCapacityM2: 0,
+      totalStockUnits: 0,
+      stockDistribution: [],
+    } as unknown as Warehouse);
 
   // Aggregate metrics
-  const totalCapacityM2 = warehouses.reduce((acc, w) => acc + w.totalCapacityM2, 0);
-  const usedCapacityM2 = warehouses.reduce((acc, w) => acc + w.usedCapacityM2, 0);
+  const totalCapacityM2 = warehouses.reduce((acc, w) => acc + (w.totalCapacityM2 || 0), 0);
+  const usedCapacityM2 = warehouses.reduce((acc, w) => acc + (w.usedCapacityM2 || 0), 0);
   const aggregateCapacityPercent =
     totalCapacityM2 > 0 ? Math.round((usedCapacityM2 / totalCapacityM2) * 100) : 0;
 
   const totalCommodityValuationETB = warehouses.reduce((acc, w) => {
     return (
       acc +
-      w.stockDistribution.reduce((sub, item) => sub + (item.estimatedValueETB || 0), 0)
+      (w.stockDistribution || []).reduce((sub, item) => sub + (item.estimatedValueETB || 0), 0)
     );
   }, 0);
 
-  const totalActiveStockUnits = warehouses.reduce((acc, w) => acc + w.totalStockUnits, 0);
+  const totalActiveStockUnits = warehouses.reduce((acc, w) => acc + (w.totalStockUnits || 0), 0);
 
   // Active warehouse capacity %
-  const activeWhCapacityPercent = activeWarehouse.totalCapacityM2
-    ? Math.round((activeWarehouse.usedCapacityM2 / activeWarehouse.totalCapacityM2) * 100)
-    : 0;
+  const activeWhCapacityPercent =
+    activeWarehouse.totalCapacityM2 && activeWarehouse.totalCapacityM2 > 0
+      ? Math.round(((activeWarehouse.usedCapacityM2 || 0) / activeWarehouse.totalCapacityM2) * 100)
+      : 0;
 
   // Filter transfers
   const filteredTransfers = transfers.filter((t) => {
     const matchesSearch =
-      t.transferNumber.toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
-      t.productName.toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
-      t.fromWarehouse.toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
-      t.toWarehouse.toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
+      (t.transferNumber || "").toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
+      (t.productName || "").toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
+      (t.fromWarehouse || "").toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
+      (t.toWarehouse || "").toLowerCase().includes(transferSearchQuery.toLowerCase()) ||
       (t.driverName && t.driverName.toLowerCase().includes(transferSearchQuery.toLowerCase()));
 
     const matchesStatus = transferStatusFilter === "all" || t.status === transferStatusFilter;
@@ -197,54 +251,106 @@ export function SupplierWarehouseView() {
     );
   });
 
-  // Handle Add Warehouse Submit
-  const handleAddWarehouseSubmit = (e: React.FormEvent) => {
+  // Handle Add Warehouse Submit (Async to PostgreSQL DB)
+  const handleAddWarehouseSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newWhForm.name || !newWhForm.code) {
-      toast.error("Please enter a warehouse name and code.");
+    if (!newWhForm.name.trim() || !newWhForm.code.trim()) {
+      toast.error("Please enter a warehouse name and depot code.");
       return;
     }
-    const newWh: Warehouse = {
-      id: `wh-${Date.now()}`,
-      name: newWhForm.name,
-      code: newWhForm.code.toUpperCase(),
-      region: newWhForm.region,
-      city: newWhForm.city,
-      address: newWhForm.address || `${newWhForm.city} Industrial Logistics Zone`,
-      managerName: newWhForm.managerName || "Operations Lead",
-      managerEmail: newWhForm.managerEmail || "ops@abyssiniasupply.et",
-      phone: newWhForm.phone || "+251 11 000 0000",
-      facilityType: newWhForm.facilityType,
-      totalCapacityM2: Number(newWhForm.totalCapacityM2) || 8000,
-      usedCapacityM2: 0,
-      totalStockUnits: 0,
-      temperatureControlled: true,
-      temperatureReading: "21.0°C",
-      humidityReading: "45% RH",
-      securityLevel: "24/7 Biometric Guarded & CCTV",
-      activeLoadingDocks: 2,
-      totalLoadingDocks: 4,
-      fleetBaysCount: 8,
-      operatingHours: "24/7 Continuous Receiving",
-      stockDistribution: [],
-    };
-
-    addWarehouse(newWh);
-    setIsAddWarehouseModalOpen(false);
-    setActiveWarehouseId(newWh.id);
+    setIsSubmittingWh(true);
+    try {
+      const created = await addWarehouse({
+        name: newWhForm.name.trim(),
+        code: newWhForm.code.trim().toUpperCase(),
+        region: newWhForm.region,
+        city: newWhForm.city,
+        address: newWhForm.address.trim() || `${newWhForm.city} Industrial Logistics Zone`,
+        managerName: newWhForm.managerName.trim() || "Operations Lead",
+        managerEmail: newWhForm.managerEmail.trim() || "ops@abyssiniasupply.et",
+        phone: newWhForm.phone.trim() || "+251 11 000 0000",
+        facilityType: newWhForm.facilityType,
+        totalCapacityM2: Number(newWhForm.totalCapacityM2) || 8000,
+        usedCapacityM2: 0,
+        totalStockUnits: 0,
+        temperatureControlled: true,
+        temperatureReading: "21.0°C",
+        humidityReading: "45% RH",
+        securityLevel: "24/7 Biometric Guarded & CCTV",
+        activeLoadingDocks: 2,
+        totalLoadingDocks: 4,
+        fleetBaysCount: 8,
+        operatingHours: "24/7 Continuous Receiving",
+        stockDistribution: [],
+      });
+      setIsAddWarehouseModalOpen(false);
+      if (created?.id) {
+        setActiveWarehouseId(created.id);
+      }
+      setNewWhForm({
+        name: "",
+        code: "",
+        facilityType: "Central Logistics Hub",
+        managerName: "",
+        managerEmail: "",
+        phone: "",
+        region: "Addis Ababa",
+        city: "Addis Ababa",
+        address: "",
+        totalCapacityM2: 10000,
+      });
+    } catch {
+      // Error handled by store toast
+    } finally {
+      setIsSubmittingWh(false);
+    }
   };
 
-  // Handle Transfer Submit
-  const handleTransferSubmit = (e: React.FormEvent) => {
+  // Handle Delete Warehouse
+  const handleDeleteWarehouse = async (id: string, name: string) => {
+    if (!window.confirm(`Are you sure you want to remove depot "${name}" from your network?`)) {
+      return;
+    }
+    setIsDeletingWhId(id);
+    try {
+      const ok = await deleteWarehouse(id);
+      if (ok && activeWarehouseId === id) {
+        const remaining = warehouses.filter((w) => w.id !== id);
+        if (remaining.length > 0) {
+          setActiveWarehouseId(remaining[0].id);
+        }
+      }
+    } finally {
+      setIsDeletingWhId(null);
+    }
+  };
+
+  // Handle Transfer Submit (Async to PostgreSQL DB)
+  const handleTransferSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    transferStock(
-      transferForm.fromWarehouse,
-      transferForm.toWarehouse,
-      transferForm.productName,
-      Number(transferForm.quantity),
-      transferForm.unit
-    );
-    setIsTransferModalOpen(false);
+    if (!transferForm.fromWarehouse || !transferForm.toWarehouse) {
+      toast.error("Please select both origin and destination depots.");
+      return;
+    }
+    if (transferForm.fromWarehouse === transferForm.toWarehouse) {
+      toast.error("Origin and destination depots cannot be the same.");
+      return;
+    }
+    setIsSubmittingTransfer(true);
+    try {
+      await transferStock(
+        transferForm.fromWarehouse,
+        transferForm.toWarehouse,
+        transferForm.productName,
+        Number(transferForm.quantity) || 1,
+        transferForm.unit
+      );
+      setIsTransferModalOpen(false);
+    } catch {
+      // Error handled by store toast
+    } finally {
+      setIsSubmittingTransfer(false);
+    }
   };
 
   // Handle Adjust Submit
@@ -302,6 +408,31 @@ export function SupplierWarehouseView() {
 
         {/* Compact Action Buttons (Height 34–38px) */}
         <div className="flex items-center gap-1.5 flex-wrap">
+          {/* Real Database Indicator */}
+          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-mono border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-xs">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="hidden sm:inline font-semibold">PostgreSQL:</span>
+            <span>mercatox_catalog_db</span>
+          </div>
+
+          <button
+            onClick={() => {
+              fetchWarehouses();
+              fetchTransfers();
+              toast.success("Synchronized warehouse depots from PostgreSQL database!");
+            }}
+            disabled={isLoadingWarehouses}
+            className={`inline-flex items-center gap-1.5 h-8.5 px-2.5 rounded-lg border text-xs font-semibold transition-colors cursor-pointer ${
+              isLight
+                ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                : "border-white/10 bg-white/5 hover:bg-white/10 text-zinc-200"
+            }`}
+            title="Refresh depots from database"
+          >
+            <RotateCcw className={`h-3.5 w-3.5 text-indigo-400 ${isLoadingWarehouses ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Sync DB</span>
+          </button>
+
           <button
             onClick={() => setIsAddWarehouseModalOpen(true)}
             className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer"
@@ -526,100 +657,159 @@ export function SupplierWarehouseView() {
           </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
-          {warehouses.map((wh) => {
-            const isSelected = wh.id === activeWarehouseId;
-            const capPercent = Math.round((wh.usedCapacityM2 / wh.totalCapacityM2) * 100);
-            const whValuationETB = (wh.stockDistribution || []).reduce(
-              (sum, item) => sum + (item.estimatedValueETB || 0),
-              0
-            );
+        {isLoadingWarehouses && warehouses.length === 0 ? (
+          <div className="p-8 text-center rounded-xl border border-dashed border-indigo-500/30 bg-indigo-500/5 space-y-3">
+            <div className="inline-flex p-3 rounded-full bg-indigo-500/10 text-indigo-400 animate-spin">
+              <RotateCcw className="h-5 w-5" />
+            </div>
+            <h3 className={`text-sm font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
+              Connecting to MercatoX Logistics Database...
+            </h3>
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+              Fetching registered warehouses and calculating live commodity inventory valuations from{" "}
+              <code className="text-indigo-400 font-mono">mercatox_catalog_db</code>.
+            </p>
+          </div>
+        ) : warehousesError && warehouses.length === 0 ? (
+          <div className="p-8 text-center rounded-xl border border-red-500/30 bg-red-500/10 space-y-3">
+            <AlertOctagon className="h-6 w-6 text-red-400 mx-auto" />
+            <h3 className="text-sm font-bold text-red-200">Unable to Connect to Warehouse Database</h3>
+            <p className="text-xs text-red-300/80 max-w-sm mx-auto">{warehousesError}</p>
+            <button
+              onClick={() => fetchWarehouses()}
+              className="px-3.5 py-1.5 rounded-lg bg-red-600 hover:bg-red-500 text-white text-xs font-semibold cursor-pointer shadow-xs"
+            >
+              Retry Connection
+            </button>
+          </div>
+        ) : warehouses.length === 0 ? (
+          <div className={`p-8 text-center rounded-xl border ${cardBgClass} space-y-3`}>
+            <Building className="h-8 w-8 text-indigo-400 mx-auto" />
+            <h3 className="text-sm font-bold">No Warehouse Depots in Database</h3>
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto">
+              Your supplier account doesn&apos;t have any registered hubs yet in mercatox_catalog_db. Click below to add your first depot.
+            </p>
+            <button
+              onClick={() => setIsAddWarehouseModalOpen(true)}
+              className="h-8.5 px-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-xs cursor-pointer"
+            >
+              + Add Warehouse Depot
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+            {warehouses.map((wh) => {
+              const isSelected = wh.id === activeWarehouseId;
+              const capPercent =
+                wh.totalCapacityM2 > 0
+                  ? Math.round(((wh.usedCapacityM2 || 0) / wh.totalCapacityM2) * 100)
+                  : 0;
+              const whValuationETB = (wh.stockDistribution || []).reduce(
+                (sum, item) => sum + (item.estimatedValueETB || 0),
+                0
+              );
 
-            return (
-              <div
-                key={wh.id}
-                onClick={() => setActiveWarehouseId(wh.id)}
-                className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
-                  isSelected
-                    ? isLight
-                      ? "border-indigo-600 bg-white ring-1 ring-indigo-600 shadow-xs"
-                      : "border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/30"
-                    : `${cardBgClass} hover:border-indigo-500/30`
-                }`}
-              >
-                {/* Header: Name, Code & Status */}
-                <div className="flex items-start justify-between gap-1.5">
-                  <div className="min-w-0">
-                    <h3 className={`text-xs font-bold truncate ${isLight ? "text-slate-900" : "text-white"}`}>
-                      {wh.name}
-                    </h3>
-                    <p className={`text-[11px] truncate ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                      {wh.city} · <strong className="font-mono text-indigo-400">{wh.code}</strong>
-                    </p>
-                  </div>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
-                    Active
-                  </span>
-                </div>
-
-                {/* Capacity Thin Progress Bar */}
-                <div className="mt-2.5 space-y-1">
-                  <div className="flex justify-between text-[11px]">
-                    <span className={isLight ? "text-slate-500" : "text-zinc-400"}>Capacity:</span>
-                    <span className="font-mono font-bold text-xs">
-                      {capPercent}% Used
+              return (
+                <div
+                  key={wh.id}
+                  onClick={() => setActiveWarehouseId(wh.id)}
+                  className={`p-3.5 rounded-lg border transition-all cursor-pointer ${
+                    isSelected
+                      ? isLight
+                        ? "border-indigo-600 bg-white ring-1 ring-indigo-600 shadow-xs"
+                        : "border-indigo-500 bg-indigo-500/10 ring-1 ring-indigo-500/30"
+                      : `${cardBgClass} hover:border-indigo-500/30`
+                  }`}
+                >
+                  {/* Header: Name, Code & Status */}
+                  <div className="flex items-start justify-between gap-1.5">
+                    <div className="min-w-0">
+                      <h3 className={`text-xs font-bold truncate ${isLight ? "text-slate-900" : "text-white"}`}>
+                        {wh.name}
+                      </h3>
+                      <p className={`text-[11px] truncate ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
+                        {wh.city} · <strong className="font-mono text-indigo-400">{wh.code}</strong>
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shrink-0">
+                      Active
                     </span>
                   </div>
-                  <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden">
-                    <div
-                      style={{ width: `${capPercent}%` }}
-                      className={`h-1 rounded-full ${
-                        capPercent > 80 ? "bg-amber-500" : "bg-emerald-500"
-                      }`}
-                    />
+
+                  {/* Capacity Thin Progress Bar */}
+                  <div className="mt-2.5 space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className={isLight ? "text-slate-500" : "text-zinc-400"}>Capacity:</span>
+                      <span className="font-mono font-bold text-xs">
+                        {capPercent}% Used
+                      </span>
+                    </div>
+                    <div className="w-full bg-white/10 rounded-full h-1 overflow-hidden">
+                      <div
+                        style={{ width: `${Math.min(capPercent, 100)}%` }}
+                        className={`h-1 rounded-full ${
+                          capPercent > 80 ? "bg-amber-500" : "bg-emerald-500"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
+                      <span>{(wh.usedCapacityM2 || 0).toLocaleString()} m²</span>
+                      <span>{(wh.totalCapacityM2 || 0).toLocaleString()} m²</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between text-[10px] text-zinc-500 font-mono">
-                    <span>{wh.usedCapacityM2.toLocaleString()} m²</span>
-                    <span>{wh.totalCapacityM2.toLocaleString()} m²</span>
+
+                  {/* Stats & Actions Footer */}
+                  <div className="mt-2.5 pt-2 border-t border-inherit flex items-center justify-between text-[11px]">
+                    <div>
+                      <span className="text-zinc-400">Value: </span>
+                      <strong className="font-mono text-emerald-400">
+                        {(whValuationETB / 1000000).toFixed(1)}M ETB
+                      </strong>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveWarehouseId(wh.id);
+                          setActiveWarehouseTab("stock");
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors cursor-pointer"
+                      >
+                        Stock
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveWarehouseId(wh.id);
+                          setActiveWarehouseTab("overview");
+                        }}
+                        className="px-2 py-0.5 rounded text-[10px] font-semibold hover:bg-white/10 text-zinc-300 transition-colors cursor-pointer"
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteWarehouse(wh.id, wh.name);
+                        }}
+                        disabled={isDeletingWhId === wh.id}
+                        className="p-1 rounded text-[10px] font-semibold hover:bg-red-500/10 text-zinc-400 hover:text-red-400 transition-colors cursor-pointer"
+                        title="Delete depot from database"
+                      >
+                        {isDeletingWhId === wh.id ? (
+                          <RotateCcw className="h-3 w-3 animate-spin text-red-400" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </button>
+                    </div>
                   </div>
                 </div>
-
-                {/* Stats & Actions Footer */}
-                <div className="mt-2.5 pt-2 border-t border-inherit flex items-center justify-between text-[11px]">
-                  <div>
-                    <span className="text-zinc-400">Value: </span>
-                    <strong className="font-mono text-emerald-400">
-                      {(whValuationETB / 1000000).toFixed(1)}M ETB
-                    </strong>
-                  </div>
-
-                  <div className="flex items-center gap-1.5">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveWarehouseId(wh.id);
-                        setActiveWarehouseTab("stock");
-                      }}
-                      className="px-2 py-0.5 rounded text-[10px] font-semibold bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 transition-colors cursor-pointer"
-                    >
-                      Stock
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setActiveWarehouseId(wh.id);
-                        setActiveWarehouseTab("overview");
-                      }}
-                      className="px-2 py-0.5 rounded text-[10px] font-semibold hover:bg-white/10 text-zinc-300 transition-colors cursor-pointer"
-                    >
-                      View
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* 5. COMPACT TABS HEADER (10 Tabs: Overview | Stock | Locations | Receiving | Dispatch | Transfers | Returns | Damaged | Activity | Reports) */}
@@ -1450,9 +1640,11 @@ export function SupplierWarehouseView() {
                 </button>
                 <button
                   type="submit"
-                  className="h-8.5 px-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer shadow-xs"
+                  disabled={isSubmittingWh}
+                  className="h-8.5 px-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Create Warehouse
+                  {isSubmittingWh && <RotateCcw className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{isSubmittingWh ? "Saving to Database..." : "Create Warehouse"}</span>
                 </button>
               </div>
             </form>
@@ -1517,14 +1709,37 @@ export function SupplierWarehouseView() {
 
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-zinc-400">Commodity</label>
-                <input
-                  type="text"
-                  value={transferForm.productName}
-                  onChange={(e) => setTransferForm({ ...transferForm, productName: e.target.value })}
-                  className={`w-full h-8.5 px-2.5 rounded-lg border outline-none ${
-                    isLight ? "bg-white border-slate-200" : "bg-[#141824] border-white/10"
-                  }`}
-                />
+                {products.length > 0 ? (
+                  <select
+                    value={transferForm.productName}
+                    onChange={(e) => {
+                      const prod = products.find((p) => p.name === e.target.value);
+                      setTransferForm({
+                        ...transferForm,
+                        productName: e.target.value,
+                        unit: prod?.unit || transferForm.unit,
+                      });
+                    }}
+                    className={`w-full h-8.5 px-2 rounded-lg border outline-none ${
+                      isLight ? "bg-white border-slate-200" : "bg-[#141824] border-white/10"
+                    }`}
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name} ({p.stock} {p.unit} in stock)
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type="text"
+                    value={transferForm.productName}
+                    onChange={(e) => setTransferForm({ ...transferForm, productName: e.target.value })}
+                    className={`w-full h-8.5 px-2.5 rounded-lg border outline-none ${
+                      isLight ? "bg-white border-slate-200" : "bg-[#141824] border-white/10"
+                    }`}
+                  />
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-2.5">
@@ -1574,9 +1789,11 @@ export function SupplierWarehouseView() {
                 </button>
                 <button
                   type="submit"
-                  className="h-8.5 px-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer shadow-xs"
+                  disabled={isSubmittingTransfer}
+                  className="h-8.5 px-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold cursor-pointer shadow-xs disabled:opacity-50 flex items-center gap-1.5"
                 >
-                  Schedule Transfer
+                  {isSubmittingTransfer && <RotateCcw className="h-3.5 w-3.5 animate-spin" />}
+                  <span>{isSubmittingTransfer ? "Registering in DB..." : "Schedule Transfer"}</span>
                 </button>
               </div>
             </form>
@@ -1623,19 +1840,35 @@ export function SupplierWarehouseView() {
 
               <div className="space-y-1">
                 <label className="text-[11px] font-semibold text-zinc-400">Commodity</label>
-                <select
-                  value={adjustForm.productName}
-                  onChange={(e) => setAdjustForm({ ...adjustForm, productName: e.target.value })}
-                  className={`w-full h-8.5 px-2 rounded-lg border outline-none ${
-                    isLight ? "bg-white border-slate-200" : "bg-[#141824] border-white/10"
-                  }`}
-                >
-                  <option value="Deformed High-Tensile Steel Rebar 16mm">Deformed High-Tensile Steel Rebar 16mm</option>
-                  <option value="Magna White Teff Super Premium">Magna White Teff Super Premium</option>
-                  <option value="Yirgacheffe Grade 1 Speciality Washed Coffee">Yirgacheffe Grade 1 Speciality Washed Coffee</option>
-                  <option value="Muger Ordinary Portland Cement 42.5R">Muger Ordinary Portland Cement 42.5R</option>
-                  <option value="Humera Grade A Whitish Sesame Seeds">Humera Grade A Whitish Sesame Seeds</option>
-                </select>
+                {products.length > 0 ? (
+                  <select
+                    value={adjustForm.productName}
+                    onChange={(e) => setAdjustForm({ ...adjustForm, productName: e.target.value })}
+                    className={`w-full h-8.5 px-2 rounded-lg border outline-none ${
+                      isLight ? "bg-white border-slate-200" : "bg-[#141824] border-white/10"
+                    }`}
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.name}>
+                        {p.name} ({p.stock} {p.unit})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <select
+                    value={adjustForm.productName}
+                    onChange={(e) => setAdjustForm({ ...adjustForm, productName: e.target.value })}
+                    className={`w-full h-8.5 px-2 rounded-lg border outline-none ${
+                      isLight ? "bg-white border-slate-200" : "bg-[#141824] border-white/10"
+                    }`}
+                  >
+                    <option value="Deformed High-Tensile Steel Rebar 16mm">Deformed High-Tensile Steel Rebar 16mm</option>
+                    <option value="Magna White Teff Super Premium">Magna White Teff Super Premium</option>
+                    <option value="Yirgacheffe Grade 1 Speciality Washed Coffee">Yirgacheffe Grade 1 Speciality Washed Coffee</option>
+                    <option value="Muger Ordinary Portland Cement 42.5R">Muger Ordinary Portland Cement 42.5R</option>
+                    <option value="Humera Grade A Whitish Sesame Seeds">Humera Grade A Whitish Sesame Seeds</option>
+                  </select>
+                )}
               </div>
 
               <div className="space-y-1">

@@ -12,15 +12,20 @@ import { RpcException } from '@nestjs/microservices';
 import { Product } from './entities/product.entity';
 import { Category } from './entities/category.entity';
 import { TieredPricing } from './entities/tiered-pricing.entity';
+import { Warehouse } from './entities/warehouse.entity';
+import { WarehouseTransfer } from './entities/warehouse-transfer.entity';
 import {
   CreateCategoryDto,
   CreateProductDto,
+  CreateWarehouseDto,
+  CreateWarehouseTransferDto,
   FilterProductsDto,
   FilterSellerProductsDto,
   ProductUnit,
   StockAction,
   UpdateCategoryDto,
   UpdateProductDto,
+  UpdateWarehouseDto,
 } from '@app/common';
 
 @Injectable()
@@ -32,26 +37,39 @@ export class CatalogService implements OnModuleInit {
     private readonly categoryRepository: Repository<Category>,
     @InjectRepository(TieredPricing)
     private readonly tieredPricingRepository: Repository<TieredPricing>,
+    @InjectRepository(Warehouse)
+    private readonly warehouseRepository: Repository<Warehouse>,
+    @InjectRepository(WarehouseTransfer)
+    private readonly transferRepository: Repository<WarehouseTransfer>,
   ) {}
 
   async onModuleInit() {
     await this.seedInitialCategories();
     await this.seedInitialProducts();
+    await this.seedInitialWarehouses();
   }
 
   private async seedInitialCategories() {
     try {
-      const count = await this.categoryRepository.count();
-      if (count === 0) {
-        const defaultCats = [
-          { name: 'Computers & Electronics', slug: 'computers-electronics', nameAmharic: 'ኮምፒውተር እና ኤሌክትሮኒክስ' },
-          { name: 'Smartphones & Mobile', slug: 'smartphones-mobile', nameAmharic: 'ስልኮች እና ሞባይል' },
-          { name: 'Fashion, Apparel & Shoes', slug: 'fashion-apparel-shoes', nameAmharic: 'ፋሽን እና ልብሶች' },
-          { name: 'Cosmetics & Skincare', slug: 'cosmetics-skincare', nameAmharic: 'ኮስሞቲክስ' },
-          { name: 'Grains, Cereals & Groceries', slug: 'grains-cereals-groceries', nameAmharic: 'እህል እና ግሮሰሪ' },
-          { name: 'Home, Kitchen & Appliances', slug: 'home-kitchen-appliances', nameAmharic: 'የቤት እና የወጥ ቤት እቃዎች' },
-        ];
-        for (const cat of defaultCats) {
+      const defaultCats = [
+        { name: 'Agricultural Commodities', slug: 'agricultural-commodities', nameAmharic: 'የግብርና ምርቶች' },
+        { name: 'Grains, Cereals & Teff', slug: 'grains-cereals-teff', nameAmharic: 'እህል፣ ጥራጥሬ እና ጤፍ' },
+        { name: 'Oilseeds & Pulses', slug: 'oilseeds-pulses', nameAmharic: 'የቅባት እህሎች እና ጥራጥሬዎች' },
+        { name: 'Construction & Industrial Materials', slug: 'construction-industrial-materials', nameAmharic: 'የግንባታ እና የኢንዱስትሪ እቃዎች' },
+        { name: 'Textiles & Apparel', slug: 'textiles-apparel', nameAmharic: 'ጨርቃጨርቅ እና አልባሳት' },
+        { name: 'Specialty Coffee & Spices', slug: 'specialty-coffee-spices', nameAmharic: 'ልዩ ቡና እና ቅመማ ቅመም' },
+        { name: 'Computers & Electronics', slug: 'computers-electronics', nameAmharic: 'ኮምፒውተር እና ኤሌክትሮኒክስ' },
+        { name: 'Smartphones & Mobile', slug: 'smartphones-mobile', nameAmharic: 'ስልኮች እና ሞባይል' },
+        { name: 'Fashion, Apparel & Shoes', slug: 'fashion-apparel-shoes', nameAmharic: 'ፋሽን እና ልብሶች' },
+        { name: 'Cosmetics & Skincare', slug: 'cosmetics-skincare', nameAmharic: 'ኮስሞቲክስ' },
+        { name: 'Grains, Cereals & Groceries', slug: 'grains-cereals-groceries', nameAmharic: 'እህል እና ግሮሰሪ' },
+        { name: 'Home, Kitchen & Appliances', slug: 'home-kitchen-appliances', nameAmharic: 'የቤት እና የወጥ ቤት እቃዎች' },
+      ];
+      for (const cat of defaultCats) {
+        const existing = await this.categoryRepository.findOne({
+          where: { slug: cat.slug },
+        });
+        if (!existing) {
           const created = this.categoryRepository.create({
             name: cat.name,
             slug: cat.slug,
@@ -60,8 +78,8 @@ export class CatalogService implements OnModuleInit {
           });
           await this.categoryRepository.save(created);
         }
-        console.log('[CatalogService] Default commercial categories seeded in database');
       }
+      console.log('[CatalogService] Default commercial & wholesale categories ensured in database');
     } catch (err) {
       console.error('[CatalogService] Seed categories error:', err);
     }
@@ -319,6 +337,153 @@ export class CatalogService implements OnModuleInit {
         }
         console.log('[CatalogService] Default authentic marketplace products seeded successfully');
       }
+
+      // Ensure default wholesale supplier account has initial products in database
+      const supplierId = 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3';
+      const supplierProductCount = await this.productRepository.count({
+        where: { sellerId: supplierId },
+      });
+      if (supplierProductCount === 0) {
+        const categories = await this.categoryRepository.find();
+        const catMap = new Map(categories.map((c) => [c.slug, c.id]));
+        const agriCatId = catMap.get('agricultural-commodities') || catMap.get('grains-cereals-groceries') || categories[0]?.id;
+        const teffCatId = catMap.get('grains-cereals-teff') || catMap.get('grains-cereals-groceries') || categories[0]?.id;
+        const sesameCatId = catMap.get('oilseeds-pulses') || catMap.get('grains-cereals-groceries') || categories[0]?.id;
+
+        const wholesaleCommodities = [
+          {
+            title: 'Yirgacheffe Grade 1 Speciality Washed Arabica Coffee',
+            sku: 'ETH-COF-YRG-001',
+            categoryId: agriCatId,
+            retailPrice: 500,
+            wholesalePrice: 480,
+            minOrderQuantity: 500,
+            unit: ProductUnit.KUNTAL,
+            stockQuantity: 42500,
+            lowStockThreshold: 5000,
+            images: [
+              'https://images.unsplash.com/photo-1559525839-8f81ae7d3b5b?auto=format&fit=crop&w=600&q=80',
+              'https://images.unsplash.com/photo-1587734195503-904fca47e0e9?auto=format&fit=crop&w=600&q=80',
+            ],
+            description: 'Fully washed high-altitude Arabica coffee with distinct floral bergamot aroma, bright lemon acidity, and sweet nectarine finish. Harvested directly from partner cooperatives in Yirgacheffe highlands.',
+            brand: 'Abyssinia Gold Roast',
+            origin: 'Gedeo Zone, Yirgacheffe, Ethiopia',
+            grade: 'Grade 1 (SCA 88.5)',
+            warehouseLocation: 'Addis Ababa Central Logistics Hub (WH-AA)',
+            branchId: 'wh-aa',
+            branchName: 'Addis Ababa Central Logistics Hub',
+            status: 'published',
+            certifications: ['ECX Grade 1', 'Fair Trade', 'Organic Certified'],
+            leadTimeDays: 3,
+            tierPricing: [
+              { minQuantity: 500, maxQuantity: 999, discountedPricePerUnit: 480 },
+              { minQuantity: 1000, maxQuantity: 4999, discountedPricePerUnit: 450 },
+              { minQuantity: 5000, maxQuantity: 999999, discountedPricePerUnit: 420 },
+            ],
+          },
+          {
+            title: 'Magna White Teff Super Premium Grain',
+            sku: 'ETH-GRN-TEF-102',
+            categoryId: teffCatId,
+            retailPrice: 120,
+            wholesalePrice: 110,
+            minOrderQuantity: 1000,
+            unit: ProductUnit.KUNTAL,
+            stockQuantity: 85000,
+            lowStockThreshold: 10000,
+            images: [
+              'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80',
+            ],
+            description: 'Export-grade machine-cleaned Magna white teff grain, 99.8% purity, harvested from fertile Adaa volcanic plains.',
+            brand: 'Sheba Harvest',
+            origin: "Ada'a Bishoftu, Oromia, Ethiopia",
+            grade: 'Magna (First Class White)',
+            warehouseLocation: 'Modjo Dry Port Multi-Modal Terminal (WH-MJ)',
+            branchId: 'wh-mj',
+            branchName: 'Modjo Dry Port Multi-Modal Terminal',
+            status: 'published',
+            certifications: ['Ethiopian Conformity Assessment', 'ECX Grade A'],
+            leadTimeDays: 2,
+            tierPricing: [
+              { minQuantity: 1000, maxQuantity: 4999, discountedPricePerUnit: 110 },
+              { minQuantity: 5000, maxQuantity: 999999, discountedPricePerUnit: 102 },
+            ],
+          },
+          {
+            title: 'Humera Grade A Whitish Sesame Seeds',
+            sku: 'ETH-OIL-SES-301',
+            categoryId: sesameCatId,
+            retailPrice: 220,
+            wholesalePrice: 210,
+            minOrderQuantity: 2000,
+            unit: ProductUnit.KUNTAL,
+            stockQuantity: 30000,
+            lowStockThreshold: 3000,
+            images: [
+              'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=600&q=80',
+            ],
+            description: 'World-renowned sweet aroma Humera sesame with 52% oil content and 99.5% minimum purity.',
+            brand: 'Tigray Agro Alliance',
+            origin: 'Humera, Tigray Region, Ethiopia',
+            grade: 'Grade A Humera Export Standard',
+            warehouseLocation: 'Hawassa Agro-Processing Logistics Depot (WH-HW)',
+            branchId: 'wh-hw',
+            branchName: 'Hawassa Agro-Processing Logistics Depot',
+            status: 'published',
+            certifications: ['ECX Certified', 'Phytosanitary Clearance'],
+            leadTimeDays: 4,
+            tierPricing: [
+              { minQuantity: 2000, maxQuantity: 9999, discountedPricePerUnit: 210 },
+              { minQuantity: 10000, maxQuantity: 999999, discountedPricePerUnit: 195 },
+            ],
+          },
+        ];
+
+        for (const item of wholesaleCommodities) {
+          if (!item.categoryId) continue;
+          const exists = await this.productRepository.findOne({ where: { sku: item.sku } });
+          if (!exists) {
+            const prod = this.productRepository.create({
+              sellerId: supplierId,
+              title: item.title,
+              description: item.description,
+              sku: item.sku,
+              categoryId: item.categoryId,
+              retailPrice: item.retailPrice,
+              wholesalePrice: item.wholesalePrice,
+              minOrderQuantity: item.minOrderQuantity,
+              unit: item.unit,
+              stockQuantity: item.stockQuantity,
+              lowStockThreshold: item.lowStockThreshold,
+              images: item.images,
+              isAvailable: true,
+              isActive: true,
+              brand: item.brand,
+              origin: item.origin,
+              grade: item.grade,
+              warehouseLocation: item.warehouseLocation,
+              branchId: item.branchId,
+              branchName: item.branchName,
+              status: item.status,
+              certifications: item.certifications,
+              leadTimeDays: item.leadTimeDays,
+            });
+            const saved = await this.productRepository.save(prod);
+            if (item.tierPricing && item.tierPricing.length > 0) {
+              const tiers = item.tierPricing.map((t) =>
+                this.tieredPricingRepository.create({
+                  productId: saved.id,
+                  minQuantity: t.minQuantity,
+                  maxQuantity: t.maxQuantity,
+                  discountedPricePerUnit: t.discountedPricePerUnit,
+                }),
+              );
+              await this.tieredPricingRepository.save(tiers);
+            }
+          }
+        }
+        console.log('[CatalogService] Default authentic wholesale products seeded for supplier account');
+      }
     } catch (err) {
       console.error('[CatalogService] Seed products error:', err);
     }
@@ -358,6 +523,15 @@ export class CatalogService implements OnModuleInit {
       images: dto.images ?? [],
       isAvailable: dto.stockQuantity > 0,
       isActive: true,
+      brand: dto.brand,
+      origin: dto.origin,
+      grade: dto.grade,
+      warehouseLocation: dto.warehouseLocation,
+      branchId: dto.branchId,
+      branchName: dto.branchName,
+      status: dto.status ?? 'published',
+      certifications: dto.certifications ?? [],
+      leadTimeDays: dto.leadTimeDays ?? 3,
     });
 
     if (dto.tieredPricing && dto.tieredPricing.length > 0) {
@@ -414,6 +588,15 @@ export class CatalogService implements OnModuleInit {
     if (dto.lowStockThreshold !== undefined) product.lowStockThreshold = dto.lowStockThreshold;
     if (dto.images !== undefined) product.images = dto.images;
     if (dto.isActive !== undefined) product.isActive = dto.isActive;
+    if (dto.brand !== undefined) product.brand = dto.brand;
+    if (dto.origin !== undefined) product.origin = dto.origin;
+    if (dto.grade !== undefined) product.grade = dto.grade;
+    if (dto.warehouseLocation !== undefined) product.warehouseLocation = dto.warehouseLocation;
+    if (dto.branchId !== undefined) product.branchId = dto.branchId;
+    if (dto.branchName !== undefined) product.branchName = dto.branchName;
+    if (dto.status !== undefined) product.status = dto.status;
+    if (dto.certifications !== undefined) product.certifications = dto.certifications;
+    if (dto.leadTimeDays !== undefined) product.leadTimeDays = dto.leadTimeDays;
 
     if (dto.stockQuantity !== undefined) {
       product.stockQuantity = dto.stockQuantity;
@@ -907,5 +1090,270 @@ export class CatalogService implements OnModuleInit {
       unit: p.unit,
       isOutOfStock: p.stockQuantity === 0,
     }));
+  }
+
+  private async seedInitialWarehouses() {
+    try {
+      const count = await this.warehouseRepository.count();
+      if (count === 0) {
+        const defaultSupplierId = 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3';
+        const defaultWarehouses = [
+          {
+            sellerId: defaultSupplierId,
+            name: 'Addis Ababa Central Logistics Hub',
+            code: 'WH-AA',
+            region: 'Addis Ababa City Administration',
+            city: 'Addis Ababa',
+            address: 'Kality Industrial Zone, Gate 3, Ring Road Expressway',
+            managerName: 'Abebe Worku',
+            managerEmail: 'abebe.w@abyssiniasupply.et',
+            phone: '+251 11 434 2210',
+            facilityType: 'Central Logistics Hub',
+            totalCapacityM2: 12500,
+            usedCapacityM2: 10250,
+            temperatureControlled: true,
+            temperatureReading: '21.4°C',
+            humidityReading: '48% RH',
+            securityLevel: '24/7 Biometric Guarded & CCTV Monitored',
+            activeLoadingDocks: 4,
+            totalLoadingDocks: 6,
+            fleetBaysCount: 16,
+            operatingHours: '24/7 Continuous Receiving & Dispatch',
+            gpsCoordinates: '8.8833° N, 38.7500° E',
+            certificationStatus: 'ECAE & Ethiopian Customs Bonded #CUS-ETH-891',
+            fireSafetyRating: 'Civil Defense Grade A Compliant',
+            status: 'operational',
+          },
+          {
+            sellerId: defaultSupplierId,
+            name: 'Modjo Dry Port Multi-Modal Terminal',
+            code: 'WH-MJ',
+            region: 'Oromia Regional State',
+            city: 'Modjo',
+            address: 'Modjo Dry Port Logistics Zone, Ethio-Djibouti Railhead Spur #2',
+            managerName: 'Tewodros Lemma',
+            managerEmail: 'tewodros.l@abyssiniasupply.et',
+            phone: '+251 22 116 8890',
+            facilityType: 'Bonded Dry Port Terminal',
+            totalCapacityM2: 18000,
+            usedCapacityM2: 14600,
+            temperatureControlled: false,
+            temperatureReading: '24.1°C',
+            humidityReading: '42% RH',
+            securityLevel: 'Federal Customs Police & Armed Terminal Security',
+            activeLoadingDocks: 6,
+            totalLoadingDocks: 8,
+            fleetBaysCount: 24,
+            operatingHours: '06:00 - 22:00 Daily Operations',
+            gpsCoordinates: '8.5912° N, 39.1234° E',
+            certificationStatus: 'ESLSE Bonded CFS & Customs Clearance Depot',
+            fireSafetyRating: 'Civil Defense Grade A Compliant',
+            status: 'operational',
+          },
+          {
+            sellerId: defaultSupplierId,
+            name: 'Hawassa Agro-Processing Logistics Depot',
+            code: 'WH-HW',
+            region: 'Sidama Regional State',
+            city: 'Hawassa',
+            address: 'Hawassa Industrial Park Southern Logistics Zone, Shed B-14',
+            managerName: 'Birtukan Dagne',
+            managerEmail: 'birtukan.d@abyssiniasupply.et',
+            phone: '+251 46 220 8911',
+            facilityType: 'Agro-Processing Depot',
+            totalCapacityM2: 8500,
+            usedCapacityM2: 5400,
+            temperatureControlled: true,
+            temperatureReading: '18.2°C',
+            humidityReading: '55% RH',
+            securityLevel: 'Industrial Park Security & Biometric Entry',
+            activeLoadingDocks: 3,
+            totalLoadingDocks: 4,
+            fleetBaysCount: 10,
+            operatingHours: '07:00 - 19:00 Mon-Sat',
+            gpsCoordinates: '7.0620° N, 38.4764° E',
+            certificationStatus: 'Ministry of Agriculture Phytosanitary Certified Depot',
+            fireSafetyRating: 'Civil Defense Grade A Compliant',
+            status: 'operational',
+          },
+        ];
+
+        for (const wh of defaultWarehouses) {
+          const item = this.warehouseRepository.create(wh);
+          await this.warehouseRepository.save(item);
+        }
+        console.log('[CatalogService] Seeded 3 default operational wholesale warehouses');
+      }
+    } catch (err) {
+      console.error('[CatalogService] Error seeding warehouses:', err);
+    }
+  }
+
+  // --- Warehouse Logistics & Depots API ---
+
+  async getSellerWarehouses(sellerId: string) {
+    let warehouses = await this.warehouseRepository.find({
+      where: { sellerId },
+      order: { createdAt: 'ASC' },
+    });
+
+    // If fresh seller has no warehouses, provision default hubs
+    if (warehouses.length === 0) {
+      const defaultSupplierId = 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3';
+      const existingDefaults = await this.warehouseRepository.find({
+        where: { sellerId: defaultSupplierId },
+        order: { createdAt: 'ASC' },
+      });
+      if (existingDefaults.length > 0 && sellerId !== defaultSupplierId) {
+        const cloned = existingDefaults.map((w) =>
+          this.warehouseRepository.create({
+            ...w,
+            id: undefined,
+            sellerId,
+          }),
+        );
+        warehouses = await this.warehouseRepository.save(cloned);
+      } else if (existingDefaults.length > 0) {
+        warehouses = existingDefaults;
+      }
+    }
+
+    // Fetch all products for this seller to calculate live stock distribution per warehouse
+    const products = await this.productRepository.find({
+      where: { sellerId },
+      relations: ['category'],
+    });
+
+    return warehouses.map((wh) => {
+      const matchingProducts = products.filter((p) => {
+        const whCode = (wh.code || '').toLowerCase();
+        const branchMatch = p.branchId && p.branchId.toLowerCase() === whCode;
+        const locMatch =
+          p.warehouseLocation &&
+          (p.warehouseLocation.toLowerCase().includes(whCode) ||
+            p.warehouseLocation.toLowerCase().includes((wh.city || '').toLowerCase()) ||
+            p.warehouseLocation.toLowerCase().includes((wh.name || '').toLowerCase().split(' ')[0]));
+        return branchMatch || locMatch;
+      });
+
+      const stockDistribution = matchingProducts.map((p, idx) => ({
+        productName: p.title,
+        quantity: p.stockQuantity,
+        unit: p.unit || 'KG',
+        image: Array.isArray(p.images) && p.images[0] ? p.images[0] : undefined,
+        category: p.category?.name || 'Wholesale Commodity',
+        lotNumber: `LOT-${p.sku?.slice(-4) || '2026'}-${String(idx + 1).padStart(3, '0')}`,
+        bayLocation: `Zone ${wh.code.slice(-2)} / Bay 0${(idx % 4) + 1}`,
+        estimatedValueETB:
+          Number(p.wholesalePrice || p.retailPrice || 0) * Number(p.stockQuantity || 0),
+        reorderLevel: Number(p.lowStockThreshold || 1000),
+      }));
+
+      const totalStockUnits = stockDistribution.reduce((acc, s) => acc + (s.quantity || 0), 0);
+
+      return {
+        ...wh,
+        totalStockUnits: totalStockUnits || wh.totalCapacityM2 ? totalStockUnits : 0,
+        stockDistribution,
+      };
+    });
+  }
+
+  async getSellerWarehouseById(sellerId: string, id: string) {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { id, sellerId },
+    });
+    if (!warehouse) {
+      throw new RpcException(new NotFoundException('Warehouse not found'));
+    }
+    return warehouse;
+  }
+
+  async createSellerWarehouse(sellerId: string, dto: CreateWarehouseDto) {
+    const warehouse = this.warehouseRepository.create({
+      ...dto,
+      sellerId,
+    });
+    return this.warehouseRepository.save(warehouse);
+  }
+
+  async updateSellerWarehouse(sellerId: string, id: string, dto: UpdateWarehouseDto) {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { id, sellerId },
+    });
+    if (!warehouse) {
+      throw new RpcException(new NotFoundException('Warehouse not found'));
+    }
+    Object.assign(warehouse, dto);
+    return this.warehouseRepository.save(warehouse);
+  }
+
+  async deleteSellerWarehouse(sellerId: string, id: string) {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { id, sellerId },
+    });
+    if (!warehouse) {
+      throw new RpcException(new NotFoundException('Warehouse not found'));
+    }
+    await this.warehouseRepository.remove(warehouse);
+    return { success: true, message: 'Warehouse removed from logistics network' };
+  }
+
+  // --- Inter-Warehouse Transfers API ---
+
+  async getWarehouseTransfers(sellerId: string) {
+    const count = await this.transferRepository.count({ where: { sellerId } });
+    if (count === 0) {
+      // Seed default active transfer
+      const defaultTransfer = this.transferRepository.create({
+        sellerId,
+        transferNumber: 'TRF-2026-892',
+        fromWarehouse: 'Addis Ababa Central Logistics Hub',
+        toWarehouse: 'Modjo Dry Port Multi-Modal Terminal',
+        productName: 'Yirgacheffe Grade 1 Speciality Washed Coffee',
+        quantity: 5000,
+        unit: 'KG',
+        status: 'in_transit',
+        requestedDate: '2026-10-05',
+        initiatedBy: 'Operations Planner',
+        carrierVehicle: 'Mercedes Actros 40-Ton (Plate AA-3-98210)',
+        driverName: 'Mulugeta Tadesse (+251 91 144 2200)',
+        waybillNumber: 'WB-ETH-2026-7819',
+        notes: 'Export consignment containerized for Ethio-Djibouti rail transit.',
+      });
+      await this.transferRepository.save(defaultTransfer);
+    }
+
+    return this.transferRepository.find({
+      where: { sellerId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async createWarehouseTransfer(sellerId: string, dto: CreateWarehouseTransferDto) {
+    const transferNumber = `TRF-2026-${Math.floor(100 + Math.random() * 900)}`;
+    const transfer = this.transferRepository.create({
+      ...dto,
+      sellerId,
+      transferNumber,
+      status: 'in_transit',
+      requestedDate: new Date().toISOString().split('T')[0],
+      initiatedBy: 'Operations Planner',
+    });
+    return this.transferRepository.save(transfer);
+  }
+
+  async updateWarehouseTransferStatus(sellerId: string, id: string, status: string) {
+    const transfer = await this.transferRepository.findOne({
+      where: { id, sellerId },
+    });
+    if (!transfer) {
+      throw new RpcException(new NotFoundException('Warehouse transfer not found'));
+    }
+    transfer.status = status;
+    if (status === 'received') {
+      transfer.completedDate = new Date().toISOString().split('T')[0];
+    }
+    return this.transferRepository.save(transfer);
   }
 }

@@ -1,10 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { json, urlencoded } from 'express';
 import { ApiGatewayModule } from './api-gateway.module';
 import { GlobalExceptionFilter } from '@app/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(ApiGatewayModule);
+
+  app.use(json({ limit: '50mb' }));
+  app.use(urlencoded({ extended: true, limit: '50mb' }));
 
   app.useGlobalPipes(
     new ValidationPipe({

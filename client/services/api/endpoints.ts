@@ -19,6 +19,12 @@ export const ENDPOINTS = {
   SELLER_ORDERS: "/seller/orders",
   SELLER_ORDER_STATUS: (id: string) => `/seller/orders/${id}/status`,
 
+  // Warehouses & Logistics Depots
+  SELLER_WAREHOUSES: "/seller/warehouses",
+  SELLER_WAREHOUSE_BY_ID: (id: string) => `/seller/warehouses/${id}`,
+  SELLER_WAREHOUSE_TRANSFERS: "/seller/warehouse-transfers",
+  SELLER_WAREHOUSE_TRANSFER_STATUS: (id: string) => `/seller/warehouse-transfers/${id}/status`,
+
   // Seller Payouts & Finance
   SELLER_PAYOUTS: "/seller/payouts",
 

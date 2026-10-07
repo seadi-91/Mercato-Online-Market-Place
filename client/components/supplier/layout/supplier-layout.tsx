@@ -44,7 +44,11 @@ import { useSupplierStore } from "@/store/supplier-store";
 import { SupplierTab } from "@/types/supplier";
 
 export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab } = {}) {
-  const { activeTab, setActiveTab, subView } = useSupplierStore();
+  const { activeTab, setActiveTab, subView, fetchWarehouses } = useSupplierStore();
+
+  React.useEffect(() => {
+    fetchWarehouses();
+  }, [fetchWarehouses]);
 
   React.useEffect(() => {
     if (initialTab) {
@@ -122,8 +126,8 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
         <SupplierHeader />
 
         {/* Scrollable Main Workspace Canvas */}
-        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-6 lg:p-8 pb-24 lg:pb-8">
-          <div className="w-full max-w-[1600px] mx-auto">{renderActiveView()}</div>
+        <main className="flex-1 overflow-y-auto overflow-x-hidden p-3 sm:p-5 lg:p-6 pb-20 lg:pb-8">
+          <div className="w-full max-w-[1440px] mx-auto">{renderActiveView()}</div>
         </main>
       </div>
 

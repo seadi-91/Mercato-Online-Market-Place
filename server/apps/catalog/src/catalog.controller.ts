@@ -4,11 +4,14 @@ import { CatalogService } from './catalog.service';
 import {
   CreateCategoryDto,
   CreateProductDto,
+  CreateWarehouseDto,
+  CreateWarehouseTransferDto,
   FilterProductsDto,
   FilterSellerProductsDto,
   StockAction,
   UpdateCategoryDto,
   UpdateProductDto,
+  UpdateWarehouseDto,
 } from '@app/common';
 
 @Controller()
@@ -151,5 +154,78 @@ export class CatalogController {
   @MessagePattern('get_seller_inventory_alerts')
   getSellerInventoryAlerts(@Payload() payload: { sellerId: string }) {
     return this.catalogService.getSellerInventoryAlerts(payload.sellerId);
+  }
+
+  @MessagePattern('get_seller_warehouses')
+  getSellerWarehouses(@Payload() payload: { sellerId: string }) {
+    return this.catalogService.getSellerWarehouses(payload.sellerId);
+  }
+
+  @MessagePattern('get_seller_warehouse_by_id')
+  getSellerWarehouseById(@Payload() payload: { sellerId: string; id: string }) {
+    return this.catalogService.getSellerWarehouseById(
+      payload.sellerId,
+      payload.id,
+    );
+  }
+
+  @MessagePattern('create_seller_warehouse')
+  createSellerWarehouse(
+    @Payload() payload: { sellerId: string; dto: CreateWarehouseDto },
+  ) {
+    return this.catalogService.createSellerWarehouse(
+      payload.sellerId,
+      payload.dto,
+    );
+  }
+
+  @MessagePattern('update_seller_warehouse')
+  updateSellerWarehouse(
+    @Payload()
+    payload: {
+      sellerId: string;
+      id: string;
+      dto: UpdateWarehouseDto;
+    },
+  ) {
+    return this.catalogService.updateSellerWarehouse(
+      payload.sellerId,
+      payload.id,
+      payload.dto,
+    );
+  }
+
+  @MessagePattern('delete_seller_warehouse')
+  deleteSellerWarehouse(@Payload() payload: { sellerId: string; id: string }) {
+    return this.catalogService.deleteSellerWarehouse(
+      payload.sellerId,
+      payload.id,
+    );
+  }
+
+  @MessagePattern('get_warehouse_transfers')
+  getWarehouseTransfers(@Payload() payload: { sellerId: string }) {
+    return this.catalogService.getWarehouseTransfers(payload.sellerId);
+  }
+
+  @MessagePattern('create_warehouse_transfer')
+  createWarehouseTransfer(
+    @Payload() payload: { sellerId: string; dto: CreateWarehouseTransferDto },
+  ) {
+    return this.catalogService.createWarehouseTransfer(
+      payload.sellerId,
+      payload.dto,
+    );
+  }
+
+  @MessagePattern('update_warehouse_transfer_status')
+  updateWarehouseTransferStatus(
+    @Payload() payload: { sellerId: string; id: string; status: string },
+  ) {
+    return this.catalogService.updateWarehouseTransferStatus(
+      payload.sellerId,
+      payload.id,
+      payload.status,
+    );
   }
 }

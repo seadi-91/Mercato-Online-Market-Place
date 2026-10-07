@@ -17,6 +17,8 @@ export interface User {
   assignedVehiclePlate?: string;
   assignedVehicleType?: string;
   driverLicenseNumber?: string;
+  businessType?: string;
+  shopName?: string;
 }
 
 interface AuthState {

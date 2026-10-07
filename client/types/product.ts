@@ -28,6 +28,25 @@ export interface Product {
   images: string[];
   isAvailable: boolean;
   isActive: boolean;
+  brand?: string;
+  origin?: string;
+  grade?: string;
+  warehouseLocation?: string;
+  branchId?: string;
+  branchName?: string;
+  status?: string;
+  certifications?: string[];
+  leadTimeDays?: number;
+  views?: number;
+  salesCount?: number;
+  rating?: number;
+  ratingCount?: number;
+  tieredPricing?: Array<{
+    id?: string;
+    minQuantity: number;
+    maxQuantity?: number | null;
+    discountedPricePerUnit: number;
+  }>;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -44,16 +63,26 @@ export interface CreateProductInput {
   stockQuantity: number;
   lowStockThreshold?: number;
   images?: string[];
+  brand?: string;
+  origin?: string;
+  grade?: string;
+  warehouseLocation?: string;
+  branchId?: string;
+  branchName?: string;
+  status?: string;
+  certifications?: string[];
+  leadTimeDays?: number;
   tieredPricing?: Array<{
     minQuantity: number;
     maxQuantity?: number;
-    unitPrice: number;
+    discountedPricePerUnit: number;
   }>;
 }
 
 export interface UpdateProductInput {
   title?: string;
   description?: string;
+  sku?: string;
   categoryId?: string;
   retailPrice?: number;
   wholesalePrice?: number;
@@ -63,4 +92,19 @@ export interface UpdateProductInput {
   lowStockThreshold?: number;
   images?: string[];
   isAvailable?: boolean;
+  isActive?: boolean;
+  brand?: string;
+  origin?: string;
+  grade?: string;
+  warehouseLocation?: string;
+  branchId?: string;
+  branchName?: string;
+  status?: string;
+  certifications?: string[];
+  leadTimeDays?: number;
+  tieredPricing?: Array<{
+    minQuantity: number;
+    maxQuantity?: number;
+    discountedPricePerUnit: number;
+  }>;
 }

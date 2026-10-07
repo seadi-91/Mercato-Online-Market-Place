@@ -20,14 +20,25 @@ import {
   Link as LinkIcon,
   ChevronLeft,
   ChevronRight,
+  Loader2,
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
 import { TierPrice } from "@/types/supplier";
 import { useAuthStore } from "@/store/auth-store";
+import { sellerService } from "@/services/seller/seller.service";
+import { Category } from "@/types/product";
 import { toast } from "sonner";
 
 export function SupplierCreateProductView() {
-  const { addProduct, setSubView, warehouses, currentStaffUser } = useSupplierStore();
+  const {
+    addProduct,
+    updateProduct,
+    setSubView,
+    warehouses,
+    currentStaffUser,
+    editingProduct,
+    setEditingProduct,
+  } = useSupplierStore();
   const { user } = useAuthStore();
 
   // Wizard Step State (1: Basics, 2: Pricing, 3: Inventory, 4: Quality & Media)
@@ -85,8 +96,112 @@ export function SupplierCreateProductView() {
     "Fair Trade",
   ]);
 
+  // Database categories and submitting state
+  const [dbCategories, setDbCategories] = useState<Category[]>([]);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Fetch backend categories
+  React.useEffect(() => {
+    let isMounted = true;
+    sellerService
+      .getCategories(false)
+      .then((cats: Category[]) => {
+        if (isMounted && cats && cats.length > 0) {
+          setDbCategories(cats);
+          if (editingProduct) {
+            const matched = cats.find(
+              (c: Category) => c.name.toLowerCase() === editingProduct.category.toLowerCase()
+            );
+            if (matched) setSelectedCategoryId(matched.id);
+          } else if (!selectedCategoryId) {
+            setSelectedCategoryId(cats[0].id);
+            setCategory(cats[0].name);
+          }
+        }
+      })
+      .catch((err: unknown) => console.error("Failed to load categories from database:", err));
+    return () => {
+      isMounted = false;
+    };
+  }, [editingProduct]);
+
+  // Prefill form when editing an existing product
+  React.useEffect(() => {
+    if (editingProduct) {
+      setName(editingProduct.name || "");
+      setSku(editingProduct.sku || "");
+      setCategory(editingProduct.category || "Agricultural Commodities");
+      setSubcategory(editingProduct.subcategory || "");
+      setBrand(editingProduct.brand || "");
+      setOrigin(editingProduct.origin || "");
+      setDescription(editingProduct.description || "");
+      setBasePrice(editingProduct.basePrice || 0);
+      setMoq(editingProduct.moq || 1);
+      setUnit(editingProduct.unit || "KG");
+      if (editingProduct.tierPricing && editingProduct.tierPricing.length > 0) {
+        setTierPricing(editingProduct.tierPricing);
+      }
+      setInitialStock(editingProduct.stock || 0);
+      if (editingProduct.warehouseLocation) {
+        setWarehouseLocation(editingProduct.warehouseLocation);
+      }
+      if (editingProduct.images && editingProduct.images.length > 0) {
+        setImages(editingProduct.images);
+      }
+      if (editingProduct.grade) setGrade(editingProduct.grade);
+      if (editingProduct.shippingWeight) setShippingWeight(editingProduct.shippingWeight);
+      if (editingProduct.certifications && editingProduct.certifications.length > 0) {
+        setCertifications(editingProduct.certifications);
+      }
+      if (editingProduct.leadTimeDays) setLeadTimeDays(editingProduct.leadTimeDays);
+    }
+  }, [editingProduct]);
+
+  // Fast Client-Side Image Resizer & Optimizer to prevent huge payload transfers
+  const compressImage = (file: File, maxDimension = 1200, quality = 0.82): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            const compressed = canvas.toDataURL("image/jpeg", quality);
+            resolve(compressed);
+          } else {
+            resolve(event.target?.result as string);
+          }
+        };
+        img.onerror = () => {
+          resolve(event.target?.result as string);
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Image Upload Processing
-  const processFiles = (files: File[]) => {
+  const processFiles = async (files: File[]) => {
     const validFiles = files.filter((f) => f.type.startsWith("image/"));
     if (validFiles.length === 0) {
       toast.error("Please select valid image files (JPG, PNG, WebP).");
@@ -104,27 +219,19 @@ export function SupplierCreateProductView() {
       toast.info(`Adding first ${availableSlots} images (maximum 8 allowed).`);
     }
 
-    let loadedCount = 0;
-    const newImages: string[] = [];
-
-    filesToRead.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        if (result) {
-          newImages.push(result);
-        }
-        loadedCount++;
-        if (loadedCount === filesToRead.length) {
-          setImages((prev) => [...prev, ...newImages]);
-          toast.success(`Successfully uploaded ${newImages.length} image${newImages.length > 1 ? "s" : ""}!`);
-        }
-      };
-      reader.onerror = () => {
-        toast.error(`Failed to read ${file.name}`);
-      };
-      reader.readAsDataURL(file);
-    });
+    const toastId = toast.loading("Optimizing product photos...");
+    try {
+      const compressedList = await Promise.all(
+        filesToRead.map((f) => compressImage(f))
+      );
+      const validResults = compressedList.filter(Boolean);
+      setImages((prev) => [...prev, ...validResults]);
+      toast.success(`Successfully added ${validResults.length} photo${validResults.length > 1 ? "s" : ""}!`, {
+        id: toastId,
+      });
+    } catch {
+      toast.error("Failed to process some images.", { id: toastId });
+    }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -299,7 +406,7 @@ export function SupplierCreateProductView() {
     }
   };
 
-  const handlePublish = (e: React.FormEvent) => {
+  const handlePublish = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
       toast.error("Please provide a product name.");
@@ -326,31 +433,72 @@ export function SupplierCreateProductView() {
       ? userBranchName
       : warehouseLocation;
 
-    // Publish strictly with user's uploaded images - NO default fallback images
-    addProduct({
-      name,
-      sku,
-      category,
-      subcategory,
-      brand,
-      origin,
-      grade,
-      unit,
-      basePrice,
-      currency: "ETB",
-      moq,
-      stock: initialStock,
-      reservedStock: 0,
-      status: "published",
-      images: images,
-      tierPricing,
-      description,
-      certifications,
-      warehouseLocation: finalBranchName,
-      branchId: finalBranchId,
-      branchName: finalBranchName,
-      leadTimeDays,
-    });
+    setIsSubmitting(true);
+    try {
+      if (editingProduct) {
+        await updateProduct(
+          editingProduct.id,
+          {
+            name,
+            sku,
+            category,
+            subcategory,
+            brand,
+            origin,
+            grade,
+            unit,
+            basePrice,
+            currency: "ETB",
+            moq,
+            stock: initialStock,
+            status: editingProduct.status || "published",
+            images,
+            tierPricing,
+            description,
+            certifications,
+            warehouseLocation: finalBranchName,
+            branchId: finalBranchId,
+            branchName: finalBranchName,
+            leadTimeDays,
+          },
+          selectedCategoryId || undefined
+        );
+      } else {
+        await addProduct(
+          {
+            name,
+            sku,
+            category,
+            subcategory,
+            brand,
+            origin,
+            grade,
+            unit,
+            basePrice,
+            currency: "ETB",
+            moq,
+            stock: initialStock,
+            reservedStock: 0,
+            status: "published",
+            images,
+            tierPricing,
+            description,
+            certifications,
+            warehouseLocation: finalBranchName,
+            branchId: finalBranchId,
+            branchName: finalBranchName,
+            leadTimeDays,
+          },
+          selectedCategoryId || undefined
+        );
+      }
+      setEditingProduct(null);
+      setSubView("default");
+    } catch (err: any) {
+      console.error("[SupplierCreateProduct] Save failed:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const stepsMeta = [
@@ -382,19 +530,22 @@ export function SupplierCreateProductView() {
 
       {/* COMPACT & CENTERED CARD CONTAINER */}
       <div className="w-full max-w-xl mx-auto space-y-3.5">
-        {/* Compact Clean Header - No 'Photo Required' text */}
+        {/* Compact Clean Header */}
         <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-3">
           <div>
             <button
               type="button"
-              onClick={() => setSubView("default")}
+              onClick={() => {
+                setEditingProduct(null);
+                setSubView("default");
+              }}
               className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white transition-colors cursor-pointer mb-0.5"
             >
               <ArrowLeft className="h-3 w-3" />
               <span>Back to Catalog</span>
             </button>
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-              Add Wholesale Product
+              {editingProduct ? "Edit Wholesale Commodity" : "Add Wholesale Product"}
             </h1>
           </div>
 
@@ -557,15 +708,46 @@ export function SupplierCreateProductView() {
                       Marketplace Category
                     </label>
                     <select
-                      value={category}
-                      onChange={(e) => setCategory(e.target.value)}
+                      value={selectedCategoryId || category}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const matched = dbCategories.find(
+                          (c) => c.id === val || c.name === val
+                        );
+                        if (matched) {
+                          setSelectedCategoryId(matched.id);
+                          setCategory(matched.name);
+                        } else {
+                          setCategory(val);
+                        }
+                      }}
                       className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden cursor-pointer"
                     >
-                      <option value="Agricultural Commodities">Agricultural Commodities</option>
-                      <option value="Grains, Cereals & Teff">Grains, Cereals & Teff</option>
-                      <option value="Oilseeds & Pulses">Oilseeds & Pulses</option>
-                      <option value="Construction & Industrial Materials">Construction & Industrial Materials</option>
-                      <option value="Textiles & Apparel">Textiles & Apparel</option>
+                      {dbCategories.length > 0 ? (
+                        dbCategories.map((c) => (
+                          <option key={c.id} value={c.id} className="bg-[#0d121f] text-white">
+                            {c.name}
+                          </option>
+                        ))
+                      ) : (
+                        <>
+                          <option value="Agricultural Commodities" className="bg-[#0d121f] text-white">
+                            Agricultural Commodities
+                          </option>
+                          <option value="Grains, Cereals & Teff" className="bg-[#0d121f] text-white">
+                            Grains, Cereals & Teff
+                          </option>
+                          <option value="Oilseeds & Pulses" className="bg-[#0d121f] text-white">
+                            Oilseeds & Pulses
+                          </option>
+                          <option value="Construction & Industrial Materials" className="bg-[#0d121f] text-white">
+                            Construction & Industrial Materials
+                          </option>
+                          <option value="Textiles & Apparel" className="bg-[#0d121f] text-white">
+                            Textiles & Apparel
+                          </option>
+                        </>
+                      )}
                     </select>
                   </div>
 
@@ -1120,7 +1302,10 @@ export function SupplierCreateProductView() {
             ) : (
               <button
                 type="button"
-                onClick={() => setSubView("default")}
+                onClick={() => {
+                  setEditingProduct(null);
+                  setSubView("default");
+                }}
                 className="text-xs text-zinc-500 hover:text-zinc-300 py-1.5 transition-colors cursor-pointer"
               >
                 Cancel
@@ -1140,10 +1325,25 @@ export function SupplierCreateProductView() {
               <button
                 type="button"
                 onClick={handlePublish}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 text-white hover:brightness-110 shadow-md shadow-indigo-500/25 px-5 py-2 text-xs font-bold transition-all cursor-pointer"
+                disabled={isSubmitting}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 text-white hover:brightness-110 disabled:opacity-60 shadow-md shadow-indigo-500/25 px-5 py-2 text-xs font-bold transition-all cursor-pointer"
               >
-                <CheckCircle2 className="h-3.5 w-3.5" />
-                <span>Publish to Catalog</span>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Saving to Database...</span>
+                  </>
+                ) : editingProduct ? (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Save Changes</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Publish to Catalog</span>
+                  </>
+                )}
               </button>
             )}
           </div>

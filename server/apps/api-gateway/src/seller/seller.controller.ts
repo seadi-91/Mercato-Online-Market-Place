@@ -20,6 +20,8 @@ import {
   AuditAction,
   AuthGuard,
   CreateProductDto,
+  CreateWarehouseDto,
+  CreateWarehouseTransferDto,
   CurrentUser,
   FilterOrdersDto,
   FilterSellerProductsDto,
@@ -29,6 +31,8 @@ import {
   UpdateOrderStatusDto,
   UpdateProductDto,
   UpdateStockDto,
+  UpdateTransferStatusDto,
+  UpdateWarehouseDto,
   UserRole,
 } from '@app/common';
 
@@ -315,6 +319,131 @@ export class SellerController {
       sellerId,
       page: page ? parseInt(page, 10) : 1,
       limit: limit ? parseInt(limit, 10) : 20,
+    });
+  }
+
+  // --- Warehouse Logistics & Depots ---
+
+  @Get('warehouses')
+  getWarehouses(@CurrentUser('id') sellerId: string) {
+    return this.catalogClient.send('get_seller_warehouses', { sellerId });
+  }
+
+  @Get('warehouses/:id')
+  getWarehouseById(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('id') sellerId: string,
+  ) {
+    return this.catalogClient.send('get_seller_warehouse_by_id', {
+      sellerId,
+      id,
+    });
+  }
+
+  @Post('warehouses')
+  async createWarehouse(
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: CreateWarehouseDto,
+    @Req() req: Request,
+  ) {
+    const warehouse = await firstValueFrom(
+      this.catalogClient.send('create_seller_warehouse', { sellerId, dto }),
+    );
+
+    this.auditLog(
+      {
+        actorId: sellerId,
+        action: AuditAction.PRODUCT_CREATED,
+        targetEntity: 'Warehouse',
+        targetId: warehouse.id ?? 'unknown',
+        details: { name: dto.name, code: dto.code },
+      },
+      req,
+    );
+
+    return warehouse;
+  }
+
+  @Patch('warehouses/:id')
+  async updateWarehouse(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: UpdateWarehouseDto,
+    @Req() req: Request,
+  ) {
+    const warehouse = await firstValueFrom(
+      this.catalogClient.send('update_seller_warehouse', {
+        sellerId,
+        id,
+        dto,
+      }),
+    );
+
+    this.auditLog(
+      {
+        actorId: sellerId,
+        action: AuditAction.PRODUCT_UPDATED,
+        targetEntity: 'Warehouse',
+        targetId: id,
+        details: { updatedFields: Object.keys(dto) },
+      },
+      req,
+    );
+
+    return warehouse;
+  }
+
+  @Delete('warehouses/:id')
+  async deleteWarehouse(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('id') sellerId: string,
+    @Req() req: Request,
+  ) {
+    const result = await firstValueFrom(
+      this.catalogClient.send('delete_seller_warehouse', { sellerId, id }),
+    );
+
+    this.auditLog(
+      {
+        actorId: sellerId,
+        action: AuditAction.PRODUCT_DELETED,
+        targetEntity: 'Warehouse',
+        targetId: id,
+      },
+      req,
+    );
+
+    return result;
+  }
+
+  // --- Warehouse Transfers ---
+
+  @Get('warehouse-transfers')
+  getWarehouseTransfers(@CurrentUser('id') sellerId: string) {
+    return this.catalogClient.send('get_warehouse_transfers', { sellerId });
+  }
+
+  @Post('warehouse-transfers')
+  createWarehouseTransfer(
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: CreateWarehouseTransferDto,
+  ) {
+    return this.catalogClient.send('create_warehouse_transfer', {
+      sellerId,
+      dto,
+    });
+  }
+
+  @Patch('warehouse-transfers/:id/status')
+  updateWarehouseTransferStatus(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @CurrentUser('id') sellerId: string,
+    @Body() body: UpdateTransferStatusDto,
+  ) {
+    return this.catalogClient.send('update_warehouse_transfer_status', {
+      sellerId,
+      id,
+      status: body.status,
     });
   }
 }

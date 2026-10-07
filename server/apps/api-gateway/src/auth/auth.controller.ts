@@ -64,10 +64,13 @@ export class AuthController {
     );
 
     // Fire-and-forget audit log
+    const actorRole = ((result.user as any).actualRole ||
+      (result.user.role === 'SUPPLIER' ? UserRole.SELLER : result.user.role)) as UserRole;
+
     this.auditLog(
       {
         actorId: result.user.id,
-        actorRole: result.user.role as UserRole,
+        actorRole,
         action: AuditAction.USER_REGISTERED,
         targetEntity: 'User',
         targetId: result.user.id,
@@ -92,10 +95,13 @@ export class AuthController {
         this.authClient.send('login', dto),
       );
 
+      const actorRole = ((result.user as any).actualRole ||
+        (result.user.role === 'SUPPLIER' ? UserRole.SELLER : result.user.role)) as UserRole;
+
       this.auditLog(
         {
           actorId: result.user.id,
-          actorRole: result.user.role as UserRole,
+          actorRole,
           action: AuditAction.USER_LOGIN,
           targetEntity: 'User',
           targetId: result.user.id,

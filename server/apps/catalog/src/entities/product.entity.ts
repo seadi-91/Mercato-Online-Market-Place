@@ -75,6 +75,45 @@ export class Product {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  brand?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  origin?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  grade?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  warehouseLocation?: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  branchId?: string;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  branchName?: string;
+
+  @Column({ type: 'varchar', length: 50, default: 'published' })
+  status: string;
+
+  @Column({ type: 'text', array: true, default: '{}' })
+  certifications: string[];
+
+  @Column({ type: 'int', default: 3 })
+  leadTimeDays: number;
+
+  @Column({ type: 'int', default: 0 })
+  views: number;
+
+  @Column({ type: 'int', default: 0 })
+  salesCount: number;
+
+  @Column({ type: 'decimal', precision: 3, scale: 1, default: 5.0 })
+  rating: number;
+
+  @Column({ type: 'int', default: 1 })
+  ratingCount: number;
+
   @OneToMany(() => TieredPricing, (tiered) => tiered.product, {
     cascade: true,
     eager: true,

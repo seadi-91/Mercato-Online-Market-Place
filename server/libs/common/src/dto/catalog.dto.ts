@@ -140,6 +140,43 @@ export class CreateProductDto {
   @Type(() => TieredPricingItemDto)
   @IsOptional()
   tieredPricing?: TieredPricingItemDto[];
+
+  @IsString()
+  @IsOptional()
+  brand?: string;
+
+  @IsString()
+  @IsOptional()
+  origin?: string;
+
+  @IsString()
+  @IsOptional()
+  grade?: string;
+
+  @IsString()
+  @IsOptional()
+  warehouseLocation?: string;
+
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
+  @IsString()
+  @IsOptional()
+  branchName?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  certifications?: string[];
+
+  @IsInt()
+  @IsOptional()
+  leadTimeDays?: number;
 }
 
 export class UpdateProductDto {
@@ -202,6 +239,43 @@ export class UpdateProductDto {
   @Type(() => TieredPricingItemDto)
   @IsOptional()
   tieredPricing?: TieredPricingItemDto[];
+
+  @IsString()
+  @IsOptional()
+  brand?: string;
+
+  @IsString()
+  @IsOptional()
+  origin?: string;
+
+  @IsString()
+  @IsOptional()
+  grade?: string;
+
+  @IsString()
+  @IsOptional()
+  warehouseLocation?: string;
+
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
+  @IsString()
+  @IsOptional()
+  branchName?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  certifications?: string[];
+
+  @IsInt()
+  @IsOptional()
+  leadTimeDays?: number;
 }
 
 export class UpdateStockDto {

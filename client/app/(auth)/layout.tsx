@@ -90,7 +90,7 @@ export default function AuthLayout({
 
       {/* Main Content */}
       <main className="relative z-10 flex flex-1 items-center justify-center px-3 sm:px-4 py-3 sm:py-6">
-        <div className="w-full max-w-[480px] transition-all duration-300">
+        <div className="w-full max-w-[520px] transition-all duration-300">
           {children}
         </div>
       </main>

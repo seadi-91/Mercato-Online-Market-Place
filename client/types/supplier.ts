@@ -66,6 +66,7 @@ export interface B2BProduct {
   certifications: string[];
   warehouseLocation: string;
   leadTimeDays: number;
+  shippingWeight?: string;
   branchId?: string;
   branchName?: string;
 }

@@ -15,6 +15,7 @@ import {
   PayoutRecord,
   UploadImageResult,
 } from "@/types/api";
+import { Warehouse, WarehouseTransfer } from "@/types/supplier";
 
 export interface FilterProductsParams {
   page?: number;
@@ -172,6 +173,56 @@ export const sellerService = {
     const formData = new FormData();
     formData.append("file", file);
     return api.upload<UploadImageResult>(ENDPOINTS.UPLOAD_IMAGE, formData);
+  },
+
+  // --- Warehouses & Logistics Depots ---
+  getWarehouses: (): Promise<Warehouse[]> => {
+    return api.get<Warehouse[]>(ENDPOINTS.SELLER_WAREHOUSES);
+  },
+
+  getWarehouseById: (id: string): Promise<Warehouse> => {
+    return api.get<Warehouse>(ENDPOINTS.SELLER_WAREHOUSE_BY_ID(id));
+  },
+
+  createWarehouse: (data: Partial<Warehouse>): Promise<Warehouse> => {
+    return api.post<Warehouse>(ENDPOINTS.SELLER_WAREHOUSES, data);
+  },
+
+  updateWarehouse: (
+    id: string,
+    data: Partial<Warehouse>
+  ): Promise<Warehouse> => {
+    return api.patch<Warehouse>(ENDPOINTS.SELLER_WAREHOUSE_BY_ID(id), data);
+  },
+
+  deleteWarehouse: (
+    id: string
+  ): Promise<{ success: boolean; message?: string }> => {
+    return api.delete(ENDPOINTS.SELLER_WAREHOUSE_BY_ID(id));
+  },
+
+  // --- Warehouse Transfers ---
+  getWarehouseTransfers: (): Promise<WarehouseTransfer[]> => {
+    return api.get<WarehouseTransfer[]>(ENDPOINTS.SELLER_WAREHOUSE_TRANSFERS);
+  },
+
+  createWarehouseTransfer: (
+    data: Partial<WarehouseTransfer>
+  ): Promise<WarehouseTransfer> => {
+    return api.post<WarehouseTransfer>(
+      ENDPOINTS.SELLER_WAREHOUSE_TRANSFERS,
+      data
+    );
+  },
+
+  updateWarehouseTransferStatus: (
+    id: string,
+    status: string
+  ): Promise<WarehouseTransfer> => {
+    return api.patch<WarehouseTransfer>(
+      ENDPOINTS.SELLER_WAREHOUSE_TRANSFER_STATUS(id),
+      { status }
+    );
   },
 };
 
