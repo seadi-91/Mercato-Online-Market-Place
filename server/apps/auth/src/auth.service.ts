@@ -384,6 +384,55 @@ export class AuthService implements OnModuleInit {
     const user = await qb.getOne();
 
     if (!user) {
+      // Check if it is a staff personnel (Branch Manager, Fleet Driver, Warehouse Lead)
+      try {
+        const staff: any = await firstValueFrom(
+          this.usersClient.send('authenticate_staff', {
+            identifier,
+            password: dto.password,
+          }),
+        );
+
+        if (staff) {
+          const role = staff.role === 'driver' ? UserRole.DELIVERY : UserRole.SELLER;
+          const tokens = await this.generateTokens(
+            staff.id,
+            staff.phone,
+            role,
+            staff.email,
+            staff.role,
+            staff.branchId,
+            staff.branchName,
+            staff.sellerId,
+          );
+
+          return {
+            ...tokens,
+            user: {
+              id: staff.id,
+              sellerId: staff.sellerId,
+              phoneNumber: staff.phone,
+              email: staff.email,
+              fullName: staff.fullName,
+              role: staff.role === 'driver' ? 'DELIVERY' : 'SUPPLIER',
+              actualRole: role,
+              staffRole: staff.role,
+              branchId: staff.branchId,
+              branchName: staff.branchName,
+              assignedVehiclePlate: staff.assignedVehiclePlate,
+              assignedVehicleType: staff.assignedVehicleType,
+              driverLicenseNumber: staff.driverLicenseNumber,
+              isSupplier: staff.role !== 'driver',
+              isVerified: true,
+            },
+          };
+        }
+      } catch (err: any) {
+        if (err?.message && !err.message.includes('pattern')) {
+          throw new RpcException(new UnauthorizedException(err.message));
+        }
+      }
+
       throw new RpcException(
         new UnauthorizedException('Invalid credentials. Please verify your phone/email and password.'),
       );
@@ -632,12 +681,20 @@ export class AuthService implements OnModuleInit {
     phoneNumber: string | null | undefined,
     role: UserRole,
     email?: string | null,
+    staffRole?: string,
+    branchId?: string,
+    branchName?: string,
+    sellerId?: string,
   ) {
     const payload: JwtPayload = {
       sub: userId,
       phoneNumber: phoneNumber || undefined,
       email: email || undefined,
       role,
+      staffRole,
+      branchId,
+      branchName,
+      sellerId,
     };
     const secret = this.configService.get<string>('JWT_SECRET');
     if (!secret) {

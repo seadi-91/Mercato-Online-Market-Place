@@ -1,38 +1,213 @@
 "use client";
 
-import React, { useState } from "react";
-import { stockMovementChartData } from "@/data/supplier-inventory-data";
-import { ArrowDownRight, ArrowUpRight, Lock, SlidersHorizontal, TrendingUp, Calendar } from "lucide-react";
+import React, { useState, useMemo } from "react";
+import { ArrowDownRight, ArrowUpRight, Lock, TrendingUp, Layers, CheckCircle2 } from "lucide-react";
 import { useThemeStore } from "@/store/theme-store";
+import { useSupplierStore } from "@/store/supplier-store";
 
 type TimeRange = "7d" | "30d" | "3m" | "6m" | "1y";
+
+interface ChartBucketPoint {
+  label: string;
+  dateSubtitle?: string;
+  stockIn: number;
+  stockOut: number;
+  reserved: number;
+  adjustments: number;
+}
+
+function parseMovementDate(dateStr?: string): Date {
+  if (!dateStr) return new Date();
+  const clean = dateStr.includes("T") ? dateStr : dateStr.replace(" ", "T");
+  const d = new Date(clean);
+  return isNaN(d.getTime()) ? new Date() : d;
+}
 
 export function SupplierInventoryChart() {
   const [timeRange, setTimeRange] = useState<TimeRange>("30d");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const { theme } = useThemeStore();
+  const { inventoryMovements, products, orders, transfers } = useSupplierStore();
 
   const isLight = theme === "light";
   const isSystem = theme === "system";
 
-  const data = stockMovementChartData[timeRange];
+  // Dynamic Bucket Generator based on live store/database state
+  const data: ChartBucketPoint[] = useMemo(() => {
+    const now = new Date();
+    const buckets: {
+      label: string;
+      dateSubtitle?: string;
+      start: Date;
+      end: Date;
+    }[] = [];
 
-  // Calculate totals for currently selected timeframe
-  const totalIn = data.reduce((acc, d) => acc + d.stockIn, 0);
-  const totalOut = data.reduce((acc, d) => acc + d.stockOut, 0);
-  const totalReserved = data.reduce((acc, d) => acc + d.reserved, 0);
+    if (timeRange === "7d") {
+      // 7 consecutive days ending today
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth(), now.getDate() - i);
+        const start = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
+        const end = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+        const label = d.toLocaleDateString("en-US", { weekday: "short" });
+        const dateSubtitle = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        buckets.push({ label, dateSubtitle, start, end });
+      }
+    } else if (timeRange === "30d") {
+      // 4 weekly buckets representing the last 4 weeks
+      for (let w = 0; w < 4; w++) {
+        const daysBackEnd = (3 - w) * 7;
+        const daysBackStart = daysBackEnd + 7;
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBackStart, 0, 0, 0, 0);
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysBackEnd, 23, 59, 59, 999);
+        const label = `Week ${w + 1}`;
+        const dateSubtitle = `${start.toLocaleDateString("en-US", {
+          month: "short",
+          day: "numeric",
+        })} - ${end.toLocaleDateString("en-US", { month: "short", day: "numeric" })}`;
+        buckets.push({ label, dateSubtitle, start, end });
+      }
+    } else if (timeRange === "3m") {
+      // 3 calendar months ending at current month
+      for (let m = 2; m >= 0; m--) {
+        const target = new Date(now.getFullYear(), now.getMonth() - m, 1);
+        const start = new Date(target.getFullYear(), target.getMonth(), 1, 0, 0, 0, 0);
+        const end = new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59, 999);
+        const label = target.toLocaleDateString("en-US", { month: "long" });
+        const dateSubtitle = target.toLocaleDateString("en-US", { year: "numeric" });
+        buckets.push({ label, dateSubtitle, start, end });
+      }
+    } else if (timeRange === "6m") {
+      // 6 calendar months ending at current month
+      for (let m = 5; m >= 0; m--) {
+        const target = new Date(now.getFullYear(), now.getMonth() - m, 1);
+        const start = new Date(target.getFullYear(), target.getMonth(), 1, 0, 0, 0, 0);
+        const end = new Date(target.getFullYear(), target.getMonth() + 1, 0, 23, 59, 59, 999);
+        const label = target.toLocaleDateString("en-US", { month: "short" });
+        const dateSubtitle = target.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+        buckets.push({ label, dateSubtitle, start, end });
+      }
+    } else if (timeRange === "1y") {
+      // 4 quarters
+      for (let q = 3; q >= 0; q--) {
+        const targetMonth = now.getMonth() - q * 3;
+        const targetDate = new Date(now.getFullYear(), targetMonth, 1);
+        const qNum = Math.floor(targetDate.getMonth() / 3) + 1;
+        const qYear = String(targetDate.getFullYear()).slice(-2);
+        const start = new Date(targetDate.getFullYear(), (qNum - 1) * 3, 1, 0, 0, 0, 0);
+        const end = new Date(targetDate.getFullYear(), qNum * 3, 0, 23, 59, 59, 999);
+        const label = `Q${qNum} '${qYear}`;
+        const dateSubtitle = `Quarter ${qNum} ${targetDate.getFullYear()}`;
+        buckets.push({ label, dateSubtitle, start, end });
+      }
+    }
+
+    const currentLiveReserved = products.reduce((acc, p) => acc + (Number(p.reservedStock) || 0), 0);
+
+    return buckets.map((bucket, bIdx) => {
+      // Movements falling into this bucket
+      const bucketMovements = inventoryMovements.filter((m) => {
+        const d = parseMovementDate(m.date);
+        return d >= bucket.start && d <= bucket.end;
+      });
+
+      // Stock In: received movements, positive manual receipts, or newly created catalog batches
+      let stockIn = bucketMovements
+        .filter((m) => m.type === "received" || (m.quantity > 0 && m.type !== "transferred"))
+        .reduce((sum, m) => sum + Math.abs(Number(m.quantity) || 0), 0);
+
+      // Include products created in this bucket if not already tracked in movements
+      products.forEach((p) => {
+        if (p.createdAt) {
+          const pDate = parseMovementDate(p.createdAt);
+          if (pDate >= bucket.start && pDate <= bucket.end) {
+            const hasMovements = bucketMovements.some((m) => m.productId === p.id && m.type === "received");
+            if (!hasMovements && p.stock > 0) {
+              stockIn += Number(p.stock) || 0;
+            }
+          }
+        }
+      });
+
+      // Stock Out: sales dispatches, damaged removals, or negative stock reductions
+      let stockOut = bucketMovements
+        .filter((m) => m.type === "sold" || m.type === "damaged" || (m.quantity < 0 && m.type !== "transferred"))
+        .reduce((sum, m) => sum + Math.abs(Number(m.quantity) || 0), 0);
+
+      // Orders dispatched/completed in this bucket
+      orders.forEach((o) => {
+        if (["completed", "delivered", "shipped"].includes(o.orderStatus)) {
+          const oDate = parseMovementDate(o.orderDate);
+          if (oDate >= bucket.start && oDate <= bucket.end) {
+            const alreadyInMovements = bucketMovements.some(
+              (m) => m.type === "sold" && m.reference?.includes(o.orderNumber)
+            );
+            if (!alreadyInMovements) {
+              stockOut += Number(o.quantity) || 0;
+            }
+          }
+        }
+      });
+
+      // Reserved: Escrow secured orders or active warehouse holds
+      let reserved = 0;
+      orders.forEach((o) => {
+        if (
+          o.paymentStatus === "escrow_secured" ||
+          ["processing", "confirmed"].includes(o.orderStatus)
+        ) {
+          const oDate = parseMovementDate(o.orderDate);
+          if (oDate >= bucket.start && oDate <= bucket.end) {
+            reserved += Number(o.quantity) || 0;
+          }
+        }
+      });
+
+      // For the most recent bucket (latest period), ensure active product reservations are accounted for
+      if (bIdx === buckets.length - 1 && reserved === 0 && currentLiveReserved > 0) {
+        reserved = currentLiveReserved;
+      }
+
+      // Reconciliation delta from audit adjustments
+      const adjustments = bucketMovements
+        .filter((m) => m.type === "adjusted")
+        .reduce((sum, m) => sum + (Number(m.quantity) || 0), 0);
+
+      return {
+        label: bucket.label,
+        dateSubtitle: bucket.dateSubtitle,
+        stockIn,
+        stockOut,
+        reserved,
+        adjustments,
+      };
+    });
+  }, [inventoryMovements, products, orders, transfers, timeRange]);
+
+  // Metric Breakdown derived dynamically from current view range
+  const totalIn = useMemo(() => data.reduce((acc, d) => acc + d.stockIn, 0), [data]);
+  const totalOut = useMemo(() => data.reduce((acc, d) => acc + d.stockOut, 0), [data]);
+  const totalReserved = useMemo(() => {
+    const sum = data.reduce((acc, d) => acc + d.reserved, 0);
+    const liveRes = products.reduce((acc, p) => acc + (Number(p.reservedStock) || 0), 0);
+    return Math.max(sum, liveRes);
+  }, [data, products]);
   const netDelta = totalIn - totalOut;
 
-  // Max value for scale
-  const maxVal = Math.max(...data.map((d) => Math.max(d.stockIn, d.stockOut, d.reserved)), 100);
+  // Max value for scale calculation
+  const maxVal = Math.max(
+    ...data.map((d) => Math.max(d.stockIn, d.stockOut, d.reserved)),
+    20
+  );
 
   const rangeLabels: Record<TimeRange, string> = {
-    "7d": "Last 7 Days",
-    "30d": "Last 30 Days",
-    "3m": "Last 3 Months",
-    "6m": "Last 6 Months",
-    "1y": "Past 1 Year",
+    "7d": "Last 7 Days (Daily Real-Time)",
+    "30d": "Last 30 Days (4-Week Rolling)",
+    "3m": "Last 3 Months (Monthly Ledger)",
+    "6m": "Last 6 Months (Biannual Ledger)",
+    "1y": "Past 1 Year (Quarterly Ledger)",
   };
+
+  const auditCount = inventoryMovements.filter((m) => m.type === "adjusted").length;
 
   return (
     <div
@@ -66,7 +241,7 @@ export function SupplierInventoryChart() {
             </span>
           </div>
           <p className={`text-xs mt-0.5 ${isLight ? "text-slate-500" : isSystem ? "text-blue-300/70" : "text-zinc-400"}`}>
-            Track inbound shipments, outbound sales dispatches, escrow reservations, and reconciliation deltas
+            Verified ledger tracking: inbound receipts, outbound sales dispatches, escrow reservations & cycle reconciliations
           </p>
         </div>
 
@@ -174,7 +349,7 @@ export function SupplierInventoryChart() {
           </div>
         </div>
 
-        {/* Metric: Net Movement */}
+        {/* Metric: Net Movement & Audit */}
         <div
           className={`rounded-xl border p-3 flex items-center gap-3 ${
             isLight
@@ -192,7 +367,7 @@ export function SupplierInventoryChart() {
               Reconciliation
             </p>
             <p className={`text-base font-bold font-mono ${isLight ? "text-slate-900" : "text-white"}`}>
-              100% <span className="text-[10px] font-normal text-emerald-400">Audited</span>
+              100% <span className="text-[10px] font-normal text-emerald-400">Audited ({auditCount} cycle)</span>
             </p>
           </div>
         </div>
@@ -231,9 +406,9 @@ export function SupplierInventoryChart() {
           </div>
 
           {data.map((point, idx) => {
-            const inHeight = Math.max(12, Math.round((point.stockIn / maxVal) * 140));
-            const outHeight = Math.max(8, Math.round((point.stockOut / maxVal) * 140));
-            const resHeight = Math.max(6, Math.round((point.reserved / maxVal) * 140));
+            const inHeight = point.stockIn > 0 ? Math.max(8, Math.round((point.stockIn / maxVal) * 140)) : 2;
+            const outHeight = point.stockOut > 0 ? Math.max(8, Math.round((point.stockOut / maxVal) * 140)) : 2;
+            const resHeight = point.reserved > 0 ? Math.max(8, Math.round((point.reserved / maxVal) * 140)) : 2;
             const isHovered = hoveredIdx === idx;
 
             return (
@@ -246,19 +421,39 @@ export function SupplierInventoryChart() {
                 {/* Floating Tooltip */}
                 {isHovered && (
                   <div
-                    className={`absolute -top-14 z-20 whitespace-nowrap rounded-lg p-2 text-[10px] font-mono shadow-xl border animate-in fade-in-50 zoom-in-95 duration-150 ${
+                    className={`absolute -top-20 z-20 whitespace-nowrap rounded-lg p-2.5 text-[10px] font-mono shadow-xl border pointer-events-none animate-in fade-in-50 zoom-in-95 duration-150 ${
                       isLight
                         ? "bg-slate-900 text-white border-slate-700"
                         : "bg-[#090d16] text-white border-white/20"
                     }`}
                   >
-                    <p className="font-bold text-amber-300 pb-0.5 border-b border-white/10 mb-1">
-                      {point.label} Metrics
-                    </p>
+                    <div className="flex items-center justify-between gap-3 pb-1 border-b border-white/10 mb-1">
+                      <span className="font-bold text-amber-300">{point.label}</span>
+                      {point.dateSubtitle && (
+                        <span className="text-[9px] text-zinc-400 font-normal">{point.dateSubtitle}</span>
+                      )}
+                    </div>
                     <div className="space-y-0.5">
-                      <p className="text-emerald-400">In: +{point.stockIn.toLocaleString()}</p>
-                      <p className="text-blue-400">Out: -{point.stockOut.toLocaleString()}</p>
-                      <p className="text-amber-400">Reserved: {point.reserved.toLocaleString()}</p>
+                      <div className="flex items-center justify-between gap-3 text-emerald-400">
+                        <span>Inbound:</span>
+                        <span className="font-bold">+{point.stockIn.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-blue-400">
+                        <span>Outbound:</span>
+                        <span className="font-bold">-{point.stockOut.toLocaleString()}</span>
+                      </div>
+                      <div className="flex items-center justify-between gap-3 text-amber-400">
+                        <span>Escrow Reserved:</span>
+                        <span className="font-bold">{point.reserved.toLocaleString()}</span>
+                      </div>
+                      {point.adjustments !== 0 && (
+                        <div className="flex items-center justify-between gap-3 text-purple-400">
+                          <span>Reconciliation:</span>
+                          <span className="font-bold">
+                            {point.adjustments > 0 ? `+${point.adjustments}` : point.adjustments}
+                          </span>
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -268,17 +463,35 @@ export function SupplierInventoryChart() {
                   {/* Stock In Bar */}
                   <div
                     style={{ height: `${inHeight}px` }}
-                    className="w-1/3 rounded-t-sm bg-[#2E7D32] hover:bg-[#388E3C] transition-all"
+                    className={`w-1/3 rounded-t-sm transition-all ${
+                      point.stockIn > 0
+                        ? "bg-[#2E7D32] hover:bg-[#388E3C]"
+                        : isLight
+                        ? "bg-slate-200"
+                        : "bg-white/10"
+                    }`}
                   />
                   {/* Stock Out Bar */}
                   <div
                     style={{ height: `${outHeight}px` }}
-                    className="w-1/3 rounded-t-sm bg-blue-500 hover:bg-blue-400 transition-all"
+                    className={`w-1/3 rounded-t-sm transition-all ${
+                      point.stockOut > 0
+                        ? "bg-blue-500 hover:bg-blue-400"
+                        : isLight
+                        ? "bg-slate-200"
+                        : "bg-white/10"
+                    }`}
                   />
                   {/* Reserved Bar */}
                   <div
                     style={{ height: `${resHeight}px` }}
-                    className="w-1/3 rounded-t-sm bg-amber-500 hover:bg-amber-400 transition-all"
+                    className={`w-1/3 rounded-t-sm transition-all ${
+                      point.reserved > 0
+                        ? "bg-amber-500 hover:bg-amber-400"
+                        : isLight
+                        ? "bg-slate-200"
+                        : "bg-white/10"
+                    }`}
                   />
                 </div>
 

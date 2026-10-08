@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileQuestion,
   FileText,
@@ -14,6 +14,8 @@ import {
   ExternalLink,
   X,
   MessageSquare,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { DataFilterBar } from "../shared/data-filter-bar";
@@ -26,9 +28,13 @@ import { RFQItem, RFQStatus } from "@/types/supplier";
 import { toast } from "sonner";
 
 export function SupplierRFQView() {
-  const { rfqs, openModal, setActiveTab, currentStaffUser } = useSupplierStore();
+  const { rfqs, isLoadingRFQs, fetchRFQs, openModal, setActiveTab, currentStaffUser } = useSupplierStore();
   const { user } = useAuthStore();
   const isBranchManager = user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
+
+  useEffect(() => {
+    fetchRFQs();
+  }, [fetchRFQs]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -64,7 +70,15 @@ export function SupplierRFQView() {
         breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "RFQs" }]}
         actions={
           <div className="flex items-center gap-2">
-            <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
+            <button
+              onClick={() => fetchRFQs()}
+              disabled={isLoadingRFQs}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+            >
+              <RotateCcw className={`h-3.5 w-3.5 ${isLoadingRFQs ? "animate-spin text-emerald-600" : "text-slate-500"}`} />
+              <span>Refresh</span>
+            </button>
+            <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800/40 dark:text-emerald-400">
               {rfqs.filter((r) => r.status === "new").length} New Inquiries
             </span>
           </div>

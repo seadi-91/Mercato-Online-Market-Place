@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import {
   DollarSign,
   Wallet,
@@ -45,34 +45,31 @@ import {
   HelpCircle,
   AlertTriangle,
   Percent,
+  Trash2,
+  Star,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { StatusBadge } from "../shared/status-badge";
 import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { ModalDialog } from "../shared/modal-dialog";
-import { useSupplierStore } from "@/store/supplier-store";
+import { useSupplierStore, getBankShortCode, getBankAccentColor } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
-import { PaymentTransaction } from "@/types/supplier";
+import { PaymentTransaction, SettlementAccount } from "@/types/supplier";
 import { toast } from "sonner";
 
-// Bank Account Interface
-interface SettlementAccount {
-  id: string;
-  bankName: string;
-  shortCode: string;
-  accountNumber: string;
-  accountName: string;
-  branch: string;
-  type: "Primary Escrow" | "Instant B2B" | "Trade LC" | "Secondary";
-  clearingTime: string;
-  dailyLimit: string;
-  isDefault: boolean;
-  accentColor: string;
-}
-
 export function SupplierPaymentsView() {
-  const { transactions, setActiveTab, requestWithdrawal, releaseEscrow } = useSupplierStore();
+  const {
+    transactions,
+    setActiveTab,
+    requestWithdrawal,
+    releaseEscrow,
+    settlementAccounts,
+    addSettlementAccount,
+    deleteSettlementAccount,
+    setDefaultSettlementAccount,
+    profile,
+  } = useSupplierStore();
   const { theme } = useThemeStore();
 
   const isLight = theme === "light";
@@ -103,60 +100,32 @@ export function SupplierPaymentsView() {
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
 
   // Withdrawal form state
-  const [withdrawAmount, setWithdrawAmount] = useState<number>(1000000);
-  const [withdrawDestination, setWithdrawDestination] = useState(
-    "Commercial Bank of Ethiopia (CBE - 1000192837465)"
-  );
+  const [withdrawAmount, setWithdrawAmount] = useState<number>(50000);
+  const [withdrawDestination, setWithdrawDestination] = useState<string>("");
   const [withdrawNote, setWithdrawNote] = useState("");
 
   // New Account form state
-  const [newBankName, setNewBankName] = useState("Commercial Bank of Ethiopia");
+  const [newBankName, setNewBankName] = useState("");
   const [newAccountNumber, setNewAccountNumber] = useState("");
-  const [newAccountHolder, setNewAccountHolder] = useState("Selam Agricultural & Industrial PLC");
-  const [newBranch, setNewBranch] = useState("Addis Ababa Corporate Branch");
+  const [newAccountHolder, setNewAccountHolder] = useState("");
+  const [newBranch, setNewBranch] = useState("");
+  const [newAccountType, setNewAccountType] = useState<string>("Primary Escrow");
+  const [isDefaultAccount, setIsDefaultAccount] = useState(false);
 
-  // Accounts List State
-  const [settlementAccounts, setSettlementAccounts] = useState<SettlementAccount[]>([
-    {
-      id: "acc-cbe",
-      bankName: "Commercial Bank of Ethiopia",
-      shortCode: "CBE",
-      accountNumber: "1000192837465",
-      accountName: "Selam Agro PLC (Main Escrow)",
-      branch: "Addis Ababa Corporate Branch",
-      type: "Primary Escrow",
-      clearingTime: "RTGS (1-3 hrs)",
-      dailyLimit: "ETB 25,000,000",
-      isDefault: true,
-      accentColor: "#9333ea",
-    },
-    {
-      id: "acc-tb",
-      bankName: "Telebirr Business SuperApp",
-      shortCode: "TB",
-      accountNumber: "TB-MERCH-882910",
-      accountName: "Selam Agro Telebirr Pay",
-      branch: "Ethio Telecom B2B Portal",
-      type: "Instant B2B",
-      clearingTime: "Instant Real-Time (<60s)",
-      dailyLimit: "ETB 5,000,000",
-      isDefault: false,
-      accentColor: "#0284c7",
-    },
-    {
-      id: "acc-aib",
-      bankName: "Awash International Bank",
-      shortCode: "AIB",
-      accountNumber: "01320491823900",
-      accountName: "Selam Agro Commercial A/C",
-      branch: "Finfinne Corporate Branch",
-      type: "Trade LC",
-      clearingTime: "Same-Day (Cut-off 16:00)",
-      dailyLimit: "ETB 15,000,000",
-      isDefault: false,
-      accentColor: "#d97706",
-    },
-  ]);
+  // Keep destination auto-selected if empty
+  useEffect(() => {
+    if (!withdrawDestination && settlementAccounts.length > 0) {
+      const def = settlementAccounts.find((a) => a.isDefault) || settlementAccounts[0];
+      setWithdrawDestination(`${def.bankName} (${def.shortCode} - ${def.accountNumber})`);
+    }
+  }, [settlementAccounts, withdrawDestination]);
+
+  // Pre-fill holder name with business name when opening modal if empty
+  useEffect(() => {
+    if (isAddAccountModalOpen && !newAccountHolder) {
+      setNewAccountHolder(profile?.businessName || "");
+    }
+  }, [isAddAccountModalOpen, newAccountHolder, profile?.businessName]);
 
   const pageSize = 8;
   const usdRate = 132.5; // Indicative NBE official commercial rate
@@ -192,12 +161,12 @@ export function SupplierPaymentsView() {
 
   // Available balance
   const availableBalance = useMemo(() => {
-    const baseSettled = 4280000;
+    const baseSettled = completedVolume;
     const pendingWithdrawals = transactions
       .filter((tx) => tx.status === "pending" && tx.buyerCompany.includes("Treasury Payout"))
       .reduce((acc, tx) => acc + tx.amount, 0);
     return Math.max(0, baseSettled - pendingWithdrawals);
-  }, [transactions]);
+  }, [transactions, completedVolume]);
 
   // Escrow Milestones breakdown
   const escrowStageStats = useMemo(() => {
@@ -258,27 +227,21 @@ export function SupplierPaymentsView() {
   const maxChartVal = Math.max(...activeChartData.map((d) => d.escrow));
 
   // Channel Distribution Breakdown
+  // Dynamic Channel Distribution Breakdown
   const channelDistribution = useMemo(() => {
+    if (transactions.length === 0) return [];
     const total = transactions.reduce((acc, tx) => acc + tx.amount, 0) || 1;
-    const cbeTotal = transactions
-      .filter((t) => t.paymentMethod.includes("Commercial Bank") || t.paymentMethod.includes("CBE"))
-      .reduce((s, t) => s + t.amount, 0);
-    const tbTotal = transactions
-      .filter((t) => t.paymentMethod.includes("Telebirr"))
-      .reduce((s, t) => s + t.amount, 0);
-    const awashTotal = transactions
-      .filter((t) => t.paymentMethod.includes("Awash"))
-      .reduce((s, t) => s + t.amount, 0);
-    const escrowTotal = transactions
-      .filter((t) => t.paymentMethod.includes("MercatoX Escrow") || t.paymentMethod.includes("RTGS"))
-      .reduce((s, t) => s + t.amount, 0);
-
-    return {
-      cbe: { amount: cbeTotal, pct: Math.round((cbeTotal / total) * 100) },
-      tb: { amount: tbTotal, pct: Math.round((tbTotal / total) * 100) },
-      awash: { amount: awashTotal, pct: Math.round((awashTotal / total) * 100) },
-      escrow: { amount: escrowTotal, pct: Math.round((escrowTotal / total) * 100) },
-    };
+    const map: Record<string, number> = {};
+    transactions.forEach((tx) => {
+      const key = tx.paymentMethod || "Other";
+      map[key] = (map[key] || 0) + tx.amount;
+    });
+    return Object.entries(map).map(([name, amount]) => ({
+      name,
+      amount,
+      pct: Math.round((amount / total) * 100),
+      color: getBankAccentColor(name),
+    }));
   }, [transactions]);
 
   // Format currency helper
@@ -297,6 +260,18 @@ export function SupplierPaymentsView() {
     }
     return `ETB ${(amountETB / 1000000).toFixed(2)}M`;
   };
+
+  // Dynamically extract all available payment methods for filtering
+  const availableFilterMethods = useMemo(() => {
+    const set = new Set<string>();
+    transactions.forEach((tx) => {
+      if (tx.paymentMethod) set.add(tx.paymentMethod);
+    });
+    settlementAccounts.forEach((acc) => {
+      if (acc.bankName) set.add(acc.bankName);
+    });
+    return Array.from(set);
+  }, [transactions, settlementAccounts]);
 
   // Filtering & Sorting
   const filtered = useMemo(() => {
@@ -363,6 +338,10 @@ export function SupplierPaymentsView() {
   // Withdrawal Submit
   const handleWithdrawalSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!withdrawDestination.trim()) {
+      toast.error("Please link and select a settlement destination account first.");
+      return;
+    }
     if (withdrawAmount <= 0) {
       toast.error("Please enter a valid withdrawal amount.");
       return;
@@ -373,7 +352,7 @@ export function SupplierPaymentsView() {
     }
     requestWithdrawal(withdrawAmount, withdrawDestination, withdrawNote);
     setIsWithdrawModalOpen(false);
-    setWithdrawAmount(Math.min(500000, availableBalance));
+    setWithdrawAmount(Math.min(50000, availableBalance));
     setWithdrawNote("");
   };
 
@@ -386,40 +365,40 @@ export function SupplierPaymentsView() {
   // Add new account submit
   const handleAddAccountSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newBankName.trim()) {
+      toast.error("Please enter a financial institution / bank name.");
+      return;
+    }
     if (!newAccountNumber.trim()) {
-      toast.error("Please specify a valid account number.");
+      toast.error("Please specify a valid account number or merchant ID.");
       return;
     }
 
-    const short =
-      newBankName.includes("Dashen")
-        ? "DB"
-        : newBankName.includes("Abyssinia")
-        ? "BOA"
-        : newBankName.includes("Wegagen")
-        ? "WB"
-        : newBankName.includes("Nib")
-        ? "NIB"
-        : "BNK";
+    const short = getBankShortCode(newBankName.trim());
+    const accent = getBankAccentColor(newBankName.trim());
 
-    const newAcc: SettlementAccount = {
-      id: `acc-${Date.now()}`,
-      bankName: newBankName,
+    addSettlementAccount({
+      bankName: newBankName.trim(),
       shortCode: short,
       accountNumber: newAccountNumber.trim(),
-      accountName: newAccountHolder.trim() || "Selam Agro Commercial A/C",
-      branch: newBranch.trim() || "Addis Ababa Corporate Branch",
-      type: "Secondary",
-      clearingTime: "RTGS (2-4 hrs)",
-      dailyLimit: "ETB 10,000,000",
-      isDefault: false,
-      accentColor: "#10b981",
-    };
+      accountName: newAccountHolder.trim() || profile?.businessName || "Authorized Corporate Account",
+      branch: newBranch.trim() || "Main / Electronic Rail",
+      type: (newAccountType as any) || "Primary Escrow",
+      clearingTime: newBankName.toLowerCase().includes("telebirr")
+        ? "Instant Real-Time (<60s)"
+        : "RTGS (1-3 hrs)",
+      dailyLimit: "ETB 25,000,000",
+      isDefault: settlementAccounts.length === 0 || isDefaultAccount,
+      accentColor: accent,
+    });
 
-    setSettlementAccounts((prev) => [...prev, newAcc]);
     setIsAddAccountModalOpen(false);
+    setNewBankName("");
     setNewAccountNumber("");
-    toast.success(`Verified settlement account ${newBankName} added successfully.`);
+    setNewAccountHolder("");
+    setNewBranch("");
+    setIsDefaultAccount(false);
+    toast.success(`Verified settlement account for ${newBankName} added successfully.`);
   };
 
   // Payment method badge styling helper tailored for Light, Dark, and System
@@ -1027,89 +1006,35 @@ export function SupplierPaymentsView() {
               </h4>
 
               <div className="space-y-3">
-                {/* 1. CBE */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-medium flex items-center gap-1.5">
-                      <Landmark className="h-3 w-3 text-purple-500" />
-                      CBE RTGS Interbank
-                    </span>
-                    <span className="font-mono font-bold">{channelDistribution.cbe.pct}%</span>
+                {channelDistribution.length === 0 ? (
+                  <div className="py-5 text-center">
+                    <p className={`text-xs ${isLight ? "text-slate-400" : "text-zinc-500"}`}>
+                      No settlement volume recorded yet across banking rails.
+                    </p>
                   </div>
-                  <div
-                    className={`h-2 w-full rounded-full overflow-hidden ${
-                      isLight ? "bg-slate-100" : isSystem ? "bg-blue-900/40" : "bg-white/10"
-                    }`}
-                  >
-                    <div
-                      style={{ width: `${channelDistribution.cbe.pct}%` }}
-                      className="h-full bg-purple-500 rounded-full"
-                    />
-                  </div>
-                </div>
-
-                {/* 2. Telebirr */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-medium flex items-center gap-1.5">
-                      <Smartphone className="h-3 w-3 text-blue-500" />
-                      Telebirr Business B2B
-                    </span>
-                    <span className="font-mono font-bold">{channelDistribution.tb.pct}%</span>
-                  </div>
-                  <div
-                    className={`h-2 w-full rounded-full overflow-hidden ${
-                      isLight ? "bg-slate-100" : isSystem ? "bg-blue-900/40" : "bg-white/10"
-                    }`}
-                  >
-                    <div
-                      style={{ width: `${channelDistribution.tb.pct}%` }}
-                      className="h-full bg-blue-500 rounded-full"
-                    />
-                  </div>
-                </div>
-
-                {/* 3. Awash */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-medium flex items-center gap-1.5">
-                      <Building2 className="h-3 w-3 text-amber-500" />
-                      Awash Bank Commercial LC
-                    </span>
-                    <span className="font-mono font-bold">{channelDistribution.awash.pct}%</span>
-                  </div>
-                  <div
-                    className={`h-2 w-full rounded-full overflow-hidden ${
-                      isLight ? "bg-slate-100" : isSystem ? "bg-blue-900/40" : "bg-white/10"
-                    }`}
-                  >
-                    <div
-                      style={{ width: `${channelDistribution.awash.pct}%` }}
-                      className="h-full bg-amber-500 rounded-full"
-                    />
-                  </div>
-                </div>
-
-                {/* 4. Escrow Switch */}
-                <div>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="font-medium flex items-center gap-1.5">
-                      <ShieldCheck className="h-3 w-3 text-emerald-500" />
-                      MercatoX Direct Escrow
-                    </span>
-                    <span className="font-mono font-bold">{channelDistribution.escrow.pct}%</span>
-                  </div>
-                  <div
-                    className={`h-2 w-full rounded-full overflow-hidden ${
-                      isLight ? "bg-slate-100" : isSystem ? "bg-blue-900/40" : "bg-white/10"
-                    }`}
-                  >
-                    <div
-                      style={{ width: `${channelDistribution.escrow.pct}%` }}
-                      className="h-full bg-emerald-500 rounded-full"
-                    />
-                  </div>
-                </div>
+                ) : (
+                  channelDistribution.map((item) => (
+                    <div key={item.name}>
+                      <div className="flex items-center justify-between text-xs mb-1">
+                        <span className="font-medium flex items-center gap-1.5 truncate max-w-[200px]">
+                          <Landmark className="h-3 w-3 shrink-0" style={{ color: item.color }} />
+                          <span className="truncate">{item.name}</span>
+                        </span>
+                        <span className="font-mono font-bold shrink-0">{item.pct}%</span>
+                      </div>
+                      <div
+                        className={`h-2 w-full rounded-full overflow-hidden ${
+                          isLight ? "bg-slate-100" : isSystem ? "bg-blue-900/40" : "bg-white/10"
+                        }`}
+                      >
+                        <div
+                          style={{ width: `${item.pct}%`, backgroundColor: item.color }}
+                          className="h-full rounded-full transition-all duration-500"
+                        />
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
               <div
@@ -1168,156 +1093,166 @@ export function SupplierPaymentsView() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-            {settlementAccounts.map((acc) => {
-              // Custom Method Cards adapted to Light, Dark & System
-              const isCBE = acc.shortCode === "CBE";
-              const isTB = acc.shortCode === "TB";
-              const isAIB = acc.shortCode === "AIB";
-
-              let cardBg = "";
-              let badgeBg = "";
-              let titleColor = "";
-              let linkColor = "";
-
-              if (isCBE) {
-                cardBg = isLight
-                  ? "bg-gradient-to-br from-purple-50/70 via-white to-purple-50/30 border-purple-200 hover:border-purple-400"
-                  : isSystem
-                  ? "bg-gradient-to-br from-[#121136] via-[#0e1634] to-[#0a1028] border-purple-500/35 hover:border-purple-400 shadow-md shadow-purple-950/20"
-                  : "bg-gradient-to-br from-[#181126] via-[#120c1d] to-[#0c0814] border-purple-500/30 hover:border-purple-400 shadow-md shadow-purple-950/20";
-                badgeBg = isLight
-                  ? "bg-purple-100 text-purple-800 border-purple-200"
-                  : "bg-purple-500/20 text-purple-300 border-purple-500/30";
-                titleColor = isLight ? "text-purple-950" : "text-white";
-                linkColor = isLight ? "text-purple-700 hover:text-purple-900" : "text-purple-300 hover:text-white";
-              } else if (isTB) {
-                cardBg = isLight
-                  ? "bg-gradient-to-br from-blue-50/70 via-white to-cyan-50/30 border-blue-200 hover:border-blue-400"
-                  : isSystem
-                  ? "bg-gradient-to-br from-[#0c1e40] via-[#091734] to-[#061026] border-cyan-500/35 hover:border-cyan-400 shadow-md shadow-blue-950/20"
-                  : "bg-gradient-to-br from-[#0e1d2e] via-[#081220] to-[#050b14] border-blue-500/30 hover:border-blue-400 shadow-md shadow-blue-950/20";
-                badgeBg = isLight
-                  ? "bg-blue-100 text-blue-800 border-blue-200"
-                  : "bg-blue-500/20 text-blue-300 border-blue-500/30";
-                titleColor = isLight ? "text-blue-950" : "text-white";
-                linkColor = isLight ? "text-blue-700 hover:text-blue-900" : "text-blue-300 hover:text-white";
-              } else if (isAIB) {
-                cardBg = isLight
-                  ? "bg-gradient-to-br from-amber-50/70 via-white to-amber-50/30 border-amber-200 hover:border-amber-400"
-                  : isSystem
-                  ? "bg-gradient-to-br from-[#1c193c] via-[#141634] to-[#0c0e28] border-amber-500/35 hover:border-amber-400 shadow-md shadow-amber-950/20"
-                  : "bg-gradient-to-br from-[#24170a] via-[#1a1006] to-[#0f0903] border-amber-500/30 hover:border-amber-400 shadow-md shadow-amber-950/20";
-                badgeBg = isLight
-                  ? "bg-amber-100 text-amber-800 border-amber-200"
-                  : "bg-amber-500/20 text-amber-300 border-amber-500/30";
-                titleColor = isLight ? "text-amber-950" : "text-white";
-                linkColor = isLight ? "text-amber-700 hover:text-amber-900" : "text-amber-300 hover:text-white";
-              } else {
-                cardBg = isLight
-                  ? "bg-white border-slate-200 hover:border-slate-300"
-                  : isSystem
-                  ? "bg-[#0f1b3b] border-blue-500/25 hover:border-blue-400/40"
-                  : "bg-[#111622] border-white/10 hover:border-white/20";
-                badgeBg = isLight
-                  ? "bg-slate-100 text-slate-800 border-slate-200"
-                  : "bg-white/10 text-zinc-300 border-white/10";
-                titleColor = isLight ? "text-slate-900" : "text-white";
-                linkColor = isLight ? "text-slate-700 hover:text-slate-900" : "text-zinc-300 hover:text-white";
-              }
-
-              return (
-                <div
-                  key={acc.id}
-                  className={`relative rounded-2xl border p-4 shadow-xs transition-all group overflow-hidden ${cardBg}`}
+            {settlementAccounts.length === 0 ? (
+              <div
+                className={`col-span-full rounded-2xl border border-dashed p-8 text-center flex flex-col items-center justify-center ${
+                  isLight
+                    ? "border-slate-300 bg-slate-50/60"
+                    : isSystem
+                    ? "border-blue-500/25 bg-[#0a1226]/50"
+                    : "border-white/10 bg-white/[0.02]"
+                }`}
+              >
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 mb-3">
+                  <Landmark className="w-6 h-6" />
+                </div>
+                <h4 className="font-bold text-sm">No Settlement Accounts Linked</h4>
+                <p
+                  className={`text-xs max-w-md mt-1 mb-4 ${
+                    isLight ? "text-slate-500" : "text-zinc-400"
+                  }`}
                 >
-                  {/* Subtle top indicator bar */}
-                  <div
-                    className="absolute top-0 left-0 right-0 h-1 opacity-80"
-                    style={{ backgroundColor: acc.accentColor }}
-                  />
+                  Add your preferred commercial bank, microfinance account, or mobile money merchant ID to receive automated treasury payouts.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsAddAccountModalOpen(true)}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Link Bank / Account</span>
+                </button>
+              </div>
+            ) : (
+              settlementAccounts.map((acc) => {
+                const cardBg = isLight
+                  ? "bg-white border-slate-200 hover:border-slate-300 shadow-xs"
+                  : isSystem
+                  ? "bg-[#0c1630] border-blue-500/25 hover:border-blue-400/40 shadow-xs"
+                  : "bg-[#111622] border-white/10 hover:border-white/20 shadow-xs";
+                const titleColor = isLight ? "text-slate-900" : "text-white";
+                const linkColor = isLight
+                  ? "text-emerald-700 hover:text-emerald-900"
+                  : "text-emerald-400 hover:text-emerald-300";
 
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="flex h-10 w-10 items-center justify-center rounded-xl font-black text-xs text-white shadow-xs"
-                        style={{ backgroundColor: acc.accentColor }}
-                      >
-                        {acc.shortCode}
-                      </div>
-                      <div>
-                        <h4 className={`text-xs font-bold flex items-center gap-1.5 ${titleColor}`}>
-                          <span>{acc.bankName}</span>
-                        </h4>
-                        <p
-                          className={`text-[11px] font-mono flex items-center gap-1 mt-0.5 ${
-                            isLight ? "text-slate-500" : isSystem ? "text-blue-200/70" : "text-zinc-400"
-                          }`}
+                return (
+                  <div
+                    key={acc.id}
+                    className={`relative rounded-2xl border p-4 shadow-xs transition-all group overflow-hidden ${cardBg}`}
+                  >
+                    {/* Top indicator bar */}
+                    <div
+                      className="absolute top-0 left-0 right-0 h-1 opacity-80"
+                      style={{ backgroundColor: acc.accentColor }}
+                    />
+
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-black text-xs text-white shadow-xs"
+                          style={{ backgroundColor: acc.accentColor }}
                         >
-                          <span>A/C: {acc.accountNumber}</span>
-                          <button
-                            onClick={() => handleCopy(acc.accountNumber, acc.id)}
-                            title="Copy account number"
-                            className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                          {acc.shortCode}
+                        </div>
+                        <div className="min-w-0">
+                          <h4 className={`text-xs font-bold flex items-center gap-1.5 truncate ${titleColor}`}>
+                            <span className="truncate">{acc.bankName}</span>
+                          </h4>
+                          <p
+                            className={`text-[11px] font-mono flex items-center gap-1 mt-0.5 ${
+                              isLight ? "text-slate-500" : isSystem ? "text-blue-200/70" : "text-zinc-400"
+                            }`}
                           >
-                            {copiedRef === acc.id ? (
-                              <Check className="h-3 w-3 text-emerald-500" />
-                            ) : (
-                              <Copy className="h-3 w-3" />
-                            )}
+                            <span>A/C: {acc.accountNumber}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleCopy(acc.accountNumber, acc.id)}
+                              title="Copy account number"
+                              className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                            >
+                              {copiedRef === acc.id ? (
+                                <Check className="h-3 w-3 text-emerald-500" />
+                              ) : (
+                                <Copy className="h-3 w-3" />
+                              )}
+                            </button>
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1 shrink-0">
+                        {acc.isDefault ? (
+                          <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                            <BadgeCheck className="h-3 w-3" />
+                            Default
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setDefaultSettlementAccount(acc.id)}
+                            title="Set as Default"
+                            className="p-1 rounded-md text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer"
+                          >
+                            <Star className="h-3.5 w-3.5" />
                           </button>
-                        </p>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (confirm(`Remove ${acc.bankName} (${acc.accountNumber})?`)) {
+                              deleteSettlementAccount(acc.id);
+                            }
+                          }}
+                          title="Remove Account"
+                          className="p-1 rounded-md text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </div>
                     </div>
 
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold border ${badgeBg}`}
-                    >
-                      <BadgeCheck className="h-3 w-3" />
-                      {acc.type}
-                    </span>
-                  </div>
-
-                  <div
-                    className={`mt-3.5 border-t pt-2.5 flex items-center justify-between text-[11px] ${
-                      isLight
-                        ? "border-slate-100 text-slate-500"
-                        : isSystem
-                        ? "border-blue-500/20 text-blue-200/70"
-                        : "border-white/5 text-zinc-400"
-                    }`}
-                  >
-                    <span className="truncate max-w-[170px]">{acc.branch}</span>
-                    <span
-                      className={`font-semibold ${
-                        isLight ? "text-slate-800" : isSystem ? "text-blue-100" : "text-zinc-200"
+                    <div
+                      className={`mt-3.5 border-t pt-2.5 flex items-center justify-between text-[11px] ${
+                        isLight
+                          ? "border-slate-100 text-slate-500"
+                          : isSystem
+                          ? "border-blue-500/20 text-blue-200/70"
+                          : "border-white/5 text-zinc-400"
                       }`}
                     >
-                      {acc.clearingTime}
-                    </span>
-                  </div>
+                      <span className="truncate max-w-[170px]">{acc.branch || "Central Rail"}</span>
+                      <span
+                        className={`font-semibold ${
+                          isLight ? "text-slate-800" : isSystem ? "text-blue-100" : "text-zinc-200"
+                        }`}
+                      >
+                        {acc.clearingTime}
+                      </span>
+                    </div>
 
-                  {/* Card Action footer */}
-                  <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1">
-                    <span
-                      className={`text-[10px] ${
-                        isLight ? "text-slate-400" : isSystem ? "text-blue-300/60" : "text-zinc-500"
-                      }`}
-                    >
-                      Limit: {acc.dailyLimit}
-                    </span>
-                    <button
-                      onClick={() => {
-                        setWithdrawDestination(`${acc.bankName} (${acc.shortCode} - ${acc.accountNumber})`);
-                        setIsWithdrawModalOpen(true);
-                      }}
-                      className={`text-xs font-bold hover:underline cursor-pointer ${linkColor}`}
-                    >
-                      Withdraw Here →
-                    </button>
+                    {/* Card Action footer */}
+                    <div className="mt-2.5 flex items-center justify-between text-[11px] pt-1">
+                      <span
+                        className={`text-[10px] ${
+                          isLight ? "text-slate-400" : isSystem ? "text-blue-300/60" : "text-zinc-500"
+                        }`}
+                      >
+                        Type: {acc.type}
+                      </span>
+                      <button
+                        onClick={() => {
+                          setWithdrawDestination(`${acc.bankName} (${acc.shortCode} - ${acc.accountNumber})`);
+                          setIsWithdrawModalOpen(true);
+                        }}
+                        className={`text-xs font-bold hover:underline cursor-pointer ${linkColor}`}
+                      >
+                        Withdraw Here →
+                      </button>
+                    </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       )}
@@ -1736,12 +1671,11 @@ export function SupplierPaymentsView() {
               }`}
             >
               <option value="all">All Banking Rails</option>
-              <option value="MercatoX Escrow">MercatoX Escrow</option>
-              <option value="Commercial Bank of Ethiopia">Commercial Bank of Ethiopia</option>
-              <option value="Telebirr Business">Telebirr Business</option>
-              <option value="Awash Bank">Awash Bank</option>
-              <option value="Bank Transfer (RTGS)">Bank Transfer (RTGS)</option>
-              <option value="CBE Birr">CBE Birr</option>
+              {availableFilterMethods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
             </select>
 
             {/* Sort Field Selector */}
@@ -2391,64 +2325,95 @@ export function SupplierPaymentsView() {
             <label className="block font-semibold mb-1.5">
               Destination Settlement Channel
             </label>
-            <div className="space-y-2">
-              {settlementAccounts.map((acc) => {
-                const isSelected = withdrawDestination.includes(acc.accountNumber);
-                return (
-                  <div
-                    key={acc.id}
-                    onClick={() =>
-                      setWithdrawDestination(`${acc.bankName} (${acc.shortCode} - ${acc.accountNumber})`)
-                    }
-                    className={`rounded-2xl border p-3 flex items-center justify-between cursor-pointer transition-all ${
-                      isSelected
-                        ? isLight
-                          ? "border-emerald-600 bg-emerald-50/80 ring-2 ring-emerald-500/25 shadow-xs"
+            {settlementAccounts.length === 0 ? (
+              <div
+                className={`rounded-2xl border border-dashed p-5 text-center ${
+                  isLight
+                    ? "border-amber-300 bg-amber-50/70"
+                    : isSystem
+                    ? "border-blue-500/30 bg-[#0a1226]"
+                    : "border-amber-500/20 bg-amber-500/5"
+                }`}
+              >
+                <AlertCircle className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+                <p className={`text-xs font-bold ${isLight ? "text-amber-900" : "text-amber-300"}`}>
+                  No settlement accounts linked yet
+                </p>
+                <p className={`text-[11px] mt-1 mb-3.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
+                  You must link an authorized Ethiopian bank or mobile money account before dispatching a treasury withdrawal.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsWithdrawModalOpen(false);
+                    setIsAddAccountModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-all shadow-xs cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Link Settlement Account Now</span>
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {settlementAccounts.map((acc) => {
+                  const isSelected = withdrawDestination.includes(acc.accountNumber);
+                  return (
+                    <div
+                      key={acc.id}
+                      onClick={() =>
+                        setWithdrawDestination(`${acc.bankName} (${acc.shortCode} - ${acc.accountNumber})`)
+                      }
+                      className={`rounded-2xl border p-3 flex items-center justify-between cursor-pointer transition-all ${
+                        isSelected
+                          ? isLight
+                            ? "border-emerald-600 bg-emerald-50/80 ring-2 ring-emerald-500/25 shadow-xs"
+                            : isSystem
+                            ? "border-blue-400 bg-blue-950/40 ring-2 ring-blue-500/30 shadow-xs"
+                            : "border-emerald-400 bg-emerald-950/40 ring-2 ring-emerald-500/30 shadow-xs"
+                          : isLight
+                          ? "border-slate-200 bg-white hover:border-slate-300"
                           : isSystem
-                          ? "border-blue-400 bg-blue-950/40 ring-2 ring-blue-500/30 shadow-xs"
-                          : "border-emerald-400 bg-emerald-950/40 ring-2 ring-emerald-500/30 shadow-xs"
-                        : isLight
-                        ? "border-slate-200 bg-white hover:border-slate-300"
-                        : isSystem
-                        ? "border-blue-500/20 bg-[#0c1630] hover:border-blue-500/35"
-                        : "border-white/10 bg-[#12161f] hover:border-white/20"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div
-                        className="flex h-8 w-8 items-center justify-center rounded-lg font-bold text-[10px] text-white"
-                        style={{ backgroundColor: acc.accentColor }}
-                      >
-                        {acc.shortCode}
+                          ? "border-blue-500/20 bg-[#0c1630] hover:border-blue-500/35"
+                          : "border-white/10 bg-[#12161f] hover:border-white/20"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <div
+                          className="flex h-8 w-8 items-center justify-center rounded-lg font-bold text-[10px] text-white"
+                          style={{ backgroundColor: acc.accentColor }}
+                        >
+                          {acc.shortCode}
+                        </div>
+                        <div>
+                          <p className="font-bold text-xs">{acc.bankName}</p>
+                          <p className="text-[11px] opacity-70 font-mono">
+                            A/C: {acc.accountNumber} • {acc.clearingTime}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-bold text-xs">{acc.bankName}</p>
-                        <p className="text-[11px] opacity-70 font-mono">
-                          A/C: {acc.accountNumber} • {acc.clearingTime}
-                        </p>
-                      </div>
-                    </div>
 
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold opacity-60">{acc.type}</span>
-                      <div
-                        className={`h-4 w-4 rounded-full border flex items-center justify-center ${
-                          isSelected
-                            ? isLight
-                              ? "border-emerald-600 bg-emerald-600 text-white"
-                              : isSystem
-                              ? "border-blue-500 bg-blue-500 text-white"
-                              : "border-emerald-400 bg-emerald-400 text-slate-950"
-                            : "border-slate-300 dark:border-white/20"
-                        }`}
-                      >
-                        {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-bold opacity-60">{acc.type}</span>
+                        <div
+                          className={`h-4 w-4 rounded-full border flex items-center justify-center ${
+                            isSelected
+                              ? isLight
+                                ? "border-emerald-600 bg-emerald-600 text-white"
+                                : isSystem
+                                ? "border-blue-500 bg-blue-500 text-white"
+                                : "border-emerald-400 bg-emerald-400 text-slate-950"
+                              : "border-slate-300 dark:border-white/20"
+                          }`}
+                        >
+                          {isSelected && <Check className="h-2.5 w-2.5 stroke-[3]" />}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Optional transfer note */}
@@ -2884,27 +2849,74 @@ export function SupplierPaymentsView() {
         <form onSubmit={handleAddAccountSubmit} className="space-y-4 text-xs">
           <div>
             <label className="block font-semibold mb-1.5">
-              Select Financial Institution / Banking Rail <span className="text-rose-500">*</span>
+              Financial Institution / Bank Name <span className="text-rose-500">*</span>
             </label>
-            <select
+            <input
+              type="text"
+              list="popular-ethiopian-banks"
+              placeholder="Type any bank name (e.g. Commercial Bank of Ethiopia, Siinqee Bank, Coop Bank...)"
               value={newBankName}
               onChange={(e) => setNewBankName(e.target.value)}
-              className={`w-full rounded-xl border p-2.5 text-xs focus:outline-hidden cursor-pointer ${
+              className={`w-full rounded-xl border p-2.5 text-xs focus:outline-hidden ${
                 isLight
                   ? "border-slate-200 bg-white text-slate-900 focus:border-emerald-600"
                   : isSystem
                   ? "border-blue-500/25 bg-[#0c1630] text-white focus:border-blue-400"
                   : "border-white/10 bg-[#12161f] text-white focus:border-emerald-500"
               }`}
-            >
-              <option value="Commercial Bank of Ethiopia">Commercial Bank of Ethiopia (CBE)</option>
-              <option value="Dashen Bank">Dashen Bank (Amole B2B)</option>
-              <option value="Bank of Abyssinia">Bank of Abyssinia (Apollo B2B)</option>
-              <option value="Awash International Bank">Awash International Bank</option>
-              <option value="Nib International Bank">Nib International Bank</option>
-              <option value="Wegagen Bank">Wegagen Bank</option>
-              <option value="Telebirr Business">Telebirr Business SuperApp</option>
-            </select>
+              required
+            />
+            <datalist id="popular-ethiopian-banks">
+              <option value="Commercial Bank of Ethiopia (CBE)" />
+              <option value="Bank of Abyssinia" />
+              <option value="Dashen Bank" />
+              <option value="Awash International Bank" />
+              <option value="Cooperative Bank of Oromia" />
+              <option value="Siinqee Bank" />
+              <option value="Nib International Bank" />
+              <option value="Wegagen Bank" />
+              <option value="Hibret Bank" />
+              <option value="Zemen Bank" />
+              <option value="Berhan Bank" />
+              <option value="Bunna International Bank" />
+              <option value="Enat Bank" />
+              <option value="Abay Bank" />
+              <option value="Global Bank Ethiopia" />
+              <option value="Addis International Bank" />
+              <option value="Hijra Bank" />
+              <option value="ZamZam Bank" />
+              <option value="Telebirr Business" />
+              <option value="CBE Birr" />
+            </datalist>
+
+            {/* Quick-Pick suggestions for rapid entry */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2">
+              <span className="text-[10px] text-slate-500 font-medium mr-1">Quick pick:</span>
+              {[
+                "Commercial Bank of Ethiopia",
+                "Bank of Abyssinia",
+                "Dashen Bank",
+                "Awash Bank",
+                "Coop Bank of Oromia",
+                "Siinqee Bank",
+                "Telebirr Business",
+              ].map((b) => (
+                <button
+                  key={b}
+                  type="button"
+                  onClick={() => setNewBankName(b)}
+                  className={`text-[10px] px-2 py-0.5 rounded-full border transition-all cursor-pointer ${
+                    newBankName === b
+                      ? "border-emerald-500 bg-emerald-500/10 text-emerald-400 font-bold"
+                      : isLight
+                      ? "border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100"
+                      : "border-white/10 bg-white/5 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  {b.replace("Commercial Bank of Ethiopia", "CBE").replace("Bank of Abyssinia", "Abyssinia")}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div>
@@ -2929,10 +2941,11 @@ export function SupplierPaymentsView() {
 
           <div>
             <label className="block font-semibold mb-1.5">
-              Account Holder Name (Must match Trade License TIN)
+              Account Holder Legal Name
             </label>
             <input
               type="text"
+              placeholder="Business name or registered account holder"
               value={newAccountHolder}
               onChange={(e) => setNewAccountHolder(e.target.value)}
               className={`w-full rounded-xl border p-2.5 text-xs focus:outline-hidden ${
@@ -2947,10 +2960,11 @@ export function SupplierPaymentsView() {
 
           <div>
             <label className="block font-semibold mb-1.5">
-              Branch Name / Region
+              Branch Name / Channel
             </label>
             <input
               type="text"
+              placeholder="e.g. Bole Medhanialem Branch or Central Office"
               value={newBranch}
               onChange={(e) => setNewBranch(e.target.value)}
               className={`w-full rounded-xl border p-2.5 text-xs focus:outline-hidden ${
@@ -2963,6 +2977,40 @@ export function SupplierPaymentsView() {
             />
           </div>
 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="block font-semibold mb-1.5">Account Purpose / Type</label>
+              <select
+                value={newAccountType}
+                onChange={(e) => setNewAccountType(e.target.value)}
+                className={`w-full rounded-xl border p-2.5 text-xs focus:outline-hidden cursor-pointer ${
+                  isLight
+                    ? "border-slate-200 bg-white text-slate-900 focus:border-emerald-600"
+                    : isSystem
+                    ? "border-blue-500/25 bg-[#0c1630] text-white focus:border-blue-400"
+                    : "border-white/10 bg-[#12161f] text-white focus:border-emerald-500"
+                }`}
+              >
+                <option value="Primary Escrow">Primary Escrow Destination</option>
+                <option value="Instant B2B">Instant B2B / Mobile Settlement</option>
+                <option value="Trade LC">Trade Letter of Credit (LC)</option>
+                <option value="Secondary">Secondary Commercial Account</option>
+              </select>
+            </div>
+
+            <div className="flex items-center pt-5">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isDefaultAccount}
+                  onChange={(e) => setIsDefaultAccount(e.target.checked)}
+                  className="rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 h-4 w-4"
+                />
+                <span className="font-semibold text-xs">Set as default account</span>
+              </label>
+            </div>
+          </div>
+
           <div
             className={`rounded-xl p-3 text-[11px] ${
               isLight
@@ -2972,7 +3020,7 @@ export function SupplierPaymentsView() {
                 : "bg-white/5 text-zinc-400"
             }`}
           >
-            Accounts are instantly validated against National Bank of Ethiopia interbank KYC registry.
+            Accounts are instantly validated against National Bank of Ethiopia interbank settlement standards.
           </div>
         </form>
       </ModalDialog>

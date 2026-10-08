@@ -15,13 +15,21 @@ import {
   PayoutRecord,
   UploadImageResult,
 } from "@/types/api";
-import { Warehouse, WarehouseTransfer } from "@/types/supplier";
+import {
+  Warehouse,
+  WarehouseTransfer,
+  RFQItem,
+  Quotation,
+  NegotiationSession,
+  SupplierStaff,
+} from "@/types/supplier";
 
 export interface FilterProductsParams {
   page?: number;
   limit?: number;
   search?: string;
   categoryId?: string;
+  branchId?: string;
   isAvailable?: boolean;
   isLowStock?: boolean;
   sortBy?: string;
@@ -80,6 +88,7 @@ export const sellerService = {
     if (params?.limit) query.append("limit", String(params.limit));
     if (params?.search) query.append("search", params.search);
     if (params?.categoryId) query.append("categoryId", params.categoryId);
+    if (params?.branchId) query.append("branchId", params.branchId);
     if (params?.isAvailable !== undefined)
       query.append("isAvailable", String(params.isAvailable));
     if (params?.isLowStock) query.append("isLowStock", "true");
@@ -223,6 +232,102 @@ export const sellerService = {
       ENDPOINTS.SELLER_WAREHOUSE_TRANSFER_STATUS(id),
       { status }
     );
+  },
+
+  // --- RFQs (Request for Quotations) ---
+  getRFQs: (): Promise<RFQItem[]> => {
+    return api.get<RFQItem[]>(ENDPOINTS.SELLER_RFQS);
+  },
+
+  updateRFQStatus: (id: string, status: string): Promise<RFQItem> => {
+    return api.patch<RFQItem>(ENDPOINTS.SELLER_RFQ_STATUS(id), { status });
+  },
+
+  // --- Quotations ---
+  getQuotations: (): Promise<Quotation[]> => {
+    return api.get<Quotation[]>(ENDPOINTS.SELLER_QUOTATIONS);
+  },
+
+  createQuotation: (data: Partial<Quotation>): Promise<Quotation> => {
+    return api.post<Quotation>(ENDPOINTS.SELLER_QUOTATIONS, data);
+  },
+
+  // --- Negotiations & CBE Escrow Deals ---
+  getNegotiations: (): Promise<NegotiationSession[]> => {
+    return api.get<NegotiationSession[]>(ENDPOINTS.SELLER_NEGOTIATIONS);
+  },
+
+  sendCounterOffer: (
+    id: string,
+    data: {
+      newPrice: number;
+      message?: string;
+      attachmentName?: string;
+      incoterm?: string;
+      deliveryLeadTimeDays?: number;
+      paymentTerms?: string;
+    }
+  ): Promise<NegotiationSession> => {
+    return api.post<NegotiationSession>(
+      ENDPOINTS.SELLER_NEGOTIATION_COUNTER(id),
+      data
+    );
+  },
+
+  acceptNegotiation: (id: string): Promise<NegotiationSession> => {
+    return api.patch<NegotiationSession>(
+      ENDPOINTS.SELLER_NEGOTIATION_ACCEPT(id),
+      {}
+    );
+  },
+
+  declineNegotiation: (
+    id: string,
+    reason?: string
+  ): Promise<NegotiationSession> => {
+    return api.patch<NegotiationSession>(
+      ENDPOINTS.SELLER_NEGOTIATION_DECLINE(id),
+      { reason }
+    );
+  },
+
+  sendNegotiationMessage: (
+    id: string,
+    message: string
+  ): Promise<NegotiationSession> => {
+    return api.post<NegotiationSession>(
+      ENDPOINTS.SELLER_NEGOTIATION_MESSAGES(id),
+      { message }
+    );
+  },
+
+  // --- Seller / Supplier Business Profile ---
+  getProfile: (): Promise<any> => {
+    return api.get<any>(ENDPOINTS.SELLER_PROFILE);
+  },
+
+  updateProfile: (data: any): Promise<any> => {
+    return api.patch<any>(ENDPOINTS.SELLER_PROFILE, data);
+  },
+
+  // --- Staff & Fleet Personnel Management ---
+  getStaff: (): Promise<SupplierStaff[]> => {
+    return api.get<SupplierStaff[]>(ENDPOINTS.SELLER_STAFF);
+  },
+
+  createStaff: (data: Partial<SupplierStaff>): Promise<SupplierStaff> => {
+    return api.post<SupplierStaff>(ENDPOINTS.SELLER_STAFF, data);
+  },
+
+  updateStaff: (
+    id: string,
+    data: Partial<SupplierStaff>
+  ): Promise<SupplierStaff> => {
+    return api.patch<SupplierStaff>(ENDPOINTS.SELLER_STAFF_ID(id), data);
+  },
+
+  deleteStaff: (id: string): Promise<{ success: boolean; id: string }> => {
+    return api.delete(ENDPOINTS.SELLER_STAFF_ID(id));
   },
 };
 

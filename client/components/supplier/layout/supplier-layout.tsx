@@ -44,11 +44,22 @@ import { useSupplierStore } from "@/store/supplier-store";
 import { SupplierTab } from "@/types/supplier";
 
 export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab } = {}) {
-  const { activeTab, setActiveTab, subView, fetchWarehouses } = useSupplierStore();
+  const {
+    activeTab,
+    setActiveTab,
+    subView,
+    fetchWarehouses,
+    fetchStaff,
+    hydrateStore,
+    fetchProfile,
+  } = useSupplierStore();
 
   React.useEffect(() => {
+    hydrateStore();
+    fetchProfile();
     fetchWarehouses();
-  }, [fetchWarehouses]);
+    fetchStaff();
+  }, [hydrateStore, fetchProfile, fetchWarehouses, fetchStaff]);
 
   React.useEffect(() => {
     if (initialTab) {

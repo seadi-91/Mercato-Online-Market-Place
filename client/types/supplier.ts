@@ -259,6 +259,16 @@ export interface B2BOrder {
   assignedDriverPhone?: string;
   assignedVehiclePlate?: string;
   assignedVehicleType?: string;
+  orderItems?: {
+    id: string;
+    productId: string;
+    productName: string;
+    sku?: string;
+    quantity: number;
+    unit: string;
+    unitPrice: number;
+    total: number;
+  }[];
 }
 
 export interface CustomerCRM {
@@ -375,6 +385,7 @@ export interface Warehouse {
   managerEmail?: string;
   certificationStatus?: string; // e.g. "ECAE & Customs Bonded #CUS-ETH-891"
   fireSafetyRating?: string;
+  status?: string;
 }
 
 export interface WarehouseTransfer {
@@ -518,6 +529,20 @@ export interface Invoice {
   paidAmount: number;
 }
 
+export interface SettlementAccount {
+  id: string;
+  bankName: string;
+  shortCode: string;
+  accountNumber: string;
+  accountName: string;
+  branch: string;
+  type: "Primary Escrow" | "Instant B2B" | "Trade LC" | "Secondary" | string;
+  clearingTime: string;
+  dailyLimit: string;
+  isDefault: boolean;
+  accentColor: string;
+}
+
 export interface PaymentTransaction {
   id: string;
   transactionNumber: string;
@@ -527,7 +552,7 @@ export interface PaymentTransaction {
   amount: number;
   feeETB?: number;
   netAmountETB?: number;
-  paymentMethod: "Telebirr Business" | "CBE Birr" | "Commercial Bank of Ethiopia" | "Awash Bank" | "MercatoX Escrow" | "Bank Transfer (RTGS)";
+  paymentMethod: string;
   status: "completed" | "escrow_held" | "pending" | "failed" | "refunded";
   date: string;
   referenceNumber: string;
@@ -540,16 +565,28 @@ export interface PaymentTransaction {
 export interface PromotionCampaign {
   id: string;
   title: string;
-  type: "bulk_volume_discount" | "seasonal_flash" | "featured_catalog" | "category_special";
-  productName: string;
+  type: "bulk_volume_discount" | "seasonal_flash" | "featured_catalog" | "category_special" | "coupon_code" | "free_shipping";
+  discountType?: "percentage" | "fixed_amount" | "tiered_rebate" | "free_shipping";
   discountPercentage: number;
+  discountAmountETB?: number;
+  promoCode?: string;
+  scope?: "all_products" | "specific_category" | "specific_products";
+  category?: string;
+  productName: string;
+  productIds?: string[];
   minOrderQuantity: number;
+  minOrderValueETB?: number;
+  maxDiscountETB?: number;
+  usageLimit?: number;
+  usageCount?: number;
   startDate: string;
   endDate: string;
-  status: "active" | "scheduled" | "expired";
+  status: "active" | "scheduled" | "expired" | "paused";
   views: number;
   conversions: number;
   generatedRevenue: number;
+  bannerHeadline?: string;
+  description?: string;
 }
 
 export interface ReturnCase {

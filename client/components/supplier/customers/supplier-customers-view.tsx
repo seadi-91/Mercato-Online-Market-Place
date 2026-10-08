@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Users,
   Building,
@@ -69,10 +69,17 @@ export function SupplierCustomersView() {
     openModal,
     setActiveTab,
     setActiveChatThreadId,
+    fetchOrders,
+    fetchRFQs,
   } = useSupplierStore();
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
+
+  useEffect(() => {
+    fetchOrders();
+    fetchRFQs();
+  }, [fetchOrders, fetchRFQs]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -91,7 +98,66 @@ export function SupplierCustomersView() {
     return () => window.removeEventListener("click", handleOutsideClick);
   }, []);
 
-  const filtered = customers.filter((c) => {
+  // Dynamically derive genuine enterprise buyers from real orders and RFQs if not explicitly saved
+  const effectiveCustomers = useMemo(() => {
+    if (customers.length > 0) return customers;
+    const map = new Map<string, CustomerCRM>();
+    orders.forEach((o) => {
+      const name = o.buyerCompany || o.contactPerson;
+      if (!name) return;
+      if (!map.has(name)) {
+        map.set(name, {
+          id: `cust-${encodeURIComponent(name)}`,
+          companyName: name,
+          contactPerson: o.contactPerson || "Procurement Officer",
+          email: o.buyerEmail || "procurement@buyer.et",
+          phone: o.buyerPhone || "+251 91 000 0000",
+          tinNumber: o.buyerTinNumber || "0000000000",
+          location: o.buyerLocation || "Ethiopia",
+          status: "active",
+          totalOrders: 1,
+          totalSpend: Number(o.total) || 0,
+          outstandingBalance: 0,
+          creditLimit: 0,
+          lastOrderDate: o.orderDate || new Date().toISOString().split("T")[0],
+          tags: ["Enterprise Buyer"],
+          kycLevel: "Tier 1 Basic",
+          buyerTier: "Standard",
+        });
+      } else {
+        const item = map.get(name)!;
+        item.totalOrders += 1;
+        item.totalSpend += Number(o.total) || 0;
+      }
+    });
+    rfqs.forEach((r) => {
+      const name = r.buyerCompany || r.buyerName;
+      if (!name) return;
+      if (!map.has(name)) {
+        map.set(name, {
+          id: `cust-${encodeURIComponent(name)}`,
+          companyName: name,
+          contactPerson: r.buyerName || "Procurement Lead",
+          email: "inquiry@buyer.et",
+          phone: "+251 91 000 0000",
+          tinNumber: "0000000000",
+          location: r.deliveryLocation || r.buyerLocation || "Ethiopia",
+          status: "active",
+          totalOrders: 0,
+          totalSpend: 0,
+          outstandingBalance: 0,
+          creditLimit: 0,
+          lastOrderDate: r.createdAt || new Date().toISOString().split("T")[0],
+          tags: ["RFQ Inquirer"],
+          kycLevel: "Tier 1 Basic",
+          buyerTier: "Standard",
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [customers, orders, rfqs]);
+
+  const filtered = effectiveCustomers.filter((c: CustomerCRM) => {
     const matchesSearch =
       c.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       c.contactPerson.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -107,7 +173,7 @@ export function SupplierCustomersView() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const paginated = filtered.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
-  const selectedCustomer = customers.find((c) => c.id === selectedCustomerId);
+  const selectedCustomer = effectiveCustomers.find((c: CustomerCRM) => c.id === selectedCustomerId);
 
   // Customer 360 Related Data: Filter specifically for orders placed with THIS supplier
   const customerOrdersWithThisSupplier = selectedCustomer
@@ -556,7 +622,7 @@ export function SupplierCustomersView() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {selectedCustomer.topOrderedCommoditiesFromSupplier.map((item, idx) => (
+                  {selectedCustomer.topOrderedCommoditiesFromSupplier.map((item: any, idx: number) => (
                     <div
                       key={idx}
                       className={`p-3.5 rounded-xl border space-y-1.5 ${innerCardBgClass}`}
@@ -915,7 +981,7 @@ export function SupplierCustomersView() {
                       Quality & Industrial Standards
                     </span>
                     <div className="flex flex-wrap gap-1.5">
-                      {selectedCustomer.certifications.map((cert, idx) => (
+                      {selectedCustomer.certifications.map((cert: any, idx: number) => (
                         <span
                           key={idx}
                           className="px-2 py-0.5 rounded-md text-[10px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
@@ -1224,7 +1290,7 @@ export function SupplierCustomersView() {
         actions={
           <div className="flex items-center gap-2">
             <span className="rounded-lg border border-indigo-200/20 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-400">
-              {customers.length} Enterprise Clients
+              {effectiveCustomers.length} Enterprise Clients
             </span>
           </div>
         }
@@ -1284,7 +1350,7 @@ export function SupplierCustomersView() {
               className={`divide-y ${isLight ? "divide-slate-200" : isSystem ? "divide-blue-500/10" : "divide-white/5"
                 }`}
             >
-              {paginated.map((c) => {
+              {paginated.map((c: CustomerCRM) => {
                 const isMenuOpen = activeMenuId === c.id;
                 const ordersCount = c.supplierSpecificOrdersCount || c.totalOrders;
                 const totalSpend = c.supplierSpecificTotalSpend || c.totalSpend;

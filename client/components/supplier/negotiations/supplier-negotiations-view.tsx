@@ -27,9 +27,11 @@ import {
   Info,
   ChevronRight,
   ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { StatusBadge } from "../shared/status-badge";
+import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
@@ -39,6 +41,8 @@ import { toast } from "sonner";
 export function SupplierNegotiationsView() {
   const {
     negotiations,
+    isLoadingNegotiations,
+    fetchNegotiations,
     openModal,
     acceptNegotiationOffer,
     sendCounterOffer,
@@ -53,8 +57,19 @@ export function SupplierNegotiationsView() {
   const isLight = theme === "light";
   const isSystem = theme === "system";
 
+  useEffect(() => {
+    fetchNegotiations();
+  }, [fetchNegotiations]);
+
   // State
   const [activeSessionId, setActiveSessionId] = useState<string>(negotiations[0]?.id || "");
+
+  // Synchronize active session when negotiations load
+  useEffect(() => {
+    if (negotiations.length > 0 && (!activeSessionId || !negotiations.some((n) => n.id === activeSessionId))) {
+      setActiveSessionId(negotiations[0].id);
+    }
+  }, [negotiations, activeSessionId]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "action_required" | "buyer_turn" | "agreed">("all");
   const [messageInput, setMessageInput] = useState("");
@@ -153,6 +168,20 @@ export function SupplierNegotiationsView() {
         breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Negotiations" }]}
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchNegotiations()}
+              disabled={isLoadingNegotiations}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold transition-colors disabled:opacity-50 cursor-pointer ${
+                isLight
+                  ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50"
+                  : isSystem
+                  ? "bg-[#0f1b3b] border-blue-500/25 text-blue-200 hover:bg-[#13224a]"
+                  : "bg-white/[0.04] border-white/10 text-zinc-300 hover:bg-white/[0.08]"
+              }`}
+            >
+              <RotateCcw className={`h-3.5 w-3.5 ${isLoadingNegotiations ? "animate-spin text-indigo-400" : "text-slate-400"}`} />
+              <span>Refresh</span>
+            </button>
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-semibold ${
                 isLight
@@ -177,15 +206,23 @@ export function SupplierNegotiationsView() {
       />
 
       {/* 2. Main Workroom: Clean & Relaxed 2-Panel Messenger */}
-      <div
-        className={`rounded-2xl border shadow-sm overflow-hidden flex h-[calc(100vh-190px)] min-h-[560px] ${
-          isLight
-            ? "border-slate-200 bg-white"
-            : isSystem
-            ? "border-blue-500/20 bg-[#0a1226]"
-            : "border-white/10 bg-[#0e1118]"
-        }`}
-      >
+      {negotiations.length === 0 ? (
+        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0e1118] p-12 flex flex-col items-center justify-center text-center shadow-xs">
+          <EmptyState
+            title="No Active Negotiations"
+            description="There are currently no active price negotiations in the system. When buyers initiate a counter-offer or submit price proposals, real-time negotiation threads will appear here."
+          />
+        </div>
+      ) : (
+        <div
+          className={`rounded-2xl border shadow-sm overflow-hidden flex h-[calc(100vh-190px)] min-h-[560px] ${
+            isLight
+              ? "border-slate-200 bg-white"
+              : isSystem
+              ? "border-blue-500/20 bg-[#0a1226]"
+              : "border-white/10 bg-[#0e1118]"
+          }`}
+        >
         {/* =========================================================================
             LEFT PANEL: CUSTOMER NEGOTIATION THREADS (w-80 sm:w-96)
            ========================================================================= */}
@@ -732,27 +769,37 @@ export function SupplierNegotiationsView() {
                   <div className="space-y-1.5 text-xs">
                     <p className="font-bold text-sm">{activeSession.buyerCompany}</p>
                     <p className="opacity-75">Contact: {activeSession.contactPerson}</p>
-                    <p className="opacity-75">TIN: {activeSession.buyerTinNumber || "0002948192"}</p>
-                    <p className="opacity-75">
-                      Rating: <strong className="text-amber-400">★ {activeSession.buyerRating || 4.9}</strong>
-                    </p>
+                    {activeSession.buyerTinNumber && (
+                      <p className="opacity-75">TIN: {activeSession.buyerTinNumber}</p>
+                    )}
+                    {activeSession.buyerRating && (
+                      <p className="opacity-75">
+                        Rating: <strong className="text-amber-400">★ {activeSession.buyerRating}</strong>
+                      </p>
+                    )}
                   </div>
 
                   {/* Commercial Terms */}
                   <div className="pt-3 border-t border-inherit space-y-2 text-xs">
                     <span className="font-bold text-indigo-400 block uppercase text-[10px]">Commercial Terms</span>
-                    <div className="flex justify-between">
-                      <span className="opacity-70">Incoterm:</span>
-                      <span className="font-semibold">{activeSession.incoterm || "FOB Addis Ababa"}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="opacity-70">Lead Time:</span>
-                      <span className="font-semibold">{activeSession.deliveryLeadTimeDays || 5} Days</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="opacity-70">Payment:</span>
-                      <span className="font-semibold text-emerald-400">100% CBE Escrow</span>
-                    </div>
+                    {activeSession.incoterm && (
+                      <div className="flex justify-between">
+                        <span className="opacity-70">Incoterm:</span>
+                        <span className="font-semibold">{activeSession.incoterm}</span>
+                      </div>
+                    )}
+                    {activeSession.deliveryLeadTimeDays && (
+                      <div className="flex justify-between">
+                        <span className="opacity-70">Lead Time:</span>
+                        <span className="font-semibold">{activeSession.deliveryLeadTimeDays} Days</span>
+                      </div>
+                    )}
+                    {activeSession.paymentTerms && (
+                      <div className="flex justify-between">
+                        <span className="opacity-70">Payment:</span>
+                        <span className="font-semibold text-emerald-400">{activeSession.paymentTerms}</span>
+                      </div>
+                    )}
                     <div className="flex justify-between">
                       <span className="opacity-70">Lot Total:</span>
                       <span className="font-mono font-bold text-indigo-400">
@@ -766,7 +813,6 @@ export function SupplierNegotiationsView() {
                     <button
                       onClick={() => {
                         setActiveTab("messages");
-                        setActiveChatThreadId("chat-01");
                       }}
                       className="flex-1 py-2 rounded-xl border border-white/10 hover:bg-white/10 text-xs font-semibold flex items-center justify-center gap-1.5 cursor-pointer"
                     >
@@ -791,6 +837,8 @@ export function SupplierNegotiationsView() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }
+

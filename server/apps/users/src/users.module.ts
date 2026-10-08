@@ -5,6 +5,7 @@ import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { Profile } from './entities/profile.entity';
 import { AuditLog } from './entities/audit-log.entity';
+import { Staff } from './entities/staff.entity';
 
 @Module({
   imports: [
@@ -21,11 +22,11 @@ import { AuditLog } from './entities/audit-log.entity';
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('USERS_DB_NAME'),
-        entities: [Profile, AuditLog],
+        entities: [Profile, AuditLog, Staff],
         synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
       }),
     }),
-    TypeOrmModule.forFeature([Profile, AuditLog]),
+    TypeOrmModule.forFeature([Profile, AuditLog, Staff]),
   ],
   controllers: [UsersController],
   providers: [UsersService],

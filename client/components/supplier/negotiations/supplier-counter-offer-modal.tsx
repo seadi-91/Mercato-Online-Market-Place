@@ -32,17 +32,18 @@ const INCOTERM_OPTIONS = [
 ];
 
 const PAYMENT_TERMS_OPTIONS = [
-  "100% Irrevocable CBE Escrow against Goods Inspection",
-  "50% CBE Escrow Advance, 50% upon Inspection Signoff",
+  "100% Irrevocable Escrow against Goods Inspection",
+  "50% Escrow Advance, 50% upon Inspection Signoff",
   "30% Advance Escrow, 70% upon Bill of Lading",
-  "Commercial Bank of Ethiopia Irrevocable L/C",
+  "Irrevocable Commercial Bank L/C",
+  "Direct Interbank Transfer (RTGS)",
 ];
 
 const RATIONALE_SUGGESTIONS = [
   "Includes free mechanical crane offloading at project site",
-  "Conditioned on 100% CBE Escrow deposit today",
+  "Conditioned on 100% Escrow deposit today",
   "Includes complimentary GrainPro hermetic export packaging",
-  "Guaranteed 48-hour priority dispatch from Addis central warehouse",
+  "Guaranteed 48-hour priority dispatch from central warehouse",
   "Includes ECAA third-party laboratory tensile analysis certificate",
 ];
 
@@ -69,9 +70,9 @@ export function SupplierCounterOfferModal() {
       setCounterPrice(
         session.prefilledCounterPrice || Math.round((session.originalBuyerTarget + session.supplierCurrentOffer) / 2)
       );
-      setIncoterm(session.incoterm || "FOB Addis Ababa Logistics Hub");
-      setLeadTimeDays(session.deliveryLeadTimeDays || 5);
-      setPaymentTerms(session.paymentTerms || "100% Irrevocable CBE Escrow against Goods Inspection");
+      setIncoterm(session.incoterm || "");
+      setLeadTimeDays(session.deliveryLeadTimeDays || 3);
+      setPaymentTerms(session.paymentTerms || "");
       setMessage("");
       setAttachedFile(null);
     }

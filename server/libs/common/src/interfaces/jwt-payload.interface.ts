@@ -5,4 +5,8 @@ export interface JwtPayload {
   phoneNumber?: string;
   email?: string;
   role: UserRole;
+  staffRole?: string;
+  branchId?: string;
+  branchName?: string;
+  sellerId?: string;
 }

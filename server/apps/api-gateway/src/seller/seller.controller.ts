@@ -20,16 +20,24 @@ import {
   AuditAction,
   AuthGuard,
   CreateProductDto,
+  CreateQuotationDto,
+  CreateStaffDto,
   CreateWarehouseDto,
   CreateWarehouseTransferDto,
   CurrentUser,
+  DeclineNegotiationDto,
   FilterOrdersDto,
   FilterSellerProductsDto,
+  NegotiationMessageDto,
   Roles,
   RolesGuard,
+  SendCounterOfferDto,
   ToggleProductAvailabilityDto,
   UpdateOrderStatusDto,
   UpdateProductDto,
+  UpdateProfileDto,
+  UpdateRfqStatusDto,
+  UpdateStaffDto,
   UpdateStockDto,
   UpdateTransferStatusDto,
   UpdateWarehouseDto,
@@ -45,7 +53,7 @@ export class SellerController {
     @Inject('ORDERS_SERVICE') private readonly ordersClient: ClientProxy,
     @Inject('PAYMENTS_SERVICE') private readonly paymentsClient: ClientProxy,
     @Inject('USERS_SERVICE') private readonly usersClient: ClientProxy,
-  ) {}
+  ) { }
 
   private auditLog(
     data: {
@@ -123,22 +131,35 @@ export class SellerController {
   @Get('products')
   getProducts(
     @CurrentUser('id') sellerId: string,
+    @CurrentUser() user: any,
     @Query() query: FilterSellerProductsDto,
   ) {
+    const targetSellerId = user?.sellerId || sellerId;
+    const effectiveQuery = { ...query };
+    if (user?.staffRole === 'branch_manager') {
+      if (user?.branchName) {
+        effectiveQuery.branchName = user.branchName;
+      }
+      if (user?.branchId) {
+        effectiveQuery.branchId = user.branchId;
+      }
+    }
     return this.catalogClient.send('get_seller_products', {
-      sellerId,
-      dto: query,
+      sellerId: targetSellerId,
+      dto: effectiveQuery,
     });
   }
 
   @Post('products')
   async createProduct(
     @CurrentUser('id') sellerId: string,
+    @CurrentUser() user: any,
     @Body() dto: CreateProductDto,
     @Req() req: Request,
   ) {
+    const targetSellerId = user?.sellerId || sellerId;
     const product = await firstValueFrom(
-      this.catalogClient.send('create_product', { sellerId, dto }),
+      this.catalogClient.send('create_product', { sellerId: targetSellerId, dto }),
     );
 
     this.auditLog(
@@ -146,7 +167,7 @@ export class SellerController {
         actorId: sellerId,
         action: AuditAction.PRODUCT_CREATED,
         targetEntity: 'Product',
-        targetId: product.id ?? 'unknown',
+        targetId: product?.id ?? 'unknown',
         details: { title: dto.title, categoryId: dto.categoryId },
       },
       req,
@@ -164,11 +185,13 @@ export class SellerController {
   async updateProduct(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser('id') sellerId: string,
+    @CurrentUser() user: any,
     @Body() dto: UpdateProductDto,
     @Req() req: Request,
   ) {
+    const targetSellerId = user?.sellerId || sellerId;
     const product = await firstValueFrom(
-      this.catalogClient.send('update_product', { id, sellerId, dto }),
+      this.catalogClient.send('update_product', { id, sellerId: targetSellerId, dto }),
     );
 
     this.auditLog(
@@ -189,10 +212,12 @@ export class SellerController {
   async deleteProduct(
     @Param('id', new ParseUUIDPipe()) id: string,
     @CurrentUser('id') sellerId: string,
+    @CurrentUser() user: any,
     @Req() req: Request,
   ) {
+    const targetSellerId = user?.sellerId || sellerId;
     const result = await firstValueFrom(
-      this.catalogClient.send('delete_product', { id, sellerId }),
+      this.catalogClient.send('delete_product', { id, sellerId: targetSellerId }),
     );
 
     this.auditLog(
@@ -446,4 +471,207 @@ export class SellerController {
       status: body.status,
     });
   }
+
+  // --- RFQs (Request for Quotations) ---
+
+  @Get('rfqs')
+  getRfqs(@CurrentUser('id') sellerId: string) {
+    return this.ordersClient.send('get_seller_rfqs', { sellerId });
+  }
+
+  @Patch('rfqs/:id/status')
+  updateRfqStatus(
+    @Param('id') id: string,
+    @Body() body: UpdateRfqStatusDto,
+  ) {
+    return this.ordersClient.send('update_rfq_status', {
+      id,
+      status: body.status,
+    });
+  }
+
+  // --- Quotations ---
+
+  @Get('quotations')
+  getQuotations(@CurrentUser('id') sellerId: string) {
+    return this.ordersClient.send('get_seller_quotations', { sellerId });
+  }
+
+  @Post('quotations')
+  createQuotation(
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: CreateQuotationDto,
+  ) {
+    return this.ordersClient.send('create_quotation', { sellerId, dto });
+  }
+
+  // --- Negotiations ---
+
+  @Get('negotiations')
+  getNegotiations(@CurrentUser('id') sellerId: string) {
+    return this.ordersClient.send('get_seller_negotiations', { sellerId });
+  }
+
+  @Post('negotiations/:id/counter')
+  sendCounterOffer(
+    @Param('id') id: string,
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: SendCounterOfferDto,
+  ) {
+    return this.ordersClient.send('send_counter_offer', {
+      sellerId,
+      sessionId: id,
+      dto,
+    });
+  }
+
+  @Patch('negotiations/:id/accept')
+  acceptNegotiation(
+    @Param('id') id: string,
+    @CurrentUser('id') sellerId: string,
+  ) {
+    return this.ordersClient.send('accept_negotiation', {
+      sellerId,
+      sessionId: id,
+    });
+  }
+
+  @Patch('negotiations/:id/decline')
+  declineNegotiation(
+    @Param('id') id: string,
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: DeclineNegotiationDto,
+  ) {
+    return this.ordersClient.send('decline_negotiation', {
+      sellerId,
+      sessionId: id,
+      dto,
+    });
+  }
+
+  @Post('negotiations/:id/messages')
+  sendNegotiationMessage(
+    @Param('id') id: string,
+    @CurrentUser('id') sellerId: string,
+    @Body() body: NegotiationMessageDto,
+  ) {
+    return this.ordersClient.send('send_negotiation_message', {
+      sellerId,
+      sessionId: id,
+      message: body.message,
+    });
+  }
+
+  @Get('profile')
+  getSellerProfile(@CurrentUser('id') sellerId: string) {
+    return this.usersClient.send('get_profile', { userId: sellerId });
+  }
+
+  @Patch('profile')
+  async updateSellerProfile(
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: UpdateProfileDto,
+    @Req() req: Request,
+  ) {
+    const result = await firstValueFrom(
+      this.usersClient.send('update_profile', { userId: sellerId, dto }),
+    );
+
+    this.auditLog(
+      {
+        actorId: sellerId,
+        action: AuditAction.PROFILE_UPDATED,
+        targetEntity: 'Profile',
+        targetId: sellerId,
+        details: { updatedFields: Object.keys(dto) },
+      },
+      req,
+    );
+
+    return result;
+  }
+
+  // --- Staff & Fleet Personnel Management ---
+
+  @Get('staff')
+  getStaff(@CurrentUser('id') sellerId: string) {
+    return this.usersClient.send('get_seller_staff', { sellerId });
+  }
+
+  @Post('staff')
+  async createStaff(
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: CreateStaffDto,
+    @Req() req: Request,
+  ) {
+    const staff = await firstValueFrom(
+      this.usersClient.send('create_staff', { sellerId, dto }),
+    );
+
+    this.auditLog(
+      {
+        actorId: sellerId,
+        action: AuditAction.USER_REGISTERED,
+        targetEntity: 'Staff',
+        targetId: staff.id ?? 'unknown',
+        details: { fullName: dto.fullName, role: dto.role },
+      },
+      req,
+    );
+
+    return staff;
+  }
+
+  @Patch('staff/:id')
+  async updateStaff(
+    @Param('id') id: string,
+    @CurrentUser('id') sellerId: string,
+    @Body() dto: UpdateStaffDto,
+    @Req() req: Request,
+  ) {
+    const staff = await firstValueFrom(
+      this.usersClient.send('update_staff', {
+        sellerId,
+        staffId: id,
+        dto,
+      }),
+    );
+
+    this.auditLog(
+      {
+        actorId: sellerId,
+        action: AuditAction.PROFILE_UPDATED,
+        targetEntity: 'Staff',
+        targetId: id,
+        details: { updatedFields: Object.keys(dto) },
+      },
+      req,
+    );
+
+    return staff;
+  }
+
+  @Delete('staff/:id')
+  async deleteStaff(
+    @Param('id') id: string,
+    @CurrentUser('id') sellerId: string,
+    @Req() req: Request,
+  ) {
+    const result = await firstValueFrom(
+      this.usersClient.send('delete_staff', { sellerId, staffId: id }),
+    );
+
+    this.auditLog(
+      {
+        actorId: sellerId,
+        action: AuditAction.USER_DELETED,
+        targetEntity: 'Staff',
+        targetId: id,
+      },
+      req,
+    );
+
+    return result;
+  }
 }
+

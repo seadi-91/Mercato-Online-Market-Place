@@ -14,22 +14,52 @@ export function SupplierCreateQuoteModal() {
   // Pre-fill if coming from an RFQ
   const rfq = modalData;
 
-  const [buyerCompany, setBuyerCompany] = useState(rfq?.buyerCompany || "Addis Continental Hotels Group");
-  const [buyerName, setBuyerName] = useState(rfq?.buyerName || "Meron Tadesse");
-  const [buyerEmail, setBuyerEmail] = useState("procurement@buyer.et");
-  const [buyerPhone, setBuyerPhone] = useState("+251 91 123 4567");
+  const [buyerCompany, setBuyerCompany] = useState(rfq?.buyerCompany || "");
+  const [buyerName, setBuyerName] = useState(rfq?.buyerName || "");
+  const [buyerEmail, setBuyerEmail] = useState(rfq?.buyerEmail || "");
+  const [buyerPhone, setBuyerPhone] = useState(rfq?.buyerPhone || "");
   const [selectedProductId, setSelectedProductId] = useState(rfq?.productId || products[0]?.id || "");
-  const [quantity, setQuantity] = useState<number>(rfq?.requestedQty || 1000);
-  const [unitPrice, setUnitPrice] = useState<number>(rfq?.targetPrice ? rfq.targetPrice * 1.05 : 450);
-  const [shippingCost, setShippingCost] = useState<number>(15000);
-  const [paymentTerms, setPaymentTerms] = useState("50% Escrow Advance, 50% upon QA release");
-  const [deliveryTerms, setDeliveryTerms] = useState("FOB Addis Ababa Central Logistics Hub");
-  const [validUntil, setValidUntil] = useState("2026-10-31");
-  const [notes, setNotes] = useState("Standard moisture test under 11.5% and phytosanitary certificate included.");
+  const [quantity, setQuantity] = useState<number>(rfq?.requestedQty || 1);
+  const [unitPrice, setUnitPrice] = useState<number>(rfq?.targetPrice || (products[0]?.basePrice || 0));
+  const [shippingCost, setShippingCost] = useState<number>(0);
+  const [paymentTerms, setPaymentTerms] = useState("100% Irrevocable CBE Escrow against Goods Inspection");
+  const [deliveryTerms, setDeliveryTerms] = useState(rfq?.deliveryLocation || "");
+  const [validUntil, setValidUntil] = useState(rfq?.expirationDate || "");
+  const [notes, setNotes] = useState(rfq?.notes || "");
+
+  React.useEffect(() => {
+    if (rfq) {
+      setBuyerCompany(rfq.buyerCompany || "");
+      setBuyerName(rfq.buyerName || "");
+      setBuyerEmail(rfq.buyerEmail || "");
+      setBuyerPhone(rfq.buyerPhone || "");
+      setSelectedProductId(rfq.productId || products[0]?.id || "");
+      setQuantity(rfq.requestedQty || 1);
+      setUnitPrice(rfq.targetPrice || (products[0]?.basePrice || 0));
+      setShippingCost(0);
+      setDeliveryTerms(rfq.deliveryLocation || "");
+      setValidUntil(rfq.expirationDate || "");
+      setNotes(rfq.notes || "");
+    }
+  }, [rfq, products]);
 
   if (!isOpen) return null;
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || products[0];
+  if (!selectedProduct) {
+    return (
+      <ModalDialog
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Generate Official B2B Commercial Quotation"
+        maxWidth="sm"
+      >
+        <div className="p-6 text-center text-xs text-zinc-400">
+          No catalog commodities found to quote. Please add products first.
+        </div>
+      </ModalDialog>
+    );
+  }
   const subtotal = quantity * unitPrice;
   const discount = subtotal > 1000000 ? subtotal * 0.02 : 0;
   const taxableAmount = subtotal - discount;

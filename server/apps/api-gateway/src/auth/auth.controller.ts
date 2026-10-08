@@ -48,7 +48,7 @@ export class AuthController {
       .subscribe({ error: () => null });
   }
 
-  @RateLimit({ limit: 10, ttlMs: 60000 })
+  @RateLimit({ limit: 100, ttlMs: 60000 })
   @Post('register')
   async register(@Body() dto: RegisterDto, @Req() req: Request) {
     const payload = {
@@ -87,7 +87,7 @@ export class AuthController {
     return result;
   }
 
-  @RateLimit({ limit: 10, ttlMs: 60000 })
+  @RateLimit({ limit: 100, ttlMs: 60000 })
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request) {
     try {

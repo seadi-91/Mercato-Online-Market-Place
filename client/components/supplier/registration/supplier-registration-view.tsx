@@ -50,10 +50,10 @@ export function SupplierRegistrationView() {
   const [description, setDescription] = useState(profile.description);
 
   // Bank Info
-  const [bankName, setBankName] = useState("Commercial Bank of Ethiopia (CBE)");
-  const [accountNumber, setAccountNumber] = useState("1000192837465");
-  const [accountName, setAccountName] = useState("Abyssinia Agri-Commodities PLC");
-  const [telebirrMerchantId, setTelebirrMerchantId] = useState("TB-MERCH-882910");
+  const [bankName, setBankName] = useState(profile.primarySettlementMethod || "");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState(profile.businessName || "");
+  const [telebirrMerchantId, setTelebirrMerchantId] = useState("");
 
   // Compliance Documents state with real backend upload support
   const [documents, setDocuments] = useState({
@@ -587,17 +587,48 @@ export function SupplierRegistrationView() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block font-semibold text-slate-700 mb-1">Designated Bank</label>
-                <select
+                <input
+                  type="text"
+                  list="reg-popular-banks"
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
+                  placeholder="Type any bank name..."
                   className="w-full rounded-lg border border-slate-200 p-2.5 text-slate-900 focus:border-indigo-600"
-                >
-                  <option value="Commercial Bank of Ethiopia (CBE)">Commercial Bank of Ethiopia (CBE)</option>
-                  <option value="Awash International Bank">Awash International Bank</option>
-                  <option value="Bank of Abyssinia">Bank of Abyssinia</option>
-                  <option value="Dashen Bank">Dashen Bank</option>
-                  <option value="Cooperative Bank of Oromia">Cooperative Bank of Oromia</option>
-                </select>
+                />
+                <datalist id="reg-popular-banks">
+                  <option value="Commercial Bank of Ethiopia (CBE)" />
+                  <option value="Bank of Abyssinia" />
+                  <option value="Dashen Bank" />
+                  <option value="Awash International Bank" />
+                  <option value="Cooperative Bank of Oromia" />
+                  <option value="Siinqee Bank" />
+                  <option value="Nib International Bank" />
+                  <option value="Wegagen Bank" />
+                  <option value="Hibret Bank" />
+                  <option value="Zemen Bank" />
+                  <option value="Berhan Bank" />
+                  <option value="Bunna International Bank" />
+                  <option value="Enat Bank" />
+                  <option value="Abay Bank" />
+                  <option value="Global Bank Ethiopia" />
+                  <option value="Hijra Bank" />
+                  <option value="ZamZam Bank" />
+                  <option value="Telebirr Business" />
+                </datalist>
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {["Commercial Bank of Ethiopia", "Bank of Abyssinia", "Dashen Bank", "Awash Bank", "Coop Bank of Oromia", "Siinqee Bank"].map((b) => (
+                    <button
+                      key={b}
+                      type="button"
+                      onClick={() => setBankName(b)}
+                      className={`text-[10px] px-2 py-0.5 rounded-full border cursor-pointer ${
+                        bankName === b ? "bg-indigo-50 border-indigo-400 text-indigo-700 font-bold" : "bg-slate-50 border-slate-200 text-slate-600"
+                      }`}
+                    >
+                      {b.replace("Commercial Bank of Ethiopia", "CBE").replace("Bank of Abyssinia", "Abyssinia")}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

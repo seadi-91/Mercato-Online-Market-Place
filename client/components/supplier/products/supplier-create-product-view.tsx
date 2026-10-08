@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Package,
   DollarSign,
@@ -21,6 +21,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Loader2,
+  Lock,
+  ShieldCheck,
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
 import { TierPrice } from "@/types/supplier";
@@ -35,11 +37,21 @@ export function SupplierCreateProductView() {
     updateProduct,
     setSubView,
     warehouses,
+    fetchWarehouses,
+    isLoadingWarehouses,
     currentStaffUser,
     editingProduct,
     setEditingProduct,
   } = useSupplierStore();
   const { user } = useAuthStore();
+
+  // Role detection: Main Supplier (Enterprise HQ/Owner) vs Branch Manager
+  const isBranchManager =
+    user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
+  const managerBranchId =
+    user?.branchId || currentStaffUser?.branchId || "wh-aa";
+  const managerBranchName =
+    user?.branchName || currentStaffUser?.branchName || "Addis Ababa Central Logistics Hub";
 
   // Wizard Step State (1: Basics, 2: Pricing, 3: Inventory, 4: Quality & Media)
   const [currentStep, setCurrentStep] = useState<number>(1);
@@ -57,6 +69,21 @@ export function SupplierCreateProductView() {
     "High-altitude Ethiopian specialty export commodity, processed under strict quality standards with ECX grading certification."
   );
 
+  // Branch / Warehouse Selection State
+  const [selectedBranchId, setSelectedBranchId] = useState<string>(() => {
+    if (isBranchManager) return managerBranchId;
+    if (editingProduct?.branchId) return editingProduct.branchId;
+    return warehouses[0]?.id || warehouses[0]?.code?.toLowerCase() || "wh-aa";
+  });
+
+  const [warehouseLocation, setWarehouseLocation] = useState<string>(() => {
+    if (isBranchManager) return managerBranchName;
+    if (editingProduct?.warehouseLocation) return editingProduct.warehouseLocation;
+    return warehouses[0]?.name
+      ? `${warehouses[0]?.code} (${warehouses[0]?.name})`
+      : "WH-AA (Addis Ababa Central Logistics Hub)";
+  });
+
   // Step 2: Pricing & Tiers
   const [basePrice, setBasePrice] = useState<number>(480);
   const [moq, setMoq] = useState<number>(500);
@@ -69,13 +96,6 @@ export function SupplierCreateProductView() {
 
   // Step 3: Inventory & Warehouse
   const [initialStock, setInitialStock] = useState<number>(12000);
-  const [warehouseLocation, setWarehouseLocation] = useState(
-    (user?.staffRole === "branch_manager" && user.branchName)
-      ? user.branchName
-      : currentStaffUser?.role === "branch_manager"
-      ? currentStaffUser.branchName
-      : warehouses[0]?.name || "WH-AA (Addis Ababa Central Logistics Hub)"
-  );
   const [minStock, setMinStock] = useState<number>(2000);
   const [leadTimeDays, setLeadTimeDays] = useState<number>(3);
 
@@ -101,8 +121,48 @@ export function SupplierCreateProductView() {
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Fetch warehouses on mount
+  useEffect(() => {
+    fetchWarehouses();
+  }, [fetchWarehouses]);
+
+  // Sync branch selection when warehouses load or role / editingProduct changes
+  useEffect(() => {
+    if (isBranchManager) {
+      setSelectedBranchId(managerBranchId);
+      setWarehouseLocation(managerBranchName);
+    } else if (editingProduct) {
+      if (editingProduct.branchId) {
+        setSelectedBranchId(editingProduct.branchId);
+      }
+      if (editingProduct.warehouseLocation) {
+        setWarehouseLocation(editingProduct.warehouseLocation);
+      }
+    } else if (warehouses.length > 0 && !selectedBranchId) {
+      const firstWh = warehouses[0];
+      setSelectedBranchId(firstWh.id || firstWh.code?.toLowerCase() || "wh-aa");
+      setWarehouseLocation(firstWh.name ? `${firstWh.code} (${firstWh.name})` : firstWh.code);
+    }
+  }, [isBranchManager, managerBranchId, managerBranchName, editingProduct, warehouses, selectedBranchId]);
+
+  // Handle branch change for Main Supplier
+  const handleBranchChange = (newBranchId: string) => {
+    if (isBranchManager) return; // Prevent branch managers from changing
+    setSelectedBranchId(newBranchId);
+    const matchedWh = warehouses.find(
+      (w) =>
+        w.id === newBranchId ||
+        w.code?.toLowerCase() === newBranchId.toLowerCase()
+    );
+    if (matchedWh) {
+      setWarehouseLocation(`${matchedWh.code} (${matchedWh.name})`);
+    } else {
+      setWarehouseLocation(newBranchId);
+    }
+  };
+
   // Fetch backend categories
-  React.useEffect(() => {
+  useEffect(() => {
     let isMounted = true;
     sellerService
       .getCategories(false)
@@ -127,7 +187,7 @@ export function SupplierCreateProductView() {
   }, [editingProduct]);
 
   // Prefill form when editing an existing product
-  React.useEffect(() => {
+  useEffect(() => {
     if (editingProduct) {
       setName(editingProduct.name || "");
       setSku(editingProduct.sku || "");
@@ -145,6 +205,9 @@ export function SupplierCreateProductView() {
       setInitialStock(editingProduct.stock || 0);
       if (editingProduct.warehouseLocation) {
         setWarehouseLocation(editingProduct.warehouseLocation);
+      }
+      if (editingProduct.branchId) {
+        setSelectedBranchId(editingProduct.branchId);
       }
       if (editingProduct.images && editingProduct.images.length > 0) {
         setImages(editingProduct.images);
@@ -421,17 +484,21 @@ export function SupplierCreateProductView() {
       return;
     }
 
-    const isBranchManager = user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
-    const userBranchId = user?.branchId || currentStaffUser?.branchId;
-    const userBranchName = user?.branchName || currentStaffUser?.branchName;
+    // Branch and Warehouse Routing
+    let finalBranchId = managerBranchId;
+    let finalBranchName = managerBranchName;
 
-    const finalBranchId = isBranchManager && userBranchId
-      ? userBranchId
-      : warehouses.find((w) => warehouseLocation.includes(w.code) || warehouseLocation.includes(w.name))?.id || "wh-aa";
-
-    const finalBranchName = isBranchManager && userBranchName
-      ? userBranchName
-      : warehouseLocation;
+    if (!isBranchManager) {
+      const foundWh = warehouses.find(
+        (w) =>
+          w.id === selectedBranchId ||
+          w.code?.toLowerCase() === selectedBranchId?.toLowerCase() ||
+          warehouseLocation.toLowerCase().includes(w.code?.toLowerCase() || "") ||
+          warehouseLocation.toLowerCase().includes(w.name?.toLowerCase() || "")
+      );
+      finalBranchId = foundWh?.code ? foundWh.code.toLowerCase() : (foundWh?.id || selectedBranchId || "wh-aa");
+      finalBranchName = foundWh ? `${foundWh.code} (${foundWh.name})` : (warehouseLocation || "WH-AA (Addis Ababa Central Logistics Hub)");
+    }
 
     setIsSubmitting(true);
     try {
@@ -572,22 +639,20 @@ export function SupplierCreateProductView() {
                   key={s.number}
                   type="button"
                   onClick={() => setCurrentStep(s.number)}
-                  className={`flex items-center justify-center sm:justify-start gap-1.5 p-1.5 rounded-lg text-left transition-all cursor-pointer ${
-                    isCurrent
+                  className={`flex items-center justify-center sm:justify-start gap-1.5 p-1.5 rounded-lg text-left transition-all cursor-pointer ${isCurrent
                       ? "bg-indigo-600/20 border border-indigo-500/50 text-white shadow-xs"
                       : isDone
-                      ? "bg-white/[0.02] border border-emerald-500/30 text-emerald-400"
-                      : "bg-white/[0.02] border border-white/5 text-zinc-400 hover:text-zinc-200"
-                  }`}
+                        ? "bg-white/[0.02] border border-emerald-500/30 text-emerald-400"
+                        : "bg-white/[0.02] border border-white/5 text-zinc-400 hover:text-zinc-200"
+                    }`}
                 >
                   <span
-                    className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${
-                      isCurrent
+                    className={`flex h-4.5 w-4.5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold ${isCurrent
                         ? "bg-indigo-600 text-white"
                         : isDone
-                        ? "bg-emerald-500/20 text-emerald-300"
-                        : "bg-white/10 text-zinc-400"
-                    }`}
+                          ? "bg-emerald-500/20 text-emerald-300"
+                          : "bg-white/10 text-zinc-400"
+                      }`}
                   >
                     {isDone ? "✓" : s.number}
                   </span>
@@ -776,6 +841,75 @@ export function SupplierCreateProductView() {
                     placeholder="e.g. Yirgacheffe, Gedeo Zone, SNNPR, Ethiopia"
                     className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden"
                   />
+                </div>
+
+                {/* Fulfillment Branch / Depot Selection */}
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[11px] font-semibold text-zinc-200 flex items-center gap-1.5">
+                      <Building className="h-3.5 w-3.5 text-indigo-400" />
+                      <span>Fulfillment Branch / Depot (የሚለጠፍበት ቅርንጫፍ)</span>
+                      <span className="text-rose-400">*</span>
+                    </label>
+                    {isBranchManager ? (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
+                        <Lock className="h-2.5 w-2.5" />
+                        <span>Branch Manager Locked</span>
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-medium text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                        👑 Main Supplier (Select Branch)
+                      </span>
+                    )}
+                  </div>
+
+                  {isBranchManager ? (
+                    <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-100 text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building className="h-4 w-4 text-amber-400 shrink-0" />
+                        <div>
+                          <p className="font-bold text-white text-xs">{managerBranchName}</p>
+                          <p className="text-[10px] text-amber-300/80">
+                            🔒 Locked: Automatically posted under your assigned branch ({managerBranchId}).
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-500/30 font-bold shrink-0">
+                        Auto-Assigned
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      <select
+                        value={selectedBranchId}
+                        onChange={(e) => handleBranchChange(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+                      >
+                        {warehouses.length > 0 ? (
+                          warehouses.map((wh) => (
+                            <option key={wh.id} value={wh.id} className="bg-[#0d121f] text-white">
+                              {wh.code} — {wh.name} ({wh.city || wh.region})
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="wh-aa" className="bg-[#0d121f] text-white">
+                              WH-AA — Addis Ababa Central Logistics Hub (Addis Ababa)
+                            </option>
+                            <option value="wh-mj" className="bg-[#0d121f] text-white">
+                              WH-MJ — Modjo Dry Port Multi-Modal Terminal (Modjo)
+                            </option>
+                            <option value="wh-hw" className="bg-[#0d121f] text-white">
+                              WH-HW — Hawassa Agro-Processing Logistics Depot (Hawassa)
+                            </option>
+                          </>
+                        )}
+                      </select>
+                      <p className="text-[10px] text-zinc-400">
+                        As Main Supplier, you can route this product to any warehouse branch in the database.
+                      </p>
+                    </div>
+                  )}
                 </div>
 
                 <div>
@@ -994,25 +1128,54 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Primary Depot
+                    Primary Depot / Assigned Branch <span className="text-rose-400">*</span>
                   </label>
-                  {(user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager") ? (
-                    <div className="p-2.5 rounded-lg border border-blue-500/30 bg-blue-500/10 text-blue-200 text-xs font-semibold flex items-center gap-2">
-                      <Building className="h-4 w-4 text-blue-400 shrink-0" />
-                      <span>{user?.branchName || currentStaffUser?.branchName || "Assigned Branch Hub"}</span>
+                  {isBranchManager ? (
+                    <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-100 text-xs flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Building className="h-4 w-4 text-amber-400 shrink-0" />
+                        <div>
+                          <p className="font-bold text-white text-xs">{managerBranchName}</p>
+                          <p className="text-[10px] text-amber-300/80">
+                            🔒 Locked: Assigned to your branch depot ({managerBranchId})
+                          </p>
+                        </div>
+                      </div>
+                      <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-500/30 font-bold shrink-0">
+                        Locked
+                      </span>
                     </div>
                   ) : (
-                    <select
-                      value={warehouseLocation}
-                      onChange={(e) => setWarehouseLocation(e.target.value)}
-                      className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden cursor-pointer"
-                    >
-                      {warehouses.map((wh) => (
-                        <option key={wh.id} value={`${wh.code} (${wh.name})`}>
-                          {wh.code} — {wh.name} ({wh.city || wh.region})
-                        </option>
-                      ))}
-                    </select>
+                    <div className="space-y-1">
+                      <select
+                        value={selectedBranchId}
+                        onChange={(e) => handleBranchChange(e.target.value)}
+                        className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden cursor-pointer"
+                      >
+                        {warehouses.length > 0 ? (
+                          warehouses.map((wh) => (
+                            <option key={wh.id} value={wh.id} className="bg-[#0d121f] text-white">
+                              {wh.code} — {wh.name} ({wh.city || wh.region})
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="wh-aa" className="bg-[#0d121f] text-white">
+                              WH-AA — Addis Ababa Central Logistics Hub (Addis Ababa)
+                            </option>
+                            <option value="wh-mj" className="bg-[#0d121f] text-white">
+                              WH-MJ — Modjo Dry Port Multi-Modal Terminal (Modjo)
+                            </option>
+                            <option value="wh-hw" className="bg-[#0d121f] text-white">
+                              WH-HW — Hawassa Agro-Processing Logistics Depot (Hawassa)
+                            </option>
+                          </>
+                        )}
+                      </select>
+                      <p className="text-[10px] text-zinc-400">
+                        👑 Main Supplier Access: Select which network branch depot stocks this commodity.
+                      </p>
+                    </div>
                   )}
                 </div>
 
@@ -1080,11 +1243,10 @@ export function SupplierCreateProductView() {
                 onDragLeave={handleDragLeave}
                 onDrop={handleDrop}
                 onClick={() => fileInputRef.current?.click()}
-                className={`relative rounded-xl border-2 border-dashed p-4 sm:p-5 text-center transition-all cursor-pointer ${
-                  isDragging
+                className={`relative rounded-xl border-2 border-dashed p-4 sm:p-5 text-center transition-all cursor-pointer ${isDragging
                     ? "border-indigo-500 bg-indigo-500/10"
                     : "border-white/15 bg-white/[0.02] hover:border-indigo-500/40"
-                }`}
+                  }`}
               >
                 <div className="flex flex-col items-center justify-center space-y-1.5">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
@@ -1167,9 +1329,8 @@ export function SupplierCreateProductView() {
                       return (
                         <div
                           key={idx}
-                          className={`group relative rounded-lg border overflow-hidden aspect-4/3 bg-black/40 ${
-                            isCover ? "border-indigo-500 ring-2 ring-indigo-500/30" : "border-white/10"
-                          }`}
+                          className={`group relative rounded-lg border overflow-hidden aspect-4/3 bg-black/40 ${isCover ? "border-indigo-500 ring-2 ring-indigo-500/30" : "border-white/10"
+                            }`}
                         >
                           <img src={imgSrc} alt="" className="h-full w-full object-cover" />
 
@@ -1331,7 +1492,7 @@ export function SupplierCreateProductView() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Saving to Database...</span>
+                    <span>Saving Product...</span>
                   </>
                 ) : editingProduct ? (
                   <>
@@ -1430,11 +1591,10 @@ export function SupplierCreateProductView() {
                         key={idx}
                         type="button"
                         onClick={() => setActivePreviewIndex(idx)}
-                        className={`relative h-12 w-12 shrink-0 rounded-md overflow-hidden border-2 transition-all cursor-pointer ${
-                          activePreviewIndex === idx
+                        className={`relative h-12 w-12 shrink-0 rounded-md overflow-hidden border-2 transition-all cursor-pointer ${activePreviewIndex === idx
                             ? "border-indigo-500 scale-105"
                             : "border-white/10 opacity-70 hover:opacity-100"
-                        }`}
+                          }`}
                       >
                         <img src={img} alt="" className="h-full w-full object-cover" />
                       </button>

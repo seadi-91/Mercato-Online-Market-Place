@@ -13,6 +13,14 @@ export class FilterSellerProductsDto {
   @IsOptional()
   search?: string;
 
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
+  @IsString()
+  @IsOptional()
+  branchName?: string;
+
   @IsUUID()
   @IsOptional()
   categoryId?: string;

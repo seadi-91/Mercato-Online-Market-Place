@@ -35,6 +35,8 @@ import {
   Copy,
   Star,
   Info,
+  RotateCcw,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { DataFilterBar } from "../shared/data-filter-bar";
@@ -50,6 +52,9 @@ import { toast } from "sonner";
 export function SupplierOrdersView() {
   const {
     orders,
+    isLoadingOrders,
+    ordersError,
+    fetchOrders,
     openModal,
     setActiveTab,
     deleteOrder,
@@ -63,6 +68,10 @@ export function SupplierOrdersView() {
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
 
   const isBranchManager = user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
   const userBranchId = user?.branchId || currentStaffUser?.branchId;
@@ -392,21 +401,21 @@ export function SupplierOrdersView() {
                 <div className="p-3 rounded-xl border border-white/5 bg-white/[0.02]">
                   <span className="text-[10px] text-zinc-400 uppercase font-bold block">Brand / Mill</span>
                   <span className="font-semibold text-white mt-0.5 block truncate">
-                    {selectedOrder.productBrand || "Abyssinia Premium Supply"}
+                    {selectedOrder.productBrand || "Verified Supplier Item"}
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl border border-white/5 bg-white/[0.02]">
                   <span className="text-[10px] text-zinc-400 uppercase font-bold block">Origin Region</span>
                   <span className="font-semibold text-white mt-0.5 block truncate">
-                    {selectedOrder.productOrigin || "Ethiopia (National Production)"}
+                    {selectedOrder.productOrigin || "Ethiopia"}
                   </span>
                 </div>
 
                 <div className="p-3 rounded-xl border border-white/5 bg-white/[0.02]">
                   <span className="text-[10px] text-zinc-400 uppercase font-bold block">Quality Grade</span>
                   <span className="font-semibold text-emerald-400 mt-0.5 block truncate">
-                    {selectedOrder.productGrade || "Grade 1 ECAA Certified"}
+                    {selectedOrder.productGrade || "Commercial Grade"}
                   </span>
                 </div>
               </div>
@@ -482,20 +491,39 @@ export function SupplierOrdersView() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    <tr>
-                      <td className="py-3 px-3 font-semibold text-white">
-                        {selectedOrder.productName}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold">
-                        {selectedOrder.quantity.toLocaleString()} {selectedOrder.unit}
-                      </td>
-                      <td className="py-3 px-3 font-mono text-zinc-300">
-                        ETB {selectedOrder.unitPrice.toLocaleString()} / {selectedOrder.unit}
-                      </td>
-                      <td className="py-3 px-3 font-mono font-bold text-right text-white">
-                        ETB {selectedOrder.subtotal.toLocaleString()}
-                      </td>
-                    </tr>
+                    {selectedOrder.orderItems && selectedOrder.orderItems.length > 0 ? (
+                      selectedOrder.orderItems.map((item, idx) => (
+                        <tr key={item.id || idx}>
+                          <td className="py-3 px-3 font-semibold text-white">
+                            {item.productName}
+                          </td>
+                          <td className="py-3 px-3 font-mono font-bold">
+                            {item.quantity.toLocaleString()} {item.unit}
+                          </td>
+                          <td className="py-3 px-3 font-mono text-zinc-300">
+                            ETB {item.unitPrice.toLocaleString()} / {item.unit}
+                          </td>
+                          <td className="py-3 px-3 font-mono font-bold text-right text-white">
+                            ETB {item.total.toLocaleString()}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="py-3 px-3 font-semibold text-white">
+                          {selectedOrder.productName}
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold">
+                          {selectedOrder.quantity.toLocaleString()} {selectedOrder.unit}
+                        </td>
+                        <td className="py-3 px-3 font-mono text-zinc-300">
+                          ETB {selectedOrder.unitPrice.toLocaleString()} / {selectedOrder.unit}
+                        </td>
+                        <td className="py-3 px-3 font-mono font-bold text-right text-white">
+                          ETB {selectedOrder.subtotal.toLocaleString()}
+                        </td>
+                      </tr>
+                    )}
                   </tbody>
                 </table>
               </div>
@@ -559,13 +587,17 @@ export function SupplierOrdersView() {
                 <h4 className="text-base font-bold text-white">{selectedOrder.buyerCompany}</h4>
                 <div className="flex items-center gap-2 text-xs text-zinc-400">
                   <span>Taxpayer ID (TIN):</span>
-                  <button
-                    onClick={() => handleCopy(selectedOrder.buyerTinNumber || "0003498102", "TIN")}
-                    className="font-mono font-bold text-indigo-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>{selectedOrder.buyerTinNumber || "0003498102"}</span>
-                    <Copy className="h-3 w-3 opacity-60" />
-                  </button>
+                  {selectedOrder.buyerTinNumber ? (
+                    <button
+                      onClick={() => handleCopy(selectedOrder.buyerTinNumber!, "TIN")}
+                      className="font-mono font-bold text-indigo-400 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{selectedOrder.buyerTinNumber}</span>
+                      <Copy className="h-3 w-3 opacity-60" />
+                    </button>
+                  ) : (
+                    <span className="font-mono text-zinc-400 italic">Enterprise / Individual</span>
+                  )}
                 </div>
               </div>
 
@@ -578,7 +610,7 @@ export function SupplierOrdersView() {
                   <div className="min-w-0">
                     <p className="font-bold text-white truncate">{selectedOrder.contactPerson}</p>
                     <p className="text-[11px] text-zinc-400 truncate">
-                      {selectedOrder.buyerRepresentativeTitle || "Authorized Procurement Lead"}
+                      {selectedOrder.buyerRepresentativeTitle || "Authorized Procurement Officer"}
                     </p>
                   </div>
                 </div>
@@ -622,31 +654,33 @@ export function SupplierOrdersView() {
               </div>
 
               {/* Commercial Track Record on MercatoX */}
-              <div className="pt-3 border-t border-white/10 space-y-2">
-                <span className="text-xs font-bold text-zinc-300 block">Buyer Track Record on MercatoX:</span>
-                <div className="grid grid-cols-3 gap-2 text-center text-xs">
-                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
-                    <span className="text-[10px] text-zinc-400 block">Lifetime Orders</span>
-                    <span className="font-mono font-bold text-white mt-0.5 block">
-                      {selectedOrder.buyerTotalOrders || 18} Orders
-                    </span>
-                  </div>
+              {(selectedOrder.buyerTotalOrders || selectedOrder.buyerTotalSpend || selectedOrder.buyerRating) ? (
+                <div className="pt-3 border-t border-white/10 space-y-2">
+                  <span className="text-xs font-bold text-zinc-300 block">Buyer Track Record on MercatoX:</span>
+                  <div className="grid grid-cols-3 gap-2 text-center text-xs">
+                    <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                      <span className="text-[10px] text-zinc-400 block">Lifetime Orders</span>
+                      <span className="font-mono font-bold text-white mt-0.5 block">
+                        {selectedOrder.buyerTotalOrders ? `${selectedOrder.buyerTotalOrders} Orders` : "—"}
+                      </span>
+                    </div>
 
-                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
-                    <span className="text-[10px] text-zinc-400 block">Total Spend</span>
-                    <span className="font-mono font-bold text-emerald-400 mt-0.5 block truncate">
-                      ETB {((selectedOrder.buyerTotalSpend || 48900000) / 1000000).toFixed(1)}M
-                    </span>
-                  </div>
+                    <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                      <span className="text-[10px] text-zinc-400 block">Total Spend</span>
+                      <span className="font-mono font-bold text-emerald-400 mt-0.5 block truncate">
+                        {selectedOrder.buyerTotalSpend ? `ETB ${((selectedOrder.buyerTotalSpend) / 1000000).toFixed(1)}M` : "—"}
+                      </span>
+                    </div>
 
-                  <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
-                    <span className="text-[10px] text-zinc-400 block">Rating</span>
-                    <span className="font-mono font-bold text-amber-400 mt-0.5 block">
-                      ★ {selectedOrder.buyerRating || 4.95}
-                    </span>
+                    <div className="p-2.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                      <span className="text-[10px] text-zinc-400 block">Rating</span>
+                      <span className="font-mono font-bold text-amber-400 mt-0.5 block">
+                        {selectedOrder.buyerRating ? `★ ${selectedOrder.buyerRating}` : "Verified Buyer"}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : null}
 
               {/* Direct Communication Buttons */}
               <div className="pt-2 border-t border-white/10 flex gap-2">
@@ -695,7 +729,7 @@ export function SupplierOrdersView() {
                 <p>
                   Escrow Guarantee Ref:{" "}
                   <strong className="text-white font-mono">
-                    {selectedOrder.escrowReferenceNumber || "CBE-ESC-99210-LOCKED"}
+                    {selectedOrder.escrowReferenceNumber || (selectedOrder.orderNumber ? `CBE-ESC-${selectedOrder.orderNumber}` : "Pending Verification")}
                   </strong>
                 </p>
                 <p>
@@ -822,6 +856,15 @@ export function SupplierOrdersView() {
         breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Orders" }]}
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchOrders()}
+              disabled={isLoadingOrders}
+              className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer disabled:opacity-50"
+              title="Refresh orders from database"
+            >
+              <RotateCcw className={`h-3.5 w-3.5 text-zinc-400 ${isLoadingOrders ? "animate-spin" : ""}`} />
+              <span>Refresh</span>
+            </button>
             <span className="rounded-lg border border-emerald-200/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400">
               {orders.length} Active Orders
             </span>
@@ -904,7 +947,29 @@ export function SupplierOrdersView() {
 
       {/* Orders Data Table: Borderless, Background-less, Clean & Light */}
       <div className="w-full overflow-x-auto">
-        {paginated.length === 0 ? (
+        {isLoadingOrders && orders.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 space-y-3">
+            <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
+            <p className="text-xs text-zinc-400 font-medium">Fetching real purchase orders from database...</p>
+          </div>
+        ) : ordersError && orders.length === 0 ? (
+          <div className="p-6 rounded-2xl border border-rose-500/20 bg-rose-500/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
+              <div>
+                <p className="text-xs font-bold text-rose-300">Unable to load purchase orders</p>
+                <p className="text-[11px] text-zinc-400 mt-0.5">{ordersError}</p>
+              </div>
+            </div>
+            <button
+              onClick={() => fetchOrders()}
+              className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white transition-colors cursor-pointer flex items-center gap-1.5"
+            >
+              <RotateCcw className="h-3.5 w-3.5" />
+              <span>Retry</span>
+            </button>
+          </div>
+        ) : paginated.length === 0 ? (
           <div className="p-8">
             <EmptyState
               title="No Orders Found"

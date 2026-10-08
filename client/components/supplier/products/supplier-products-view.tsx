@@ -52,10 +52,6 @@ export function SupplierProductsView() {
   } = useSupplierStore();
   const { user } = useAuthStore();
 
-  React.useEffect(() => {
-    fetchProducts();
-  }, [fetchProducts]);
-
   const isBranchManager = user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
   const userBranchId = user?.branchId || currentStaffUser?.branchId;
   const userBranchName = user?.branchName || currentStaffUser?.branchName;
@@ -71,14 +67,33 @@ export function SupplierProductsView() {
 
   const pageSize = 10;
 
+  React.useEffect(() => {
+    fetchProducts(isBranchManager ? userBranchId : undefined);
+  }, [fetchProducts, isBranchManager, userBranchId]);
+
   // Strict Branch Scoping: Branch manager ONLY sees products in their branch
   const scopedProducts = useMemo(() => {
-    if (isBranchManager && userBranchId) {
-      return products.filter((p) =>
-        p.branchId === userBranchId ||
-        p.warehouseLocation.toLowerCase().includes(userBranchId.replace("wh-", "")) ||
-        (userBranchName && p.warehouseLocation.toLowerCase().includes(userBranchName.toLowerCase().split(" ")[0]))
-      );
+    if (isBranchManager && (userBranchId || userBranchName)) {
+      const targetId = (userBranchId || "").toLowerCase().trim();
+      const strippedId = targetId.replace(/^wh-/, "");
+      const targetName = (userBranchName || "").toLowerCase().trim();
+      const firstKeyword = targetName.split(" ")[0];
+
+      return products.filter((p) => {
+        const pBranchId = (p.branchId || "").toLowerCase().trim();
+        const pWarehouse = (p.warehouseLocation || "").toLowerCase().trim();
+        const pBranchName = (p.branchName || "").toLowerCase().trim();
+
+        const matchId = targetId && (pBranchId === targetId || pBranchId.includes(strippedId));
+        const matchWarehouse = strippedId && pWarehouse.includes(strippedId);
+        const matchName =
+          targetName &&
+          (pWarehouse.includes(targetName) ||
+            pBranchName.includes(targetName) ||
+            (firstKeyword && pWarehouse.includes(firstKeyword)));
+
+        return matchId || matchWarehouse || matchName;
+      });
     }
     return products;
   }, [products, isBranchManager, userBranchId, userBranchName]);
@@ -177,8 +192,14 @@ export function SupplierProductsView() {
               </span>
             )}
           </nav>
-          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2 flex-wrap">
             <span>Wholesale Product Catalog</span>
+            {isBranchManager && (
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono flex items-center gap-1">
+                <Building className="h-3 w-3" />
+                <span>{userBranchName || userBranchId || "Assigned Branch"}</span>
+              </span>
+            )}
           </h1>
         </div>
 
@@ -186,9 +207,9 @@ export function SupplierProductsView() {
           {/* Refresh Database Catalog Button */}
           <button
             type="button"
-            onClick={() => fetchProducts()}
+            onClick={() => fetchProducts(isBranchManager ? userBranchId : undefined)}
             disabled={isLoadingProducts}
-            title="Refresh from PostgreSQL Database"
+            title="Refresh Product Catalog"
             className="p-1.5 rounded-lg border border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoadingProducts ? "animate-spin text-indigo-400" : ""}`} />
@@ -200,11 +221,10 @@ export function SupplierProductsView() {
               type="button"
               onClick={() => setViewMode("table")}
               title="Compact Table View"
-              className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${
-                viewMode === "table"
+              className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "table"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-zinc-400 hover:text-white"
-              }`}
+                }`}
             >
               <List className="h-3.5 w-3.5" />
             </button>
@@ -212,11 +232,10 @@ export function SupplierProductsView() {
               type="button"
               onClick={() => setViewMode("grid")}
               title="Grid Card View"
-              className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${
-                viewMode === "grid"
+              className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "grid"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-zinc-400 hover:text-white"
-              }`}
+                }`}
             >
               <LayoutGrid className="h-3.5 w-3.5" />
             </button>
@@ -235,6 +254,26 @@ export function SupplierProductsView() {
           </button>
         </div>
       </div>
+
+      {/* Branch Manager Scoped Notice Banner */}
+      {isBranchManager && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Building className="h-4 w-4 text-amber-400 shrink-0" />
+            <div>
+              <p className="font-bold text-white text-xs">
+                Branch Manager Scoped Catalog: {userBranchName || "Assigned Depot"} ({userBranchId || "wh-aa"})
+              </p>
+              <p className="text-[11px] text-amber-300/80">
+                ለእርስዎ ቅርንጫፍ የተመደቡ እና የተለቀቁ ምርቶች ብቻ ይታያሉ። የሌሎች ቅርንጫፎች ምርቶች እንዳይታዩ ተደርገዋል።
+              </p>
+            </div>
+          </div>
+          <span className="text-[10px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-500/30 shrink-0 font-bold hidden sm:inline-block">
+            🔒 Branch Scoped
+          </span>
+        </div>
+      )}
 
       {/* 2. Slim KPI Metric Bar (Light & Non-zoomed) */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
@@ -394,9 +433,9 @@ export function SupplierProductsView() {
           <div className="h-10 w-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
             <Loader2 className="h-5 w-5 text-indigo-400 animate-spin" />
           </div>
-          <h3 className="text-sm font-semibold text-white">Loading Products from Database...</h3>
+          <h3 className="text-sm font-semibold text-white">Loading Products Catalog...</h3>
           <p className="text-xs text-zinc-400 max-w-sm">
-            Fetching active wholesale commodities and inventory from the database.
+            Fetching active wholesale commodities and inventory.
           </p>
         </div>
       ) : productsError && products.length === 0 ? (
@@ -404,7 +443,7 @@ export function SupplierProductsView() {
           <div className="h-10 w-10 rounded-full bg-rose-500/10 border border-rose-500/20 flex items-center justify-center">
             <AlertTriangle className="h-5 w-5 text-rose-400" />
           </div>
-          <h3 className="text-sm font-semibold text-white">Database Connection Error</h3>
+          <h3 className="text-sm font-semibold text-white">Unable to Load Products</h3>
           <p className="text-xs text-rose-300 max-w-md">{productsError}</p>
           <button
             onClick={() => fetchProducts()}
@@ -493,9 +532,8 @@ export function SupplierProductsView() {
                       <div className="h-1 w-full rounded-full bg-white/10 overflow-hidden">
                         <div
                           style={{ width: `${Math.min(100, (prod.stock / 250000) * 100)}%` }}
-                          className={`h-full rounded-full ${
-                            prod.stock < 30000 ? "bg-amber-400" : "bg-emerald-400"
-                          }`}
+                          className={`h-full rounded-full ${prod.stock < 30000 ? "bg-amber-400" : "bg-emerald-400"
+                            }`}
                         />
                       </div>
 
@@ -719,9 +757,8 @@ export function SupplierProductsView() {
                           <div className="h-1 w-full rounded-full bg-white/[0.08] overflow-hidden">
                             <div
                               style={{ width: `${Math.min(100, (prod.stock / 250000) * 100)}%` }}
-                              className={`h-full rounded-full transition-all duration-300 ${
-                                prod.stock < 30000 ? "bg-amber-400" : "bg-emerald-400"
-                              }`}
+                              className={`h-full rounded-full transition-all duration-300 ${prod.stock < 30000 ? "bg-amber-400" : "bg-emerald-400"
+                                }`}
                             />
                           </div>
                           {prod.reservedStock > 0 && (
@@ -758,11 +795,10 @@ export function SupplierProductsView() {
                             type="button"
                             onClick={() => setActiveActionMenuId(isMenuOpen ? null : prod.id)}
                             title="More Actions"
-                            className={`rounded-lg p-1.5 text-zinc-400 hover:text-white transition-all cursor-pointer ${
-                              isMenuOpen
+                            className={`rounded-lg p-1.5 text-zinc-400 hover:text-white transition-all cursor-pointer ${isMenuOpen
                                 ? "bg-white/15 text-white shadow-xs ring-1 ring-white/20"
                                 : "hover:bg-white/10"
-                            }`}
+                              }`}
                           >
                             <MoreVertical className="h-4 w-4" />
                           </button>
@@ -806,15 +842,15 @@ export function SupplierProductsView() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                               >
                                 {prod.status === "published" ? (
-                                    <>
-                                      <XCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                                      <span>Move to Draft</span>
-                                    </>
+                                  <>
+                                    <XCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                                    <span>Move to Draft</span>
+                                  </>
                                 ) : (
-                                    <>
-                                      <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                                      <span className="text-emerald-300">Publish Live</span>
-                                    </>
+                                  <>
+                                    <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                                    <span className="text-emerald-300">Publish Live</span>
+                                  </>
                                 )}
                               </button>
 

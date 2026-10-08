@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { ModalDialog } from "../shared/modal-dialog";
 import { B2BInventoryItem, DamagedStockRecord } from "@/data/supplier-inventory-data";
+import { Warehouse as WarehouseType } from "@/types/supplier";
 import {
   Boxes,
   Plus,
@@ -31,6 +32,7 @@ interface AddStockModalProps {
   onClose: () => void;
   products: B2BInventoryItem[];
   defaultProduct?: B2BInventoryItem | null;
+  warehouses?: WarehouseType[];
   onAddStock: (data: {
     productId: string;
     warehouse: string;
@@ -49,10 +51,19 @@ export function AddStockModal({
   onClose,
   products,
   defaultProduct,
+  warehouses = [],
   onAddStock,
 }: AddStockModalProps) {
   const [productId, setProductId] = useState(defaultProduct?.id || products[0]?.id || "");
-  const [warehouse, setWarehouse] = useState("Addis Ababa Central Logistics Hub (WH-AA)");
+  const [warehouse, setWarehouse] = useState(
+    warehouses.length > 0 ? warehouses[0].name : "Central Logistics Hub"
+  );
+
+  React.useEffect(() => {
+    if (warehouses.length > 0 && (!warehouse || !warehouses.some((w) => w.name === warehouse))) {
+      setWarehouse(warehouses[0].name);
+    }
+  }, [warehouses, warehouse]);
   const [quantity, setQuantity] = useState<number>(100);
   const [batchNumber, setBatchNumber] = useState(`LOT-${Date.now().toString().slice(-6)}`);
   const [supplierRef, setSupplierRef] = useState("COOP-DELIVERY-2026");
@@ -65,6 +76,15 @@ export function AddStockModal({
   if (!isOpen) return null;
 
   const currentProduct = products.find((p) => p.id === productId) || products[0];
+  if (!currentProduct) {
+    return (
+      <ModalDialog isOpen={isOpen} onClose={onClose} title="Record Inbound Stock Intake" maxWidth="sm">
+        <div className="p-6 text-center text-xs text-zinc-400">
+          No catalog commodities found. Please add products first.
+        </div>
+      </ModalDialog>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -143,10 +163,15 @@ export function AddStockModal({
                 isLight ? "border-slate-200 bg-slate-50 text-slate-900" : "border-white/10 bg-[#121824] text-white"
               }`}
             >
-              <option value="Addis Ababa Central Logistics Hub (WH-AA)">Addis Ababa Central Hub (WH-AA)</option>
-              <option value="Hawassa Agro-Processing Logistics Depot (WH-HW)">Hawassa Agro Depot (WH-HW)</option>
-              <option value="Mojo Dry Port Multimodal Terminal (WH-MJ)">Mojo Dry Port Depot (WH-MJ)</option>
-              <option value="Dire Dawa Free Trade Logistics Depot (WH-DD)">Dire Dawa Logistics Hub (WH-DD)</option>
+              {warehouses.length > 0 ? (
+                warehouses.map((w) => (
+                  <option key={w.id} value={w.name}>
+                    {w.name} ({w.code || w.city})
+                  </option>
+                ))
+              ) : (
+                <option value="Central Logistics Hub">Central Logistics Hub</option>
+              )}
             </select>
           </div>
         </div>
@@ -256,6 +281,7 @@ interface AdjustModalProps {
   onClose: () => void;
   products: B2BInventoryItem[];
   defaultProduct?: B2BInventoryItem | null;
+  warehouses?: WarehouseType[];
   onAdjustStock: (data: {
     productId: string;
     warehouse: string;
@@ -273,10 +299,19 @@ export function AdjustStockModal({
   onClose,
   products,
   defaultProduct,
+  warehouses = [],
   onAdjustStock,
 }: AdjustModalProps) {
   const [productId, setProductId] = useState(defaultProduct?.id || products[0]?.id || "");
-  const [warehouse, setWarehouse] = useState("Addis Ababa Central Logistics Hub (WH-AA)");
+  const [warehouse, setWarehouse] = useState(
+    warehouses.length > 0 ? warehouses[0].name : "Central Logistics Hub"
+  );
+
+  React.useEffect(() => {
+    if (warehouses.length > 0 && (!warehouse || !warehouses.some((w) => w.name === warehouse))) {
+      setWarehouse(warehouses[0].name);
+    }
+  }, [warehouses, warehouse]);
   const currentProduct = products.find((p) => p.id === productId) || products[0];
 
   const [physicalQty, setPhysicalQty] = useState<number>(currentProduct?.totalStock || 500);
@@ -286,6 +321,16 @@ export function AdjustStockModal({
   const isLight = theme === "light";
 
   if (!isOpen) return null;
+
+  if (!currentProduct) {
+    return (
+      <ModalDialog isOpen={isOpen} onClose={onClose} title="Reconcile Physical Cycle Count" maxWidth="sm">
+        <div className="p-6 text-center text-xs text-zinc-400">
+          No catalog commodities found. Please add products first.
+        </div>
+      </ModalDialog>
+    );
+  }
 
   const currentQty = currentProduct?.totalStock || 0;
   const difference = physicalQty - currentQty;
@@ -365,10 +410,15 @@ export function AdjustStockModal({
               isLight ? "border-slate-200 bg-slate-50 text-slate-900" : "border-white/10 bg-[#121824] text-white"
             }`}
           >
-            <option value="Addis Ababa Central Logistics Hub (WH-AA)">Addis Ababa Central Hub (WH-AA)</option>
-            <option value="Hawassa Agro-Processing Logistics Depot (WH-HW)">Hawassa Agro Depot (WH-HW)</option>
-            <option value="Mojo Dry Port Multimodal Terminal (WH-MJ)">Mojo Dry Port Depot (WH-MJ)</option>
-            <option value="Dire Dawa Free Trade Logistics Depot (WH-DD)">Dire Dawa Logistics Hub (WH-DD)</option>
+            {warehouses.length > 0 ? (
+              warehouses.map((w) => (
+                <option key={w.id} value={w.name}>
+                  {w.name} ({w.code || w.city})
+                </option>
+              ))
+            ) : (
+              <option value="Central Logistics Hub">Central Logistics Hub</option>
+            )}
           </select>
         </div>
 
@@ -463,6 +513,7 @@ interface TransferModalProps {
   onClose: () => void;
   products: B2BInventoryItem[];
   defaultProduct?: B2BInventoryItem | null;
+  warehouses?: WarehouseType[];
   onTransferStock: (data: {
     fromWarehouse: string;
     toWarehouse: string;
@@ -480,10 +531,30 @@ export function TransferStockModal({
   onClose,
   products,
   defaultProduct,
+  warehouses = [],
   onTransferStock,
 }: TransferModalProps) {
-  const [fromWarehouse, setFromWarehouse] = useState("Addis Ababa Central Logistics Hub (WH-AA)");
-  const [toWarehouse, setToWarehouse] = useState("Hawassa Agro-Processing Logistics Depot (WH-HW)");
+  const [fromWarehouse, setFromWarehouse] = useState(
+    warehouses.length > 0 ? warehouses[0].name : "Central Logistics Hub"
+  );
+  const [toWarehouse, setToWarehouse] = useState(
+    warehouses.length > 1
+      ? warehouses[1].name
+      : warehouses.length > 0
+      ? warehouses[0].name
+      : "Regional Logistics Hub"
+  );
+
+  React.useEffect(() => {
+    if (warehouses.length > 0) {
+      if (!fromWarehouse || !warehouses.some((w) => w.name === fromWarehouse)) {
+        setFromWarehouse(warehouses[0].name);
+      }
+      if (!toWarehouse || !warehouses.some((w) => w.name === toWarehouse)) {
+        setToWarehouse(warehouses[1]?.name || warehouses[0].name);
+      }
+    }
+  }, [warehouses, fromWarehouse, toWarehouse]);
   const [productId, setProductId] = useState(defaultProduct?.id || products[0]?.id || "");
   const [quantity, setQuantity] = useState<number>(50);
   const [vehiclePlate, setVehiclePlate] = useState("ET-3-99412 (30-Ton Freight Truck)");
@@ -494,6 +565,15 @@ export function TransferStockModal({
   if (!isOpen) return null;
 
   const currentProduct = products.find((p) => p.id === productId) || products[0];
+  if (!currentProduct) {
+    return (
+      <ModalDialog isOpen={isOpen} onClose={onClose} title="Inter-Depot Stock Transfer Dispatch" maxWidth="sm">
+        <div className="p-6 text-center text-xs text-zinc-400">
+          No catalog commodities found. Please add products first.
+        </div>
+      </ModalDialog>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -555,10 +635,15 @@ export function TransferStockModal({
                 isLight ? "border-slate-200 bg-slate-50 text-slate-900" : "border-white/10 bg-[#121824] text-white"
               }`}
             >
-              <option value="Addis Ababa Central Logistics Hub (WH-AA)">Addis Ababa Central Hub (WH-AA)</option>
-              <option value="Hawassa Agro-Processing Logistics Depot (WH-HW)">Hawassa Agro Depot (WH-HW)</option>
-              <option value="Mojo Dry Port Multimodal Terminal (WH-MJ)">Mojo Dry Port Depot (WH-MJ)</option>
-              <option value="Dire Dawa Free Trade Logistics Depot (WH-DD)">Dire Dawa Logistics Hub (WH-DD)</option>
+              {warehouses.length > 0 ? (
+                warehouses.map((w) => (
+                  <option key={w.id} value={w.name}>
+                    {w.name} ({w.code || w.city})
+                  </option>
+                ))
+              ) : (
+                <option value="Central Logistics Hub">Central Logistics Hub</option>
+              )}
             </select>
           </div>
 
@@ -571,10 +656,15 @@ export function TransferStockModal({
                 isLight ? "border-slate-200 bg-slate-50 text-slate-900" : "border-white/10 bg-[#121824] text-white"
               }`}
             >
-              <option value="Hawassa Agro-Processing Logistics Depot (WH-HW)">Hawassa Agro Depot (WH-HW)</option>
-              <option value="Addis Ababa Central Logistics Hub (WH-AA)">Addis Ababa Central Hub (WH-AA)</option>
-              <option value="Mojo Dry Port Multimodal Terminal (WH-MJ)">Mojo Dry Port Depot (WH-MJ)</option>
-              <option value="Dire Dawa Free Trade Logistics Depot (WH-DD)">Dire Dawa Logistics Hub (WH-DD)</option>
+              {warehouses.length > 0 ? (
+                warehouses.map((w) => (
+                  <option key={w.id} value={w.name}>
+                    {w.name} ({w.code || w.city})
+                  </option>
+                ))
+              ) : (
+                <option value="Regional Logistics Hub">Regional Logistics Hub</option>
+              )}
             </select>
           </div>
         </div>

@@ -3,9 +3,14 @@ import { MessagePattern, Payload } from '@nestjs/microservices';
 import { OrdersService } from './orders.service';
 import {
   CreateOrderDto,
+  CreateQuotationDto,
+  DeclineNegotiationDto,
   FilterAvailableDeliveriesDto,
   FilterOrdersDto,
+  NegotiationMessageDto,
+  SendCounterOfferDto,
   UpdateOrderStatusDto,
+  UpdateRfqStatusDto,
   UserRole,
 } from '@app/common';
 
@@ -180,6 +185,100 @@ export class OrdersController {
   getDeliveryMetrics(@Payload() payload: { deliveryStaffId: string }) {
     return this.ordersService.getDeliveryMetrics(payload.deliveryStaffId);
   }
+
+  // --- RFQs ---
+
+  @MessagePattern('get_seller_rfqs')
+  getSellerRfqs(@Payload() payload?: { sellerId?: string }) {
+    return this.ordersService.getSellerRfqs(payload?.sellerId);
+  }
+
+  @MessagePattern('update_rfq_status')
+  updateRfqStatus(
+    @Payload() payload: { id: string; status: string },
+  ) {
+    return this.ordersService.updateRfqStatus(payload.id, payload.status);
+  }
+
+  // --- Quotations ---
+
+  @MessagePattern('get_seller_quotations')
+  getSellerQuotations(@Payload() payload: { sellerId: string }) {
+    return this.ordersService.getSellerQuotations(payload.sellerId);
+  }
+
+  @MessagePattern('create_quotation')
+  createQuotation(
+    @Payload() payload: { sellerId: string; dto: CreateQuotationDto },
+  ) {
+    return this.ordersService.createQuotation(payload.sellerId, payload.dto);
+  }
+
+  // --- Negotiations ---
+
+  @MessagePattern('get_seller_negotiations')
+  getSellerNegotiations(@Payload() payload: { sellerId: string }) {
+    return this.ordersService.getSellerNegotiations(payload.sellerId);
+  }
+
+  @MessagePattern('send_counter_offer')
+  sendCounterOffer(
+    @Payload()
+    payload: {
+      sellerId: string;
+      sessionId: string;
+      dto: SendCounterOfferDto;
+    },
+  ) {
+    return this.ordersService.sendCounterOffer(
+      payload.sellerId,
+      payload.sessionId,
+      payload.dto,
+    );
+  }
+
+  @MessagePattern('accept_negotiation')
+  acceptNegotiation(
+    @Payload() payload: { sellerId: string; sessionId: string },
+  ) {
+    return this.ordersService.acceptNegotiation(
+      payload.sellerId,
+      payload.sessionId,
+    );
+  }
+
+  @MessagePattern('decline_negotiation')
+  declineNegotiation(
+    @Payload()
+    payload: {
+      sellerId: string;
+      sessionId: string;
+      dto?: DeclineNegotiationDto;
+    },
+  ) {
+    return this.ordersService.declineNegotiation(
+      payload.sellerId,
+      payload.sessionId,
+      payload.dto,
+    );
+  }
+
+  @MessagePattern('send_negotiation_message')
+  sendNegotiationMessage(
+    @Payload()
+    payload: {
+      sellerId: string;
+      sessionId: string;
+      message: string;
+    },
+  ) {
+    return this.ordersService.sendNegotiationMessage(
+      payload.sellerId,
+      payload.sessionId,
+      payload.message,
+    );
+  }
 }
+
 
 

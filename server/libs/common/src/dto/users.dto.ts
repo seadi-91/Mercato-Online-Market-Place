@@ -103,6 +103,34 @@ export class UpdateProfileDto {
   @IsString()
   @IsOptional()
   specificLocation?: string;
+
+  @IsString()
+  @IsOptional()
+  tradeLicenseNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  tinNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  businessType?: string;
+
+  @IsString()
+  @IsOptional()
+  businessLicenseUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  tinCertificateUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  commercialRegistrationUrl?: string;
+
+  @IsString()
+  @IsOptional()
+  ownerIdUrl?: string;
 }
 
 export class MerchantKycDto {
@@ -146,3 +174,144 @@ export class VerifyKycDto {
   @IsNotEmpty()
   isVerified: boolean;
 }
+
+export class CreateStaffDto {
+  @IsString()
+  @IsNotEmpty()
+  fullName: string;
+
+  @IsEmail()
+  @IsNotEmpty()
+  email: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  phone: string;
+
+  @IsString()
+  @IsNotEmpty()
+  role: string;
+
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
+  @IsString()
+  @IsOptional()
+  branchName?: string;
+
+  @IsString()
+  @IsOptional()
+  employeeId?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  hireDate?: string;
+
+  @IsString()
+  @IsOptional()
+  nationalIdOrFayda?: string;
+
+  @IsString()
+  @IsOptional()
+  assignedVehicleType?: string;
+
+  @IsString()
+  @IsOptional()
+  assignedVehiclePlate?: string;
+
+  @IsString()
+  @IsOptional()
+  driverLicenseNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  driverLicenseGrade?: string;
+
+  @IsString()
+  @IsOptional()
+  currentDriverStatus?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+
+export class UpdateStaffDto {
+  @IsString()
+  @IsOptional()
+  fullName?: string;
+
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  password?: string;
+
+  @IsString()
+  @IsOptional()
+  phone?: string;
+
+  @IsString()
+  @IsOptional()
+  role?: string;
+
+  @IsString()
+  @IsOptional()
+  branchId?: string;
+
+  @IsString()
+  @IsOptional()
+  branchName?: string;
+
+  @IsString()
+  @IsOptional()
+  employeeId?: string;
+
+  @IsString()
+  @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  hireDate?: string;
+
+  @IsString()
+  @IsOptional()
+  nationalIdOrFayda?: string;
+
+  @IsString()
+  @IsOptional()
+  assignedVehicleType?: string;
+
+  @IsString()
+  @IsOptional()
+  assignedVehiclePlate?: string;
+
+  @IsString()
+  @IsOptional()
+  driverLicenseNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  driverLicenseGrade?: string;
+
+  @IsString()
+  @IsOptional()
+  currentDriverStatus?: string;
+
+  @IsString()
+  @IsOptional()
+  notes?: string;
+}
+

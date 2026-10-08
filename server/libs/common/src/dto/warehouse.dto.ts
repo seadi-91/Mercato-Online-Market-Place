@@ -6,6 +6,7 @@ import {
   IsString,
   Min,
   MaxLength,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -49,7 +50,7 @@ export class CreateWarehouseDto {
   phone?: string;
 
   @IsInt()
-  @Min(100)
+  @Min(0)
   @IsOptional()
   @Type(() => Number)
   totalCapacityM2?: number;
@@ -66,24 +67,74 @@ export class CreateWarehouseDto {
 
   @IsString()
   @IsOptional()
-  operatingHours?: string;
+  temperatureReading?: string;
+
+  @IsString()
+  @IsOptional()
+  humidityReading?: string;
 
   @IsString()
   @IsOptional()
   securityLevel?: string;
 
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  activeLoadingDocks?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  totalLoadingDocks?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  fleetBaysCount?: number;
+
+  @IsString()
+  @IsOptional()
+  operatingHours?: string;
+
+  @IsString()
+  @IsOptional()
+  gpsCoordinates?: string;
+
+  @IsString()
+  @IsOptional()
+  certificationStatus?: string;
+
+  @IsString()
+  @IsOptional()
+  fireSafetyRating?: string;
+
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  totalStockUnits?: number;
+
+  @IsArray()
+  @IsOptional()
+  stockDistribution?: any[];
 }
 
 export class UpdateWarehouseDto {
   @IsString()
   @IsOptional()
+  @MaxLength(150)
   name?: string;
 
   @IsString()
   @IsOptional()
+  @MaxLength(50)
   code?: string;
 
   @IsString()
@@ -115,7 +166,7 @@ export class UpdateWarehouseDto {
   phone?: string;
 
   @IsInt()
-  @Min(100)
+  @Min(0)
   @IsOptional()
   @Type(() => Number)
   totalCapacityM2?: number;
@@ -132,15 +183,63 @@ export class UpdateWarehouseDto {
 
   @IsString()
   @IsOptional()
-  operatingHours?: string;
+  temperatureReading?: string;
+
+  @IsString()
+  @IsOptional()
+  humidityReading?: string;
 
   @IsString()
   @IsOptional()
   securityLevel?: string;
 
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  activeLoadingDocks?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  totalLoadingDocks?: number;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  fleetBaysCount?: number;
+
+  @IsString()
+  @IsOptional()
+  operatingHours?: string;
+
+  @IsString()
+  @IsOptional()
+  gpsCoordinates?: string;
+
+  @IsString()
+  @IsOptional()
+  certificationStatus?: string;
+
+  @IsString()
+  @IsOptional()
+  fireSafetyRating?: string;
+
   @IsString()
   @IsOptional()
   status?: string;
+
+  @IsInt()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  totalStockUnits?: number;
+
+  @IsArray()
+  @IsOptional()
+  stockDistribution?: any[];
 }
 
 export class CreateWarehouseTransferDto {
@@ -171,6 +270,14 @@ export class CreateWarehouseTransferDto {
 
   @IsString()
   @IsOptional()
+  status?: string;
+
+  @IsString()
+  @IsOptional()
+  initiatedBy?: string;
+
+  @IsString()
+  @IsOptional()
   carrierVehicle?: string;
 
   @IsString()
@@ -179,7 +286,19 @@ export class CreateWarehouseTransferDto {
 
   @IsString()
   @IsOptional()
+  estimatedArrival?: string;
+
+  @IsString()
+  @IsOptional()
+  waybillNumber?: string;
+
+  @IsString()
+  @IsOptional()
   notes?: string;
+
+  @IsString()
+  @IsOptional()
+  requestedDate?: string;
 }
 
 export class UpdateTransferStatusDto {

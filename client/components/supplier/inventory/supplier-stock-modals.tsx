@@ -34,11 +34,33 @@ export function SupplierAdjustStockModal() {
     modalData?.type === "inbound" ? "add" : "add"
   );
   const [reason, setReason] = useState("Cooperative harvest delivery");
-  const [warehouse, setWarehouse] = useState("Addis Ababa Central Logistics Hub (WH-AA)");
+  const [warehouse, setWarehouse] = useState(
+    warehouses[0] ? `${warehouses[0].name} (${warehouses[0].code})` : "Central Logistics Hub"
+  );
+
+  React.useEffect(() => {
+    if (warehouses.length > 0 && !warehouse) {
+      setWarehouse(`${warehouses[0].name} (${warehouses[0].code})`);
+    }
+  }, [warehouses, warehouse]);
 
   if (!isOpen) return null;
 
   const currentProduct = products.find((p) => p.id === productId) || products[0];
+  if (!currentProduct) {
+    return (
+      <ModalDialog
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Adjust Stock Inventory"
+        maxWidth="sm"
+      >
+        <div className="p-6 text-center text-xs text-zinc-400">
+          No catalog commodities found. Please add products first.
+        </div>
+      </ModalDialog>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,8 +70,8 @@ export function SupplierAdjustStockModal() {
 
   const calculatedStock =
     direction === "add"
-      ? currentProduct.stock + deltaQty
-      : Math.max(0, currentProduct.stock - deltaQty);
+      ? (currentProduct.stock || 0) + deltaQty
+      : Math.max(0, (currentProduct.stock || 0) - deltaQty);
 
   const presets = [100, 500, 1000, 5000];
 
@@ -196,14 +218,49 @@ export function SupplierTransferStockModal() {
 
   const isOpen = activeModal === "transfer-stock";
 
-  const [fromWarehouse, setFromWarehouse] = useState("Addis Ababa Central Logistics Hub (WH-AA)");
-  const [toWarehouse, setToWarehouse] = useState("Hawassa Agro-Processing Logistics Depot (WH-HW)");
+  const [fromWarehouse, setFromWarehouse] = useState(
+    warehouses[0] ? `${warehouses[0].name} (${warehouses[0].code})` : "Central Logistics Hub"
+  );
+  const [toWarehouse, setToWarehouse] = useState(
+    warehouses[1]
+      ? `${warehouses[1].name} (${warehouses[1].code})`
+      : warehouses[0]
+      ? `${warehouses[0].name} (${warehouses[0].code})`
+      : "Regional Logistics Hub"
+  );
   const [productId, setProductId] = useState(products[0]?.id || "");
   const [quantity, setQuantity] = useState<number>(1000);
+
+  React.useEffect(() => {
+    if (warehouses.length > 0) {
+      if (!fromWarehouse) setFromWarehouse(`${warehouses[0].name} (${warehouses[0].code})`);
+      if (!toWarehouse) {
+        setToWarehouse(
+          warehouses[1]
+            ? `${warehouses[1].name} (${warehouses[1].code})`
+            : `${warehouses[0].name} (${warehouses[0].code})`
+        );
+      }
+    }
+  }, [warehouses, fromWarehouse, toWarehouse]);
 
   if (!isOpen) return null;
 
   const currentProduct = products.find((p) => p.id === productId) || products[0];
+  if (!currentProduct) {
+    return (
+      <ModalDialog
+        isOpen={isOpen}
+        onClose={closeModal}
+        title="Inter-Depot Stock Transfer"
+        maxWidth="sm"
+      >
+        <div className="p-6 text-center text-xs text-zinc-400">
+          No catalog commodities found to transfer. Please add products first.
+        </div>
+      </ModalDialog>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

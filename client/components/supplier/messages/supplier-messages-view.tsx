@@ -22,6 +22,7 @@ import {
   BadgeCheck,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
+import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
 import { toast } from "sonner";
@@ -38,110 +39,6 @@ interface MessageItem {
     type: "pdf" | "doc" | "image";
   };
 }
-
-// Initial mock conversation history per thread
-const defaultThreadMessages: Record<string, MessageItem[]> = {
-  "chat-01": [
-    {
-      id: "m-01-1",
-      sender: "buyer",
-      senderName: "Dawit Bekele",
-      time: "09:15 AM",
-      text: "Greetings Ato Kassahun. We are reviewing the construction timeline for the Mexico Square mixed-use project. Can you confirm when the 45 tons of 16mm deformed rebar will arrive at the site?",
-    },
-    {
-      id: "m-01-2",
-      sender: "supplier",
-      senderName: "Abyssinia Supply Logistics",
-      time: "09:32 AM",
-      text: "Good morning Ato Dawit. All three flatbed trailers were loaded yesterday at Kality Steel Rolling Mill. They departed at 07:00 AM after passing axle weighbridge clearance.",
-      attachment: {
-        name: "Waybill_Manifest_WB-88921.pdf",
-        size: "1.8 MB",
-        type: "pdf",
-      },
-    },
-    {
-      id: "m-01-3",
-      sender: "buyer",
-      senderName: "Dawit Bekele",
-      time: "10:24 AM",
-      text: "Crane trucks are positioned at Mexico Square site waiting for trailer ETA. Our site engineer Engineer Selam will sign the receiving inspection sheet.",
-    },
-  ],
-  "chat-02": [
-    {
-      id: "m-02-1",
-      sender: "buyer",
-      senderName: "Meron Tadesse",
-      time: "Yesterday, 02:40 PM",
-      text: "Hello! We are finalizing procurement for our banquet coffee supplies for the African Union Summit delegation. We need 2,500 KG of Grade-1 Yirgacheffe Washed.",
-    },
-    {
-      id: "m-02-2",
-      sender: "supplier",
-      senderName: "Abyssinia Supply Sales Desk",
-      time: "Yesterday, 03:15 PM",
-      text: "Greetings Woizero Meron. We have freshly cupped export-grade Grade-1 lots ready in our hermetic grain-pro storage at Addis Ababa warehouse. I have issued official quotation QT-2026-9021.",
-      attachment: {
-        name: "Proforma_Quotation_QT-2026-9021.pdf",
-        size: "2.4 MB",
-        type: "pdf",
-      },
-    },
-    {
-      id: "m-02-3",
-      sender: "buyer",
-      senderName: "Meron Tadesse",
-      time: "Yesterday, 04:55 PM",
-      text: "Thank you for sending the updated quotation QT-9021. Reviewing with CFO today. If approved, we will lock the funds into the CBE Escrow milestone.",
-    },
-  ],
-  "chat-03": [
-    {
-      id: "m-03-1",
-      sender: "buyer",
-      senderName: "Sara Girma",
-      time: "Oct 2, 11:20 AM",
-      text: "Confirming that the 5,000 KG Magna White Teff shipment has been unloaded into Bole Cargo cold room 4.",
-    },
-    {
-      id: "m-03-2",
-      sender: "supplier",
-      senderName: "Abyssinia Supply Dispatch",
-      time: "Oct 2, 11:45 AM",
-      text: "Excellent news. The grain purity certificate from Ethiopian Conformity Assessment Enterprise (ECAE) is stapled to the delivery receipt.",
-      attachment: {
-        name: "ECAE_Lab_Purity_Certificate_Teff.pdf",
-        size: "3.1 MB",
-        type: "pdf",
-      },
-    },
-    {
-      id: "m-03-3",
-      sender: "buyer",
-      senderName: "Sara Girma",
-      time: "Oct 2, 01:10 PM",
-      text: "Delivery batch arrived in good condition at Bole Cargo. Release triggered.",
-    },
-  ],
-  "chat-04": [
-    {
-      id: "m-04-1",
-      sender: "buyer",
-      senderName: "Tamrat Wolde",
-      time: "Oct 1, 04:10 PM",
-      text: "Inquiry regarding bulk wheat grain contract delivery schedule for November milling run.",
-    },
-    {
-      id: "m-04-2",
-      sender: "supplier",
-      senderName: "Abyssinia Supply Commercial Desk",
-      time: "Oct 1, 04:45 PM",
-      text: "Ato Tamrat, our Adama warehouse has 120 metric tons reserved. Would you like a formal proforma quotation with CIF Adama delivery terms?",
-    },
-  ],
-};
 
 export function SupplierMessagesView() {
   const {
@@ -161,8 +58,7 @@ export function SupplierMessagesView() {
   const [messageInput, setMessageInput] = useState("");
   const [chatSearch, setChatSearch] = useState("");
   const [activeFilterTab, setActiveFilterTab] = useState<"all" | "unread" | "orders" | "quotes">("all");
-  const [threadMessages, setThreadMessages] =
-    useState<Record<string, MessageItem[]>>(defaultThreadMessages);
+  const [threadMessages, setThreadMessages] = useState<Record<string, MessageItem[]>>({});
 
   const activeThread =
     chatThreads.find((t) => t.id === activeChatThreadId) || chatThreads[0];
@@ -267,6 +163,27 @@ export function SupplierMessagesView() {
   };
 
   const totalUnreadCount = chatThreads.reduce((acc, t) => acc + t.unreadCount, 0);
+
+  if (chatThreads.length === 0) {
+    return (
+      <div className="space-y-6">
+        <PageHeader
+          title="Direct B2B Commercial Messaging"
+          subtitle="Real-time procurement communications with authenticated enterprise buyers, instant quotation sharing, and order milestone context"
+          breadcrumbs={[
+            { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
+            { label: "Messages" },
+          ]}
+        />
+        <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0e1118] p-12 flex flex-col items-center justify-center text-center shadow-xs">
+          <EmptyState
+            title="No Conversations Yet"
+            description="There are currently no active communication channels with buyers. When buyers message your sales desk or submit RFQs, real-time message channels will appear here."
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

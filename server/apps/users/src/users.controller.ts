@@ -7,8 +7,10 @@ import { MerchantKycDto } from './dto/merchant-kyc.dto';
 import { DeliveryKycDto } from './dto/delivery-kyc.dto';
 import {
   CreateAuditLogDto,
+  CreateStaffDto,
   FilterAuditLogsDto,
   FilterUsersDto,
+  UpdateStaffDto,
 } from '@app/common';
 
 @Controller()
@@ -126,5 +128,42 @@ export class UsersController {
   @MessagePattern('get_user_metrics')
   getUserMetrics() {
     return this.usersService.getUserMetrics();
+  }
+
+  // --- Staff & Fleet Management ---
+  @MessagePattern('create_staff')
+  createStaff(@Payload() payload: { sellerId: string; dto: CreateStaffDto }) {
+    return this.usersService.createStaff(payload.sellerId, payload.dto);
+  }
+
+  @MessagePattern('get_seller_staff')
+  getSellerStaff(@Payload() payload: { sellerId: string }) {
+    return this.usersService.getSellerStaff(payload.sellerId);
+  }
+
+  @MessagePattern('update_staff')
+  updateStaff(
+    @Payload()
+    payload: {
+      sellerId: string;
+      staffId: string;
+      dto: UpdateStaffDto;
+    },
+  ) {
+    return this.usersService.updateStaff(
+      payload.sellerId,
+      payload.staffId,
+      payload.dto,
+    );
+  }
+
+  @MessagePattern('delete_staff')
+  deleteStaff(@Payload() payload: { sellerId: string; staffId: string }) {
+    return this.usersService.deleteStaff(payload.sellerId, payload.staffId);
+  }
+
+  @MessagePattern('authenticate_staff')
+  authenticateStaff(@Payload() payload: { identifier: string; password?: string }) {
+    return this.usersService.authenticateStaff(payload.identifier, payload.password);
   }
 }

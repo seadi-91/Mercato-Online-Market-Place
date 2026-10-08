@@ -30,6 +30,7 @@ import {
   MoreVertical,
   UserCheck,
   UserX,
+  Loader2,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { useSupplierStore } from "@/store/supplier-store";
@@ -41,6 +42,10 @@ import { toast } from "sonner";
 export function SupplierTeamView() {
   const {
     staffList,
+    isLoadingStaff,
+    staffError,
+    fetchStaff,
+    fetchWarehouses,
     addStaff,
     updateStaff,
     deleteStaff,
@@ -49,6 +54,11 @@ export function SupplierTeamView() {
     currentStaffUser,
   } = useSupplierStore();
   const { user } = useAuthStore();
+
+  React.useEffect(() => {
+    fetchStaff();
+    fetchWarehouses();
+  }, [fetchStaff, fetchWarehouses]);
 
   const isBranchManager = user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
   const userBranchId = user?.branchId || currentStaffUser?.branchId;
@@ -65,6 +75,7 @@ export function SupplierTeamView() {
 
   // Modals & States
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [copiedEmailId, setCopiedEmailId] = useState<string | null>(null);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
 
@@ -152,46 +163,50 @@ export function SupplierTeamView() {
     setIsAddStaffOpen(true);
   };
 
-  const handleSaveNewStaff = (e: React.FormEvent) => {
+  const handleSaveNewStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!fullName.trim() || !email.trim()) {
       toast.error("Please enter the employee full name and email.");
       return;
     }
 
-    // Security guard: Branch manager can ONLY add drivers for their branch
-    const finalRole = isBranchManager ? "driver" : role;
-    const finalBranchId = isBranchManager && userBranchId ? userBranchId : branchId;
+    setIsSubmitting(true);
+    try {
+      // Security guard: Branch manager can ONLY add drivers for their branch
+      const finalRole = isBranchManager ? "driver" : role;
+      const finalBranchId = isBranchManager && userBranchId ? userBranchId : branchId;
 
-    const assignedWarehouse = warehouses.find((w) => w.id === finalBranchId);
-    const finalBranchName = assignedWarehouse ? assignedWarehouse.name : (userBranchName || "Central Logistics Hub");
+      const assignedWarehouse = warehouses.find((w) => w.id === finalBranchId);
+      const finalBranchName = assignedWarehouse ? assignedWarehouse.name : (userBranchName || "Central Logistics Hub");
 
-    addStaff({
-      fullName: fullName.trim(),
-      email: email.trim(),
-      password: password || "driver123",
-      phone: phone.trim(),
-      role: finalRole,
-      branchId: finalBranchId,
-      branchName: finalBranchName,
-      status: "active",
-      employeeId,
-      nationalIdOrFayda,
-      hireDate: new Date().toISOString().split("T")[0],
-      notes,
-      ...(finalRole === "driver"
-        ? {
-            assignedVehicleType,
-            assignedVehiclePlate,
-            driverLicenseNumber,
-            driverLicenseGrade,
-            currentDriverStatus,
-          }
-        : {}),
-    });
+      await addStaff({
+        fullName: fullName.trim(),
+        email: email.trim(),
+        password: password || "driver123",
+        phone: phone.trim(),
+        role: finalRole,
+        branchId: finalBranchId,
+        branchName: finalBranchName,
+        status: "active",
+        employeeId,
+        nationalIdOrFayda,
+        hireDate: new Date().toISOString().split("T")[0],
+        notes,
+        ...(finalRole === "driver"
+          ? {
+              assignedVehicleType,
+              assignedVehiclePlate,
+              driverLicenseNumber,
+              driverLicenseGrade,
+              currentDriverStatus,
+            }
+          : {}),
+      });
 
-    toast.success(`Staff member "${fullName}" added successfully.`);
-    setIsAddStaffOpen(false);
+      setIsAddStaffOpen(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const copyEmail = (staff: SupplierStaff) => {
@@ -982,9 +997,17 @@ export function SupplierTeamView() {
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2 font-bold text-white shadow-xs cursor-pointer"
+                  disabled={isSubmitting}
+                  className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-5 py-2 font-bold text-white shadow-xs cursor-pointer disabled:opacity-60"
                 >
-                  Save Staff Member
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-white" />
+                      <span>Saving to Database...</span>
+                    </>
+                  ) : (
+                    <span>Save Staff Member</span>
+                  )}
                 </button>
               </div>
             </form>

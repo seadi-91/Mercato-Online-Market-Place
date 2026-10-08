@@ -34,6 +34,10 @@ export default function LoginPage() {
   const [passwordError, setPasswordError] = useState("");
   const [blockedAccountError, setBlockedAccountError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    useSupplierStore.getState().hydrateStore();
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.getModifierState && e.getModifierState("CapsLock")) {
       setCapsLockActive(true);
@@ -264,16 +268,22 @@ export default function LoginPage() {
         return;
       }
 
+      const staffRole = data?.user?.staffRole;
+      const isStaffDriver = staffRole === "driver" || data?.user?.role === "DELIVERY";
+      const isBranchManager = staffRole === "branch_manager";
+
       let isSupplierUser =
-        data?.user?.role === "SUPPLIER" ||
-        data?.user?.isSupplier === true ||
-        (typeof data?.user?.businessType === "string" &&
-          data.user.businessType.toLowerCase().includes("supplier")) ||
-        cleanId.includes("suplayer") ||
-        cleanId.includes("supplier");
+        !isStaffDriver &&
+        (data?.user?.role === "SUPPLIER" ||
+          data?.user?.isSupplier === true ||
+          isBranchManager ||
+          (typeof data?.user?.businessType === "string" &&
+            data.user.businessType.toLowerCase().includes("supplier")) ||
+          cleanId.includes("suplayer") ||
+          cleanId.includes("supplier"));
 
       // Robust check: If returned as SELLER, check profile to detect registered suppliers
-      if (!isSupplierUser && (data?.user?.role === "SELLER" || !data?.user?.role) && data?.accessToken) {
+      if (!isSupplierUser && !isStaffDriver && (data?.user?.role === "SELLER" || !data?.user?.role) && data?.accessToken) {
         try {
           const profileRes = await fetch(`${API_CONFIG.baseURL}/users/me`, {
             headers: {
@@ -297,7 +307,9 @@ export default function LoginPage() {
         }
       }
 
-      const effectiveRole: "ADMIN" | "SELLER" | "SUPPLIER" | "DELIVERY" | "CUSTOMER" = isSupplierUser
+      const effectiveRole: "ADMIN" | "SELLER" | "SUPPLIER" | "DELIVERY" | "CUSTOMER" = isStaffDriver
+        ? "DELIVERY"
+        : isSupplierUser
         ? "SUPPLIER"
         : (data?.user?.role || "CUSTOMER");
 
@@ -310,7 +322,12 @@ export default function LoginPage() {
         phoneNumber:
           data?.user?.phoneNumber || (!identifier.includes("@") ? formattedIdentifier : ""),
         role: effectiveRole,
-        staffRole: isSupplierUser ? ("supplier_owner" as const) : undefined,
+        staffRole: data?.user?.staffRole || (isSupplierUser ? ("supplier_owner" as const) : undefined),
+        branchId: data?.user?.branchId,
+        branchName: data?.user?.branchName,
+        assignedVehiclePlate: data?.user?.assignedVehiclePlate,
+        assignedVehicleType: data?.user?.assignedVehicleType,
+        driverLicenseNumber: data?.user?.driverLicenseNumber,
         businessType: data?.user?.businessType,
         shopName: data?.user?.shopName,
         isVerified: true,
@@ -318,18 +335,24 @@ export default function LoginPage() {
 
       login(userData, data?.accessToken);
       toast.success(`Welcome back, ${userData.name}!`, {
-        description: isSupplierUser
+        description: isStaffDriver
+          ? `Commercial Courier & Freight Portal (${userData.assignedVehiclePlate || "Fleet Truck"})`
+          : isBranchManager
+          ? `Branch Manager Console · ${userData.branchName || "Logistics Hub"}`
+          : isSupplierUser
           ? "Signed in to B2B Wholesale Supplier Console"
           : `Signed in to ${effectiveRole} console`,
       });
 
       if (effectiveRole === "ADMIN") {
         router.push("/dashboard/admin");
+      } else if (isBranchManager && userData.branchId) {
+        router.push(`/dashboard/supplier?branch=${userData.branchId}`);
       } else if (effectiveRole === "SUPPLIER") {
         router.push("/dashboard/supplier");
       } else if (effectiveRole === "SELLER") {
         router.push("/dashboard/seller");
-      } else if (effectiveRole === "DELIVERY") {
+      } else if (effectiveRole === "DELIVERY" || isStaffDriver) {
         router.push("/dashboard/delivery");
       } else {
         router.push("/");

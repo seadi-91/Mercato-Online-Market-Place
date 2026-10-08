@@ -28,3 +28,4 @@ export * from './enums/kyc-status.enum';
 export * from './dto/admin.dto';
 export * from './dto/seller.dto';
 export * from './dto/warehouse.dto';
+export * from './dto/rfq.dto';

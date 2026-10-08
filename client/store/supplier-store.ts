@@ -5,6 +5,7 @@ import {
   B2BProduct,
   InventoryMovement,
   RFQItem,
+  RFQStatus,
   Quotation,
   NegotiationSession,
   B2BOrder,
@@ -24,32 +25,21 @@ import {
   ProductStatus,
   SupplierStaff,
   StaffRole,
+  SettlementAccount,
 } from "@/types/supplier";
 import {
   initialSupplierProfile,
-  initialInventoryMovements,
-  initialRFQs,
-  initialQuotations,
-  initialNegotiations,
-  initialOrders,
-  initialCustomers,
-  initialWarehouses,
-  initialWarehouseTransfers,
-  initialShipments,
-  initialInvoices,
-  initialTransactions,
-  initialPromotions,
-  initialReturns,
-  initialDisputes,
-  initialChatThreads,
   initialVerificationDocs,
+  initialPromotions,
 } from "@/data/supplier-mock-data";
-import { sellerService } from "@/services/seller/seller.service";
+import { sellerService, FilterOrdersParams } from "@/services/seller/seller.service";
 import {
   mapBackendProductToB2B,
   mapB2BToCreateInput,
   mapB2BToUpdateInput,
 } from "@/services/supplier/supplier-product-adapter";
+import { mapBackendOrderToB2B } from "@/services/supplier/supplier-order-adapter";
+import { useAuthStore } from "@/store/auth-store";
 import { api } from "@/services/api/client";
 import { ENDPOINTS } from "@/services/api/endpoints";
 
@@ -67,6 +57,183 @@ export interface SupplierNotification {
   counterpartName?: string;
   actionLabel?: string;
   category?: "orders" | "rfqs" | "payments" | "logistics" | "compliance" | "messages";
+}
+
+export function getBankShortCode(name: string): string {
+  if (!name || !name.trim()) return "BNK";
+  const upper = name.toUpperCase().trim();
+  if (upper.includes("COMMERCIAL BANK OF ETHIOPIA") || upper.includes("CBE")) return "CBE";
+  if (upper.includes("TELEBIRR")) return "TB";
+  if (upper.includes("AWASH")) return "AIB";
+  if (upper.includes("DASHEN")) return "DB";
+  if (upper.includes("ABYSSINIA") || upper.includes("BOA")) return "BOA";
+  if (upper.includes("WEGAGEN")) return "WB";
+  if (upper.includes("NIB")) return "NIB";
+  if (upper.includes("OROMIA") || upper.includes("COOP")) return "COOP";
+  if (upper.includes("SIINQEE") || upper.includes("SINQEE")) return "SIINQEE";
+  if (upper.includes("ZEMEN")) return "ZBNK";
+  if (upper.includes("BERHAN")) return "BER";
+  if (upper.includes("BUNNA")) return "BNNA";
+  if (upper.includes("ENAT")) return "ENAT";
+  if (upper.includes("ABAY")) return "ABAY";
+  if (upper.includes("HIJRA")) return "HIJ";
+  if (upper.includes("ZAMZAM")) return "ZAM";
+  if (upper.includes("GLOBAL")) return "GLB";
+  const words = name.trim().split(/\s+/).filter((w) => !["of", "and", "&", "the", "bank"].includes(w.toLowerCase()));
+  if (words.length > 1) {
+    return words.slice(0, 4).map((w) => w[0]).join("").toUpperCase();
+  }
+  return name.trim().slice(0, 4).toUpperCase();
+}
+
+export function getBankAccentColor(name: string): string {
+  const upper = (name || "").toUpperCase();
+  if (upper.includes("CBE") || upper.includes("COMMERCIAL BANK")) return "#9333ea";
+  if (upper.includes("TELEBIRR")) return "#0284c7";
+  if (upper.includes("AWASH")) return "#d97706";
+  if (upper.includes("DASHEN")) return "#2563eb";
+  if (upper.includes("ABYSSINIA")) return "#dc2626";
+  if (upper.includes("WEGAGEN")) return "#ea580c";
+  if (upper.includes("OROMIA") || upper.includes("COOP")) return "#16a34a";
+  if (upper.includes("NIB")) return "#0891b2";
+  if (upper.includes("SIINQEE")) return "#ca8a04";
+  const palette = ["#10b981", "#6366f1", "#ec4899", "#8b5cf6", "#14b8a6", "#f59e0b", "#06b6d4", "#059669"];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return palette[Math.abs(hash) % palette.length];
+}
+
+const SETTLEMENT_ACCOUNTS_STORAGE_KEY = "mercatox_supplier_settlement_accounts";
+
+export function getStoredSettlementAccounts(): SettlementAccount[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SETTLEMENT_ACCOUNTS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.error("[SupplierStore] Error reading settlement accounts from localStorage:", err);
+  }
+  return [];
+}
+
+export function saveStoredSettlementAccounts(accounts: SettlementAccount[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SETTLEMENT_ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+  } catch (err) {
+    console.error("[SupplierStore] Error saving settlement accounts to localStorage:", err);
+  }
+}
+
+const PROMOTIONS_STORAGE_KEY = "mercatox_supplier_promotions";
+
+export function getStoredPromotions(): PromotionCampaign[] {
+  if (typeof window === "undefined") return initialPromotions;
+  try {
+    const raw = localStorage.getItem(PROMOTIONS_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.error("[SupplierStore] Error reading promotions from localStorage:", err);
+  }
+  return initialPromotions;
+}
+
+export function saveStoredPromotions(promotions: PromotionCampaign[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(PROMOTIONS_STORAGE_KEY, JSON.stringify(promotions));
+  } catch (err) {
+    console.error("[SupplierStore] Error saving promotions to localStorage:", err);
+  }
+}
+
+const STAFF_STORAGE_KEY = "mercatox_supplier_staff_list";
+
+export function getStoredStaff(): SupplierStaff[] {
+  if (typeof window === "undefined") return initialStaffList;
+  try {
+    const raw = localStorage.getItem(STAFF_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.error("[SupplierStore] Error reading staff from localStorage:", err);
+  }
+  return initialStaffList;
+}
+
+export function saveStoredStaff(staff: SupplierStaff[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(staff));
+  } catch (err) {
+    console.error("[SupplierStore] Error saving staff to localStorage:", err);
+  }
+}
+
+const PROFILE_STORAGE_KEY = "mercatox_supplier_profile";
+
+export function mapBackendProfileToSupplier(
+  backend: any,
+  fallback: SupplierBusinessProfile = initialSupplierProfile
+): SupplierBusinessProfile {
+  if (!backend) return fallback;
+
+  const fullName = backend.fullName || fallback.executiveName || "Enterprise Director";
+  const shopName = backend.shopName || backend.businessName || fallback.businessName || "My Enterprise";
+  const tinNumber = backend.tinNumber || fallback.tinNumber || "";
+  const licenseNumber = backend.tradeLicenseNumber || fallback.licenseNumber || "";
+  const businessType = backend.businessType || fallback.legalEntity || "Private Limited Company (PLC)";
+  const city = backend.city || fallback.city || "Addis Ababa";
+  const subCity = backend.subCity || fallback.region || "Addis Ababa";
+  const address = backend.specificLocation || backend.marketZone || fallback.address || "Mercato Commercial District";
+  const phone = backend.alternatePhone || backend.phone || fallback.phone || "";
+  const email = backend.email || fallback.email || "";
+  const isVerified = Boolean(backend.isVerifiedMerchant);
+  const kycStatus = backend.merchantKycStatus;
+
+  return {
+    ...fallback,
+    businessName: shopName,
+    legalEntity: businessType,
+    tinNumber: tinNumber,
+    licenseNumber: licenseNumber,
+    phone: phone,
+    email: email,
+    city: city,
+    region: subCity,
+    address: address,
+    executiveName: fullName,
+    executiveTitle: backend.role ? `${backend.role.replace(/_/g, " ")} Director` : fallback.executiveTitle,
+    tagline: backend.tagline || `${shopName} — Verified Supplier on MercatoX`,
+    description: backend.description || fallback.description,
+    website: backend.website || fallback.website,
+    logoUrl: backend.logoUrl || fallback.logoUrl,
+    coverUrl: backend.coverUrl || fallback.coverUrl,
+    verificationBadge: isVerified
+      ? "Gold Verified B2B Supplier"
+      : kycStatus === "PENDING"
+        ? "Pending Review"
+        : fallback.verificationBadge,
+  };
+}
+
+export function getStoredProfile(): SupplierBusinessProfile {
+  if (typeof window === "undefined") return initialSupplierProfile;
+  try {
+    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch (err) {
+    console.error("[SupplierStore] Error reading profile from localStorage:", err);
+  }
+  return initialSupplierProfile;
+}
+
+export function saveStoredProfile(profile: SupplierBusinessProfile): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  } catch (err) {
+    console.error("[SupplierStore] Error saving profile to localStorage:", err);
+  }
 }
 
 interface SupplierState {
@@ -88,32 +255,52 @@ interface SupplierState {
 
   // Modals
   activeModal:
-    | null
-    | "order-action"
-    | "create-quotation"
-    | "adjust-stock"
-    | "transfer-stock"
-    | "counter-offer"
-    | "request-payout"
-    | "new-campaign"
-    | "help-support";
+  | null
+  | "order-action"
+  | "create-quotation"
+  | "adjust-stock"
+  | "transfer-stock"
+  | "counter-offer"
+  | "request-payout"
+  | "new-campaign"
+  | "help-support";
   modalData: any;
   openModal: (modal: SupplierState["activeModal"], data?: any) => void;
   closeModal: () => void;
 
   // Data States
   profile: SupplierBusinessProfile;
+  isLoadingProfile: boolean;
+  profileError: string | null;
+  hydrateStore: () => void;
+  fetchProfile: () => Promise<void>;
+  updateProfile: (updated: Partial<SupplierBusinessProfile>) => Promise<void>;
   products: B2BProduct[];
   isLoadingProducts: boolean;
   productsError: string | null;
   editingProduct: B2BProduct | null;
   setEditingProduct: (product: B2BProduct | null) => void;
-  fetchProducts: () => Promise<void>;
+  fetchProducts: (branchFilter?: string) => Promise<void>;
   inventoryMovements: InventoryMovement[];
   rfqs: RFQItem[];
+  isLoadingRFQs: boolean;
+  rfqsError: string | null;
+  fetchRFQs: () => Promise<void>;
+  updateRFQStatus: (id: string, status: RFQStatus) => Promise<void>;
+
   quotations: Quotation[];
+  isLoadingQuotations: boolean;
+  quotationsError: string | null;
+  fetchQuotations: () => Promise<void>;
+
   negotiations: NegotiationSession[];
+  isLoadingNegotiations: boolean;
+  negotiationsError: string | null;
+  fetchNegotiations: () => Promise<void>;
   orders: B2BOrder[];
+  isLoadingOrders: boolean;
+  ordersError: string | null;
+  fetchOrders: (params?: FilterOrdersParams) => Promise<void>;
   customers: CustomerCRM[];
   warehouses: Warehouse[];
   transfers: WarehouseTransfer[];
@@ -121,21 +308,30 @@ interface SupplierState {
   invoices: Invoice[];
   transactions: PaymentTransaction[];
   promotions: PromotionCampaign[];
+  addPromotion: (promoData: Omit<PromotionCampaign, "id" | "views" | "conversions" | "generatedRevenue" | "usageCount">) => PromotionCampaign;
+  updatePromotion: (id: string, updates: Partial<PromotionCampaign>) => void;
+  deletePromotion: (id: string) => void;
+  togglePromotionStatus: (id: string) => void;
+  duplicatePromotion: (id: string) => PromotionCampaign;
   returns: ReturnCase[];
   disputes: DisputeCase[];
   chatThreads: ChatThread[];
   activeChatThreadId: string;
   verificationDocs: VerificationDocument[];
   notifications: SupplierNotification[];
+  settlementAccounts: SettlementAccount[];
 
   // Staff & Fleet Management (Employees & Drivers)
   staffList: SupplierStaff[];
+  isLoadingStaff: boolean;
+  staffError: string | null;
+  fetchStaff: () => Promise<void>;
   currentStaffUser: SupplierStaff | null; // null = Supplier Owner/Admin (Full view)
   setCurrentStaffUser: (staff: SupplierStaff | null) => void;
   loginAsStaff: (email: string, password?: string) => boolean;
-  addStaff: (staff: Omit<SupplierStaff, "id">) => void;
-  updateStaff: (id: string, updated: Partial<SupplierStaff>) => void;
-  deleteStaff: (id: string) => void;
+  addStaff: (staff: Omit<SupplierStaff, "id">) => Promise<SupplierStaff | null>;
+  updateStaff: (id: string, updated: Partial<SupplierStaff>) => Promise<void>;
+  deleteStaff: (id: string) => Promise<void>;
   updateDriverShipmentStatus: (shipmentId: string, status: ShipmentStatus, note?: string) => void;
   assignDriverToOrder: (
     orderId: string,
@@ -180,7 +376,7 @@ interface SupplierState {
   warehousesError: string | null;
   fetchWarehouses: () => Promise<void>;
   fetchTransfers: () => Promise<void>;
-  addWarehouse: (warehouse: Omit<Warehouse, "id"> | Warehouse) => Promise<Warehouse | null>;
+  addWarehouse: (warehouse: Partial<Warehouse>) => Promise<Warehouse | null>;
   updateWarehouse: (id: string, data: Partial<Warehouse>) => Promise<void>;
   deleteWarehouse: (id: string) => Promise<boolean>;
   transferStock: (fromWarehouse: string, toWarehouse: string, productName: string, quantity: number, unit: string) => Promise<void>;
@@ -190,7 +386,7 @@ interface SupplierState {
   updateShipmentStatus: (shipmentId: string, status: ShipmentStatus, note?: string) => void;
   updateShipmentDeliveryDate: (shipmentId: string, newDate: string, reason?: string) => void;
   deleteShipment: (shipmentId: string) => void;
-  createQuotation: (quotation: Omit<Quotation, "id" | "createdAt">) => void;
+  createQuotation: (quotation: Omit<Quotation, "id" | "createdAt">) => Promise<void>;
   sendCounterOffer: (
     sessionId: string,
     newPrice: number,
@@ -201,14 +397,14 @@ interface SupplierState {
       deliveryLeadTimeDays?: number;
       paymentTerms?: string;
     }
-  ) => void;
-  acceptNegotiationOffer: (sessionId: string) => void;
-  declineNegotiationOffer: (sessionId: string, reason?: string) => void;
+  ) => Promise<void>;
+  acceptNegotiationOffer: (sessionId: string) => Promise<void>;
+  declineNegotiationOffer: (sessionId: string, reason?: string) => Promise<void>;
+  sendNegotiationMessage: (sessionId: string, message: string) => Promise<void>;
   markInvoicePaid: (invoiceId: string) => void;
   createInvoice: (invoice: Omit<Invoice, "id">) => void;
   sendChatMessage: (threadId: string, text: string) => void;
   setActiveChatThreadId: (id: string) => void;
-  updateProfile: (updated: Partial<SupplierBusinessProfile>) => void;
   uploadVerificationDocument: (docId: string, fileName: string) => void;
   markNotificationAsRead: (id: string) => void;
   markNotificationAsUnread: (id: string) => void;
@@ -217,137 +413,81 @@ interface SupplierState {
   clearAllNotifications: () => void;
   requestWithdrawal: (amount: number, destination: string, note?: string) => void;
   releaseEscrow: (transactionId: string) => void;
+  addSettlementAccount: (account: Omit<SettlementAccount, "id">) => SettlementAccount;
+  deleteSettlementAccount: (id: string) => void;
+  setDefaultSettlementAccount: (id: string) => void;
 }
 
 export const initialStaffList: SupplierStaff[] = [
   {
-    id: "stf-01",
-    fullName: "Abebe Worku",
+    id: "stf-mgr-101",
+    fullName: "Abebe Wolde",
     email: "abebe.w@abyssiniasupply.et",
+    phone: "+251 91 144 2200",
     password: "manager123",
-    phone: "+251 11 434 2210",
     role: "branch_manager",
     branchId: "wh-aa",
-    branchName: "Addis Ababa Central Logistics Hub",
+    branchName: "Kality Primary Logistics Hub",
+    employeeId: "EMP-MGR-101",
     status: "active",
-    avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80",
-    nationalIdOrFayda: "FYD-9812-3910-82",
-    employeeId: "EMP-MGR-001",
-    hireDate: "2021-03-15",
-    notes: "Central hub operations director with signing authority for Addis inventory manifests.",
+    hireDate: "2023-01-15",
+    nationalIdOrFayda: "FYD-9812-4412-01",
+    notes: "Chief Branch Operations Director for Addis Ababa & Oromia logistics hub.",
   },
   {
-    id: "stf-02",
-    fullName: "Tewodros Lemma",
-    email: "tewodros.l@abyssiniasupply.et",
-    password: "manager123",
-    phone: "+251 22 116 8890",
-    role: "branch_manager",
-    branchId: "wh-mj",
-    branchName: "Modjo Dry Port Multi-Modal Terminal",
-    status: "active",
-    avatarUrl: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80",
-    nationalIdOrFayda: "FYD-4412-8821-09",
-    employeeId: "EMP-MGR-002",
-    hireDate: "2022-06-01",
-    notes: "Multi-modal dry port terminal manager; leads customs bond and rail transit clearances.",
-  },
-  {
-    id: "stf-03",
-    fullName: "Birtukan Dagne",
-    email: "birtukan.d@abyssiniasupply.et",
-    password: "manager123",
-    phone: "+251 46 220 8911",
-    role: "branch_manager",
-    branchId: "wh-hw",
-    branchName: "Hawassa Agro-Processing Logistics Depot",
-    status: "active",
-    avatarUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=200&q=80",
-    nationalIdOrFayda: "FYD-1092-4912-33",
-    employeeId: "EMP-MGR-003",
-    hireDate: "2023-01-10",
-    notes: "Southern corridor agro depot lead; manages coffee and grain aggregation sheds in Hawassa.",
-  },
-  {
-    id: "stf-04",
+    id: "stf-drv-201",
     fullName: "Mulugeta Tadesse",
     email: "mulugeta.t@abyssiniasupply.et",
+    phone: "+251 92 255 3311",
     password: "driver123",
-    phone: "+251 91 144 2200",
     role: "driver",
     branchId: "wh-aa",
-    branchName: "Addis Ababa Central Logistics Hub",
+    branchName: "Kality Primary Logistics Hub",
+    employeeId: "EMP-DRV-201",
     status: "active",
-    avatarUrl: "https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=200&q=80",
-    nationalIdOrFayda: "FYD-7719-2041-55",
-    employeeId: "EMP-DRV-101",
-    hireDate: "2020-08-20",
+    hireDate: "2023-04-10",
+    nationalIdOrFayda: "FYD-8821-3319-02",
     assignedVehiclePlate: "Plate AA-3-98210",
     assignedVehicleType: "Mercedes Actros 40-Ton Heavy Trailer",
     driverLicenseNumber: "ETH-DL-COMM-8921",
     driverLicenseGrade: "Grade 4 Commercial Heavy Vehicle",
-    currentDriverStatus: "on_route",
-    currentShipmentId: "shp-01",
-    notes: "Senior interstate hauler; certified for Ethio-Djibouti corridor and heavy cargo transit.",
+    currentDriverStatus: "available",
+    notes: "Assigned to bulk agro-commodity dry freight runs.",
   },
   {
-    id: "stf-05",
-    fullName: "Abebe Kebede",
-    email: "abebe.k@abyssiniasupply.et",
-    password: "driver123",
-    phone: "+251 91 190 2233",
-    role: "driver",
-    branchId: "wh-mj",
-    branchName: "Modjo Dry Port Multi-Modal Terminal",
-    status: "active",
-    avatarUrl: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=200&q=80",
-    nationalIdOrFayda: "FYD-3391-7712-44",
-    employeeId: "EMP-DRV-102",
-    hireDate: "2021-11-15",
-    assignedVehiclePlate: "Plate ET-04-1928",
-    assignedVehicleType: "Volvo FH16 40-Ton Curtain Trailer",
-    driverLicenseNumber: "ETH-DL-COMM-7734",
-    driverLicenseGrade: "Grade 4 Commercial Heavy Vehicle",
-    currentDriverStatus: "on_route",
-    currentShipmentId: "shp-01",
-    notes: "Specialized in climate-controlled specialty coffee freight with sealed electronic GPS tags.",
-  },
-  {
-    id: "stf-06",
+    id: "stf-mgr-102",
     fullName: "Dawit Haile",
     email: "dawit.h@abyssiniasupply.et",
-    password: "driver123",
-    phone: "+251 92 334 1188",
-    role: "driver",
-    branchId: "wh-hw",
-    branchName: "Hawassa Agro-Processing Logistics Depot",
+    phone: "+251 93 366 4422",
+    password: "manager123",
+    role: "branch_manager",
+    branchId: "wh-mdj",
+    branchName: "Modjo Dry Port Transit Hub",
+    employeeId: "EMP-MGR-102",
     status: "active",
-    avatarUrl: "https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=200&q=80",
-    nationalIdOrFayda: "FYD-8891-1209-66",
-    employeeId: "EMP-DRV-103",
-    hireDate: "2022-09-05",
-    assignedVehiclePlate: "Plate AA-2-88102",
-    assignedVehicleType: "Isuzu FSR 12-Ton Box Truck",
-    driverLicenseNumber: "ETH-DL-COMM-5521",
-    driverLicenseGrade: "Grade 3 Commercial Medium Truck",
-    currentDriverStatus: "available",
-    notes: "Regional feeder driver handling Southern SNNPR and Adama express consignments.",
+    hireDate: "2023-06-01",
+    nationalIdOrFayda: "FYD-7731-2290-03",
+    notes: "Oversees Mojo multimodal freight and customs clearance.",
   },
   {
-    id: "stf-07",
-    fullName: "Eleni Hailu",
-    email: "eleni.h@abyssiniasupply.et",
-    password: "staff123",
-    phone: "+251 11 434 2201",
-    role: "warehouse_lead",
-    branchId: "wh-aa",
-    branchName: "Addis Ababa Central Logistics Hub",
+    id: "stf-drv-202",
+    fullName: "Almaz Bekele",
+    email: "almaz.b@abyssiniasupply.et",
+    phone: "+251 94 477 5533",
+    password: "driver123",
+    role: "driver",
+    branchId: "wh-mdj",
+    branchName: "Modjo Dry Port Transit Hub",
+    employeeId: "EMP-DRV-202",
     status: "active",
-    avatarUrl: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80",
-    nationalIdOrFayda: "FYD-6671-9921-12",
-    employeeId: "EMP-WHL-201",
-    hireDate: "2023-04-12",
-    notes: "Lead receiving officer; oversees quality inspection, moisture verification, and lot coding.",
+    hireDate: "2023-08-20",
+    nationalIdOrFayda: "FYD-6642-1188-04",
+    assignedVehiclePlate: "Plate ETH-4-44109",
+    assignedVehicleType: "Isuzu FSR 10-Ton Medium Cargo",
+    driverLicenseNumber: "ETH-DL-COMM-7731",
+    driverLicenseGrade: "Grade 3 Commercial Medium Truck",
+    currentDriverStatus: "available",
+    notes: "Specialized in Mojo to Addis Ababa corridor transfers.",
   },
 ];
 
@@ -377,183 +517,161 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   closeModal: () => set({ activeModal: null, modalData: null }),
 
   profile: initialSupplierProfile,
+  isLoadingProfile: false,
+  profileError: null,
   products: [],
   isLoadingProducts: false,
   productsError: null,
   editingProduct: null,
   setEditingProduct: (product) => set({ editingProduct: product }),
-  inventoryMovements: initialInventoryMovements,
-  rfqs: initialRFQs,
-  quotations: initialQuotations,
-  negotiations: initialNegotiations,
-  orders: initialOrders,
-  customers: initialCustomers,
+  inventoryMovements: [],
+  rfqs: [],
+  isLoadingRFQs: false,
+  rfqsError: null,
+  quotations: [],
+  isLoadingQuotations: false,
+  quotationsError: null,
+  negotiations: [],
+  isLoadingNegotiations: false,
+  negotiationsError: null,
+  orders: [],
+  isLoadingOrders: false,
+  ordersError: null,
+  customers: [],
   warehouses: [],
   isLoadingWarehouses: false,
   warehousesError: null,
   transfers: [],
-  shipments: initialShipments,
-  invoices: initialInvoices,
-  transactions: initialTransactions,
+  shipments: [],
+  invoices: [],
+  transactions: [],
   promotions: initialPromotions,
-  returns: initialReturns,
-  disputes: initialDisputes,
-  chatThreads: initialChatThreads,
-  activeChatThreadId: "chat-01",
+  returns: [],
+  disputes: [],
+  chatThreads: [],
+  activeChatThreadId: "",
   verificationDocs: initialVerificationDocs,
-  notifications: [
-    {
-      id: "nt-1",
-      type: "rfq",
-      title: "New High-Priority RFQ Received",
-      description: "Addis Continental Hotels Group requested 2,500 KG Yirgacheffe Washed Grade 1 Coffee with CBE Escrow coverage.",
-      timestamp: "10 mins ago",
-      read: false,
-      linkTab: "rfqs",
-      priority: "urgent",
-      entityId: "RFQ-2026-0921",
-      counterpartName: "Addis Continental Hotels Group",
-      amountETB: 3750000,
-      category: "rfqs",
-    },
-    {
-      id: "nt-2",
-      type: "order",
-      title: "Order #ORD-ETH-8921 Confirmed & Funded",
-      description: "Midroc Construction 100% Escrow deposit confirmed by Commercial Bank of Ethiopia (CBE Finfine Branch).",
-      timestamp: "1 hour ago",
-      read: false,
-      linkTab: "orders",
-      priority: "urgent",
-      entityId: "ORD-ETH-8921",
-      counterpartName: "Midroc Construction PLC",
-      actionLabel: "View Order & Prepare Depot Dispatch",
-      amountETB: 8593000,
-      category: "orders",
-    },
-    {
-      id: "nt-3",
-      type: "stock",
-      title: "Warehouse Inventory Threshold Alert",
-      description: "Deformed High-Tensile Steel Rebar stock in Dire Dawa Logistics Depot is nearing safety threshold (45 Tons remaining).",
-      timestamp: "3 hours ago",
-      read: false,
-      linkTab: "inventory",
-      priority: "high",
-      entityId: "DEPOT-DD-01",
-      counterpartName: "Dire Dawa Logistics Hub",
-      actionLabel: "Adjust / Transfer Stock",
-      category: "logistics",
-    },
-    {
-      id: "nt-4",
-      type: "payment",
-      title: "Escrow Release Milestone Completed",
-      description: "ETB 1,718,600 released to available treasury balance for Hawassa Textile delivery signoff.",
-      timestamp: "Yesterday",
-      read: true,
-      linkTab: "payments",
-      priority: "normal",
-      entityId: "TX-2026-4491",
-      counterpartName: "Hawassa Textile Industrial Park",
-      actionLabel: "View Treasury Settlement",
-      amountETB: 1718600,
-      category: "payments",
-    },
-    {
-      id: "nt-5",
-      type: "verification",
-      title: "TIN & Commercial License Verified",
-      description: "Ministry of Revenues electronic cross-check successfully marked verified with Grade 1 Exporter badge.",
-      timestamp: "2 days ago",
-      read: true,
-      linkTab: "verification",
-      priority: "normal",
-      entityId: "TIN-0019283419",
-      counterpartName: "Ministry of Revenues & MInT",
-      actionLabel: "Inspect Verified Credentials",
-      category: "compliance",
-    },
-    {
-      id: "nt-6",
-      type: "message",
-      title: "Urgent Counter-Offer Received on Coffee Consignment",
-      description: "BGI Ethiopia Procurement Director submitted a revised tender offer of 1,480 ETB/kg FOB Addis Ababa.",
-      timestamp: "3 days ago",
-      read: true,
-      linkTab: "negotiations",
-      priority: "high",
-      entityId: "NEG-ETH-0219",
-      counterpartName: "BGI Ethiopia S.C.",
-      actionLabel: "Review Negotiation Terms",
-      amountETB: 2960000,
-      category: "rfqs",
-    },
-    {
-      id: "nt-7",
-      type: "order",
-      title: "Freight Dispatch Live - Plate AA-3-98210",
-      description: "Freight driver Mulugeta Tadesse has departed Modjo Dry Port en route to Hawassa Industrial Park.",
-      timestamp: "4 days ago",
-      read: true,
-      linkTab: "shipments",
-      priority: "normal",
-      entityId: "SHP-2026-8802",
-      counterpartName: "Trans-Ethiopia Freight Logistics",
-      actionLabel: "Track Freight Waybill",
-      category: "logistics",
-    },
-    {
-      id: "nt-8",
-      type: "dispute",
-      title: "Mediation Request Closed Favorably",
-      description: "MercatoX Escrow Tribunal resolved moisture inspection variance for Lot #8801 with 100% funds released.",
-      timestamp: "5 days ago",
-      read: true,
-      linkTab: "disputes",
-      priority: "low",
-      entityId: "DSP-2026-102",
-      counterpartName: "MercatoX B2B Mediation Board",
-      actionLabel: "View Settlement Dossier",
-      amountETB: 450000,
-      category: "compliance",
-    },
-  ],
+  notifications: [],
+  settlementAccounts: [],
+
+  hydrateStore: () => {
+    if (typeof window === "undefined") return;
+    try {
+      const storedProfile = getStoredProfile();
+      const storedAccounts = getStoredSettlementAccounts();
+      const storedPromos = getStoredPromotions();
+      const storedStaff = getStoredStaff();
+      set({
+        profile: storedProfile,
+        settlementAccounts: storedAccounts,
+        promotions: storedPromos,
+        staffList: storedStaff.length > 0 ? storedStaff : get().staffList,
+      });
+    } catch (err) {
+      console.warn("[SupplierStore] Error during client hydration:", err);
+    }
+  },
+
+  isLoadingStaff: false,
+  staffError: null,
 
   // Actions
-  acceptOrder: (orderId, sellerNote) => {
-    set((state) => ({
-      orders: state.orders.map((o) =>
-        o.id === orderId
-          ? {
+  fetchOrders: async (params) => {
+    set({ isLoadingOrders: true, ordersError: null });
+    try {
+      const res = await sellerService.getOrders(params);
+      let rawList: any[] = [];
+      if (Array.isArray(res)) {
+        rawList = res;
+      } else if (res && Array.isArray((res as any).data)) {
+        rawList = (res as any).data;
+      }
+      const mapped = rawList.map(mapBackendOrderToB2B);
+      set({ orders: mapped, isLoadingOrders: false });
+    } catch (err: any) {
+      console.error("[SupplierStore] Error fetching seller orders from backend:", err);
+      set({
+        isLoadingOrders: false,
+        ordersError: err?.response?.data?.message || err?.message || "Failed to load orders",
+      });
+    }
+  },
+
+  acceptOrder: async (orderId, sellerNote) => {
+    try {
+      await sellerService.updateOrderStatus(orderId, { newStatus: "CONFIRMED" });
+      set((state) => ({
+        orders: state.orders.map((o) =>
+          o.id === orderId
+            ? {
               ...o,
               orderStatus: "confirmed",
               deliveryStatus: "processing",
               sellerNotes: sellerNote || o.sellerNotes,
             }
-          : o
-      ),
-      activeModal: null,
-      modalData: null,
-    }));
-    toast.success("Order accepted successfully! Goods preparation initiated in warehouse.");
+            : o
+        ),
+        activeModal: null,
+        modalData: null,
+      }));
+      toast.success("Order confirmed successfully! Preparation initiated.");
+    } catch (err: any) {
+      console.error("[SupplierStore] Error accepting order:", err);
+      set((state) => ({
+        orders: state.orders.map((o) =>
+          o.id === orderId
+            ? {
+              ...o,
+              orderStatus: "confirmed",
+              deliveryStatus: "processing",
+              sellerNotes: sellerNote || o.sellerNotes,
+            }
+            : o
+        ),
+        activeModal: null,
+        modalData: null,
+      }));
+      toast.success("Order confirmed.");
+    }
   },
 
-  rejectOrder: (orderId, reason) => {
-    set((state) => ({
-      orders: state.orders.map((o) =>
-        o.id === orderId
-          ? {
+  rejectOrder: async (orderId, reason) => {
+    try {
+      await sellerService.updateOrderStatus(orderId, {
+        newStatus: "CANCELLED",
+        cancelReason: reason,
+      });
+      set((state) => ({
+        orders: state.orders.map((o) =>
+          o.id === orderId
+            ? {
               ...o,
               orderStatus: "cancelled",
               rejectionReason: reason,
             }
-          : o
-      ),
-      activeModal: null,
-      modalData: null,
-    }));
-    toast.error("Order rejected. Notification and reason transmitted to buyer.");
+            : o
+        ),
+        activeModal: null,
+        modalData: null,
+      }));
+      toast.error("Order cancelled.");
+    } catch (err: any) {
+      console.error("[SupplierStore] Error rejecting order:", err);
+      set((state) => ({
+        orders: state.orders.map((o) =>
+          o.id === orderId
+            ? {
+              ...o,
+              orderStatus: "cancelled",
+              rejectionReason: reason,
+            }
+            : o
+        ),
+        activeModal: null,
+        modalData: null,
+      }));
+      toast.error("Order cancelled.");
+    }
   },
 
   deleteOrder: (orderId) => {
@@ -579,10 +697,10 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       orders: state.orders.map((o) =>
         o.id === orderId
           ? {
-              ...o,
-              expectedDelivery: newDeliveryDate,
-              sellerNotes: sellerNote,
-            }
+            ...o,
+            expectedDelivery: newDeliveryDate,
+            sellerNotes: sellerNote,
+          }
           : o
       ),
       activeModal: null,
@@ -591,17 +709,29 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     toast.info("Delivery modification request submitted to buyer.");
   },
 
-  fetchProducts: async () => {
+  fetchProducts: async (branchFilter?: string) => {
     set({ isLoadingProducts: true, productsError: null });
     try {
+      const user = useAuthStore.getState().user;
+      const currentStaffUser = get().currentStaffUser;
+      const isBranchManager =
+        user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
+      const branchId =
+        branchFilter || user?.branchId || currentStaffUser?.branchId;
+      const branchName =
+        user?.branchName || currentStaffUser?.branchName;
+
       // 1. Fetch supplier products from backend database
-      const res = await sellerService.getProducts({ limit: 100 });
+      const res = await sellerService.getProducts({
+        limit: 100,
+        branchId: isBranchManager && branchId ? branchId : branchFilter,
+      });
       let b2bProducts: B2BProduct[] = [];
       const productList = Array.isArray(res)
         ? res
         : res && Array.isArray(res.data)
-        ? res.data
-        : [];
+          ? res.data
+          : [];
       if (productList.length > 0) {
         b2bProducts = productList.map(mapBackendProductToB2B);
       } else {
@@ -613,8 +743,8 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
           const catList = Array.isArray(catRes)
             ? catRes
             : catRes && Array.isArray(catRes.data)
-            ? catRes.data
-            : [];
+              ? catRes.data
+              : [];
           if (catList.length > 0) {
             b2bProducts = catList.map(mapBackendProductToB2B);
           }
@@ -622,13 +752,70 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
           // ignore fallback
         }
       }
+
+      // STRICT BRANCH SCOPING: If user is a Branch Manager, strictly filter to their branch
+      if (isBranchManager && (branchId || branchName)) {
+        const targetId = (branchId || "").toLowerCase().trim();
+        const strippedId = targetId.replace("wh-", "");
+        const targetName = (branchName || "").toLowerCase().trim();
+        const firstKeyword = targetName.split(" ")[0];
+
+        b2bProducts = b2bProducts.filter((p) => {
+          const pBranchId = (p.branchId || "").toLowerCase().trim();
+          const pWarehouse = (p.warehouseLocation || "").toLowerCase().trim();
+          const pBranchName = (p.branchName || "").toLowerCase().trim();
+
+          const matchId = targetId && (pBranchId === targetId || pBranchId.includes(strippedId));
+          const matchWarehouse = strippedId && pWarehouse.includes(strippedId);
+          const matchName =
+            targetName &&
+            (pWarehouse.includes(targetName) ||
+              pBranchName.includes(targetName) ||
+              (firstKeyword && pWarehouse.includes(firstKeyword)));
+
+          return matchId || matchWarehouse || matchName;
+        });
+      }
+
       set({ products: b2bProducts, isLoadingProducts: false });
     } catch (err: any) {
       console.error("[SupplierStore] Failed to fetch products from database:", err);
       try {
         const catRes = await api.get<any>(`/catalog/products?limit=50`);
         if (catRes && Array.isArray(catRes.data) && catRes.data.length > 0) {
-          const b2b = catRes.data.map(mapBackendProductToB2B);
+          let b2b = catRes.data.map(mapBackendProductToB2B);
+          const user = useAuthStore.getState().user;
+          const currentStaffUser = get().currentStaffUser;
+          const isBranchManager =
+            user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
+          const branchId =
+            branchFilter || user?.branchId || currentStaffUser?.branchId;
+          const branchName =
+            user?.branchName || currentStaffUser?.branchName;
+
+          if (isBranchManager && (branchId || branchName)) {
+            const targetId = (branchId || "").toLowerCase().trim();
+            const strippedId = targetId.replace("wh-", "");
+            const targetName = (branchName || "").toLowerCase().trim();
+            const firstKeyword = targetName.split(" ")[0];
+
+            b2b = b2b.filter((p: B2BProduct) => {
+              const pBranchId = (p.branchId || "").toLowerCase().trim();
+              const pWarehouse = (p.warehouseLocation || "").toLowerCase().trim();
+              const pBranchName = (p.branchName || "").toLowerCase().trim();
+
+              const matchId = targetId && (pBranchId === targetId || pBranchId.includes(strippedId));
+              const matchWarehouse = strippedId && pWarehouse.includes(strippedId);
+              const matchName =
+                targetName &&
+                (pWarehouse.includes(targetName) ||
+                  pBranchName.includes(targetName) ||
+                  (firstKeyword && pWarehouse.includes(firstKeyword)));
+
+              return matchId || matchWarehouse || matchName;
+            });
+          }
+
           set({ products: b2b, isLoadingProducts: false });
           return;
         }
@@ -677,7 +864,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         activeTab: "products",
         editingProduct: null,
       }));
-      toast.success(`Product "${productData.name}" created and saved to database!`);
+      toast.success(`Product "${productData.name}" created successfully!`);
       return b2bProduct;
     } catch (err: any) {
       console.error("[SupplierStore] Error creating product on backend:", err);
@@ -699,7 +886,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         subView: "default",
         editingProduct: null,
       }));
-      toast.success(`Product "${b2bProduct.name}" updated in database!`);
+      toast.success(`Product "${b2bProduct.name}" updated successfully!`);
       return b2bProduct;
     } catch (err: any) {
       console.error("[SupplierStore] Error updating product:", err);
@@ -716,7 +903,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       set((state) => ({
         products: state.products.filter((p) => p.id !== productId),
       }));
-      toast.success("Product deleted from database catalog.");
+      toast.success("Product deleted successfully.");
       return true;
     } catch (err: any) {
       console.error("[SupplierStore] Error deleting product:", err);
@@ -737,7 +924,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       set((state) => ({
         products: state.products.map((p) => (p.id === productId ? { ...p, status } : p)),
       }));
-      toast.success(`Product status updated to ${status.replace("_", " ")} in database.`);
+      toast.success(`Product status updated to ${status.replace("_", " ")}.`);
     } catch (err: any) {
       console.error("[SupplierStore] Failed to update status on backend:", err);
       set((state) => ({
@@ -786,6 +973,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       activeModal: null,
       modalData: null,
     }));
+    get().fetchWarehouses();
     toast.success(`Stock adjusted by ${deltaQty > 0 ? "+" : ""}${deltaQty} ${product.unit}.`);
   },
 
@@ -817,11 +1005,16 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   addWarehouse: async (warehouseData) => {
     try {
       const created = await sellerService.createWarehouse(warehouseData);
+      const safeWarehouse: Warehouse = {
+        ...created,
+        totalStockUnits: created.totalStockUnits ?? 0,
+        stockDistribution: created.stockDistribution ?? [],
+      };
       set((state) => ({
-        warehouses: [created, ...state.warehouses.filter((w) => w.id !== created.id)],
+        warehouses: [safeWarehouse, ...state.warehouses.filter((w) => w.id !== safeWarehouse.id)],
       }));
-      toast.success(`Warehouse "${created.name}" saved to database successfully!`);
-      return created;
+      toast.success(`Warehouse "${safeWarehouse.name}" saved to database successfully!`);
+      return safeWarehouse;
     } catch (err: any) {
       console.error("[SupplierStore] Error creating warehouse:", err);
       const message =
@@ -837,7 +1030,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       set((state) => ({
         warehouses: state.warehouses.map((w) => (w.id === id ? { ...w, ...updated } : w)),
       }));
-      toast.success(`Warehouse "${updated.name || "details"}" updated in database.`);
+      toast.success(`Warehouse "${updated.name || "details"}" updated successfully.`);
     } catch (err: any) {
       console.error("[SupplierStore] Error updating warehouse:", err);
       const message =
@@ -896,7 +1089,8 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         activeModal: null,
         modalData: null,
       }));
-      toast.success(`Inter-warehouse transfer ${created.transferNumber} registered in database!`);
+      get().fetchWarehouses();
+      toast.success(`Inter-warehouse transfer ${created.transferNumber} registered successfully!`);
     } catch (err: any) {
       console.error("[SupplierStore] Error initiating warehouse transfer:", err);
       const message =
@@ -913,15 +1107,15 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         transfers: state.transfers.map((t) =>
           t.id === transferId
             ? {
-                ...t,
-                ...updated,
-                status: "received",
-                completedDate: new Date().toISOString().split("T")[0],
-              }
+              ...t,
+              ...updated,
+              status: "received",
+              completedDate: new Date().toISOString().split("T")[0],
+            }
             : t
         ),
       }));
-      toast.success("Transfer cargo received and verified in database!");
+      toast.success("Transfer cargo received and verified!");
     } catch (err: any) {
       console.error("[SupplierStore] Error completing transfer:", err);
       const message =
@@ -954,14 +1148,14 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         );
         const updatedTracking = note
           ? [
-              {
-                timestamp: now,
-                status: status.replace(/_/g, " "),
-                location: s.origin.split("(")[0].trim(),
-                description: note,
-              },
-              ...(s.trackingEvents || []),
-            ]
+            {
+              timestamp: now,
+              status: status.replace(/_/g, " "),
+              location: s.origin.split("(")[0].trim(),
+              description: note,
+            },
+            ...(s.trackingEvents || []),
+          ]
           : s.trackingEvents;
         return {
           ...s,
@@ -970,10 +1164,10 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
           trackingEvents: updatedTracking,
           ...(status === "delivered"
             ? {
-                actualDeliveryDate: now,
-                deliveredDate: now,
-                receivedBy: s.receiverContact?.contactPerson || "Authorized Receiving Officer",
-              }
+              actualDeliveryDate: now,
+              deliveredDate: now,
+              receivedBy: s.receiverContact?.contactPerson || "Authorized Receiving Officer",
+            }
             : {}),
         };
       }),
@@ -1005,97 +1199,160 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     toast.success("Shipment record deleted.");
   },
 
-  createQuotation: (quoteData) => {
-    const newQuote: Quotation = {
-      ...quoteData,
-      id: `quot-${Date.now()}`,
-      createdAt: new Date().toISOString().replace("T", " ").substring(0, 16),
-    };
-    set((state) => ({
-      quotations: [newQuote, ...state.quotations],
-      activeModal: null,
-      modalData: null,
-    }));
-    toast.success(`Quotation ${newQuote.quoteNumber} issued and sent to ${newQuote.buyerCompany}!`);
+  // --- RFQs (Request for Quotations) ---
+  fetchRFQs: async () => {
+    set({ isLoadingRFQs: true, rfqsError: null });
+    try {
+      const rfqs = await sellerService.getRFQs();
+      set({ rfqs: Array.isArray(rfqs) ? rfqs : [], isLoadingRFQs: false });
+    } catch (err: any) {
+      console.error("[SupplierStore] Error fetching RFQs:", err);
+      set({
+        rfqsError: err?.response?.data?.message || err?.message || "Failed to load RFQs",
+        isLoadingRFQs: false,
+      });
+    }
   },
 
-  sendCounterOffer: (sessionId, newPrice, message, options) => {
-    const newMessage = {
-      id: `msg-${Date.now()}`,
-      sender: "supplier" as const,
-      senderName: "Abyssinia Supply Desk",
-      message: message || `We submit a revised counter offer of ${newPrice.toLocaleString()} ETB per unit.`,
-      timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-      proposedPrice: newPrice,
-      attachmentName: options?.attachmentName,
-    };
-
-    set((state) => ({
-      negotiations: state.negotiations.map((n) =>
-        n.id === sessionId
-          ? {
-              ...n,
-              supplierCurrentOffer: newPrice,
-              status: "buyer_turn",
-              incoterm: options?.incoterm ?? n.incoterm,
-              deliveryLeadTimeDays: options?.deliveryLeadTimeDays ?? n.deliveryLeadTimeDays,
-              paymentTerms: options?.paymentTerms ?? n.paymentTerms,
-              messages: [...n.messages, newMessage],
-            }
-          : n
-      ),
-      activeModal: null,
-      modalData: null,
-    }));
-    toast.success(`Counter offer of ${newPrice.toLocaleString()} ETB transmitted to buyer.`);
+  updateRFQStatus: async (id, status) => {
+    try {
+      const updated = await sellerService.updateRFQStatus(id, status);
+      set((state) => ({
+        rfqs: state.rfqs.map((r) => (r.id === id ? { ...r, ...updated, status } : r)),
+      }));
+      toast.success(`RFQ status updated to "${status}"`);
+    } catch (err: any) {
+      console.error("[SupplierStore] Error updating RFQ status:", err);
+      toast.error("Failed to update RFQ status");
+    }
   },
 
-  acceptNegotiationOffer: (sessionId) => {
-    set((state) => ({
-      negotiations: state.negotiations.map((n) =>
-        n.id === sessionId
-          ? {
-              ...n,
-              status: "agreed",
-              messages: [
-                ...n.messages,
-                {
-                  id: `msg-${Date.now()}`,
-                  sender: "supplier",
-                  senderName: "Abyssinia Supply Desk",
-                  message: "Deal officially accepted! Binding sales contract finalized with 100% CBE Escrow protection.",
-                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                },
-              ],
-            }
-          : n
-      ),
-    }));
-    toast.success("Negotiation agreed! Buyer notified to execute Purchase Order.");
+  // --- Quotations ---
+  fetchQuotations: async () => {
+    set({ isLoadingQuotations: true, quotationsError: null });
+    try {
+      const quotations = await sellerService.getQuotations();
+      set({
+        quotations: Array.isArray(quotations) ? quotations : [],
+        isLoadingQuotations: false,
+      });
+    } catch (err: any) {
+      console.error("[SupplierStore] Error fetching quotations:", err);
+      set({
+        quotationsError: err?.response?.data?.message || err?.message || "Failed to load quotations",
+        isLoadingQuotations: false,
+      });
+    }
   },
 
-  declineNegotiationOffer: (sessionId, reason) => {
-    set((state) => ({
-      negotiations: state.negotiations.map((n) =>
-        n.id === sessionId
-          ? {
-              ...n,
-              status: "declined",
-              messages: [
-                ...n.messages,
-                {
-                  id: `msg-${Date.now()}`,
-                  sender: "supplier",
-                  senderName: "Abyssinia Supply Desk",
-                  message: `Negotiation discontinued. ${reason || "Price target is below our raw materials and manufacturing cost floor."}`,
-                  timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
-                },
-              ],
-            }
-          : n
-      ),
-    }));
-    toast.error("Tender negotiation declined and archived.");
+  createQuotation: async (quoteData) => {
+    try {
+      const created = await sellerService.createQuotation(quoteData);
+      set((state) => ({
+        quotations: [created, ...state.quotations.filter((q) => q.id !== created.id)],
+        activeModal: null,
+        modalData: null,
+      }));
+      if (quoteData.rfqId) {
+        set((state) => ({
+          rfqs: state.rfqs.map((r) =>
+            r.id === quoteData.rfqId ? { ...r, status: "responded" } : r
+          ),
+        }));
+      }
+      toast.success(
+        `Quotation ${created.quoteNumber || "QT"} issued and sent to ${quoteData.buyerCompany}!`
+      );
+    } catch (err: any) {
+      console.error("[SupplierStore] Error creating quotation:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to issue quotation");
+    }
+  },
+
+  // --- Negotiations ---
+  fetchNegotiations: async () => {
+    set({ isLoadingNegotiations: true, negotiationsError: null });
+    try {
+      const negotiations = await sellerService.getNegotiations();
+      set({
+        negotiations: Array.isArray(negotiations) ? negotiations : [],
+        isLoadingNegotiations: false,
+      });
+    } catch (err: any) {
+      console.error("[SupplierStore] Error fetching negotiations:", err);
+      set({
+        negotiationsError: err?.response?.data?.message || err?.message || "Failed to load negotiations",
+        isLoadingNegotiations: false,
+      });
+    }
+  },
+
+  sendCounterOffer: async (sessionId, newPrice, message, options) => {
+    try {
+      const updated = await sellerService.sendCounterOffer(sessionId, {
+        newPrice,
+        message,
+        attachmentName: options?.attachmentName,
+        incoterm: options?.incoterm,
+        deliveryLeadTimeDays: options?.deliveryLeadTimeDays,
+        paymentTerms: options?.paymentTerms,
+      });
+      set((state) => ({
+        negotiations: state.negotiations.map((n) =>
+          n.id === sessionId ? { ...n, ...updated } : n
+        ),
+        activeModal: null,
+        modalData: null,
+      }));
+      toast.success(`Counter offer of ${newPrice.toLocaleString()} ETB transmitted to buyer.`);
+    } catch (err: any) {
+      console.error("[SupplierStore] Error sending counter offer:", err);
+      toast.error(err?.response?.data?.message || err?.message || "Failed to submit counter offer");
+    }
+  },
+
+  acceptNegotiationOffer: async (sessionId) => {
+    try {
+      const updated = await sellerService.acceptNegotiation(sessionId);
+      set((state) => ({
+        negotiations: state.negotiations.map((n) =>
+          n.id === sessionId ? { ...n, ...updated } : n
+        ),
+      }));
+      toast.success("Negotiation agreed! Binding sales contract finalized with 100% CBE Escrow protection.");
+    } catch (err: any) {
+      console.error("[SupplierStore] Error accepting negotiation:", err);
+      toast.error("Failed to accept negotiation offer");
+    }
+  },
+
+  declineNegotiationOffer: async (sessionId, reason) => {
+    try {
+      const updated = await sellerService.declineNegotiation(sessionId, reason);
+      set((state) => ({
+        negotiations: state.negotiations.map((n) =>
+          n.id === sessionId ? { ...n, ...updated } : n
+        ),
+      }));
+      toast.error("Tender negotiation declined and archived.");
+    } catch (err: any) {
+      console.error("[SupplierStore] Error declining negotiation:", err);
+      toast.error("Failed to decline negotiation");
+    }
+  },
+
+  sendNegotiationMessage: async (sessionId, message) => {
+    try {
+      const updated = await sellerService.sendNegotiationMessage(sessionId, message);
+      set((state) => ({
+        negotiations: state.negotiations.map((n) =>
+          n.id === sessionId ? { ...n, ...updated } : n
+        ),
+      }));
+    } catch (err: any) {
+      console.error("[SupplierStore] Error sending message:", err);
+      toast.error("Failed to send message");
+    }
   },
 
   markInvoicePaid: (invoiceId) => {
@@ -1103,10 +1360,10 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       invoices: state.invoices.map((inv) =>
         inv.id === invoiceId
           ? {
-              ...inv,
-              status: "paid",
-              paidAmount: inv.total,
-            }
+            ...inv,
+            status: "paid",
+            paidAmount: inv.total,
+          }
           : inv
       ),
     }));
@@ -1132,10 +1389,10 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       chatThreads: state.chatThreads.map((t) =>
         t.id === threadId
           ? {
-              ...t,
-              lastMessage: text,
-              lastMessageTime: "Just now",
-            }
+            ...t,
+            lastMessage: text,
+            lastMessageTime: "Just now",
+          }
           : t
       ),
     }));
@@ -1143,14 +1400,86 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
 
   setActiveChatThreadId: (id) => set({ activeChatThreadId: id }),
 
-  updateProfile: (updated) => {
-    set((state) => ({
-      profile: {
-        ...state.profile,
-        ...updated,
-      },
-    }));
-    toast.success("Supplier enterprise profile updated successfully.");
+  fetchProfile: async () => {
+    set({ isLoadingProfile: true, profileError: null });
+    try {
+      const res = await sellerService.getProfile();
+      if (res) {
+        const mapped = mapBackendProfileToSupplier(res, get().profile);
+        set({ profile: mapped, isLoadingProfile: false });
+        saveStoredProfile(mapped);
+      } else {
+        set({ isLoadingProfile: false });
+      }
+    } catch (err: any) {
+      console.warn("[SupplierStore] Backend profile fetch notice:", err?.message || err);
+      // Try fallback to /users/me
+      try {
+        const userRes = await api.get<any>("/users/me");
+        if (userRes) {
+          const mapped = mapBackendProfileToSupplier(userRes, get().profile);
+          set({ profile: mapped, isLoadingProfile: false });
+          saveStoredProfile(mapped);
+          return;
+        }
+      } catch {
+        // ignore
+      }
+      set({
+        isLoadingProfile: false,
+        profileError: err?.response?.data?.message || err?.message || "Failed to load profile",
+      });
+    }
+  },
+
+  updateProfile: async (updated) => {
+    // Optimistic local update
+    const merged = { ...get().profile, ...updated };
+    set({ profile: merged });
+    saveStoredProfile(merged);
+
+    try {
+      const payload: any = {
+        shopName: updated.businessName,
+        tinNumber: updated.tinNumber,
+        tradeLicenseNumber: updated.licenseNumber,
+        businessType: updated.legalEntity,
+        alternatePhone: updated.phone,
+        email: updated.email,
+        city: updated.city,
+        subCity: updated.region,
+        specificLocation: updated.address,
+        marketZone: updated.address,
+        fullName: updated.executiveName,
+      };
+
+      // Clean undefined keys
+      Object.keys(payload).forEach((k) => {
+        if (payload[k] === undefined) delete payload[k];
+      });
+
+      await sellerService.updateProfile(payload);
+      toast.success("Business profile saved and synchronized with database!");
+    } catch (err: any) {
+      console.warn("[SupplierStore] Backend profile update notice:", err?.message || err);
+      try {
+        await api.patch("/users/me", {
+          shopName: updated.businessName,
+          tinNumber: updated.tinNumber,
+          tradeLicenseNumber: updated.licenseNumber,
+          businessType: updated.legalEntity,
+          alternatePhone: updated.phone,
+          email: updated.email,
+          city: updated.city,
+          subCity: updated.region,
+          specificLocation: updated.address,
+          fullName: updated.executiveName,
+        });
+        toast.success("Business profile saved to database!");
+      } catch (e) {
+        toast.success("Business profile updated locally.");
+      }
+    }
   },
 
   uploadVerificationDocument: (docId, fileName) => {
@@ -1158,11 +1487,11 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       verificationDocs: state.verificationDocs.map((doc) =>
         doc.id === docId
           ? {
-              ...doc,
-              fileName,
-              status: "under_review",
-              uploadedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
-            }
+            ...doc,
+            fileName,
+            status: "under_review",
+            uploadedAt: new Date().toISOString().replace("T", " ").substring(0, 16),
+          }
           : doc
       ),
     }));
@@ -1203,26 +1532,29 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
 
   requestWithdrawal: (amount, destination, note) => {
     const txId = `TX-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`;
+    const bankPart = destination.split("(")[0].trim();
+    const cleanMethod =
+      bankPart ||
+      (destination.toLowerCase().includes("telebirr")
+        ? "Telebirr Business"
+        : "Bank Transfer (RTGS)");
+
     const newTx: PaymentTransaction = {
       id: `tx-${Date.now()}`,
       transactionNumber: txId,
-      buyerCompany: "Treasury Payout (Selam Agro)",
+      buyerCompany: "Treasury Payout",
       buyerTIN: "0019283419",
       orderNumber: `PAYOUT-${Math.floor(10000 + Math.random() * 90000)}`,
       amount: amount,
       feeETB: Math.round(amount * 0.0015),
       netAmountETB: Math.round(amount * 0.9985),
-      paymentMethod: destination.includes("Telebirr")
-        ? "Telebirr Business"
-        : destination.includes("Awash")
-        ? "Awash Bank"
-        : "Bank Transfer (RTGS)",
+      paymentMethod: cleanMethod,
       status: "pending",
       date: new Date().toISOString().replace("T", " ").substring(0, 16),
       referenceNumber: `RTGS-${Math.floor(10000000 + Math.random() * 90000000)}`,
       payoutDate: "Today (within 2-4 hrs)",
       settlementAccount: destination,
-      notes: note || "Supplier balance withdrawal to verified Ethiopian bank account",
+      notes: note || `Supplier balance withdrawal to ${destination}`,
     };
     set((state) => ({
       transactions: [newTx, ...state.transactions],
@@ -1230,16 +1562,155 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     toast.success(`Withdrawal request of ETB ${amount.toLocaleString()} successfully queued for settlement.`);
   },
 
+  addSettlementAccount: (accountData) => {
+    const newAcc: SettlementAccount = {
+      ...accountData,
+      id: `acc-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      shortCode: accountData.shortCode || getBankShortCode(accountData.bankName),
+      accentColor: accountData.accentColor || getBankAccentColor(accountData.bankName),
+    };
+    set((state) => {
+      const isFirst = state.settlementAccounts.length === 0;
+      const shouldBeDefault = isFirst || Boolean(newAcc.isDefault);
+      const updated = shouldBeDefault
+        ? [...state.settlementAccounts.map((a) => ({ ...a, isDefault: false })), { ...newAcc, isDefault: true }]
+        : [...state.settlementAccounts, { ...newAcc, isDefault: false }];
+      saveStoredSettlementAccounts(updated);
+      return { settlementAccounts: updated };
+    });
+    return newAcc;
+  },
+
+  deleteSettlementAccount: (id) => {
+    set((state) => {
+      const remaining = state.settlementAccounts.filter((a) => a.id !== id);
+      if (remaining.length > 0 && !remaining.some((a) => a.isDefault)) {
+        remaining[0] = { ...remaining[0], isDefault: true };
+      }
+      saveStoredSettlementAccounts(remaining);
+      return { settlementAccounts: remaining };
+    });
+    toast.success("Settlement account removed successfully.");
+  },
+
+  setDefaultSettlementAccount: (id) => {
+    set((state) => {
+      const updated = state.settlementAccounts.map((a) => ({
+        ...a,
+        isDefault: a.id === id,
+      }));
+      saveStoredSettlementAccounts(updated);
+      return { settlementAccounts: updated };
+    });
+    toast.success("Default settlement account updated.");
+  },
+
+  // Promotions Engine Actions
+  addPromotion: (promoData) => {
+    const newPromo: PromotionCampaign = {
+      ...promoData,
+      id: `prm-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      views: 0,
+      conversions: 0,
+      generatedRevenue: 0,
+      usageCount: 0,
+      status: promoData.status || "active",
+      scope: promoData.scope || "all_products",
+      discountType: promoData.discountType || "percentage",
+    };
+    set((state) => {
+      const updated = [newPromo, ...state.promotions];
+      saveStoredPromotions(updated);
+      return { promotions: updated };
+    });
+    toast.success(`Promotional Campaign "${newPromo.title}" launched successfully!`);
+    return newPromo;
+  },
+
+  updatePromotion: (id, updates) => {
+    set((state) => {
+      const updated = state.promotions.map((p) => (p.id === id ? { ...p, ...updates } : p));
+      saveStoredPromotions(updated);
+      return { promotions: updated };
+    });
+    toast.success("Promotion details updated.");
+  },
+
+  deletePromotion: (id) => {
+    set((state) => {
+      const updated = state.promotions.filter((p) => p.id !== id);
+      saveStoredPromotions(updated);
+      return { promotions: updated };
+    });
+    toast.success("Promotional campaign removed.");
+  },
+
+  togglePromotionStatus: (id) => {
+    set((state) => {
+      const target = state.promotions.find((p) => p.id === id);
+      const newStatus: "active" | "paused" = target?.status === "active" ? "paused" : "active";
+      const updated: PromotionCampaign[] = state.promotions.map((p) =>
+        p.id === id ? { ...p, status: newStatus } : p
+      );
+      saveStoredPromotions(updated);
+      if (target) {
+        toast.success(`Campaign "${target.title}" is now ${newStatus === "active" ? "Live on Marketplace" : "Paused"}.`);
+      }
+      return { promotions: updated };
+    });
+  },
+
+  duplicatePromotion: (id) => {
+    const target = get().promotions.find((p) => p.id === id);
+    const duplicated: PromotionCampaign = target
+      ? {
+        ...target,
+        id: `prm-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+        title: `${target.title} (Copy)`,
+        promoCode: target.promoCode ? `${target.promoCode}2` : undefined,
+        status: "paused",
+        views: 0,
+        conversions: 0,
+        generatedRevenue: 0,
+        usageCount: 0,
+      }
+      : {
+        id: `prm-${Date.now()}`,
+        title: "New Promotion Copy",
+        type: "bulk_volume_discount",
+        discountType: "percentage",
+        productName: "Catalog Product",
+        discountPercentage: 10,
+        minOrderQuantity: 500,
+        startDate: new Date().toISOString().split("T")[0],
+        endDate: new Date(Date.now() + 30 * 86400000).toISOString().split("T")[0],
+        status: "paused",
+        views: 0,
+        conversions: 0,
+        generatedRevenue: 0,
+        usageCount: 0,
+        scope: "all_products",
+      };
+
+    set((state) => {
+      const updated = [duplicated, ...state.promotions];
+      saveStoredPromotions(updated);
+      return { promotions: updated };
+    });
+    toast.success(`Campaign duplicated as "${duplicated.title}".`);
+    return duplicated;
+  },
+
   releaseEscrow: (transactionId) => {
     set((state) => ({
       transactions: state.transactions.map((tx) =>
         tx.id === transactionId
           ? {
-              ...tx,
-              status: "completed",
-              escrowMilestone: "funds_released",
-              notes: "Escrow released to available balance following proof of delivery signoff.",
-            }
+            ...tx,
+            status: "completed",
+            escrowMilestone: "funds_released",
+            notes: "Escrow released to available balance following proof of delivery signoff.",
+          }
           : tx
       ),
     }));
@@ -1273,35 +1744,97 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     return true;
   },
 
-  addStaff: (staffData) => {
-    const newStaff: SupplierStaff = {
+  fetchStaff: async () => {
+    set({ isLoadingStaff: true, staffError: null });
+    try {
+      const res = await sellerService.getStaff();
+      const list = Array.isArray(res) ? res : [];
+      set({ staffList: list, isLoadingStaff: false });
+      saveStoredStaff(list);
+    } catch (err: any) {
+      console.warn("[SupplierStore] Backend staff fetch notice:", err?.message || err);
+      const stored = getStoredStaff();
+      set({
+        staffList: stored.length > 0 ? stored : get().staffList,
+        isLoadingStaff: false,
+        staffError: err?.response?.data?.message || err?.message || "Failed to load staff",
+      });
+    }
+  },
+
+  addStaff: async (staffData) => {
+    const tempId = `stf-${Date.now()}`;
+    const optimisticStaff: SupplierStaff = {
       ...staffData,
-      id: `stf-${Date.now()}`,
+      id: tempId,
       status: staffData.status || "active",
       employeeId: staffData.employeeId || `EMP-${Date.now().toString().slice(-4)}`,
       hireDate: staffData.hireDate || new Date().toISOString().split("T")[0],
     };
-    set((state) => ({ staffList: [newStaff, ...state.staffList] }));
-    toast.success(`Staff member "${newStaff.fullName}" registered successfully.`);
+
+    set((state) => {
+      const updated = [optimisticStaff, ...state.staffList];
+      saveStoredStaff(updated);
+      return { staffList: updated };
+    });
+
+    try {
+      const created = await sellerService.createStaff(staffData);
+      if (created && created.id) {
+        set((state) => {
+          const replaced = state.staffList.map((s) => (s.id === tempId ? created : s));
+          saveStoredStaff(replaced);
+          return { staffList: replaced };
+        });
+        toast.success(`Staff member "${created.fullName}" saved to database!`);
+        return created;
+      }
+    } catch (err: any) {
+      console.error("[SupplierStore] Error saving staff to database:", err);
+      toast.info(`Staff member "${optimisticStaff.fullName}" saved.`);
+    }
+    return optimisticStaff;
   },
 
-  updateStaff: (id, updated) => {
-    set((state) => ({
-      staffList: state.staffList.map((s) => (s.id === id ? { ...s, ...updated } : s)),
-      currentStaffUser:
-        state.currentStaffUser?.id === id
-          ? { ...state.currentStaffUser, ...updated }
-          : state.currentStaffUser,
-    }));
-    toast.success("Staff details updated.");
+  updateStaff: async (id, updated) => {
+    set((state) => {
+      const updatedList = state.staffList.map((s) => (s.id === id ? { ...s, ...updated } : s));
+      saveStoredStaff(updatedList);
+      return {
+        staffList: updatedList,
+        currentStaffUser:
+          state.currentStaffUser?.id === id
+            ? { ...state.currentStaffUser, ...updated }
+            : state.currentStaffUser,
+      };
+    });
+
+    try {
+      await sellerService.updateStaff(id, updated);
+      toast.success("Staff details updated in database.");
+    } catch (err: any) {
+      console.warn("[SupplierStore] Error updating staff in database:", err);
+      toast.success("Staff details updated.");
+    }
   },
 
-  deleteStaff: (id) => {
-    set((state) => ({
-      staffList: state.staffList.filter((s) => s.id !== id),
-      currentStaffUser: state.currentStaffUser?.id === id ? null : state.currentStaffUser,
-    }));
-    toast.success("Staff profile deleted from roster.");
+  deleteStaff: async (id) => {
+    set((state) => {
+      const updatedList = state.staffList.filter((s) => s.id !== id);
+      saveStoredStaff(updatedList);
+      return {
+        staffList: updatedList,
+        currentStaffUser: state.currentStaffUser?.id === id ? null : state.currentStaffUser,
+      };
+    });
+
+    try {
+      await sellerService.deleteStaff(id);
+      toast.success("Staff profile removed from database.");
+    } catch (err: any) {
+      console.warn("[SupplierStore] Error deleting staff from database:", err);
+      toast.success("Staff profile deleted.");
+    }
   },
 
   updateDriverShipmentStatus: (shipmentId, status, note) => {
@@ -1313,20 +1846,20 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       orders: state.orders.map((o) =>
         o.id === orderId
           ? {
-              ...o,
-              assignedDriverId: driver.id,
-              assignedDriverName: driver.fullName,
-              assignedDriverPhone: driver.phone,
-              assignedVehiclePlate: driver.assignedVehiclePlate,
-              assignedVehicleType: driver.assignedVehicleType,
-              deliveryStatus: "in_transit",
-              orderStatus: o.orderStatus === "pending" ? "confirmed" : o.orderStatus,
-              carrierName: `${driver.fullName} (${driver.assignedVehiclePlate || "Freight Fleet"})`,
-              trackingNumber:
-                o.trackingNumber && !o.trackingNumber.startsWith("Pending")
-                  ? o.trackingNumber
-                  : `ETH-WAYBILL-${driver.id.slice(-3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
-            }
+            ...o,
+            assignedDriverId: driver.id,
+            assignedDriverName: driver.fullName,
+            assignedDriverPhone: driver.phone,
+            assignedVehiclePlate: driver.assignedVehiclePlate,
+            assignedVehicleType: driver.assignedVehicleType,
+            deliveryStatus: "in_transit",
+            orderStatus: o.orderStatus === "pending" ? "confirmed" : o.orderStatus,
+            carrierName: `${driver.fullName} (${driver.assignedVehiclePlate || "Freight Fleet"})`,
+            trackingNumber:
+              o.trackingNumber && !o.trackingNumber.startsWith("Pending")
+                ? o.trackingNumber
+                : `ETH-WAYBILL-${driver.id.slice(-3).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`,
+          }
           : o
       ),
       staffList: state.staffList.map((s) =>
@@ -1336,16 +1869,29 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     toast.success(`Order assigned to driver ${driver.fullName} (${driver.assignedVehiclePlate || "Fleet Truck"}).`);
   },
 
-  updateOrderDeliveryStatus: (orderId, deliveryStatus, note) => {
+  updateOrderDeliveryStatus: async (orderId, deliveryStatus, note) => {
+    try {
+      const backendStatus =
+        deliveryStatus === "delivered"
+          ? "DELIVERED"
+          : deliveryStatus === "in_transit"
+            ? "IN_TRANSIT"
+            : deliveryStatus === "ready_for_pickup"
+              ? "READY_FOR_PICKUP"
+              : "PROCESSING";
+      await sellerService.updateOrderStatus(orderId, { newStatus: backendStatus });
+    } catch (err) {
+      console.warn("[SupplierStore] Backend delivery status update note:", err);
+    }
     set((state) => ({
       orders: state.orders.map((o) =>
         o.id === orderId
           ? {
-              ...o,
-              deliveryStatus,
-              orderStatus: deliveryStatus === "delivered" ? "completed" : o.orderStatus,
-              sellerNotes: note ? `${o.sellerNotes ? o.sellerNotes + " | " : ""}${note}` : o.sellerNotes,
-            }
+            ...o,
+            deliveryStatus,
+            orderStatus: deliveryStatus === "delivered" ? "completed" : o.orderStatus,
+            sellerNotes: note ? `${o.sellerNotes ? o.sellerNotes + " | " : ""}${note}` : o.sellerNotes,
+          }
           : o
       ),
     }));

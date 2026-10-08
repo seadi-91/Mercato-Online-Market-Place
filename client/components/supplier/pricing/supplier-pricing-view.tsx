@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DollarSign,
   Plus,
@@ -12,16 +12,31 @@ import {
   Save,
   CheckCircle2,
   SlidersHorizontal,
+  Loader2,
+  Package,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
+import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { toast } from "sonner";
 
 export function SupplierPricingView() {
-  const { products, customers, setActiveTab } = useSupplierStore();
+  const { products, isLoadingProducts, fetchProducts, customers, setActiveTab } = useSupplierStore();
 
   const [activeTabSub, setActiveTabSub] = useState<"tiers" | "buyer_specific" | "regional">("tiers");
   const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || "");
+
+  useEffect(() => {
+    if (products.length === 0) {
+      fetchProducts();
+    }
+  }, [products.length, fetchProducts]);
+
+  useEffect(() => {
+    if (products.length > 0 && (!selectedProductId || !products.some((p) => p.id === selectedProductId))) {
+      setSelectedProductId(products[0].id);
+    }
+  }, [products, selectedProductId]);
 
   const selectedProduct = products.find((p) => p.id === selectedProductId) || products[0];
 
@@ -149,134 +164,161 @@ export function SupplierPricingView() {
 
       {activeTabSub === "tiers" && (
         <div className="space-y-6">
-          {/* Product Selector Bar */}
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
-            <div className="flex-1 max-w-md">
-              <label className="block font-semibold text-slate-700 mb-1">Select Catalog Commodity</label>
-              <select
-                value={selectedProductId}
-                onChange={(e) => setSelectedProductId(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-bold focus:border-indigo-600"
-              >
-                {products.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} ({p.sku})
-                  </option>
-                ))}
-              </select>
+          {isLoadingProducts && products.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-20 space-y-3">
+              <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
+              <p className="text-xs text-zinc-400 font-medium">Loading catalog commodities...</p>
             </div>
-
-            <div className="flex items-center gap-4 text-xs border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
-              <div>
-                <span className="text-slate-500">Base Wholesale:</span>
-                <p className="font-bold text-slate-900 font-mono text-sm">
-                  ETB {selectedProduct.basePrice.toLocaleString()} / {selectedProduct.unit}
-                </p>
-              </div>
-              <div>
-                <span className="text-slate-500">MOQ:</span>
-                <p className="font-bold text-slate-900 font-mono text-sm">
-                  {selectedProduct.moq.toLocaleString()} {selectedProduct.unit}
-                </p>
-              </div>
+          ) : !selectedProduct || products.length === 0 ? (
+            <div className="p-8">
+              <EmptyState
+                icon={Package}
+                title="No Catalog Commodities Found"
+                description="Add commodities to your product catalog first to configure wholesale volume quantity tiers and contract rates."
+                actionLabel="Go to Product Catalog"
+                onAction={() => setActiveTab("products")}
+              />
             </div>
-          </div>
+          ) : (
+            <>
+              {/* Product Selector Bar */}
+              <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
+                <div className="flex-1 max-w-md">
+                  <label className="block font-semibold text-slate-700 mb-1">Select Catalog Commodity</label>
+                  <select
+                    value={selectedProductId}
+                    onChange={(e) => setSelectedProductId(e.target.value)}
+                    className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-bold focus:border-indigo-600"
+                  >
+                    {products.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.sku})
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-          {/* Tier Table Card */}
-          <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div>
-                <h3 className="text-sm font-bold text-slate-900">
-                  Volume Quantity Tiers for {selectedProduct.name}
-                </h3>
-                <p className="text-xs text-slate-500">
-                  Example Ethiopian Wholesale Rule: 1–99 KG → 500 ETB, 100–499 KG → 470 ETB, 500–999 KG → 450 ETB, 1000+ KG → 420 ETB
-                </p>
+                <div className="flex items-center gap-4 text-xs border-t sm:border-t-0 sm:border-l border-slate-200 pt-3 sm:pt-0 sm:pl-4">
+                  <div>
+                    <span className="text-slate-500">Base Wholesale:</span>
+                    <p className="font-bold text-slate-900 font-mono text-sm">
+                      ETB {(selectedProduct.basePrice || 0).toLocaleString()} / {selectedProduct.unit || "Unit"}
+                    </p>
+                  </div>
+                  <div>
+                    <span className="text-slate-500">MOQ:</span>
+                    <p className="font-bold text-slate-900 font-mono text-sm">
+                      {(selectedProduct.moq || 1).toLocaleString()} {selectedProduct.unit || "Unit"}
+                    </p>
+                  </div>
+                </div>
               </div>
 
-              <span className="rounded bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
-                {selectedProduct.tierPricing?.length || 0} Configured Ranges
-              </span>
-            </div>
+              {/* Tier Table Card */}
+              <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-xs space-y-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Volume Quantity Tiers for {selectedProduct.name}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Progressive volume pricing tiers applied automatically at checkout
+                    </p>
+                  </div>
 
-            <div className="overflow-x-auto rounded-xl border border-slate-200">
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
-                    <th className="py-3 px-4">Tier Tier Range ({selectedProduct.unit})</th>
-                    <th className="py-3 px-4">Unit Wholesale Rate</th>
-                    <th className="py-3 px-4">Discount from Base</th>
-                    <th className="py-3 px-4">Sample Lot Value</th>
-                    <th className="py-3 px-4 text-right">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {selectedProduct.tierPricing?.map((tier, idx) => {
-                    const sampleQty = tier.maxQty || tier.minQty * 2;
-                    const sampleTotal = sampleQty * tier.unitPrice;
-                    return (
-                      <tr key={tier.id} className="hover:bg-slate-50/75 transition-colors">
-                        <td className="py-3 px-4 font-mono font-bold text-slate-900">
-                          {tier.minQty.toLocaleString()} – {tier.maxQty ? `${tier.maxQty.toLocaleString()} ${selectedProduct.unit}` : `${selectedProduct.unit} or more`}
-                        </td>
-                        <td className="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
-                          ETB {tier.unitPrice.toLocaleString()} / {selectedProduct.unit}
-                        </td>
-                        <td className="py-3 px-4 font-semibold text-emerald-700">
-                          {tier.discountPercentage ? `${tier.discountPercentage.toFixed(1)}% Volume Rebate` : "Base Baseline Rate"}
-                        </td>
-                        <td className="py-3 px-4 font-mono text-slate-600">
-                          {sampleQty.toLocaleString()} {selectedProduct.unit} = ETB {sampleTotal.toLocaleString()}
-                        </td>
-                        <td className="py-3 px-4 text-right">
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
-                            Active
-                          </span>
-                        </td>
+                  <span className="rounded bg-emerald-100 px-2.5 py-1 text-xs font-bold text-emerald-800">
+                    {selectedProduct.tierPricing?.length || 0} Configured Ranges
+                  </span>
+                </div>
+
+                <div className="overflow-x-auto rounded-xl border border-slate-200">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-slate-200 bg-slate-50 text-slate-500 font-semibold uppercase text-[10px] tracking-wider">
+                        <th className="py-3 px-4">Tier Range ({selectedProduct.unit || "Unit"})</th>
+                        <th className="py-3 px-4">Unit Wholesale Rate</th>
+                        <th className="py-3 px-4">Discount from Base</th>
+                        <th className="py-3 px-4">Sample Lot Value</th>
+                        <th className="py-3 px-4 text-right">Status</th>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {!selectedProduct.tierPricing || selectedProduct.tierPricing.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-8 text-center text-slate-400">
+                            No tiered pricing ranges configured yet for this commodity. Standard base wholesale rate applies.
+                          </td>
+                        </tr>
+                      ) : (
+                        selectedProduct.tierPricing.map((tier) => {
+                          const sampleQty = tier.maxQty || tier.minQty * 2;
+                          const sampleTotal = sampleQty * tier.unitPrice;
+                          return (
+                            <tr key={tier.id} className="hover:bg-slate-50/75 transition-colors">
+                              <td className="py-3 px-4 font-mono font-bold text-slate-900">
+                                {tier.minQty.toLocaleString()} – {tier.maxQty ? `${tier.maxQty.toLocaleString()} ${selectedProduct.unit}` : `${selectedProduct.unit} or more`}
+                              </td>
+                              <td className="py-3 px-4 font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
+                                ETB {tier.unitPrice.toLocaleString()} / {selectedProduct.unit}
+                              </td>
+                              <td className="py-3 px-4 font-semibold text-emerald-700">
+                                {tier.discountPercentage ? `${tier.discountPercentage.toFixed(1)}% Volume Rebate` : "Base Baseline Rate"}
+                              </td>
+                              <td className="py-3 px-4 font-mono text-slate-600">
+                                {sampleQty.toLocaleString()} {selectedProduct.unit} = ETB {sampleTotal.toLocaleString()}
+                              </td>
+                              <td className="py-3 px-4 text-right">
+                                <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-800 border border-emerald-200">
+                                  Active
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
 
-            {/* MOQ and Max Order Controls */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 text-xs">
-              <div>
-                <label className="block text-slate-600 mb-1 font-semibold">Minimum Order Quantity (MOQ)</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    defaultValue={selectedProduct.moq}
-                    className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-bold font-mono focus:border-indigo-600"
-                  />
-                  <span className="font-semibold text-slate-600">{selectedProduct.unit}</span>
+                {/* MOQ and Max Order Controls */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-100 text-xs">
+                  <div>
+                    <label className="block text-slate-600 mb-1 font-semibold">Minimum Order Quantity (MOQ)</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        defaultValue={selectedProduct.moq || 1}
+                        className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-bold font-mono focus:border-indigo-600"
+                      />
+                      <span className="font-semibold text-slate-600">{selectedProduct.unit || "Unit"}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 mb-1 font-semibold">Maximum Single Order Ceiling</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        defaultValue={50000}
+                        className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-bold font-mono focus:border-indigo-600"
+                      />
+                      <span className="font-semibold text-slate-600">{selectedProduct.unit || "Unit"}</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-slate-600 mb-1 font-semibold">Contract Price Lock Period</label>
+                    <select className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-medium focus:border-indigo-600">
+                      <option value="30">30 Calendar Days</option>
+                      <option value="60">60 Calendar Days</option>
+                      <option value="90">90 Calendar Days (Quarterly)</option>
+                      <option value="180">180 Calendar Days (Semiannual)</option>
+                    </select>
+                  </div>
                 </div>
               </div>
-
-              <div>
-                <label className="block text-slate-600 mb-1 font-semibold">Maximum Single Order Ceiling</label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    defaultValue={50000}
-                    className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-bold font-mono focus:border-indigo-600"
-                  />
-                  <span className="font-semibold text-slate-600">{selectedProduct.unit}</span>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-600 mb-1 font-semibold">Contract Price Lock Period</label>
-                <select className="w-full rounded-lg border border-slate-200 p-2 text-slate-900 font-medium focus:border-indigo-600">
-                  <option value="30">30 Calendar Days</option>
-                  <option value="60">60 Calendar Days</option>
-                  <option value="90">90 Calendar Days (Quarterly)</option>
-                  <option value="180">180 Calendar Days (Semiannual)</option>
-                </select>
-              </div>
-            </div>
-          </div>
+            </>
+          )}
         </div>
       )}
 

@@ -6,6 +6,9 @@ import { OrdersController } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Rfq } from './entities/rfq.entity';
+import { Quotation } from './entities/quotation.entity';
+import { Negotiation } from './entities/negotiation.entity';
 
 @Module({
   imports: [
@@ -22,11 +25,11 @@ import { OrderItem } from './entities/order-item.entity';
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('ORDERS_DB_NAME'),
-        entities: [Order, OrderItem],
+        entities: [Order, OrderItem, Rfq, Quotation, Negotiation],
         synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
       }),
     }),
-    TypeOrmModule.forFeature([Order, OrderItem]),
+    TypeOrmModule.forFeature([Order, OrderItem, Rfq, Quotation, Negotiation]),
     ClientsModule.registerAsync([
       {
         name: 'CATALOG_SERVICE',

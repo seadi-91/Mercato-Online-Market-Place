@@ -18,6 +18,7 @@ export interface OrderItem {
   totalPrice: number;
   productTitle?: string;
   productSku?: string;
+  unitOfMeasure?: string;
 }
 
 export interface DeliveryAddress {
@@ -42,6 +43,7 @@ export interface Order {
   deliveryAddress: DeliveryAddress;
   notes?: string;
   cancelReason?: string;
+  txRef?: string;
   items?: OrderItem[];
   createdAt: string;
   updatedAt: string;

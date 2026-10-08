@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   FileText,
   Plus,
@@ -27,10 +27,14 @@ import { Quotation } from "@/types/supplier";
 import { toast } from "sonner";
 
 export function SupplierQuotationsView() {
-  const { quotations, openModal, setActiveTab } = useSupplierStore();
+  const { quotations, isLoadingQuotations, fetchQuotations, openModal, setActiveTab } = useSupplierStore();
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
+
+  useEffect(() => {
+    fetchQuotations();
+  }, [fetchQuotations]);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -74,13 +78,23 @@ export function SupplierQuotationsView() {
         subtitle="Issue legally binding commercial proposals with Ethiopian VAT, Incoterms, and Escrow payment guarantees"
         breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Quotations" }]}
         actions={
-          <button
-            onClick={() => openModal("create-quotation")}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 shadow-xs transition-colors cursor-pointer"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Create New Quotation</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => fetchQuotations()}
+              disabled={isLoadingQuotations}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-colors disabled:opacity-50"
+            >
+              <RotateCcw className={`h-3.5 w-3.5 ${isLoadingQuotations ? "animate-spin text-indigo-600" : "text-slate-500"}`} />
+              <span>Refresh</span>
+            </button>
+            <button
+              onClick={() => openModal("create-quotation")}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 shadow-xs transition-colors cursor-pointer"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Create New Quotation</span>
+            </button>
+          </div>
         }
       />
 

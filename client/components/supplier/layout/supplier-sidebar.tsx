@@ -48,6 +48,11 @@ interface NavGroup {
 }
 
 export function SupplierSidebar() {
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const {
     activeTab,
     setActiveTab,
@@ -228,17 +233,21 @@ export function SupplierSidebar() {
                 {user?.staffRole === "branch_manager" ? user.name.slice(0, 2).toUpperCase() : "AP"}
               </div>
               <div className="truncate min-w-0">
-                <p className="text-xs font-bold text-white truncate">
-                  {user?.staffRole === "branch_manager" ? user.name : profile.businessName}
+                <p className="text-xs font-bold text-white truncate" suppressHydrationWarning>
+                  {user?.staffRole === "branch_manager"
+                    ? user.name
+                    : mounted
+                    ? profile.businessName
+                    : "Abyssinia Agri-Commodities & Industrial Supply PLC"}
                 </p>
-                <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-mono">
+                <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-mono" suppressHydrationWarning>
                   {user?.staffRole === "branch_manager" ? (
                     <span className="text-blue-400 font-bold truncate">
                       Manager • {user.branchName?.split(" ")[0] || "Branch Hub"}
                     </span>
                   ) : (
                     <>
-                      <span>TIN: {profile.tinNumber}</span>
+                      <span suppressHydrationWarning>TIN: {mounted ? profile.tinNumber : "0019283419"}</span>
                       <span className="text-indigo-400 font-bold">• Gold</span>
                     </>
                   )}

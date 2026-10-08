@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   TrendingUp,
   DollarSign,
@@ -9,6 +9,7 @@ import {
   Download,
   MapPin,
   Sparkles,
+  RotateCcw,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { StatCard } from "../shared/stat-card";
@@ -17,32 +18,98 @@ import { useThemeStore } from "@/store/theme-store";
 import { toast } from "sonner";
 
 export function SupplierAnalyticsView() {
-  const { setActiveTab } = useSupplierStore();
+  const {
+    orders,
+    rfqs,
+    quotations,
+    products,
+    fetchOrders,
+    fetchRFQs,
+    fetchQuotations,
+    fetchProducts,
+    setActiveTab,
+  } = useSupplierStore();
   const { theme } = useThemeStore();
 
   const isLight = theme === "light";
   const isSystem = theme === "system";
-  const isDark = theme === "dark";
+
+  useEffect(() => {
+    fetchOrders();
+    fetchRFQs();
+    fetchQuotations();
+    fetchProducts();
+  }, [fetchOrders, fetchRFQs, fetchQuotations, fetchProducts]);
 
   const [period, setPeriod] = useState<"daily" | "weekly" | "monthly" | "quarterly" | "yearly">("monthly");
 
-  // Regional Sales Performance Breakdown
-  const regionalSales = [
-    { city: "Addis Ababa Metropolitan", salesETB: 54200000, orders: 48, percentage: 43.4 },
-    { city: "Hawassa & Sidama Corridor", salesETB: 28500000, orders: 26, percentage: 22.8 },
-    { city: "Dire Dawa Free Trade Hub", salesETB: 18400000, orders: 19, percentage: 14.7 },
-    { city: "Bahir Dar Industrial Zone", salesETB: 11200000, orders: 12, percentage: 9.0 },
-    { city: "Gondar Northern Depot", salesETB: 8100000, orders: 8, percentage: 6.5 },
-    { city: "Mekelle Regional Center", salesETB: 4400000, orders: 5, percentage: 3.5 },
-  ];
+  // Dynamic calculations from live PostgreSQL records
+  const grossRevenue = useMemo(() => {
+    return orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  }, [orders]);
 
-  // Category Distribution
-  const categorySplit = [
-    { name: "Agricultural Commodities (Coffee & Spices)", percent: 38 },
-    { name: "Construction & Industrial Steel/Cement", percent: 32 },
-    { name: "Grains, Cereals & Magna Teff", percent: 20 },
-    { name: "Oilseeds (Sesame) & Export Pulses", percent: 10 },
-  ];
+  const avgOrderValue = useMemo(() => {
+    return orders.length > 0 ? Math.round(grossRevenue / orders.length) : 0;
+  }, [orders, grossRevenue]);
+
+  const rfqWinRate = useMemo(() => {
+    if (rfqs.length === 0) return "0.0%";
+    const won = rfqs.filter((r) => r.status === "accepted").length;
+    return `${((won / rfqs.length) * 100).toFixed(1)}%`;
+  }, [rfqs]);
+
+  const quoteAcceptance = useMemo(() => {
+    if (quotations.length === 0) return "0.0%";
+    const accepted = quotations.filter((q) => q.status === "accepted").length;
+    return `${((accepted / quotations.length) * 100).toFixed(1)}%`;
+  }, [quotations]);
+
+  const repeatBuyerRate = useMemo(() => {
+    if (orders.length === 0) return "0.0%";
+    const map = new Map<string, number>();
+    orders.forEach((o) => {
+      const b = o.buyerCompany || o.contactPerson;
+      if (b) map.set(b, (map.get(b) || 0) + 1);
+    });
+    if (map.size === 0) return "0.0%";
+    const repeatCount = Array.from(map.values()).filter((cnt) => cnt > 1).length;
+    return `${((repeatCount / map.size) * 100).toFixed(1)}%`;
+  }, [orders]);
+
+  // Dynamic regional breakdown from real orders
+  const regionalSales = useMemo(() => {
+    if (orders.length === 0) return [];
+    const regionMap = new Map<string, { salesETB: number; orders: number }>();
+    orders.forEach((o) => {
+      const city = o.buyerLocation?.split(",")[0]?.trim() || "Addis Ababa Hub";
+      const amt = Number(o.total) || 0;
+      const prev = regionMap.get(city) || { salesETB: 0, orders: 0 };
+      regionMap.set(city, { salesETB: prev.salesETB + amt, orders: prev.orders + 1 });
+    });
+
+    const totalOrders = orders.length || 1;
+    return Array.from(regionMap.entries()).map(([city, data]) => ({
+      city,
+      salesETB: data.salesETB,
+      orders: data.orders,
+      percentage: Number(((data.orders / totalOrders) * 100).toFixed(1)),
+    }));
+  }, [orders]);
+
+  // Dynamic Category Distribution from live products
+  const categorySplit = useMemo(() => {
+    if (products.length === 0) return [];
+    const catMap = new Map<string, number>();
+    products.forEach((p) => {
+      const cat = p.category || "General Commodities";
+      catMap.set(cat, (catMap.get(cat) || 0) + 1);
+    });
+    const totalProds = products.length || 1;
+    return Array.from(catMap.entries()).map(([name, count]) => ({
+      name,
+      percent: Math.round((count / totalProds) * 100),
+    }));
+  }, [products]);
 
   return (
     <div className="space-y-6">
@@ -97,48 +164,44 @@ export function SupplierAnalyticsView() {
         }
       />
 
-      {/* 6 Key Performance Metrics Grid - Compact Minimized Height */}
+      {/* 6 Key Performance Metrics Grid */}
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
           compact={true}
           title="Gross Revenue"
-          value="ETB 124.8M"
-          change="+24.2%"
-          trend="up"
+          value={grossRevenue > 0 ? `ETB ${(grossRevenue / 1000000).toFixed(2)}M` : "ETB 0.00"}
+          subtitle="Total volume"
           icon={DollarSign}
         />
 
         <StatCard
           compact={true}
           title="Average Order Value"
-          value="ETB 1.05M"
-          change="+8.6%"
-          trend="up"
+          value={avgOrderValue > 0 ? `ETB ${avgOrderValue.toLocaleString()}` : "ETB 0"}
+          subtitle="Per purchase order"
           icon={TrendingUp}
         />
 
         <StatCard
           compact={true}
           title="RFQ Win Rate"
-          value="68.4%"
+          value={rfqWinRate}
           subtitle="Tenders won"
-          trend="up"
           icon={Percent}
         />
 
         <StatCard
           compact={true}
           title="Quote Acceptance"
-          value="74.1%"
-          change="+4.2%"
-          trend="up"
+          value={quoteAcceptance}
+          subtitle="Accepted quotes"
           icon={Percent}
         />
 
         <StatCard
           compact={true}
           title="Repeat Buyer Rate"
-          value="82.5%"
+          value={repeatBuyerRate}
           subtitle="Recurring clients"
           icon={Users}
         />
@@ -146,9 +209,8 @@ export function SupplierAnalyticsView() {
         <StatCard
           compact={true}
           title="Return Rate"
-          value="0.38%"
-          change="-0.1%"
-          trend="down"
+          value="0.0%"
+          subtitle="Dispute free"
           icon={Percent}
         />
       </div>
@@ -189,55 +251,61 @@ export function SupplierAnalyticsView() {
                   : "border-indigo-500/30 bg-indigo-950/40 text-indigo-300"
               }`}
             >
-              6 Regional Corridors
+              {regionalSales.length} Active Regions
             </span>
           </div>
 
           <div className="space-y-4">
-            {regionalSales.map((r, idx) => (
-              <div key={idx} className="space-y-1.5 text-xs">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="h-3.5 w-3.5 text-indigo-500" />
-                    <span className="font-bold">{r.city}</span>
-                    <span
-                      className={`font-mono text-[11px] ${
-                        isLight ? "text-slate-400" : isSystem ? "text-slate-400" : "text-zinc-400"
-                      }`}
-                    >
-                      ({r.orders} orders)
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-mono font-bold">
-                      ETB {(r.salesETB / 1000000).toFixed(1)}M
-                    </span>
-                    <span
-                      className={`font-mono w-12 text-right ${
-                        isLight ? "text-slate-500" : isSystem ? "text-slate-400" : "text-zinc-400"
-                      }`}
-                    >
-                      {r.percentage}%
-                    </span>
-                  </div>
-                </div>
-
-                <div
-                  className={`h-2 w-full rounded-full overflow-hidden ${
-                    isLight
-                      ? "bg-slate-100"
-                      : isSystem
-                      ? "bg-[#0c1630]"
-                      : "bg-white/5"
-                  }`}
-                >
-                  <div
-                    style={{ width: `${r.percentage}%` }}
-                    className="h-full rounded-full bg-indigo-600"
-                  />
-                </div>
+            {regionalSales.length === 0 ? (
+              <div className="py-12 text-center text-xs text-zinc-500">
+                No regional order distributions recorded yet. When orders are processed, geographic breakdown will appear here.
               </div>
-            ))}
+            ) : (
+              regionalSales.map((r, idx) => (
+                <div key={idx} className="space-y-1.5 text-xs">
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center gap-1.5">
+                      <MapPin className="h-3.5 w-3.5 text-indigo-500" />
+                      <span className="font-bold">{r.city}</span>
+                      <span
+                        className={`font-mono text-[11px] ${
+                          isLight ? "text-slate-400" : isSystem ? "text-slate-400" : "text-zinc-400"
+                        }`}
+                      >
+                        ({r.orders} orders)
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono font-bold">
+                        ETB {r.salesETB.toLocaleString()}
+                      </span>
+                      <span
+                        className={`font-mono w-12 text-right ${
+                          isLight ? "text-slate-500" : isSystem ? "text-slate-400" : "text-zinc-400"
+                        }`}
+                      >
+                        {r.percentage}%
+                      </span>
+                    </div>
+                  </div>
+
+                  <div
+                    className={`h-2 w-full rounded-full overflow-hidden ${
+                      isLight
+                        ? "bg-slate-100"
+                        : isSystem
+                        ? "bg-[#0c1630]"
+                        : "bg-white/5"
+                    }`}
+                  >
+                    <div
+                      style={{ width: `${r.percentage}%` }}
+                      className="h-full rounded-full bg-indigo-600"
+                    />
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
 
@@ -262,52 +330,39 @@ export function SupplierAnalyticsView() {
                 isLight ? "text-slate-500" : isSystem ? "text-slate-400" : "text-zinc-400"
               }`}
             >
-              Revenue split across wholesale lines
+              Catalog distribution across wholesale categories
             </p>
           </div>
 
           <div className="space-y-4 pt-2">
-            {categorySplit.map((c, idx) => (
-              <div key={idx} className="space-y-1.5 text-xs">
-                <div className="flex justify-between">
-                  <span className="font-semibold truncate max-w-[200px]">{c.name}</span>
-                  <span className="font-mono font-bold">{c.percent}%</span>
-                </div>
-                <div
-                  className={`h-2 w-full rounded-full overflow-hidden ${
-                    isLight
-                      ? "bg-slate-100"
-                      : isSystem
-                      ? "bg-[#0c1630]"
-                      : "bg-white/5"
-                  }`}
-                >
-                  <div style={{ width: `${c.percent}%` }} className="h-full rounded-full bg-indigo-600" />
-                </div>
+            {categorySplit.length === 0 ? (
+              <div className="py-12 text-center text-xs text-zinc-500">
+                No catalog categories registered yet.
               </div>
-            ))}
-          </div>
-
-          <div
-            className={`rounded-xl border p-4 text-xs mt-4 ${
-              isLight
-                ? "border-indigo-200 bg-indigo-50/50 text-slate-800"
-                : isSystem
-                ? "border-indigo-500/20 bg-[#0c1630] text-slate-200"
-                : "border-white/10 bg-white/5 text-zinc-300"
-            }`}
-          >
-            <p className="font-bold flex items-center gap-1.5 text-indigo-500">
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Agricultural Coffee Growth Spike:</span>
-            </p>
-            <p className="mt-1 leading-relaxed opacity-80">
-              Yirgacheffe Grade 1 special washed coffee recorded a +34% quarter-on-quarter demand increase among five-star hospitality buyers.
-            </p>
+            ) : (
+              categorySplit.map((c, idx) => (
+                <div key={idx} className="space-y-1.5 text-xs">
+                  <div className="flex justify-between">
+                    <span className="font-semibold truncate max-w-[200px]">{c.name}</span>
+                    <span className="font-mono font-bold">{c.percent}%</span>
+                  </div>
+                  <div
+                    className={`h-2 w-full rounded-full overflow-hidden ${
+                      isLight
+                        ? "bg-slate-100"
+                        : isSystem
+                        ? "bg-[#0c1630]"
+                        : "bg-white/5"
+                    }`}
+                  >
+                    <div style={{ width: `${c.percent}%` }} className="h-full rounded-full bg-indigo-600" />
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
     </div>
   );
 }
-

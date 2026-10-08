@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   TrendingUp,
   Wallet,
@@ -19,6 +19,7 @@ import {
   ExternalLink,
   BarChart3,
   ShieldCheck,
+  RotateCcw,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { useSupplierStore } from "@/store/supplier-store";
@@ -30,70 +31,204 @@ export function SupplierDashboardView() {
     orders,
     rfqs,
     quotations,
+    fetchProducts,
+    fetchOrders,
+    fetchRFQs,
+    fetchQuotations,
+    fetchNegotiations,
     setActiveTab,
     setSubView,
     openModal,
   } = useSupplierStore();
 
+  useEffect(() => {
+    fetchProducts();
+    fetchOrders();
+    fetchRFQs();
+    fetchQuotations();
+    fetchNegotiations();
+  }, [fetchProducts, fetchOrders, fetchRFQs, fetchQuotations, fetchNegotiations]);
+
   const [timeframe, setTimeframe] = useState<"7D" | "30D" | "12M" | "All">("30D");
 
-  // Key Financial & Operational Figures
-  const totalRevenue = 12480000;
-  const availableBalance = 4280000;
-  const pendingPayments = 5815125;
-  const pendingOrders = orders.filter((o) => o.orderStatus === "pending" || o.orderStatus === "processing").length;
-  const pendingRFQs = rfqs.filter((r) => r.status === "new" || r.status === "negotiating").length;
-  const activeQuotes = quotations.filter((q) => q.status === "sent").length;
-  const lowStockCount = products.filter((p) => p.stock < 30000).length;
+  // Real Financial & Operational Figures calculated purely from live backend state
+  const totalRevenue = useMemo(() => {
+    return orders
+      .filter((o) => o.orderStatus === "delivered" || o.paymentStatus === "released")
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  }, [orders]);
 
-  // Linear-style Chart Datasets
-  const chartDatasets = {
-    "7D": [
-      { label: "Mon", value: 420000, orders: 2 },
-      { label: "Tue", value: 680000, orders: 3 },
-      { label: "Wed", value: 950000, orders: 4 },
-      { label: "Thu", value: 1240000, orders: 5 },
-      { label: "Fri", value: 890000, orders: 3 },
-      { label: "Sat", value: 540000, orders: 2 },
-      { label: "Sun", value: 710000, orders: 3 },
-    ],
-    "30D": [
-      { label: "W1", value: 2450000, orders: 12 },
-      { label: "W2", value: 3100000, orders: 15 },
-      { label: "W3", value: 2890000, orders: 14 },
-      { label: "W4", value: 4040000, orders: 20 },
-    ],
-    "12M": [
-      { label: "May", value: 7800000, orders: 38 },
-      { label: "Jun", value: 8900000, orders: 44 },
-      { label: "Jul", value: 9400000, orders: 46 },
-      { label: "Aug", value: 11200000, orders: 54 },
-      { label: "Sep", value: 11800000, orders: 59 },
-      { label: "Oct", value: 14200000, orders: 68 },
-    ],
-    All: [
-      { label: "2023", value: 48500000, orders: 240 },
-      { label: "2024", value: 72400000, orders: 380 },
-      { label: "2025", value: 104800000, orders: 520 },
-      { label: "2026", value: 124800000, orders: 610 },
-    ],
-  };
+  const availableBalance = useMemo(() => {
+    return orders
+      .filter((o) => o.paymentStatus === "released")
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  }, [orders]);
+
+  const pendingPayments = useMemo(() => {
+    return orders
+      .filter(
+        (o) =>
+          o.paymentStatus === "escrow_secured" ||
+          o.orderStatus === "processing" ||
+          o.orderStatus === "confirmed"
+      )
+      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+  }, [orders]);
+
+  const pendingOrders = useMemo(
+    () => orders.filter((o) => o.orderStatus === "pending" || o.orderStatus === "processing").length,
+    [orders]
+  );
+  const pendingRFQs = useMemo(
+    () => rfqs.filter((r) => r.status === "new" || r.status === "negotiating").length,
+    [rfqs]
+  );
+  const activeQuotes = useMemo(
+    () => quotations.filter((q) => q.status === "sent" || q.status === "negotiating").length,
+    [quotations]
+  );
+
+  const avgOrderValue = useMemo(() => {
+    return orders.length > 0
+      ? Math.round(orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0) / orders.length)
+      : 0;
+  }, [orders]);
+
+  const settlementRate = useMemo(() => {
+    if (orders.length === 0) return "0.0%";
+    const settled = orders.filter((o) => o.paymentStatus === "released").length;
+    return `${((settled / orders.length) * 100).toFixed(1)}%`;
+  }, [orders]);
+
+  const fulfillmentSla = useMemo(() => {
+    if (orders.length === 0) return "100.0%";
+    const fulfilled = orders.filter((o) => o.orderStatus === "delivered" || o.orderStatus === "shipped").length;
+    return `${((fulfilled / orders.length) * 100).toFixed(1)}%`;
+  }, [orders]);
+
+  // Order Pipeline Distribution directly from live orders
+  const pipeline = useMemo(() => {
+    const totalCount = orders.length || 1;
+    const newCount = orders.filter((o) => o.orderStatus === "pending" || o.orderStatus === "confirmed").length;
+    const procCount = orders.filter((o) => o.orderStatus === "processing").length;
+    const packedCount = orders.filter((o) => o.orderStatus === "packed").length;
+    const shippedCount = orders.filter((o) => o.orderStatus === "shipped" || o.deliveryStatus === "in_transit").length;
+    const deliveredCount = orders.filter((o) => o.orderStatus === "delivered").length;
+
+    return [
+      { label: "New & Confirmed", count: newCount, percent: orders.length > 0 ? Math.round((newCount / totalCount) * 100) : 0, color: "bg-amber-400" },
+      { label: "Processing & QC", count: procCount, percent: orders.length > 0 ? Math.round((procCount / totalCount) * 100) : 0, color: "bg-blue-400" },
+      { label: "Packed & Depot Ready", count: packedCount, percent: orders.length > 0 ? Math.round((packedCount / totalCount) * 100) : 0, color: "bg-indigo-400" },
+      { label: "Shipped & In Transit", count: shippedCount, percent: orders.length > 0 ? Math.round((shippedCount / totalCount) * 100) : 0, color: "bg-cyan-400" },
+      { label: "Delivered & Settled", count: deliveredCount, percent: orders.length > 0 ? Math.round((deliveredCount / totalCount) * 100) : 0, color: "bg-emerald-400" },
+    ];
+  }, [orders]);
+
+  // Dynamic Chart Datasets based on live orders
+  const chartDatasets = useMemo(() => {
+    const d7 = [
+      { label: "Mon", value: 0, orders: 0 },
+      { label: "Tue", value: 0, orders: 0 },
+      { label: "Wed", value: 0, orders: 0 },
+      { label: "Thu", value: 0, orders: 0 },
+      { label: "Fri", value: 0, orders: 0 },
+      { label: "Sat", value: 0, orders: 0 },
+      { label: "Sun", value: 0, orders: 0 },
+    ];
+    const d30 = [
+      { label: "W1", value: 0, orders: 0 },
+      { label: "W2", value: 0, orders: 0 },
+      { label: "W3", value: 0, orders: 0 },
+      { label: "W4", value: 0, orders: 0 },
+    ];
+    const d12 = [
+      { label: "May", value: 0, orders: 0 },
+      { label: "Jun", value: 0, orders: 0 },
+      { label: "Jul", value: 0, orders: 0 },
+      { label: "Aug", value: 0, orders: 0 },
+      { label: "Sep", value: 0, orders: 0 },
+      { label: "Oct", value: 0, orders: 0 },
+    ];
+    const dAll = [
+      { label: "2024", value: 0, orders: 0 },
+      { label: "2025", value: 0, orders: 0 },
+      { label: "2026", value: 0, orders: 0 },
+    ];
+
+    orders.forEach((o) => {
+      const amt = Number(o.total) || 0;
+      const date = o.orderDate ? new Date(o.orderDate) : new Date();
+      const day = date.getDay();
+      const dayIdx = day === 0 ? 6 : day - 1;
+      if (d7[dayIdx]) {
+        d7[dayIdx].value += amt;
+        d7[dayIdx].orders += 1;
+      }
+      const weekIdx = Math.min(3, Math.floor(date.getDate() / 8));
+      if (d30[weekIdx]) {
+        d30[weekIdx].value += amt;
+        d30[weekIdx].orders += 1;
+      }
+      dAll[2].value += amt;
+      dAll[2].orders += 1;
+    });
+
+    return { "7D": d7, "30D": d30, "12M": d12, All: dAll };
+  }, [orders]);
 
   const chartData = chartDatasets[timeframe];
-  const maxVal = Math.max(...chartData.map((d) => d.value));
+  const maxVal = Math.max(...chartData.map((d) => d.value), 1);
 
-  // Order Pipeline Distribution
-  const pipeline = [
-    { label: "New & Confirmed", count: 2, percent: 20, color: "bg-amber-400" },
-    { label: "Processing & QC", count: 1, percent: 15, color: "bg-blue-400" },
-    { label: "Packed & Depot Ready", count: 1, percent: 15, color: "bg-indigo-400" },
-    { label: "Shipped & In Transit", count: 2, percent: 25, color: "bg-cyan-400" },
-    { label: "Delivered & Settled", count: 12, percent: 85, color: "bg-emerald-400" },
-  ];
+  // Dynamic Recent Activity Events
+  const recentEvents = useMemo(() => {
+    const list: Array<{
+      id: string;
+      type: "order" | "rfq" | "quote";
+      title: string;
+      subtitle: string;
+      time: string;
+      tab: any;
+    }> = [];
+
+    orders.slice(0, 3).forEach((o) => {
+      list.push({
+        id: `ord-${o.id}`,
+        type: "order",
+        title: `Order #${o.orderNumber || o.id.slice(0, 8)} secured`,
+        subtitle: `${o.buyerCompany || "Buyer"}: ETB ${(o.total || 0).toLocaleString()}`,
+        time: o.orderDate || "Recently",
+        tab: "orders",
+      });
+    });
+
+    rfqs.slice(0, 3).forEach((r) => {
+      list.push({
+        id: `rfq-${r.id}`,
+        type: "rfq",
+        title: `New RFQ inquiry received`,
+        subtitle: `${r.buyerCompany}: ${r.requestedQty?.toLocaleString() || ""} ${r.unit || ""} ${r.productName || ""}`,
+        time: r.createdAt || "Recently",
+        tab: "rfqs",
+      });
+    });
+
+    quotations.slice(0, 2).forEach((q) => {
+      list.push({
+        id: `quote-${q.id}`,
+        type: "quote",
+        title: `Quotation #${q.quoteNumber} issued`,
+        subtitle: `${q.buyerCompany}: ETB ${(q.total || 0).toLocaleString()}`,
+        time: q.createdAt || "Recently",
+        tab: "quotations",
+      });
+    });
+
+    return list.slice(0, 4);
+  }, [orders, rfqs, quotations]);
 
   return (
     <div className="space-y-6">
-      {/* 1. Sleek, Standard Page Header */}
+      {/* 1. Page Header */}
       <PageHeader
         title="Supplier Dashboard"
         subtitle={`Welcome back, ${profile.businessName}. Here is your commercial trade and escrow performance.`}
@@ -142,11 +277,10 @@ export function SupplierDashboardView() {
             <TrendingUp className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
-            ETB {(totalRevenue / 1000000).toFixed(2)}M
+            ETB {totalRevenue > 0 ? (totalRevenue / 1000000).toFixed(2) + "M" : "0.00"}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-[11px] text-zinc-400">
-            <span className="font-semibold text-emerald-400">+18.4%</span>
-            <span>vs last month</span>
+            <span>Settled orders volume</span>
           </div>
         </div>
 
@@ -160,7 +294,7 @@ export function SupplierDashboardView() {
             <Wallet className="h-4 w-4 text-indigo-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
-            ETB {(availableBalance / 1000000).toFixed(2)}M
+            ETB {availableBalance > 0 ? (availableBalance / 1000000).toFixed(2) + "M" : "0.00"}
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -178,10 +312,10 @@ export function SupplierDashboardView() {
             <Clock className="h-4 w-4 text-amber-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
-            ETB {(pendingPayments / 1000000).toFixed(2)}M
+            ETB {pendingPayments > 0 ? (pendingPayments / 1000000).toFixed(2) + "M" : "0.00"}
           </div>
           <div className="mt-2 text-[11px] text-zinc-400">
-            <span>6 active orders secured</span>
+            <span>{orders.filter((o) => o.paymentStatus === "escrow_secured").length} active orders secured</span>
           </div>
         </div>
 
@@ -198,7 +332,7 @@ export function SupplierDashboardView() {
             {pendingOrders}
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-blue-400">
-            <span>3 require dispatch</span>
+            <span>{pendingOrders} require dispatch</span>
           </div>
         </div>
 
@@ -252,7 +386,8 @@ export function SupplierDashboardView() {
           <div className="pt-2">
             <div className="flex items-end justify-between gap-2 sm:gap-3 h-48 sm:h-52 px-1">
               {chartData.map((item, idx) => {
-                const heightPercent = Math.max(12, Math.round((item.value / maxVal) * 100));
+                const heightPercent =
+                  item.value > 0 && maxVal > 0 ? Math.max(12, Math.round((item.value / maxVal) * 100)) : 6;
                 return (
                   <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end relative">
                     {/* Minimal Hover Tag */}
@@ -263,7 +398,11 @@ export function SupplierDashboardView() {
                     <div className="w-full max-w-[36px] bg-white/[0.03] rounded-t-md overflow-hidden flex flex-col justify-end h-full">
                       <div
                         style={{ height: `${heightPercent}%` }}
-                        className="w-full bg-indigo-500/80 group-hover:bg-indigo-400 transition-all rounded-t-md"
+                        className={`w-full rounded-t-md transition-all ${
+                          item.value > 0
+                            ? "bg-indigo-500/80 group-hover:bg-indigo-400"
+                            : "bg-white/[0.05]"
+                        }`}
                       />
                     </div>
 
@@ -280,15 +419,21 @@ export function SupplierDashboardView() {
           <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.06] text-xs">
             <div>
               <span className="text-zinc-400 block">Avg. Order Value</span>
-              <span className="font-mono font-semibold text-white mt-0.5 block">ETB 348,000</span>
+              <span className="font-mono font-semibold text-white mt-0.5 block">
+                ETB {avgOrderValue.toLocaleString()}
+              </span>
             </div>
             <div>
               <span className="text-zinc-400 block">Settlement Rate</span>
-              <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">98.2%</span>
+              <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">
+                {settlementRate}
+              </span>
             </div>
             <div>
               <span className="text-zinc-400 block">Fulfillment SLA</span>
-              <span className="font-mono font-semibold text-white mt-0.5 block">99.4%</span>
+              <span className="font-mono font-semibold text-white mt-0.5 block">
+                {fulfillmentSla}
+              </span>
             </div>
           </div>
         </div>
@@ -367,42 +512,56 @@ export function SupplierDashboardView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
-                {products.slice(0, 5).map((prod) => (
-                  <tr key={prod.id} className="hover:bg-white/[0.02] transition-colors">
-                    <td className="py-2.5 pr-3">
-                      <div className="flex items-center gap-2.5">
-                        <img
-                          src={prod.images[0]}
-                          alt={prod.name}
-                          className="h-9 w-9 rounded-lg object-cover border border-white/10 shrink-0"
-                        />
-                        <div className="truncate">
-                          <p className="font-medium text-white truncate max-w-[220px]">{prod.name}</p>
-                          <p className="text-[11px] text-zinc-400 font-mono">{prod.sku} • {prod.category}</p>
-                        </div>
-                      </div>
-                    </td>
-
-                    <td className="py-2.5 font-mono text-zinc-200">
-                      {prod.stock.toLocaleString()} {prod.unit}
-                    </td>
-
-                    <td className="py-2.5 font-mono font-semibold text-emerald-400">
-                      ETB {prod.basePrice.toLocaleString()} / {prod.unit}
-                    </td>
-
-                    <td className="py-2.5 font-mono text-zinc-300">
-                      {prod.salesCount.toLocaleString()} {prod.unit}
-                    </td>
-
-                    <td className="py-2.5">
-                      <div className="flex items-center gap-1 text-zinc-300 font-medium">
-                        <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                        <span>{prod.rating}</span>
-                      </div>
+                {products.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-xs text-zinc-500">
+                      No products found in catalog. Click &quot;Add Product&quot; to list your first item.
                     </td>
                   </tr>
-                ))}
+                ) : (
+                  products.slice(0, 5).map((prod) => (
+                    <tr key={prod.id} className="hover:bg-white/[0.02] transition-colors">
+                      <td className="py-2.5 pr-3">
+                        <div className="flex items-center gap-2.5">
+                          {prod.images && prod.images.length > 0 ? (
+                            <img
+                              src={prod.images[0]}
+                              alt={prod.name}
+                              className="h-9 w-9 rounded-lg object-cover border border-white/10 shrink-0"
+                            />
+                          ) : (
+                            <div className="h-9 w-9 rounded-lg bg-zinc-800 border border-white/10 flex items-center justify-center text-zinc-400 shrink-0">
+                              <Package className="h-4 w-4" />
+                            </div>
+                          )}
+                          <div className="truncate">
+                            <p className="font-medium text-white truncate max-w-[220px]">{prod.name}</p>
+                            <p className="text-[11px] text-zinc-400 font-mono">{prod.sku} • {prod.category}</p>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="py-2.5 font-mono text-zinc-200">
+                        {prod.stock.toLocaleString()} {prod.unit}
+                      </td>
+
+                      <td className="py-2.5 font-mono font-semibold text-emerald-400">
+                        ETB {prod.basePrice.toLocaleString()} / {prod.unit}
+                      </td>
+
+                      <td className="py-2.5 font-mono text-zinc-300">
+                        {prod.salesCount.toLocaleString()} {prod.unit}
+                      </td>
+
+                      <td className="py-2.5">
+                        <div className="flex items-center gap-1 text-zinc-300 font-medium">
+                          <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                          <span>{prod.rating || "5.0"}</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
@@ -418,69 +577,36 @@ export function SupplierDashboardView() {
           </div>
 
           <div className="space-y-3.5 text-xs">
-            <div
-              onClick={() => setActiveTab("rfqs")}
-              className="flex items-start gap-3 cursor-pointer group"
-            >
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-emerald-500/10 text-emerald-400">
-                <FileQuestion className="h-3.5 w-3.5" />
+            {recentEvents.length === 0 ? (
+              <div className="py-8 text-center text-xs text-zinc-500">
+                No recent activity recorded yet.
               </div>
-              <div className="min-w-0">
-                <p className="font-medium text-white group-hover:text-indigo-300 transition-colors">
-                  New RFQ received
-                </p>
-                <p className="text-zinc-400 text-[11px] truncate">Addis Continental: 2,500 KG Coffee</p>
-                <span className="text-[10px] text-zinc-500 font-mono">10m ago</span>
-              </div>
-            </div>
-
-            <div
-              onClick={() => setActiveTab("orders")}
-              className="flex items-start gap-3 cursor-pointer group"
-            >
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-blue-500/10 text-blue-400">
-                <ShoppingCart className="h-3.5 w-3.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-white group-hover:text-indigo-300 transition-colors">
-                  Order #ORD-ETH-8921 secured
-                </p>
-                <p className="text-zinc-400 text-[11px] truncate">100% Escrow deposit confirmed</p>
-                <span className="text-[10px] text-zinc-500 font-mono">1h ago</span>
-              </div>
-            </div>
-
-            <div
-              onClick={() => setActiveTab("payments")}
-              className="flex items-start gap-3 cursor-pointer group"
-            >
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-purple-500/10 text-purple-400">
-                <Wallet className="h-3.5 w-3.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-white group-hover:text-indigo-300 transition-colors">
-                  Escrow settlement released
-                </p>
-                <p className="text-zinc-400 text-[11px] truncate">ETB 1,718,600 credited</p>
-                <span className="text-[10px] text-zinc-500 font-mono">Yesterday</span>
-              </div>
-            </div>
-
-            <div
-              onClick={() => setActiveTab("inventory")}
-              className="flex items-start gap-3 cursor-pointer group"
-            >
-              <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-amber-500/10 text-amber-400">
-                <AlertTriangle className="h-3.5 w-3.5" />
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-white group-hover:text-indigo-300 transition-colors">
-                  Warehouse stock threshold
-                </p>
-                <p className="text-zinc-400 text-[11px] truncate">Dire Dawa rebar below safety margin</p>
-                <span className="text-[10px] text-zinc-500 font-mono">2d ago</span>
-              </div>
-            </div>
+            ) : (
+              recentEvents.map((evt) => (
+                <div
+                  key={evt.id}
+                  onClick={() => setActiveTab(evt.tab)}
+                  className="flex items-start gap-3 cursor-pointer group"
+                >
+                  <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-indigo-500/10 text-indigo-400">
+                    {evt.type === "order" ? (
+                      <ShoppingCart className="h-3.5 w-3.5" />
+                    ) : evt.type === "rfq" ? (
+                      <FileQuestion className="h-3.5 w-3.5" />
+                    ) : (
+                      <FileText className="h-3.5 w-3.5" />
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-white group-hover:text-indigo-300 transition-colors">
+                      {evt.title}
+                    </p>
+                    <p className="text-zinc-400 text-[11px] truncate">{evt.subtitle}</p>
+                    <span className="text-[10px] text-zinc-500 font-mono">{evt.time}</span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

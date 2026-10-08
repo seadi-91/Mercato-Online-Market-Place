@@ -25,8 +25,30 @@ export const ENDPOINTS = {
   SELLER_WAREHOUSE_TRANSFERS: "/seller/warehouse-transfers",
   SELLER_WAREHOUSE_TRANSFER_STATUS: (id: string) => `/seller/warehouse-transfers/${id}/status`,
 
+  // RFQs & B2B Commercial Tenders
+  SELLER_RFQS: "/seller/rfqs",
+  SELLER_RFQ_STATUS: (id: string) => `/seller/rfqs/${id}/status`,
+
+  // Quotations
+  SELLER_QUOTATIONS: "/seller/quotations",
+
+  // Price Negotiations & CBE Escrow Deals
+  SELLER_NEGOTIATIONS: "/seller/negotiations",
+  SELLER_NEGOTIATION_COUNTER: (id: string) => `/seller/negotiations/${id}/counter`,
+  SELLER_NEGOTIATION_ACCEPT: (id: string) => `/seller/negotiations/${id}/accept`,
+  SELLER_NEGOTIATION_DECLINE: (id: string) => `/seller/negotiations/${id}/decline`,
+  SELLER_NEGOTIATION_MESSAGES: (id: string) => `/seller/negotiations/${id}/messages`,
+
   // Seller Payouts & Finance
   SELLER_PAYOUTS: "/seller/payouts",
+  SELLER_PROFILE: "/seller/profile",
+
+  // Staff & Fleet Management (Branch Managers & Fleet Drivers)
+  SELLER_STAFF: "/seller/staff",
+  SELLER_STAFF_ID: (id: string) => `/seller/staff/${id}`,
+
+  // Auth & Security
+  AUTH_CHANGE_PASSWORD: "/auth/change-password",
 
   // Uploads
   UPLOAD_IMAGE: "/upload/image",

@@ -186,6 +186,10 @@ export class UpdateProductDto {
 
   @IsString()
   @IsOptional()
+  sku?: string;
+
+  @IsString()
+  @IsOptional()
   description?: string;
 
   @IsUUID()

@@ -12,13 +12,19 @@ import { ClientProxy, RpcException } from '@nestjs/microservices';
 import { firstValueFrom } from 'rxjs';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
+import { Rfq, RfqStatus } from './entities/rfq.entity';
+import { Quotation, QuotationStatus } from './entities/quotation.entity';
+import { Negotiation, NegotiationStatus } from './entities/negotiation.entity';
 import {
   CreateOrderDto,
+  CreateQuotationDto,
+  DeclineNegotiationDto,
   FilterAvailableDeliveriesDto,
   FilterOrdersDto,
   OrderStatus,
   PaymentStatus,
   ProductUnit,
+  SendCounterOfferDto,
   StockAction,
   UpdateOrderStatusDto,
   UserRole,
@@ -31,6 +37,12 @@ export class OrdersService {
     private readonly orderRepository: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepository: Repository<OrderItem>,
+    @InjectRepository(Rfq)
+    private readonly rfqRepository: Repository<Rfq>,
+    @InjectRepository(Quotation)
+    private readonly quotationRepository: Repository<Quotation>,
+    @InjectRepository(Negotiation)
+    private readonly negotiationRepository: Repository<Negotiation>,
     private readonly dataSource: DataSource,
     @Inject('CATALOG_SERVICE')
     private readonly catalogClient: ClientProxy,
@@ -888,5 +900,226 @@ export class OrdersService {
       completedDeliveries,
       earnedDeliveryFees: parseFloat(feesRaw?.earnedDeliveryFees || '0'),
     };
+  }
+
+  // ==========================================
+  // RFQs (Requests for Quotation)
+  // ==========================================
+
+  async getSellerRfqs(sellerId?: string) {
+    const qb = this.rfqRepository.createQueryBuilder('rfq');
+    if (sellerId) {
+      qb.where('rfq.sellerId = :sellerId', { sellerId });
+    }
+    qb.orderBy('rfq.createdAt', 'DESC');
+    return qb.getMany();
+  }
+
+  async updateRfqStatus(id: string, status: string) {
+    const rfq = await this.rfqRepository.findOne({ where: { id } });
+    if (!rfq) {
+      throw new RpcException(new NotFoundException(`RFQ not found: ${id}`));
+    }
+    rfq.status = status as RfqStatus;
+    return this.rfqRepository.save(rfq);
+  }
+
+  // ==========================================
+  // Quotations
+  // ==========================================
+
+  async getSellerQuotations(sellerId: string) {
+    return this.quotationRepository.find({
+      where: { sellerId },
+      order: { createdAt: 'DESC' },
+    });
+  }
+
+  async createQuotation(sellerId: string, dto: CreateQuotationDto) {
+    const quoteNumber =
+      dto.quoteNumber || `QT-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    const newQuotation = this.quotationRepository.create({
+      quoteNumber,
+      sellerId,
+      rfqId: dto.rfqId,
+      buyerName: dto.buyerName,
+      buyerCompany: dto.buyerCompany,
+      buyerEmail: dto.buyerEmail,
+      buyerPhone: dto.buyerPhone,
+      items: dto.items,
+      subtotal: dto.subtotal,
+      discount: dto.discount || 0,
+      tax: dto.tax || 0,
+      shippingCost: dto.shippingCost || 0,
+      total: dto.total,
+      paymentTerms: dto.paymentTerms,
+      deliveryTerms: dto.deliveryTerms,
+      validUntil: dto.validUntil,
+      status: QuotationStatus.SENT,
+      notes: dto.notes,
+    });
+
+    const savedQuote = await this.quotationRepository.save(newQuotation);
+
+    // If an RFQ was referenced, mark it responded
+    if (dto.rfqId) {
+      try {
+        await this.rfqRepository.update(
+          { id: dto.rfqId },
+          { status: RfqStatus.RESPONDED },
+        );
+      } catch {
+        // Ignore if not found by UUID
+      }
+    }
+
+    return savedQuote;
+  }
+
+  // ==========================================
+  // Negotiations
+  // ==========================================
+
+  async getSellerNegotiations(sellerId: string) {
+    return this.negotiationRepository.find({
+      where: { sellerId },
+      order: { updatedAt: 'DESC' },
+    });
+  }
+
+  async sendCounterOffer(
+    sellerId: string,
+    sessionId: string,
+    dto: SendCounterOfferDto,
+  ) {
+    const session = await this.negotiationRepository.findOne({
+      where: { id: sessionId },
+    });
+    if (!session) {
+      throw new RpcException(
+        new NotFoundException(`Negotiation session not found: ${sessionId}`),
+      );
+    }
+
+    const newMessage = {
+      id: `msg-${Date.now()}`,
+      sender: 'supplier' as const,
+      senderName: 'Abyssinia Supply Desk',
+      message:
+        dto.message ||
+        `We submit a revised counter offer of ${dto.newPrice.toLocaleString()} ETB per unit.`,
+      timestamp: new Date().toLocaleTimeString([], {
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      proposedPrice: dto.newPrice,
+      attachmentName: dto.attachmentName,
+    };
+
+    session.supplierCurrentOffer = dto.newPrice;
+    session.status = NegotiationStatus.BUYER_TURN;
+    if (dto.incoterm) session.incoterm = dto.incoterm;
+    if (dto.deliveryLeadTimeDays)
+      session.deliveryLeadTimeDays = dto.deliveryLeadTimeDays;
+    if (dto.paymentTerms) session.paymentTerms = dto.paymentTerms;
+    session.messages = [...(session.messages || []), newMessage];
+
+    return this.negotiationRepository.save(session);
+  }
+
+  async acceptNegotiation(sellerId: string, sessionId: string) {
+    const session = await this.negotiationRepository.findOne({
+      where: { id: sessionId },
+    });
+    if (!session) {
+      throw new RpcException(
+        new NotFoundException(`Negotiation session not found: ${sessionId}`),
+      );
+    }
+
+    session.status = NegotiationStatus.AGREED;
+    session.messages = [
+      ...(session.messages || []),
+      {
+        id: `msg-${Date.now()}`,
+        sender: 'supplier' as const,
+        senderName: 'Abyssinia Supply Desk',
+        message:
+          'Deal officially accepted! Binding sales contract finalized with 100% CBE Escrow protection.',
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      },
+    ];
+
+    return this.negotiationRepository.save(session);
+  }
+
+  async declineNegotiation(
+    sellerId: string,
+    sessionId: string,
+    dto?: DeclineNegotiationDto,
+  ) {
+    const session = await this.negotiationRepository.findOne({
+      where: { id: sessionId },
+    });
+    if (!session) {
+      throw new RpcException(
+        new NotFoundException(`Negotiation session not found: ${sessionId}`),
+      );
+    }
+
+    session.status = NegotiationStatus.DECLINED;
+    session.messages = [
+      ...(session.messages || []),
+      {
+        id: `msg-${Date.now()}`,
+        sender: 'supplier' as const,
+        senderName: 'Abyssinia Supply Desk',
+        message: `Negotiation discontinued. ${
+          dto?.reason ||
+          'Price target is below our raw materials and manufacturing cost floor.'
+        }`,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      },
+    ];
+
+    return this.negotiationRepository.save(session);
+  }
+
+  async sendNegotiationMessage(
+    sellerId: string,
+    sessionId: string,
+    message: string,
+  ) {
+    const session = await this.negotiationRepository.findOne({
+      where: { id: sessionId },
+    });
+    if (!session) {
+      throw new RpcException(
+        new NotFoundException(`Negotiation session not found: ${sessionId}`),
+      );
+    }
+
+    session.messages = [
+      ...(session.messages || []),
+      {
+        id: `msg-${Date.now()}`,
+        sender: 'supplier' as const,
+        senderName: 'Abyssinia Supply Desk',
+        message,
+        timestamp: new Date().toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+        }),
+      },
+    ];
+
+    return this.negotiationRepository.save(session);
   }
 }

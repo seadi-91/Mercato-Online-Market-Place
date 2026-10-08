@@ -51,16 +51,23 @@ export function SupplierHeader() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [globalSearch, setGlobalSearch] = useState("");
   const [isMobileSearchVisible, setIsMobileSearchVisible] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const unreadNotifications = notifications.filter((n) => !n.read).length;
   const unreadMessages = chatThreads.reduce((acc, t) => acc + t.unreadCount, 0);
 
   const isBranchManager =
     user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
-  const displayName =
-    user?.name || currentStaffUser?.fullName || profile?.businessName || "Abyssinia Supply PLC";
-  const displayEmail =
-    user?.email || currentStaffUser?.email || profile?.email || "hq@abyssiniasupply.et";
+  const displayName = mounted
+    ? user?.name || currentStaffUser?.fullName || profile?.businessName || "Abyssinia Supply PLC"
+    : "Abyssinia Supply PLC";
+  const displayEmail = mounted
+    ? user?.email || currentStaffUser?.email || profile?.email || "hq@abyssiniasupply.et"
+    : "hq@abyssiniasupply.et";
   const userBranchName =
     user?.branchName || currentStaffUser?.branchName;
 
@@ -300,11 +307,11 @@ export function SupplierHeader() {
             </div>
 
             {/* Name & Branch Label (Desktop & Tablet) */}
-            <div className="hidden sm:flex flex-col text-left leading-tight min-w-0 max-w-[130px] lg:max-w-[170px]">
-              <span className="font-bold text-xs truncate text-white">
+            <div className="hidden sm:flex flex-col text-left leading-tight min-w-0 max-w-[130px] lg:max-w-[170px]" suppressHydrationWarning>
+              <span className="font-bold text-xs truncate text-white" suppressHydrationWarning>
                 {displayName}
               </span>
-              <span className="text-[10px] text-zinc-400 truncate">
+              <span className="text-[10px] text-zinc-400 truncate" suppressHydrationWarning>
                 {isBranchManager ? userBranchName || "Branch Manager" : "Super Supplier HQ"}
               </span>
             </div>
