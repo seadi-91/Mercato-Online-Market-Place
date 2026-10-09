@@ -18,12 +18,14 @@ import {
   X,
   RefreshCw,
   Printer,
+  Trash2,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useAuthStore } from "@/store";
 import { fetchCustomerOrders, CustomerOrder } from "@/lib/api/orders";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { toast } from "sonner";
 
 function OrdersPageContent() {
@@ -31,6 +33,7 @@ function OrdersPageContent() {
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrderForView, setSelectedOrderForView] = useState<CustomerOrder | null>(null);
+  const [orderToDelete, setOrderToDelete] = useState<CustomerOrder | null>(null);
   const [copiedTxRef, setCopiedTxRef] = useState(false);
 
   const { token, user } = useAuthStore();
@@ -45,6 +48,27 @@ function OrdersPageContent() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleDeleteOrder = (orderId: string) => {
+    const target = orders.find((o) => o.id === orderId);
+    const updated = orders.filter((o) => o.id !== orderId);
+    setOrders(updated);
+    if (selectedOrderForView?.id === orderId) {
+      setSelectedOrderForView(null);
+    }
+    toast.success(`Order #${target?.orderNumber || orderId} removed from view`, {
+      description: "Order temporarily hidden. Click Undo to restore.",
+      action: target
+        ? {
+            label: "Undo (መልስ)",
+            onClick: () => {
+              setOrders((prev) => [target, ...prev]);
+              toast.success(`Order #${target.orderNumber} restored!`);
+            },
+          }
+        : undefined,
+    });
   };
 
   useEffect(() => {
@@ -223,6 +247,19 @@ function OrdersPageContent() {
                       >
                         <Eye className="h-3.5 w-3.5" />
                         <span>View Details</span>
+                      </button>
+
+                      {/* Delete Order (Trash Icon) */}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setOrderToDelete(order);
+                        }}
+                        className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60 transition-colors cursor-pointer shrink-0"
+                        title="Delete Order (ጊዜያዊ ሰርዝ / Remove from list)"
+                      >
+                        <Trash2 className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -405,12 +442,12 @@ function OrdersPageContent() {
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <img
-                          src={
-                            it.image ||
-                            "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80"
-                          }
+                          src={it.image || getAccurateProductImage(it.productTitle)}
                           alt={it.productTitle}
                           className="h-14 w-14 rounded-xl object-cover border border-zinc-200 dark:border-white/10 shrink-0"
+                          onError={(e) => {
+                            (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(it.productTitle);
+                          }}
                         />
                         <div className="min-w-0">
                           <h5 className="font-bold text-zinc-900 dark:text-white truncate">
@@ -473,19 +510,34 @@ function OrdersPageContent() {
               </div>
 
               {/* Modal Footer Actions */}
-              <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-100 dark:border-white/10">
-                {/* Receipt Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedOrderForView(null);
-                    router.push(`/receipt/${encodeURIComponent(selectedOrderForView.id)}`);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-indigo-300 dark:border-indigo-500/30 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs font-bold transition-colors cursor-pointer"
-                >
-                  <Printer className="h-3.5 w-3.5" />
-                  <span>Print Receipt</span>
-                </button>
+              <div className="flex items-center justify-between gap-3 pt-2 border-t border-zinc-100 dark:border-white/10 flex-wrap">
+                <div className="flex items-center gap-2">
+                  {/* Receipt Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedOrderForView(null);
+                      router.push(`/receipt/${encodeURIComponent(selectedOrderForView.id)}`);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-indigo-300 dark:border-indigo-500/30 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    <Printer className="h-3.5 w-3.5" />
+                    <span>Print Receipt</span>
+                  </button>
+
+                  {/* Delete Order Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderToDelete(selectedOrderForView);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
+                    title="Delete Order (ጊዜያዊ ሰርዝ)"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>Delete</span>
+                  </button>
+                </div>
 
                 <button
                   type="button"
@@ -493,6 +545,80 @@ function OrdersPageContent() {
                   className="px-6 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-white text-xs font-bold transition-colors cursor-pointer"
                 >
                   Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal (Are You Sure?) */}
+        {orderToDelete && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="w-full max-w-md rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0b101f] p-6 shadow-2xl space-y-5 animate-in zoom-in-95 duration-200 text-zinc-900 dark:text-zinc-100">
+              <div className="flex items-start justify-between">
+                <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/70 border border-rose-200 dark:border-rose-900/60 flex items-center justify-center text-rose-600 dark:text-rose-400 shrink-0 shadow-sm">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setOrderToDelete(null)}
+                  className="p-1.5 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <h3 className="text-base sm:text-lg font-bold text-zinc-900 dark:text-white">
+                  Are you sure you want to delete this order?
+                </h3>
+                <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                  ይህን ትዕዛዝ በእርግጥ መሰረዝ ይፈልጋሉ? This will temporarily remove the order from your active list.
+                </p>
+              </div>
+
+              {/* Target Order Summary Card */}
+              <div className="p-3.5 rounded-2xl bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200 dark:border-white/5 flex items-center gap-3">
+                <img
+                  src={orderToDelete.items?.[0]?.image || getAccurateProductImage(orderToDelete.items?.[0]?.productTitle)}
+                  alt=""
+                  className="w-12 h-12 rounded-xl object-cover border border-zinc-200 dark:border-white/10 shrink-0"
+                  onError={(e) => {
+                    (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(orderToDelete.items?.[0]?.productTitle);
+                  }}
+                />
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="font-mono text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                    {orderToDelete.orderNumber}
+                  </div>
+                  <h4 className="font-semibold text-xs text-zinc-900 dark:text-white truncate">
+                    {orderToDelete.items?.[0]?.productTitle || "Commercial Item"}
+                  </h4>
+                  <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-mono">
+                    Total: ETB {orderToDelete.totalAmount.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setOrderToDelete(null)}
+                  className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 transition-colors cursor-pointer"
+                >
+                  Cancel (ተው)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const id = orderToDelete.id;
+                    setOrderToDelete(null);
+                    handleDeleteOrder(id);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Yes, Delete Order (አዎ ሰርዝ)</span>
                 </button>
               </div>
             </div>

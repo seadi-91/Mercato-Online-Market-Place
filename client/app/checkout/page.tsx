@@ -37,6 +37,7 @@ import {
   CustomerProfile,
 } from "@/lib/api/customer";
 import { initializeChapaCheckout } from "@/lib/api/payment";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { toast } from "sonner";
 
 const ADDIS_SUBCITIES = [
@@ -280,12 +281,14 @@ export default function CheckoutPage() {
       if (res.success && res.checkoutUrl) {
         // Persist order metadata in localStorage for order confirmation & receipt
         try {
+          const targetSellerId = (items[0] as any)?.sellerId || (user as any)?.sellerId || "59972f9f-49ec-4592-9113-ba70a0aa3a52";
           const orderSnapshot = {
             orderId: res.orderId,
             orderNumber: res.orderNumber,
             txRef: res.txRef || `MX-CHAPA-${Date.now()}`,
             amount: total,
             customerId: user?.id,
+            sellerId: targetSellerId,
             fullName: fullName.trim(),
             phoneNumber: phoneNumber.trim(),
             email: email.trim() || undefined,
@@ -299,7 +302,7 @@ export default function CheckoutPage() {
               price: it.price,
               quantity: it.quantity,
               image: it.image,
-              sellerId: (it as any).sellerId,
+              sellerId: (it as any).sellerId || targetSellerId,
             })),
             createdAt: new Date().toISOString(),
           };
@@ -775,9 +778,12 @@ export default function CheckoutPage() {
                             {/* Product Thumbnail */}
                             <div className="relative h-12 w-12 shrink-0 rounded-lg overflow-hidden border border-white/10 bg-black/40">
                               <img
-                                src={item.image || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80"}
+                                src={getAccurateProductImage(item.name, undefined, item.image)}
                                 alt={item.name}
                                 className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(item.name);
+                                }}
                               />
                               <span className="absolute bottom-0.5 right-0.5 rounded bg-black/80 px-1 text-[9px] font-bold text-white font-mono">
                                 x{item.quantity}

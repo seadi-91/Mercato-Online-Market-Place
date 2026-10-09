@@ -160,40 +160,36 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
     { name: "Home", href: "/" },
     { name: "Marketplace", href: "/marketplace" },
     { name: "Categories", href: "/categories" },
-    { name: "B2B Supplier Portal", href: "/dashboard/supplier" },
   ];
 
   // Header class configuration: completely transparent over hero at top, smoothly transitions to page background on scroll
   const headerClass = isHomePage
     ? isScrolled
-      ? `fixed top-0 left-0 right-0 z-50 w-full header-scrolled border-b transition-all duration-300 ease-in-out shadow-xs ${
-          theme === "light"
-            ? "border-slate-200/90 bg-white/95 backdrop-blur-md text-slate-900"
-            : theme === "dark"
-              ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white"
-              : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white"
-        }`
+      ? `fixed top-0 left-0 right-0 z-50 w-full header-scrolled border-b transition-all duration-300 ease-in-out shadow-xs ${theme === "light"
+        ? "border-slate-200/90 bg-white/95 backdrop-blur-md text-slate-900"
+        : theme === "dark"
+          ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white"
+          : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white"
+      }`
       : "fixed top-0 left-0 right-0 z-50 w-full header-transparent transition-all duration-300 ease-in-out bg-transparent border-b border-transparent text-white"
-    : `sticky top-0 z-50 w-full border-b transition-colors duration-300 ease-in-out ${
-        theme === "light"
-          ? "border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs text-slate-900"
-          : theme === "dark"
-            ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white shadow-xs"
-            : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white shadow-xs"
-      }`;
+    : `sticky top-0 z-50 w-full border-b transition-colors duration-300 ease-in-out ${theme === "light"
+      ? "border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs text-slate-900"
+      : theme === "dark"
+        ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white shadow-xs"
+        : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white shadow-xs"
+    }`;
 
   return (
     <header className={headerClass}>
       {/* Top Protection Announcement Pill - shown only on non-home pages so hero header height is consistent 64px */}
       {!isHomePage && (
         <div
-          className={`hidden sm:block border-b px-4 py-1 text-center text-[11px] ${
-            theme === "light"
-              ? "border-slate-200/80 bg-slate-100/80 text-slate-600"
-              : theme === "dark"
-                ? "border-white/5 bg-[#0b1122] text-zinc-400"
-                : "border-blue-500/10 bg-[#08122c] text-blue-200/80"
-          }`}
+          className={`hidden sm:block border-b px-4 py-1 text-center text-[11px] ${theme === "light"
+            ? "border-slate-200/80 bg-slate-100/80 text-slate-600"
+            : theme === "dark"
+              ? "border-white/5 bg-[#0b1122] text-zinc-400"
+              : "border-blue-500/10 bg-[#08122c] text-blue-200/80"
+            }`}
         >
           <span className="inline-flex items-center gap-2">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
@@ -215,15 +211,14 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className={`flex lg:hidden h-9 w-9 items-center justify-center rounded-xl border transition-all cursor-pointer shadow-sm active:scale-95 shrink-0 ${
-                mobileMenuOpen
-                  ? "border-cyan-500/50 bg-cyan-500/20 text-cyan-400"
-                  : isHomePage && !isScrolled
-                    ? "border-white/20 bg-white/10 backdrop-blur-md text-white hover:bg-white/20"
-                    : theme === "light"
-                      ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
-                      : "border-white/15 bg-white/[0.06] text-white hover:bg-white/15"
-              }`}
+              className={`flex lg:hidden h-9 w-9 items-center justify-center rounded-xl border transition-all cursor-pointer shadow-sm active:scale-95 shrink-0 ${mobileMenuOpen
+                ? "border-cyan-500/50 bg-cyan-500/20 text-cyan-400"
+                : isHomePage && !isScrolled
+                  ? "border-white/20 bg-white/10 backdrop-blur-md text-white hover:bg-white/20"
+                  : theme === "light"
+                    ? "border-slate-300 bg-slate-100 text-slate-700 hover:bg-slate-200"
+                    : "border-white/15 bg-white/[0.06] text-white hover:bg-white/15"
+                }`}
               aria-label="Toggle navigation menu"
               title="Menu"
             >
@@ -253,22 +248,20 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
               {/* Project title */}
               <div className="hidden sm:flex flex-col">
                 <span
-                  className={`text-lg font-bold tracking-tight leading-none transition-colors ${
-                    isHomePage && !isScrolled
-                      ? "text-white drop-shadow-sm"
-                      : theme === "light"
-                        ? "text-slate-900"
-                        : "text-white"
-                  }`}
+                  className={`text-lg font-bold tracking-tight leading-none transition-colors ${isHomePage && !isScrolled
+                    ? "text-white drop-shadow-sm"
+                    : theme === "light"
+                      ? "text-slate-900"
+                      : "text-white"
+                    }`}
                 >
                   {platformSettings.platformName}
                 </span>
                 <span
-                  className={`text-[9px] uppercase tracking-wider font-semibold mt-0.5 transition-colors ${
-                    isHomePage && !isScrolled
-                      ? "text-zinc-200 drop-shadow-sm"
-                      : "text-zinc-400"
-                  }`}
+                  className={`text-[9px] uppercase tracking-wider font-semibold mt-0.5 transition-colors ${isHomePage && !isScrolled
+                    ? "text-zinc-200 drop-shadow-sm"
+                    : "text-zinc-400"
+                    }`}
                 >
                   Verified Commerce
                 </span>
@@ -284,17 +277,16 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-                    isActive
-                      ? isHomePage && !isScrolled
-                        ? "bg-white/20 text-white border border-white/30 backdrop-blur-xs font-bold"
-                        : "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
-                      : isHomePage && !isScrolled
-                        ? "text-white/90 hover:text-white hover:bg-white/10 drop-shadow-sm"
-                        : theme === "light"
-                          ? "text-slate-700 hover:text-slate-950 hover:bg-slate-100"
-                          : "text-zinc-300 hover:text-white hover:bg-white/5"
-                  }`}
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${isActive
+                    ? isHomePage && !isScrolled
+                      ? "bg-white/20 text-white border border-white/30 backdrop-blur-xs font-bold"
+                      : "bg-indigo-600/20 text-indigo-300 border border-indigo-500/30"
+                    : isHomePage && !isScrolled
+                      ? "text-white/90 hover:text-white hover:bg-white/10 drop-shadow-sm"
+                      : theme === "light"
+                        ? "text-slate-700 hover:text-slate-950 hover:bg-slate-100"
+                        : "text-zinc-300 hover:text-white hover:bg-white/5"
+                    }`}
                 >
                   {link.name}
                 </Link>
@@ -308,29 +300,26 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             className="hidden md:flex flex-1 max-w-md relative items-center"
           >
             <div
-              className={`w-full rounded-full border flex items-center pl-3.5 pr-1.5 py-1 transition-all ${
-                isHomePage && !isScrolled
-                  ? "border-white/20 bg-black/25 backdrop-blur-md text-white focus-within:border-cyan-400 focus-within:bg-black/40"
-                  : theme === "light"
-                    ? "border-slate-300 bg-slate-100 text-slate-900 focus-within:border-cyan-500 focus-within:bg-white"
-                    : "border-white/10 bg-white/[0.04] text-white focus-within:border-cyan-500 focus-within:bg-white/[0.07]"
-              }`}
+              className={`w-full rounded-full border flex items-center pl-3.5 pr-1.5 py-1 transition-all ${isHomePage && !isScrolled
+                ? "border-white/20 bg-black/25 backdrop-blur-md text-white focus-within:border-cyan-400 focus-within:bg-black/40"
+                : theme === "light"
+                  ? "border-slate-300 bg-slate-100 text-slate-900 focus-within:border-cyan-500 focus-within:bg-white"
+                  : "border-white/10 bg-white/[0.04] text-white focus-within:border-cyan-500 focus-within:bg-white/[0.07]"
+                }`}
             >
               <Search
-                className={`h-4 w-4 shrink-0 pointer-events-none mr-2 transition-colors ${
-                  isHomePage && !isScrolled ? "text-white/80" : "text-zinc-400"
-                }`}
+                className={`h-4 w-4 shrink-0 pointer-events-none mr-2 transition-colors ${isHomePage && !isScrolled ? "text-white/80" : "text-zinc-400"
+                  }`}
               />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search Bole, Mercato, electronics, traditional..."
-                className={`w-full text-xs outline-none bg-transparent transition-colors ${
-                  isHomePage && !isScrolled
-                    ? "placeholder-white/70 text-white"
-                    : "placeholder-zinc-400 text-inherit"
-                }`}
+                className={`w-full text-xs outline-none bg-transparent transition-colors ${isHomePage && !isScrolled
+                  ? "placeholder-white/70 text-white"
+                  : "placeholder-zinc-400 text-inherit"
+                  }`}
               />
               <button
                 type="submit"
@@ -349,13 +338,12 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             {/* Favorites Icon - visible on sm+ */}
             <Link
               href="/favorites"
-              className={`hidden sm:flex relative h-9 w-9 items-center justify-center rounded-xl border transition-all ${
-                isHomePage && !isScrolled
-                  ? "border-white/20 bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
-                  : theme === "light"
-                    ? "border-slate-200 bg-slate-100/80 text-slate-700 hover:bg-slate-200 hover:text-slate-950"
-                    : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/10 hover:text-white"
-              }`}
+              className={`hidden sm:flex relative h-9 w-9 items-center justify-center rounded-xl border transition-all ${isHomePage && !isScrolled
+                ? "border-white/20 bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
+                : theme === "light"
+                  ? "border-slate-200 bg-slate-100/80 text-slate-700 hover:bg-slate-200 hover:text-slate-950"
+                  : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/10 hover:text-white"
+                }`}
               title="Saved Favorites"
             >
               <Heart className="h-4 w-4" />
@@ -374,29 +362,26 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             {/* Wheeled Cart Icon & Count Badge */}
             <Link
               href="/cart"
-              className={`cart-action-text flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all font-bold group cursor-pointer ${
-                isHomePage && !isScrolled
-                  ? "border-white/20 bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
-                  : theme === "light"
-                    ? "border-indigo-200/80 bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100"
-                    : "border-white/10 bg-white/[0.04] text-indigo-400 hover:bg-white/10 hover:text-cyan-300"
-              }`}
+              className={`cart-action-text flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all font-bold group cursor-pointer ${isHomePage && !isScrolled
+                ? "border-white/20 bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
+                : theme === "light"
+                  ? "border-indigo-200/80 bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100"
+                  : "border-white/10 bg-white/[0.04] text-indigo-400 hover:bg-white/10 hover:text-cyan-300"
+                }`}
               title="Shopping Cart"
               aria-label="Shopping Cart"
             >
               <div className="relative flex items-center justify-center">
-                <ShoppingCart className={`h-4.5 w-4.5 group-hover:scale-110 transition-transform ${
-                  isHomePage && !isScrolled ? "text-cyan-300" : "text-indigo-400"
-                }`} />
+                <ShoppingCart className={`h-4.5 w-4.5 group-hover:scale-110 transition-transform ${isHomePage && !isScrolled ? "text-cyan-300" : "text-indigo-400"
+                  }`} />
                 {mounted && cartItemsCount > 0 && (
                   <span className="absolute -top-2.5 -right-2.5 flex h-4 min-w-4 px-1 items-center justify-center rounded-full bg-cyan-500 text-[10px] font-extrabold text-black shadow-sm">
                     {cartItemsCount}
                   </span>
                 )}
               </div>
-              <span className={`hidden sm:inline text-xs font-bold ${
-                isHomePage && !isScrolled ? "text-white" : "text-indigo-400 group-hover:text-cyan-300"
-              }`}>
+              <span className={`hidden sm:inline text-xs font-bold ${isHomePage && !isScrolled ? "text-white" : "text-indigo-400 group-hover:text-cyan-300"
+                }`}>
                 Cart {mounted && cartItemsCount > 0 ? `(${cartItemsCount})` : ""}
               </span>
             </Link>
@@ -407,29 +392,38 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                 <button
                   type="button"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className={`flex items-center gap-2 rounded-xl border p-1.5 sm:px-2.5 sm:py-1.5 transition-colors cursor-pointer ${
-                    isHomePage && !isScrolled
-                      ? "border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md"
-                      : "border-white/10 bg-white/[0.04] hover:bg-white/10 text-white"
-                  }`}
+                  className={`flex items-center gap-2 rounded-xl border p-1.5 sm:px-2.5 sm:py-1.5 transition-colors cursor-pointer ${isHomePage && !isScrolled
+                    ? "border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md"
+                    : theme === "light"
+                      ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-800 shadow-xs"
+                      : theme === "dark"
+                      ? "border-white/10 bg-white/[0.04] hover:bg-white/10 text-white"
+                      : "border-blue-500/20 bg-blue-950/30 hover:bg-blue-900/40 text-white"
+                    }`}
                 >
                   <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-xs font-bold text-white">
                     {displayName.charAt(0)}
                   </div>
-                  <span className="hidden sm:inline text-xs font-medium text-zinc-200 truncate max-w-[90px]">
+                  <span className={`hidden sm:inline text-xs font-medium truncate max-w-[90px] ${theme === "light" && !(isHomePage && !isScrolled) ? "text-slate-700" : "text-zinc-200"}`}>
                     {displayName}
                   </span>
-                  <ChevronDown className="h-3 w-3 text-zinc-400" />
+                  <ChevronDown className={`h-3 w-3 ${theme === "light" && !(isHomePage && !isScrolled) ? "text-slate-400" : "text-zinc-400"}`} />
                 </button>
 
                 {profileDropdownOpen && (
                   <div
-                    className="app-dropdown-panel absolute right-0 mt-2 w-52 rounded-2xl border border-white/10 bg-[#0d1222] p-2 shadow-2xl shadow-black/60 backdrop-blur-2xl space-y-1 z-50"
+                    className={`app-dropdown-panel absolute right-0 mt-2 w-52 rounded-2xl border p-2 shadow-2xl backdrop-blur-2xl space-y-1 z-50 animate-in fade-in zoom-in-95 duration-150 ${
+                      theme === "light"
+                        ? "bg-white border-slate-200 shadow-slate-900/15"
+                        : theme === "dark"
+                        ? "bg-[#141418] border-white/10 shadow-black/80"
+                        : "bg-[#0d1a3a] border-blue-500/30 shadow-blue-950/80"
+                    }`}
                   >
-                    <div className="px-3 py-2 border-b border-white/5">
-                      <p className="text-xs font-semibold text-white truncate">{displayName}</p>
-                      <p className="text-[10px] text-zinc-400 font-mono truncate">{user?.email || "customer@mercatox.com"}</p>
-                      <span className="inline-block mt-1 rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300">
+                    <div className={`px-3 py-2 border-b ${theme === "light" ? "border-slate-100" : theme === "dark" ? "border-white/5" : "border-blue-500/15"}` }>
+                      <p className={`text-xs font-semibold truncate ${theme === "light" ? "text-slate-900" : "text-white"}`}>{displayName}</p>
+                      <p className={`text-[10px] font-mono truncate ${theme === "light" ? "text-slate-500" : "text-zinc-400"}`}>{user?.email || "customer@mercatox.com"}</p>
+                      <span className="inline-block mt-1 rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-500 dark:text-indigo-300">
                         {user?.role || "CUSTOMER"}
                       </span>
                     </div>
@@ -437,35 +431,47 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                     <Link
                       href="/profile"
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
+                        theme === "light"
+                          ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                      }`}
                     >
-                      <User className="h-3.5 w-3.5 text-cyan-400" />
+                      <User className="h-3.5 w-3.5 text-cyan-500" />
                       <span>My Profile</span>
                     </Link>
 
                     <Link
                       href="/orders"
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
+                        theme === "light"
+                          ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                      }`}
                     >
-                      <Package className="h-3.5 w-3.5 text-emerald-400" />
+                      <Package className="h-3.5 w-3.5 text-emerald-500" />
                       <span>My Orders</span>
                     </Link>
 
                     <Link
                       href="/settings"
                       onClick={() => setProfileDropdownOpen(false)}
-                      className="flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-zinc-300 hover:bg-white/5 hover:text-white transition-colors"
+                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
+                        theme === "light"
+                          ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                      }`}
                     >
                       <Settings className="h-3.5 w-3.5 text-zinc-400" />
                       <span>Account Settings</span>
                     </Link>
 
-                    <div className="border-t border-white/5 pt-1">
+                    <div className={`border-t pt-1 ${theme === "light" ? "border-slate-100" : "border-white/5"}`}>
                       <button
                         type="button"
                         onClick={handleSignOut}
-                        className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-rose-300 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                        className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
                       >
                         <LogOut className="h-3.5 w-3.5" />
                         <span>Sign Out</span>

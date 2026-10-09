@@ -29,6 +29,8 @@ import {
   X,
   PlusCircle,
   ExternalLink,
+  ShoppingBag,
+  PackageCheck,
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -71,6 +73,8 @@ export function SupplierSidebar() {
     disputes,
     staffList,
     currentStaffUser,
+    sourcingNegotiations,
+    sourcingOrders,
   } = useSupplierStore();
 
   const { user } = useAuthStore();
@@ -79,6 +83,13 @@ export function SupplierSidebar() {
   const pendingOrders = orders.filter((o) => o.orderStatus === "pending").length;
   const activeDisputes = disputes.filter((d) => d.status === "under_review" || d.status === "open").length;
   const unreadNotifications = notifications.filter((n) => !n.read).length;
+  const counterOfferBargains = (sourcingNegotiations || []).filter((n) => n.status === "counter_offered").length;
+  const activePurchases = (sourcingOrders || []).filter(
+    (o) =>
+      o.status === "in_transit" ||
+      o.status === "delivered_to_hub" ||
+      o.status === "escrow_locked"
+  ).length;
 
   const navGroups: NavGroup[] = [
     {
@@ -91,8 +102,22 @@ export function SupplierSidebar() {
       ],
     },
     {
-      groupTitle: "B2B Trade & Orders",
+      groupTitle: "B2B Trade & Sourcing",
       items: [
+        {
+          id: "sourcing",
+          label: "Sourcing Marketplace",
+          icon: ShoppingBag,
+          badge: counterOfferBargains || undefined,
+          badgeColor: "bg-indigo-500/20 text-indigo-300",
+        },
+        {
+          id: "my-orders",
+          label: "My Orders (Purchases)",
+          icon: PackageCheck,
+          badge: activePurchases || undefined,
+          badgeColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400",
+        },
         {
           id: "rfqs",
           label: "RFQs",
@@ -291,8 +316,9 @@ export function SupplierSidebar() {
                     {showFull && (
                       <>
                         <span className="truncate flex-1 text-left">{item.label}</span>
-                        {item.badge !== undefined && item.badge > 0 && (
+                        {mounted && item.badge !== undefined && item.badge > 0 && (
                           <span
+                            suppressHydrationWarning
                             className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
                               isActive ? "bg-white/20 text-white" : item.badgeColor
                             }`}
@@ -304,7 +330,7 @@ export function SupplierSidebar() {
                     )}
 
                     {/* Dot indicator when collapsed on desktop */}
-                    {!showFull && item.badge !== undefined && item.badge > 0 && (
+                    {mounted && !showFull && item.badge !== undefined && item.badge > 0 && (
                       <span className="absolute top-1.5 right-2 h-2 w-2 rounded-full bg-indigo-500" />
                     )}
                   </button>
@@ -347,8 +373,8 @@ export function SupplierSidebar() {
             {!isCollapsed && (
               <span className="flex-1 text-left flex items-center justify-between">
                 <span>Notifications</span>
-                {unreadNotifications > 0 && (
-                  <span className="rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 px-1.5 py-0.2 text-[10px] font-bold">
+                {mounted && unreadNotifications > 0 && (
+                  <span suppressHydrationWarning className="rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 px-1.5 py-0.2 text-[10px] font-bold">
                     {unreadNotifications}
                   </span>
                 )}

@@ -28,6 +28,7 @@ import { useCartStore, useAuthStore } from "@/store";
 import { Product } from "@/constants/mock-data";
 import { fetchProducts } from "@/lib/api/catalog";
 import { fetchCustomerProfile, CustomerProfile } from "@/lib/api/customer";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { toast } from "sonner";
 
 // Helper to determine size and color options based on product category & attributes
@@ -397,9 +398,12 @@ export default function CartPage() {
                             {/* Product Thumbnail */}
                             <div className="relative h-12 w-12 shrink-0 rounded-lg overflow-hidden border border-white/10 bg-black/40">
                               <img
-                                src={item.image || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80"}
+                                src={getAccurateProductImage(item.name, undefined, item.image)}
                                 alt={item.name}
                                 className="h-full w-full object-cover"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(item.name);
+                                }}
                               />
                               <span className="absolute bottom-0.5 right-0.5 rounded bg-black/80 px-1 text-[9px] font-bold text-white font-mono">
                                 x{item.quantity}

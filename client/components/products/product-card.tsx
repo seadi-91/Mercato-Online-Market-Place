@@ -13,13 +13,15 @@ import {
 import { Product } from "@/constants/mock-data";
 import { useCartStore } from "@/store";
 import { toast } from "sonner";
+import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 
 interface ProductCardProps {
   product: Product;
   onQuickView?: (product: Product) => void;
+  tradeView?: TradeType;
 }
 
-export function ProductCard({ product, onQuickView }: ProductCardProps) {
+export function ProductCard({ product, onQuickView, tradeView = "ALL" }: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const isFavorite = useCartStore((state) => state.isFavorite);
@@ -32,23 +34,32 @@ export function ProductCard({ product, onQuickView }: ProductCardProps) {
   }, []);
 
   const fav = mounted ? isFavorite(product.id) : false;
+  const tradeInfo = getProductTradeInfo(product);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation();
+    const qty = tradeView === "WHOLESALE" && tradeInfo.moq > 1 ? tradeInfo.moq : 1;
+    const priceToCharge =
+      tradeView === "WHOLESALE" && tradeInfo.wholesalePrice
+        ? tradeInfo.wholesalePrice
+        : product.price;
+
     addItem({
       id: product.id,
       name: product.name,
-      price: product.price,
+      price: priceToCharge,
       image: product.image,
       shopName: product.shopName,
       marketZone: product.marketZone,
       category: product.category,
       stock: product.stock,
       rating: product.rating,
-    });
+      sellerId: (product as any).sellerId,
+    }, qty);
+
     setIsAdded(true);
     toast.success("Added to cart", {
-      description: `${product.name} added.`,
+      description: `${product.name} (${qty} ${tradeInfo.unit}) added.`,
     });
     setTimeout(() => setIsAdded(false), 1400);
   };
@@ -87,14 +98,32 @@ export function ProductCard({ product, onQuickView }: ProductCardProps) {
           loading="lazy"
         />
 
-        {/* Small badge if present */}
-        {product.badge && (
-          <span className="absolute left-1.5 top-1.5 rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.2 text-[8.5px] font-bold text-white shadow-xs pointer-events-none">
-            {product.badge}
-          </span>
-        )}
+        {/* Trade Badges: Wholesale vs Retail */}
+        <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
+          {tradeInfo.classification === "wholesale_only" && (
+            <span className="rounded bg-gradient-to-r from-amber-500 to-orange-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs flex items-center gap-1 uppercase tracking-wider">
+              <span>Wholesale</span>
+            </span>
+          )}
+          {tradeInfo.classification === "dual" && (
+            <span className="rounded bg-gradient-to-r from-amber-500 to-indigo-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs flex items-center gap-1 uppercase tracking-wider">
+              <span>Bulk & Retail</span>
+            </span>
+          )}
+          {tradeInfo.classification === "retail_only" && (
+            <span className="rounded bg-gradient-to-r from-indigo-600 to-cyan-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs flex items-center gap-1 uppercase tracking-wider">
+              <span>Retail</span>
+            </span>
+          )}
 
-        {/* Quick Actions on Top Right - NO background, pure white icons with drop-shadow */}
+          {product.badge && (
+            <span className="rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs">
+              {product.badge}
+            </span>
+          )}
+        </div>
+
+        {/* Quick Actions on Top Right */}
         <div className="absolute right-1.5 top-1.5 flex items-center gap-1 z-10">
           <button
             type="button"
@@ -123,7 +152,7 @@ export function ProductCard({ product, onQuickView }: ProductCardProps) {
         </div>
       </div>
 
-      {/* Card Content with Ultra-Compact Spacing */}
+      {/* Card Content */}
       <div className="flex flex-col justify-between flex-1 p-2">
         <div className="space-y-0.5">
           {/* Category & Star Rating */}
@@ -137,7 +166,7 @@ export function ProductCard({ product, onQuickView }: ProductCardProps) {
             </div>
           </div>
 
-          {/* Title - High Contrast and 1-Line Clamped */}
+          {/* Title */}
           <Link
             href={`/products/${product.id}`}
             onClick={(e) => e.stopPropagation()}
@@ -157,28 +186,61 @@ export function ProductCard({ product, onQuickView }: ProductCardProps) {
         {/* Price & Compact Cart Action */}
         <div className="mt-1.5 pt-1.5 border-t border-app flex items-center justify-between gap-1">
           <div className="min-w-0">
-            <div className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-app">
-              {product.price.toLocaleString()}{" "}
-              <span className="text-[9px] font-bold opacity-80">
-                ETB
-              </span>
-            </div>
+            {/* Show wholesale price if viewing wholesale and available */}
+            {tradeView === "WHOLESALE" && tradeInfo.wholesalePrice ? (
+              <div className="flex flex-col">
+                <div className="flex items-baseline gap-1">
+                  <span className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-amber-500">
+                    {tradeInfo.wholesalePrice.toLocaleString()}{" "}
+                    <span className="text-[9px] font-bold opacity-80">ETB</span>
+                  </span>
+                  {tradeInfo.savingsPercent > 0 && (
+                    <span className="text-[8px] font-bold text-emerald-500 bg-emerald-500/10 px-1 py-0.2 rounded shrink-0">
+                      -{tradeInfo.savingsPercent}%
+                    </span>
+                  )}
+                </div>
+                <div className="text-[8.5px] text-app-muted truncate font-mono">
+                  MOQ: {tradeInfo.moq} {tradeInfo.unit}
+                </div>
+              </div>
+            ) : tradeInfo.wholesalePrice && tradeInfo.classification === "dual" ? (
+              <div className="flex flex-col">
+                <div className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-app">
+                  {product.price.toLocaleString()}{" "}
+                  <span className="text-[9px] font-bold opacity-80">ETB</span>
+                </div>
+                <div className="text-[8.5px] text-amber-500 truncate font-mono">
+                  Wholesale: {tradeInfo.wholesalePrice.toLocaleString()} ETB
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col">
+                <div className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-app">
+                  {product.price.toLocaleString()}{" "}
+                  <span className="text-[9px] font-bold opacity-80">ETB</span>
+                </div>
+                <div className="text-[8.5px] text-app-muted truncate">
+                  {tradeInfo.moq > 1 ? `MOQ: ${tradeInfo.moq} ${tradeInfo.unit}` : "1 Unit • Retail"}
+                </div>
+              </div>
+            )}
           </div>
 
           <button
             type="button"
             onClick={handleAddToCart}
             title={isAdded ? "Added" : "Add to cart"}
-            className={`flex h-6 w-6 items-center justify-center rounded-md transition-all active:scale-90 cursor-pointer shrink-0 ${
+            className={`flex h-6.5 w-6.5 items-center justify-center rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 shadow-xs ${
               isAdded
-                ? "bg-emerald-600 text-white"
-                : "bg-app text-app-card border border-app hover:opacity-80 shadow-xs"
+                ? "bg-emerald-600 text-white shadow-emerald-600/30"
+                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30 hover:scale-105"
             }`}
           >
             {isAdded ? (
-              <Check className="h-3 w-3 text-white" />
+              <Check className="h-3.5 w-3.5 text-white" />
             ) : (
-              <ShoppingCart className="h-3 w-3" />
+              <ShoppingCart className="h-3.5 w-3.5 text-white" />
             )}
           </button>
         </div>

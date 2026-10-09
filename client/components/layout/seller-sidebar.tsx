@@ -133,9 +133,8 @@ export function SellerSidebar() {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed md:sticky top-0 z-50 app-sidebar flex h-screen shrink-0 flex-col border-r border-white/[0.08] bg-[#090d16] transition-all duration-200 select-none ${
-          isMobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
-        } ${sidebarWidth}`}
+        className={`fixed md:sticky top-0 z-50 app-sidebar flex h-screen shrink-0 flex-col border-r border-white/[0.08] bg-[#090d16] transition-all duration-200 select-none ${isMobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
+          } ${sidebarWidth}`}
       >
         {/* Top Header / Store Branding */}
         <div className="flex h-16 items-center justify-between border-b border-white/[0.08] px-3.5">
@@ -243,16 +242,14 @@ export function SellerSidebar() {
                       setMobileSidebarOpen(false);
                     }}
                     title={!showExpanded ? item.label : undefined}
-                    className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all cursor-pointer ${
-                      isActive
+                    className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all cursor-pointer ${isActive
                         ? "bg-indigo-500/15 text-indigo-300 font-semibold border border-indigo-500/30 shadow-xs"
                         : "text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 border border-transparent"
-                    } ${!showExpanded ? "md:justify-center md:px-0 md:py-2.5" : ""}`}
+                      } ${!showExpanded ? "md:justify-center md:px-0 md:py-2.5" : ""}`}
                   >
                     <Icon
-                      className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-105 ${
-                        isActive ? "text-indigo-400" : "text-zinc-400 group-hover:text-zinc-200"
-                      }`}
+                      className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-105 ${isActive ? "text-indigo-400" : "text-zinc-400 group-hover:text-zinc-200"
+                        }`}
                     />
 
                     {showExpanded && (
@@ -260,11 +257,10 @@ export function SellerSidebar() {
                         <span className="truncate flex-1 text-left">{item.label}</span>
                         {item.badge !== undefined && item.badge > 0 && (
                           <span
-                            className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold border ${
-                              isActive
+                            className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold border ${isActive
                                 ? "bg-indigo-500/30 text-indigo-200 border-indigo-500/40"
                                 : item.badgeColor
-                            }`}
+                              }`}
                           >
                             {item.badge}
                           </span>
@@ -317,9 +313,8 @@ export function SellerSidebar() {
 
           {/* User Profile Mini */}
           <div
-            className={`flex items-center gap-2.5 rounded-xl bg-white/[0.02] p-2 border border-white/[0.06] ${
-              isSidebarCollapsed && !isMobileSidebarOpen ? "justify-center" : "justify-between"
-            }`}
+            className={`flex items-center gap-2.5 rounded-xl bg-white/[0.02] p-2 border border-white/[0.06] ${isSidebarCollapsed && !isMobileSidebarOpen ? "justify-center" : "justify-between"
+              }`}
           >
             <div className="flex items-center gap-2.5 overflow-hidden">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-tr from-indigo-500 via-indigo-600 to-cyan-500 text-[11px] font-bold text-white shadow">

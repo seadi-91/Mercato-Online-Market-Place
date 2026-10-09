@@ -124,53 +124,111 @@ export function SupplierDashboardView() {
     ];
   }, [orders]);
 
-  // Dynamic Chart Datasets based on live orders
+  // Dynamic Chart Datasets based on exact calendar dates of live orders
   const chartDatasets = useMemo(() => {
-    const d7 = [
-      { label: "Mon", value: 0, orders: 0 },
-      { label: "Tue", value: 0, orders: 0 },
-      { label: "Wed", value: 0, orders: 0 },
-      { label: "Thu", value: 0, orders: 0 },
-      { label: "Fri", value: 0, orders: 0 },
-      { label: "Sat", value: 0, orders: 0 },
-      { label: "Sun", value: 0, orders: 0 },
-    ];
-    const d30 = [
-      { label: "W1", value: 0, orders: 0 },
-      { label: "W2", value: 0, orders: 0 },
-      { label: "W3", value: 0, orders: 0 },
-      { label: "W4", value: 0, orders: 0 },
-    ];
-    const d12 = [
-      { label: "May", value: 0, orders: 0 },
-      { label: "Jun", value: 0, orders: 0 },
-      { label: "Jul", value: 0, orders: 0 },
-      { label: "Aug", value: 0, orders: 0 },
-      { label: "Sep", value: 0, orders: 0 },
-      { label: "Oct", value: 0, orders: 0 },
-    ];
-    const dAll = [
-      { label: "2024", value: 0, orders: 0 },
-      { label: "2025", value: 0, orders: 0 },
-      { label: "2026", value: 0, orders: 0 },
+    const now = new Date();
+
+    // 1. 7D: Last 7 consecutive calendar days (ending today)
+    const d7: Array<{ label: string; fullDate: string; dateKey: string; value: number; orders: number }> = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now.getTime() - i * 24 * 60 * 60 * 1000);
+      const dayName = d.toLocaleDateString("en-US", { weekday: "short" });
+      const dayNum = d.getDate();
+      const monthShort = d.toLocaleDateString("en-US", { month: "short" });
+      const key = d.toISOString().split("T")[0];
+      d7.push({
+        label: `${dayName} ${dayNum}`,
+        fullDate: `${dayName}, ${monthShort} ${dayNum}, ${d.getFullYear()}`,
+        dateKey: key,
+        value: 0,
+        orders: 0,
+      });
+    }
+
+    // 2. 30D: 6 five-day intervals covering the past 30 days
+    const d30: Array<{ label: string; fullDate: string; startMs: number; endMs: number; value: number; orders: number }> = [];
+    for (let i = 5; i >= 0; i--) {
+      const startD = new Date(now.getTime() - (i * 5 + 4) * 24 * 60 * 60 * 1000);
+      const endD = new Date(now.getTime() - i * 5 * 24 * 60 * 60 * 1000);
+      const startMonth = startD.toLocaleDateString("en-US", { month: "short" });
+      const endMonth = endD.toLocaleDateString("en-US", { month: "short" });
+      const label =
+        startMonth === endMonth
+          ? `${startMonth} ${startD.getDate()}-${endD.getDate()}`
+          : `${startMonth} ${startD.getDate()} - ${endMonth} ${endD.getDate()}`;
+      d30.push({
+        label,
+        fullDate: `${startD.toLocaleDateString("en-US", { month: "short", day: "numeric" })} to ${endD.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`,
+        startMs: new Date(startD).setHours(0, 0, 0, 0),
+        endMs: new Date(endD).setHours(23, 59, 59, 999),
+        value: 0,
+        orders: 0,
+      });
+    }
+
+    // 3. 12M: Last 12 consecutive calendar months
+    const d12: Array<{ label: string; fullDate: string; yearMonth: string; value: number; orders: number }> = [];
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const monthShort = d.toLocaleDateString("en-US", { month: "short" });
+      const yearShort = d.getFullYear().toString().slice(-2);
+      const ym = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      d12.push({
+        label: `${monthShort} '${yearShort}`,
+        fullDate: `${d.toLocaleDateString("en-US", { month: "long", year: "numeric" })}`,
+        yearMonth: ym,
+        value: 0,
+        orders: 0,
+      });
+    }
+
+    // 4. All: Past 3 calendar years
+    const currentYear = now.getFullYear();
+    const dAll: Array<{ label: string; fullDate: string; year: number; value: number; orders: number }> = [
+      { label: String(currentYear - 2), fullDate: `Year ${currentYear - 2}`, year: currentYear - 2, value: 0, orders: 0 },
+      { label: String(currentYear - 1), fullDate: `Year ${currentYear - 1}`, year: currentYear - 1, value: 0, orders: 0 },
+      { label: String(currentYear), fullDate: `Year ${currentYear} (Current)`, year: currentYear, value: 0, orders: 0 },
     ];
 
+    // Populate from real orders
     orders.forEach((o) => {
       const amt = Number(o.total) || 0;
-      const date = o.orderDate ? new Date(o.orderDate) : new Date();
-      const day = date.getDay();
-      const dayIdx = day === 0 ? 6 : day - 1;
-      if (d7[dayIdx]) {
-        d7[dayIdx].value += amt;
-        d7[dayIdx].orders += 1;
+      const orderDateObj = o.orderDate ? new Date(o.orderDate) : new Date();
+      const orderDateStr = o.orderDate ? o.orderDate.split("T")[0] : new Date().toISOString().split("T")[0];
+      const orderMs = orderDateObj.getTime();
+      const orderYm = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, "0")}`;
+      const orderYear = orderDateObj.getFullYear();
+
+      // 7D match
+      const bucket7 = d7.find((b) => b.dateKey === orderDateStr);
+      if (bucket7) {
+        bucket7.value += amt;
+        bucket7.orders += 1;
       }
-      const weekIdx = Math.min(3, Math.floor(date.getDate() / 8));
-      if (d30[weekIdx]) {
-        d30[weekIdx].value += amt;
-        d30[weekIdx].orders += 1;
+
+      // 30D match
+      const bucket30 = d30.find((b) => orderMs >= b.startMs && orderMs <= b.endMs);
+      if (bucket30) {
+        bucket30.value += amt;
+        bucket30.orders += 1;
       }
-      dAll[2].value += amt;
-      dAll[2].orders += 1;
+
+      // 12M match
+      const bucket12 = d12.find((b) => b.yearMonth === orderYm);
+      if (bucket12) {
+        bucket12.value += amt;
+        bucket12.orders += 1;
+      }
+
+      // All match
+      const bucketAll = dAll.find((b) => b.year === orderYear);
+      if (bucketAll) {
+        bucketAll.value += amt;
+        bucketAll.orders += 1;
+      } else if (dAll.length > 0) {
+        dAll[dAll.length - 1].value += amt;
+        dAll[dAll.length - 1].orders += 1;
+      }
     });
 
     return { "7D": d7, "30D": d30, "12M": d12, All: dAll };
@@ -390,23 +448,29 @@ export function SupplierDashboardView() {
                   item.value > 0 && maxVal > 0 ? Math.max(12, Math.round((item.value / maxVal) * 100)) : 6;
                 return (
                   <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end relative">
-                    {/* Minimal Hover Tag */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-opacity absolute -top-8 z-10 rounded bg-zinc-900 border border-white/10 px-2 py-0.5 text-[10px] font-mono text-zinc-200 pointer-events-none whitespace-nowrap shadow-md">
-                      ETB {(item.value / 1000).toLocaleString()}K
+                    {/* Rich Interactive Hover Tag */}
+                    <div className="opacity-0 group-hover:opacity-100 transition-all duration-150 absolute -top-14 z-20 rounded-xl bg-zinc-950/95 border border-indigo-500/30 px-3 py-1.5 text-center pointer-events-none whitespace-nowrap shadow-xl backdrop-blur-md">
+                      <p className="text-[10px] font-bold text-zinc-300">{(item as any).fullDate || item.label}</p>
+                      <p className="text-xs font-mono font-bold text-indigo-400">
+                        ETB {item.value.toLocaleString()}
+                      </p>
+                      <p className="text-[9px] text-zinc-400">
+                        {item.orders} order{item.orders === 1 ? "" : "s"}
+                      </p>
                     </div>
 
                     <div className="w-full max-w-[36px] bg-white/[0.03] rounded-t-md overflow-hidden flex flex-col justify-end h-full">
                       <div
                         style={{ height: `${heightPercent}%` }}
-                        className={`w-full rounded-t-md transition-all ${
+                        className={`w-full rounded-t-md transition-all duration-300 ${
                           item.value > 0
-                            ? "bg-indigo-500/80 group-hover:bg-indigo-400"
+                            ? "bg-gradient-to-t from-indigo-600 to-indigo-400 group-hover:from-indigo-500 group-hover:to-indigo-300 shadow-sm"
                             : "bg-white/[0.05]"
                         }`}
                       />
                     </div>
 
-                    <span className="text-[11px] font-medium text-zinc-400">
+                    <span className="text-[11px] font-medium text-zinc-400 text-center truncate w-full">
                       {item.label}
                     </span>
                   </div>

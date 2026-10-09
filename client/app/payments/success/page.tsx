@@ -20,6 +20,7 @@ import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { useCartStore, useAuthStore } from "@/store";
 import { saveOrderToDatabase } from "@/lib/api/orders";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { toast } from "sonner";
 
 interface PendingOrderInfo {
@@ -28,6 +29,7 @@ interface PendingOrderInfo {
   txRef: string;
   amount: number;
   customerId?: string;
+  sellerId?: string;
   fullName: string;
   phoneNumber: string;
   email?: string;
@@ -41,6 +43,7 @@ interface PendingOrderInfo {
     price: number;
     quantity: number;
     image?: string;
+    sellerId?: string;
   }>;
   createdAt: string;
 }
@@ -93,14 +96,62 @@ function PaymentSuccessContent() {
       console.warn("Could not read order from localStorage", e);
     }
 
-    // 3. Save order into PostgreSQL database
+    // 3. Save order into PostgreSQL database and sync localStorage completed orders
     const tx = txRefFromQuery || parsed?.txRef || `MX-CHAPA-${Date.now()}`;
     const custId = user?.id || parsed?.customerId;
+    const resolvedSeller = parsed?.sellerId || parsed?.items?.[0]?.sellerId || "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
     if (parsed) {
+      // Save completed order record in localStorage
+      try {
+        const existingCompletedRaw = localStorage.getItem("mercatox_completed_orders");
+        const existingCompleted = existingCompletedRaw ? JSON.parse(existingCompletedRaw) : [];
+        const completedOrderRecord = {
+          id: parsed.orderId || tx,
+          orderNumber: parsed.orderNumber || `MX-${tx.slice(-6)}`,
+          customerId: custId,
+          sellerId: resolvedSeller,
+          status: "CONFIRMED",
+          paymentStatus: "PAID",
+          paymentMethod: parsed.paymentMethod || "Chapa (Telebirr / CBE / Card)",
+          txRef: tx,
+          subtotalAmount: Number(parsed.amount) - 150,
+          deliveryFee: 150,
+          totalAmount: Number(parsed.amount),
+          deliveryAddress: {
+            recipientName: parsed.fullName,
+            phone: parsed.phoneNumber,
+            city: "Addis Ababa",
+            subCity: parsed.subcity,
+            specificLocation: parsed.specificAddress,
+            notes: parsed.deliveryNotes,
+          },
+          notes: parsed.deliveryNotes,
+          items: (parsed.items || []).map((it) => ({
+            id: it.id,
+            productId: it.id,
+            productTitle: it.name,
+            unitPrice: it.price,
+            quantity: it.quantity,
+            totalPrice: it.price * it.quantity,
+            image: it.image || getAccurateProductImage(it.name),
+            sellerId: it.sellerId || resolvedSeller,
+          })),
+          createdAt: new Date().toISOString(),
+        };
+
+        const filteredExisting = Array.isArray(existingCompleted)
+          ? existingCompleted.filter((o: any) => o.txRef !== tx && o.id !== completedOrderRecord.id)
+          : [];
+        localStorage.setItem("mercatox_completed_orders", JSON.stringify([completedOrderRecord, ...filteredExisting]));
+      } catch (storageErr) {
+        console.warn("Error updating mercatox_completed_orders in localStorage:", storageErr);
+      }
+
       saveOrderToDatabase({
         orderId: parsed.orderId,
         customerId: custId,
+        sellerId: resolvedSeller,
         txRef: tx,
         items: parsed.items || [],
         deliveryAddress: {

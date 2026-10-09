@@ -37,21 +37,26 @@ import {
   Info,
   RotateCcw,
   Loader2,
+  PackageCheck,
+  ShoppingBag,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { DataFilterBar } from "../shared/data-filter-bar";
 import { StatusBadge } from "../shared/status-badge";
 import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
+import { SupplierMyOrdersView } from "../sourcing/supplier-my-orders-view";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
 import { B2BOrder, B2BOrderStatus } from "@/types/supplier";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { toast } from "sonner";
 
 export function SupplierOrdersView() {
   const {
     orders,
+    sourcingOrders,
     isLoadingOrders,
     ordersError,
     fetchOrders,
@@ -77,6 +82,7 @@ export function SupplierOrdersView() {
   const userBranchId = user?.branchId || currentStaffUser?.branchId;
   const userBranchName = user?.branchName || currentStaffUser?.branchName;
 
+  const [orderPerspective, setOrderPerspective] = useState<"sales" | "purchases">("sales");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [branchFilter, setBranchFilter] = useState("all");
@@ -362,6 +368,9 @@ export function SupplierOrdersView() {
                       src={activeImage}
                       alt={selectedOrder.productName}
                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(selectedOrder.productName, selectedOrder.unit);
+                      }}
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent flex items-end p-4">
                       <div>
@@ -388,7 +397,14 @@ export function SupplierOrdersView() {
                               : "border-white/15 opacity-60 hover:opacity-100"
                             }`}
                         >
-                          <img src={imgUrl} alt={`Thumbnail ${i + 1}`} className="w-full h-full object-cover" />
+                          <img
+                            src={imgUrl}
+                            alt={`Thumbnail ${i + 1}`}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(selectedOrder.productName, selectedOrder.unit);
+                            }}
+                          />
                         </button>
                       ))}
                     </div>
@@ -495,7 +511,24 @@ export function SupplierOrdersView() {
                       selectedOrder.orderItems.map((item, idx) => (
                         <tr key={item.id || idx}>
                           <td className="py-3 px-3 font-semibold text-white">
-                            {item.productName}
+                            <div className="flex items-center gap-2.5">
+                              {item.image && (
+                                <img
+                                  src={item.image}
+                                  alt={item.productName}
+                                  className="h-9 w-9 rounded-lg object-cover border border-white/10 shrink-0"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(item.productName, item.unit);
+                                  }}
+                                />
+                              )}
+                              <div className="min-w-0">
+                                <p className="font-semibold text-white truncate">{item.productName}</p>
+                                {item.sku && (
+                                  <p className="text-[10px] font-mono text-zinc-400">{item.sku}</p>
+                                )}
+                              </div>
+                            </div>
                           </td>
                           <td className="py-3 px-3 font-mono font-bold">
                             {item.quantity.toLocaleString()} {item.unit}
@@ -511,7 +544,24 @@ export function SupplierOrdersView() {
                     ) : (
                       <tr>
                         <td className="py-3 px-3 font-semibold text-white">
-                          {selectedOrder.productName}
+                          <div className="flex items-center gap-2.5">
+                            {selectedOrder.productImage && (
+                              <img
+                                src={selectedOrder.productImage}
+                                alt={selectedOrder.productName}
+                                className="h-9 w-9 rounded-lg object-cover border border-white/10 shrink-0"
+                                onError={(e) => {
+                                  (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(selectedOrder.productName, selectedOrder.unit);
+                                }}
+                              />
+                            )}
+                            <div className="min-w-0">
+                              <p className="font-semibold text-white truncate">{selectedOrder.productName}</p>
+                              {selectedOrder.productSku && (
+                                <p className="text-[10px] font-mono text-zinc-400">{selectedOrder.productSku}</p>
+                              )}
+                            </div>
+                          </div>
                         </td>
                         <td className="py-3 px-3 font-mono font-bold">
                           {selectedOrder.quantity.toLocaleString()} {selectedOrder.unit}
@@ -872,7 +922,39 @@ export function SupplierOrdersView() {
         }
       />
 
-      {/* Branch Scope Banner / Super Supplier Hub Selector */}
+      {/* Dual Perspective Switcher: Sales Orders vs My Sourcing Purchases */}
+      <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 max-w-fit">
+        <button
+          onClick={() => setOrderPerspective("sales")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            orderPerspective === "sales"
+              ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-700"
+              : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+          }`}
+        >
+          <ShoppingCart className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <span>Customer Sales Orders ({orders.length})</span>
+        </button>
+
+        <button
+          onClick={() => setOrderPerspective("purchases")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+            orderPerspective === "purchases"
+              ? "bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm border border-zinc-200 dark:border-zinc-700"
+              : "text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100"
+          }`}
+        >
+          <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+          <span>My Sourcing Purchases ({sourcingOrders.length})</span>
+        </button>
+      </div>
+
+      {/* Render Sourcing Purchases if selected */}
+      {orderPerspective === "purchases" ? (
+        <SupplierMyOrdersView onNavigateToSourcing={() => setActiveTab("sourcing")} />
+      ) : (
+        <>
+          {/* Branch Scope Banner / Super Supplier Hub Selector */}
       {isBranchManager ? (
         <div className="p-3.5 rounded-2xl border border-blue-500/30 bg-blue-500/10 flex items-center justify-between text-xs">
           <div className="flex items-center gap-2.5 text-blue-300">
@@ -1331,6 +1413,8 @@ export function SupplierOrdersView() {
             </div>
           </div>
         </div>
+      )}
+        </>
       )}
     </div>
   );

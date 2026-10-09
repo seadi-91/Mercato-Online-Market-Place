@@ -1,3 +1,5 @@
+import { getAccurateProductImage } from "@/lib/utils/product-image";
+
 export interface CustomerOrderItem {
   id: string;
   productId: string;
@@ -132,7 +134,7 @@ export async function fetchCustomerOrders(
                   unitPrice: Number(it.unitPrice || 0),
                   quantity: Number(it.quantity || 1),
                   totalPrice: Number(it.totalPrice || it.unitPrice * it.quantity),
-                  image: it.image || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
+                  image: it.image || getAccurateProductImage(it.productTitle, it.unitOfMeasure),
                 })),
                 createdAt: bOrder.createdAt || new Date().toISOString(),
               });
@@ -192,7 +194,7 @@ export async function fetchCustomerOrders(
               unitPrice: it.price,
               quantity: it.quantity,
               totalPrice: it.price * it.quantity,
-              image: it.image,
+              image: it.image || getAccurateProductImage(it.name || it.productTitle),
               selectedSize: it.selectedSize,
               selectedColor: it.selectedColor,
             })),

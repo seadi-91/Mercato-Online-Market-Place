@@ -3,6 +3,8 @@ export type SupplierTab =
   | "products"
   | "inventory"
   | "pricing"
+  | "sourcing"
+  | "my-orders"
   | "rfqs"
   | "quotations"
   | "negotiations"
@@ -268,6 +270,7 @@ export interface B2BOrder {
     unit: string;
     unitPrice: number;
     total: number;
+    image?: string;
   }[];
 }
 
@@ -731,5 +734,135 @@ export interface SupplierStaff {
   driverLicenseGrade?: string; // e.g. "Grade 4 Commercial Heavy Vehicle"
   currentDriverStatus?: "available" | "on_route" | "loading" | "off_duty";
   currentShipmentId?: string; // Associated active shipment e.g. "shp-01"
+}
+
+export interface SourcingProduct {
+  id: string;
+  name: string;
+  nameAmharic?: string;
+  sku: string;
+  category: string;
+  categorySlug?: string;
+  subcategory?: string;
+  brand?: string;
+  origin: string; // e.g. "Jimma, Oromia", "Humera, Tigray", "Mojo Hub"
+  grade: string; // e.g. "Grade 1 Washed", "Export Standard", "Grade A"
+  unit: string; // e.g. "Quintal (100kg)", "Metric Ton", "Carton", "Bag (50kg)", "Piece"
+  baseWholesalePrice: number;
+  retailPrice?: number;
+  currency: string;
+  moq: number; // Minimum Order Quantity
+  stockQuantity: number;
+  images: string[];
+  description: string;
+  specifications: Record<string, string>;
+  certifications: string[];
+  warehouseLocation: string;
+  leadTimeDays: number;
+  supplierId: string;
+  supplierName: string;
+  supplierTin?: string;
+  supplierVerified: boolean;
+  supplierRating: number;
+  supplierRatingCount: number;
+  supplierResponseTime: string;
+  supplierMarketZone: string;
+  tierPricing: TierPrice[];
+  minOrderValueETB?: number;
+  isEscrowGuaranteed: boolean;
+  createdAt?: string;
+}
+
+export type SourcingNegotiationStatus =
+  | "pending_seller"
+  | "counter_offered"
+  | "agreed"
+  | "declined"
+  | "completed";
+
+export interface SourcingNegotiationMessage {
+  id: string;
+  sender: "buyer" | "seller";
+  senderName: string;
+  text: string;
+  timestamp: string;
+  offeredPrice?: number;
+  offeredQty?: number;
+}
+
+export interface SourcingNegotiation {
+  id: string;
+  negotiationCode: string; // e.g. "NEG-2026-892"
+  productId: string;
+  productName: string;
+  productImage: string;
+  productUnit: string;
+  supplierId: string;
+  supplierName: string;
+  supplierRating: number;
+  targetQuantity: number;
+  listedPricePerUnit: number;
+  proposedPricePerUnit: number;
+  sellerCounterPricePerUnit?: number;
+  agreedPricePerUnit?: number;
+  currency: string;
+  deliveryTerms: string;
+  paymentTerms: string;
+  destinationWarehouse: string;
+  targetDeliveryDays: number;
+  notes: string;
+  status: SourcingNegotiationStatus;
+  createdAt: string;
+  updatedAt: string;
+  messages: SourcingNegotiationMessage[];
+}
+
+export type SourcingOrderStatus =
+  | "pending_payment"
+  | "escrow_locked"
+  | "processing"
+  | "dispatched"
+  | "in_transit"
+  | "delivered_to_hub"
+  | "inspected_completed"
+  | "cancelled";
+
+export interface SourcingOrder {
+  id: string;
+  orderNumber: string; // e.g. "PO-ETH-2026-7789"
+  productId: string;
+  productName: string;
+  productImage: string;
+  productSku: string;
+  supplierId: string;
+  supplierName: string;
+  supplierTin?: string;
+  quantity: number;
+  unit: string;
+  unitPrice: number;
+  subtotal: number;
+  bulkDiscount: number;
+  vatTax: number;
+  freightCost: number;
+  totalETB: number;
+  status: SourcingOrderStatus;
+  destinationWarehouseId: string;
+  destinationWarehouseName: string;
+  deliveryAddress: string;
+  deliveryEstimateDays: number;
+  poReference?: string;
+  negotiationId?: string;
+  paymentMethod?: "chapa" | "telebirr" | "cbe_birr" | "bank_transfer" | "escrow_wallet";
+  paymentReference?: string;
+  chapaTransactionId?: string;
+  bankDepositSlipUrl?: string;
+  paymentDate?: string;
+  escrowStatus: "awaiting_deposit" | "funds_locked" | "released_to_seller" | "refunded";
+  trackingNumber?: string;
+  driverName?: string;
+  driverPhone?: string;
+  vehiclePlate?: string;
+  createdAt: string;
+  handoverOtp?: string;
 }
 

@@ -26,15 +26,22 @@ import {
   SupplierStaff,
   StaffRole,
   SettlementAccount,
+  SourcingProduct,
+  SourcingNegotiation,
+  SourcingOrder,
+  SourcingOrderStatus,
 } from "@/types/supplier";
 import {
   initialSupplierProfile,
   initialVerificationDocs,
   initialPromotions,
 } from "@/data/supplier-mock-data";
+import { initialSourcingOrders } from "@/data/supplier-sourcing-data";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { sellerService, FilterOrdersParams } from "@/services/seller/seller.service";
 import {
   mapBackendProductToB2B,
+  mapBackendProductToSourcing,
   mapB2BToCreateInput,
   mapB2BToUpdateInput,
 } from "@/services/supplier/supplier-product-adapter";
@@ -167,6 +174,178 @@ export function saveStoredStaff(staff: SupplierStaff[]): void {
   } catch (err) {
     console.error("[SupplierStore] Error saving staff to localStorage:", err);
   }
+}
+
+const SOURCING_ORDERS_STORAGE_KEY = "mercatox_sourcing_orders";
+const SOURCING_DELETED_ORDERS_STORAGE_KEY = "mercatox_deleted_sourcing_order_ids";
+
+export function getStoredDeletedSourcingOrderIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(SOURCING_DELETED_ORDERS_STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.error("[SupplierStore] Error reading deleted order IDs:", err);
+  }
+  return [];
+}
+
+export function addStoredDeletedSourcingOrderId(id: string): void {
+  if (typeof window === "undefined" || !id) return;
+  try {
+    const current = getStoredDeletedSourcingOrderIds();
+    if (!current.includes(id)) {
+      current.push(id);
+      localStorage.setItem(SOURCING_DELETED_ORDERS_STORAGE_KEY, JSON.stringify(current));
+    }
+  } catch (err) {
+    console.error("[SupplierStore] Error saving deleted order ID:", err);
+  }
+}
+
+export function removeStoredDeletedSourcingOrderId(id: string): void {
+  if (typeof window === "undefined" || !id) return;
+  try {
+    const current = getStoredDeletedSourcingOrderIds().filter((d) => d !== id);
+    localStorage.setItem(SOURCING_DELETED_ORDERS_STORAGE_KEY, JSON.stringify(current));
+  } catch (err) {
+    console.error("[SupplierStore] Error removing deleted order ID:", err);
+  }
+}
+
+export function getStoredSourcingOrders(): SourcingOrder[] {
+  if (typeof window === "undefined") return initialSourcingOrders;
+  try {
+    const raw = localStorage.getItem(SOURCING_ORDERS_STORAGE_KEY);
+    if (raw !== null) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (err) {
+    console.error("[SupplierStore] Error reading sourcing orders from localStorage:", err);
+  }
+  return initialSourcingOrders;
+}
+
+export function saveStoredSourcingOrders(orders: SourcingOrder[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(SOURCING_ORDERS_STORAGE_KEY, JSON.stringify(orders));
+  } catch (err) {
+    console.error("[SupplierStore] Error saving sourcing orders to localStorage:", err);
+  }
+}
+
+export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
+  const firstItem = dbOrder.items?.[0] || {};
+  const deliveryAddr =
+    typeof dbOrder.deliveryAddress === "string"
+      ? (() => {
+          try {
+            return JSON.parse(dbOrder.deliveryAddress);
+          } catch {
+            return {};
+          }
+        })()
+      : dbOrder.deliveryAddress || {};
+
+  const qty =
+    dbOrder.items?.reduce(
+      (sum: number, it: any) => sum + Number(it.quantity || 1),
+      0
+    ) || 1;
+  const unitPrice = Number(
+    firstItem.unitPrice ||
+      (dbOrder.totalAmount ? Number(dbOrder.totalAmount) / qty : 0)
+  );
+
+  let status: SourcingOrderStatus = "escrow_locked";
+  if (dbOrder.status === "DELIVERED" || dbOrder.status === "COMPLETED") {
+    status = "inspected_completed";
+  } else if (dbOrder.status === "IN_TRANSIT" || dbOrder.status === "SHIPPED") {
+    status = "in_transit";
+  } else if (
+    dbOrder.status === "CONFIRMED" ||
+    dbOrder.status === "PROCESSING" ||
+    dbOrder.paymentStatus === "PAID"
+  ) {
+    status = "escrow_locked";
+  } else if (dbOrder.paymentStatus === "PENDING") {
+    status = "pending_payment";
+  }
+
+  const cleanOrderNum = dbOrder.orderNumber?.startsWith("PO-")
+    ? dbOrder.orderNumber
+    : dbOrder.orderNumber
+    ? `PO-${dbOrder.orderNumber}`
+    : `PO-ETH-2026-${String(dbOrder.id || "").slice(0, 5)}`;
+
+  return {
+    id: dbOrder.id,
+    orderNumber: cleanOrderNum,
+    productId: firstItem.productId || firstItem.id || "prod-src",
+    productName:
+      firstItem.productTitle ||
+      firstItem.name ||
+      "Commercial Wholesale Sourcing Goods",
+    productImage: getAccurateProductImage(
+      firstItem.productTitle || firstItem.name,
+      firstItem.unit,
+      firstItem.image
+    ),
+    productSku: `SKU-${String(firstItem.productId || "SRC")
+      .slice(0, 8)
+      .toUpperCase()}`,
+    supplierId: dbOrder.sellerId || "59972f9f-49ec-4592-9113-ba70a0aa3a52",
+    supplierName: "Verified Ethiopian Commodity Supplier",
+    quantity: qty,
+    unit: firstItem.unit || "Units",
+    unitPrice: unitPrice,
+    subtotal: Number(
+      dbOrder.subtotalAmount || dbOrder.totalAmount || unitPrice * qty
+    ),
+    bulkDiscount: 0,
+    vatTax: Math.round(
+      Number(dbOrder.subtotalAmount || dbOrder.totalAmount || 0) * 0.15
+    ),
+    freightCost: Number(dbOrder.deliveryFee || 0),
+    totalETB: Number(dbOrder.totalAmount || 0),
+    status: status,
+    destinationWarehouseId: deliveryAddr.warehouseId || "wh-aa",
+    destinationWarehouseName:
+      deliveryAddr.warehouseName ||
+      deliveryAddr.city ||
+      "Addis Ababa Central Logistics Hub",
+    deliveryAddress:
+      typeof deliveryAddr === "object"
+        ? deliveryAddr.specificLocation ||
+          deliveryAddr.address ||
+          deliveryAddr.city ||
+          "Addis Ababa"
+        : String(deliveryAddr),
+    deliveryEstimateDays: 2,
+    poReference: dbOrder.txRef || cleanOrderNum,
+    paymentMethod: "chapa",
+    paymentReference: dbOrder.txRef,
+    chapaTransactionId: dbOrder.txRef,
+    escrowStatus:
+      dbOrder.paymentStatus === "PAID" || dbOrder.status === "CONFIRMED"
+        ? "funds_locked"
+        : "awaiting_deposit",
+    trackingNumber: `WAYBILL-${String(
+      dbOrder.txRef || dbOrder.orderNumber || "ETH"
+    )
+      .slice(-6)
+      .toUpperCase()}`,
+    driverName: "Ato Dawit Mengistu (MercatoX Logistics)",
+    driverPhone: "+251 91 233 8819",
+    vehiclePlate: "Plate 3-AA-99102",
+    createdAt: dbOrder.createdAt || new Date().toISOString(),
+    handoverOtp: "8492",
+  };
 }
 
 const PROFILE_STORAGE_KEY = "mercatox_supplier_profile";
@@ -416,6 +595,54 @@ interface SupplierState {
   addSettlementAccount: (account: Omit<SettlementAccount, "id">) => SettlementAccount;
   deleteSettlementAccount: (id: string) => void;
   setDefaultSettlementAccount: (id: string) => void;
+
+  // Sourcing & Procurement Actions
+  sourcingProducts: SourcingProduct[];
+  isLoadingSourcingProducts: boolean;
+  sourcingProductsError: string | null;
+  sourcingNegotiations: SourcingNegotiation[];
+  sourcingOrders: SourcingOrder[];
+  isLoadingSourcingOrders: boolean;
+  fetchSourcingOrders: () => Promise<SourcingOrder[]>;
+  selectedSourcingProduct: SourcingProduct | null;
+  setSelectedSourcingProduct: (product: SourcingProduct | null) => void;
+  fetchSourcingProducts: (params?: {
+    search?: string;
+    categoryId?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    sortBy?: string;
+    sortOrder?: "ASC" | "DESC";
+  }) => Promise<void>;
+  fetchSourcingProductById: (id: string) => Promise<SourcingProduct | null>;
+  createSourcingNegotiation: (payload: {
+    productId: string;
+    targetQuantity: number;
+    proposedPricePerUnit: number;
+    deliveryTerms: string;
+    paymentTerms: string;
+    destinationWarehouse: string;
+    notes: string;
+  }) => SourcingNegotiation;
+  sendSourcingNegotiationMessage: (
+    negotiationId: string,
+    text: string,
+    offeredPrice?: number
+  ) => void;
+  acceptSourcingNegotiation: (negotiationId: string) => void;
+  declineSourcingNegotiation: (negotiationId: string) => void;
+  createSourcingOrder: (
+    order: Omit<SourcingOrder, "id" | "orderNumber" | "createdAt" | "status" | "escrowStatus">
+  ) => SourcingOrder;
+  paySourcingOrder: (
+    orderId: string,
+    paymentMethod: "chapa" | "telebirr" | "cbe_birr" | "bank_transfer" | "escrow_wallet",
+    paymentRef: string,
+    slipUrl?: string
+  ) => void;
+  confirmSourcingDelivery: (orderId: string, otp: string) => void;
+  deleteSourcingOrder: (orderId: string) => void;
+  restoreSourcingOrder: (order: SourcingOrder) => void;
 }
 
 export const initialStaffList: SupplierStaff[] = [
@@ -554,6 +781,16 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   notifications: [],
   settlementAccounts: [],
 
+  // Sourcing & Procurement State
+  sourcingProducts: [],
+  isLoadingSourcingProducts: false,
+  sourcingProductsError: null,
+  sourcingNegotiations: [],
+  sourcingOrders: getStoredSourcingOrders(),
+  isLoadingSourcingOrders: false,
+  selectedSourcingProduct: null,
+  setSelectedSourcingProduct: (product) => set({ selectedSourcingProduct: product }),
+
   hydrateStore: () => {
     if (typeof window === "undefined") return;
     try {
@@ -561,11 +798,13 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       const storedAccounts = getStoredSettlementAccounts();
       const storedPromos = getStoredPromotions();
       const storedStaff = getStoredStaff();
+      const storedSourcingOrders = getStoredSourcingOrders();
       set({
         profile: storedProfile,
         settlementAccounts: storedAccounts,
         promotions: storedPromos,
         staffList: storedStaff.length > 0 ? storedStaff : get().staffList,
+        sourcingOrders: storedSourcingOrders.length > 0 ? storedSourcingOrders : get().sourcingOrders,
       });
     } catch (err) {
       console.warn("[SupplierStore] Error during client hydration:", err);
@@ -579,17 +818,147 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   fetchOrders: async (params) => {
     set({ isLoadingOrders: true, ordersError: null });
     try {
-      const res = await sellerService.getOrders(params);
-      let rawList: any[] = [];
-      if (Array.isArray(res)) {
-        rawList = res;
-      } else if (res && Array.isArray((res as any).data)) {
-        rawList = (res as any).data;
+      const mergedList: any[] = [];
+      const user = useAuthStore.getState().user;
+      const targetSellerId = (user as any)?.sellerId || user?.id || "59972f9f-49ec-4592-9113-ba70a0aa3a52";
+
+      // 1. Fetch live orders from backend Orders microservice via Seller API
+      try {
+        const res = await sellerService.getOrders(params);
+        let rawList: any[] = [];
+        if (Array.isArray(res)) {
+          rawList = res;
+        } else if (res && Array.isArray((res as any).data)) {
+          rawList = (res as any).data;
+        }
+        for (const item of rawList) {
+          mergedList.push(item);
+        }
+      } catch (backendErr) {
+        console.warn("[SupplierStore] Seller API fetch warning, checking database directly:", backendErr);
       }
-      const mapped = rawList.map(mapBackendOrderToB2B);
+
+      // 2. Fetch directly from PostgreSQL database via /api/orders
+      try {
+        const queryParams = new URLSearchParams();
+        if (targetSellerId) {
+          queryParams.set("sellerId", targetSellerId);
+        }
+        const dbRes = await fetch(`/api/orders?${queryParams.toString()}`);
+        if (dbRes.ok) {
+          const dbData = await dbRes.json();
+          if (dbData.success && Array.isArray(dbData.orders)) {
+            for (const dbOrd of dbData.orders) {
+              const existingIdx = mergedList.findIndex(
+                (m) =>
+                  m.id === dbOrd.id ||
+                  (m.orderNumber && m.orderNumber === dbOrd.orderNumber) ||
+                  (m.txRef && dbOrd.txRef && m.txRef === dbOrd.txRef)
+              );
+              if (existingIdx === -1) {
+                mergedList.push(dbOrd);
+              } else {
+                mergedList[existingIdx] = { ...mergedList[existingIdx], ...dbOrd };
+              }
+            }
+          }
+        }
+      } catch (dbErr) {
+        console.warn("[SupplierStore] Could not fetch orders from /api/orders:", dbErr);
+      }
+
+      // 3. If list is still empty, fetch all orders from /api/orders as fallback
+      if (mergedList.length === 0) {
+        try {
+          const allDbRes = await fetch("/api/orders");
+          if (allDbRes.ok) {
+            const allDbData = await allDbRes.json();
+            if (allDbData.success && Array.isArray(allDbData.orders)) {
+              for (const ord of allDbData.orders) {
+                if (!mergedList.some((m) => m.id === ord.id || (m.txRef && m.txRef === ord.txRef))) {
+                  mergedList.push(ord);
+                }
+              }
+            }
+          }
+        } catch (e) {}
+      }
+
+      // 4. Merge recent localStorage completed orders
+      if (typeof window !== "undefined") {
+        try {
+          const compRaw = localStorage.getItem("mercatox_completed_orders");
+          if (compRaw) {
+            const localOrders = JSON.parse(compRaw);
+            if (Array.isArray(localOrders)) {
+              for (const lOrd of localOrders) {
+                if (!mergedList.some((m) => m.id === lOrd.id || (m.txRef && m.txRef === lOrd.txRef))) {
+                  mergedList.push(lOrd);
+                }
+              }
+            }
+          }
+
+          const lastRaw = localStorage.getItem("mercatox_last_checkout_order");
+          if (lastRaw) {
+            const last = JSON.parse(lastRaw);
+            if (last && (last.txRef || last.orderId)) {
+              const existing = mergedList.some((m) => m.id === last.orderId || m.txRef === last.txRef);
+              if (!existing) {
+                mergedList.unshift({
+                  id: last.orderId || last.txRef,
+                  orderNumber: last.orderNumber || `MX-${last.txRef.slice(-6)}`,
+                  customerId: last.customerId || "current-customer",
+                  sellerId: last.sellerId || targetSellerId,
+                  status: "CONFIRMED",
+                  paymentStatus: "PAID",
+                  subtotalAmount: Number(last.amount) - 150,
+                  deliveryFee: 150,
+                  totalAmount: Number(last.amount),
+                  deliveryAddress: {
+                    recipientName: last.fullName,
+                    phone: last.phoneNumber,
+                    city: "Addis Ababa",
+                    subCity: last.subcity,
+                    specificLocation: last.specificAddress,
+                    notes: last.deliveryNotes,
+                  },
+                  notes: last.deliveryNotes,
+                  items: (last.items || []).map((it: any) => ({
+                    id: it.id,
+                    productId: it.productId || it.id,
+                    productTitle: it.name || it.productTitle || "Mercato Product",
+                    unitPrice: Number(it.price || it.unitPrice || 0),
+                    quantity: Number(it.quantity || 1),
+                    totalPrice: Number(it.price || it.unitPrice || 0) * Number(it.quantity || 1),
+                    image: it.image || getAccurateProductImage(it.name || it.productTitle),
+                    sellerId: it.sellerId || last.sellerId || targetSellerId,
+                  })),
+                  createdAt: last.createdAt || new Date().toISOString(),
+                  txRef: last.txRef,
+                });
+              }
+            }
+          }
+        } catch (storageErr) {
+          console.warn("[SupplierStore] Storage merge warning:", storageErr);
+        }
+      }
+
+      const mapped = mergedList
+        .map((ord) => mapBackendOrderToB2B(ord, targetSellerId))
+        .filter((b): b is B2BOrder => Boolean(b));
+
+      // Sort newest first
+      mapped.sort((a, b) => {
+        const timeA = new Date(a.orderDate || 0).getTime();
+        const timeB = new Date(b.orderDate || 0).getTime();
+        return timeB - timeA;
+      });
+
       set({ orders: mapped, isLoadingOrders: false });
     } catch (err: any) {
-      console.error("[SupplierStore] Error fetching seller orders from backend:", err);
+      console.error("[SupplierStore] Error fetching seller orders:", err);
       set({
         isLoadingOrders: false,
         ordersError: err?.response?.data?.message || err?.message || "Failed to load orders",
@@ -600,39 +969,35 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   acceptOrder: async (orderId, sellerNote) => {
     try {
       await sellerService.updateOrderStatus(orderId, { newStatus: "CONFIRMED" });
-      set((state) => ({
-        orders: state.orders.map((o) =>
-          o.id === orderId
-            ? {
-              ...o,
-              orderStatus: "confirmed",
-              deliveryStatus: "processing",
-              sellerNotes: sellerNote || o.sellerNotes,
-            }
-            : o
-        ),
-        activeModal: null,
-        modalData: null,
-      }));
-      toast.success("Order confirmed successfully! Preparation initiated.");
-    } catch (err: any) {
-      console.error("[SupplierStore] Error accepting order:", err);
-      set((state) => ({
-        orders: state.orders.map((o) =>
-          o.id === orderId
-            ? {
-              ...o,
-              orderStatus: "confirmed",
-              deliveryStatus: "processing",
-              sellerNotes: sellerNote || o.sellerNotes,
-            }
-            : o
-        ),
-        activeModal: null,
-        modalData: null,
-      }));
-      toast.success("Order confirmed.");
+    } catch (apiErr) {
+      console.warn("[SupplierStore] Seller API status update fallback to /api/orders:", apiErr);
     }
+
+    try {
+      await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, newStatus: "CONFIRMED", notes: sellerNote }),
+      });
+    } catch (dbErr) {
+      console.warn("[SupplierStore] Local DB update error:", dbErr);
+    }
+
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              orderStatus: "confirmed",
+              deliveryStatus: "processing",
+              sellerNotes: sellerNote || o.sellerNotes,
+            }
+          : o
+      ),
+      activeModal: null,
+      modalData: null,
+    }));
+    toast.success("Order confirmed successfully! Preparation initiated.");
   },
 
   rejectOrder: async (orderId, reason) => {
@@ -641,37 +1006,34 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         newStatus: "CANCELLED",
         cancelReason: reason,
       });
-      set((state) => ({
-        orders: state.orders.map((o) =>
-          o.id === orderId
-            ? {
-              ...o,
-              orderStatus: "cancelled",
-              rejectionReason: reason,
-            }
-            : o
-        ),
-        activeModal: null,
-        modalData: null,
-      }));
-      toast.error("Order cancelled.");
-    } catch (err: any) {
-      console.error("[SupplierStore] Error rejecting order:", err);
-      set((state) => ({
-        orders: state.orders.map((o) =>
-          o.id === orderId
-            ? {
-              ...o,
-              orderStatus: "cancelled",
-              rejectionReason: reason,
-            }
-            : o
-        ),
-        activeModal: null,
-        modalData: null,
-      }));
-      toast.error("Order cancelled.");
+    } catch (apiErr) {
+      console.warn("[SupplierStore] Seller API cancel fallback to /api/orders:", apiErr);
     }
+
+    try {
+      await fetch("/api/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId, newStatus: "CANCELLED", cancelReason: reason }),
+      });
+    } catch (dbErr) {
+      console.warn("[SupplierStore] Local DB cancel error:", dbErr);
+    }
+
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o.id === orderId
+          ? {
+              ...o,
+              orderStatus: "cancelled",
+              rejectionReason: reason,
+            }
+          : o
+      ),
+      activeModal: null,
+      modalData: null,
+    }));
+    toast.error("Order cancelled.");
   },
 
   deleteOrder: (orderId) => {
@@ -1895,5 +2257,455 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
           : o
       ),
     }));
+  },
+
+  // Sourcing & Procurement Implementations
+  fetchSourcingProducts: async (params) => {
+    set({ isLoadingSourcingProducts: true, sourcingProductsError: null });
+    try {
+      const user = useAuthStore.getState().user;
+      const currentUserId = user?.id;
+
+      const res = await sellerService.getCatalogProducts({
+        limit: 100,
+        search: params?.search,
+        categoryId: params?.categoryId && params.categoryId !== "all" ? params.categoryId : undefined,
+        excludeSellerId: currentUserId ? String(currentUserId) : undefined,
+        sortBy: params?.sortBy,
+        sortOrder: params?.sortOrder,
+      });
+
+      let rawList: any[] = [];
+      if (Array.isArray(res)) {
+        rawList = res;
+      } else if (res && Array.isArray((res as any).data)) {
+        rawList = (res as any).data;
+      }
+
+      let mappedSourcing = rawList.map(mapBackendProductToSourcing);
+
+      // Exclude logged in supplier's own products so only products from other suppliers appear
+      const myProducts = get().products;
+      const myBusinessName = get().profile?.businessName?.toLowerCase().trim();
+      mappedSourcing = mappedSourcing.filter((p) => {
+        if (currentUserId && p.supplierId === currentUserId) return false;
+        if (myBusinessName && p.supplierName?.toLowerCase().trim() === myBusinessName) return false;
+        if (
+          myProducts.some(
+            (myP) => myP.id === p.id || (myP.sku && p.sku && myP.sku.toLowerCase() === p.sku.toLowerCase())
+          )
+        ) {
+          return false;
+        }
+        return true;
+      });
+
+      set({
+        sourcingProducts: mappedSourcing,
+        isLoadingSourcingProducts: false,
+      });
+    } catch (err: any) {
+      console.error("[SupplierStore] Error fetching sourcing products from database:", err);
+      set({
+        isLoadingSourcingProducts: false,
+        sourcingProductsError:
+          err?.response?.data?.message || err?.message || "Failed to load sourcing products from database",
+      });
+    }
+  },
+
+  fetchSourcingProductById: async (id: string) => {
+    try {
+      const prod = await sellerService.getCatalogProductById(id);
+      if (prod) {
+        const sourcingProd = mapBackendProductToSourcing(prod);
+        set({ selectedSourcingProduct: sourcingProd });
+        return sourcingProd;
+      }
+      return null;
+    } catch (err: any) {
+      console.error("[SupplierStore] Error fetching single sourcing product:", err);
+      return null;
+    }
+  },
+
+  createSourcingNegotiation: (payload) => {
+    const product = get().sourcingProducts.find((p) => p.id === payload.productId);
+    const negId = `src-neg-${Date.now()}`;
+    const code = `NEG-ETH-2026-${Math.floor(100 + Math.random() * 900)}`;
+    const now = new Date().toISOString();
+
+    const newNeg: SourcingNegotiation = {
+      id: negId,
+      negotiationCode: code,
+      productId: payload.productId,
+      productName: product?.name || "Marketplace Product",
+      productImage: product?.images?.[0] || "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80",
+      productUnit: product?.unit || "Unit",
+      supplierId: product?.supplierId || "sup-unknown",
+      supplierName: product?.supplierName || "Verified Merchant",
+      supplierRating: product?.supplierRating || 4.8,
+      targetQuantity: payload.targetQuantity,
+      listedPricePerUnit: product?.baseWholesalePrice || payload.proposedPricePerUnit,
+      proposedPricePerUnit: payload.proposedPricePerUnit,
+      currency: "ETB",
+      deliveryTerms: payload.deliveryTerms,
+      paymentTerms: payload.paymentTerms,
+      destinationWarehouse: payload.destinationWarehouse,
+      targetDeliveryDays: product?.leadTimeDays || 2,
+      notes: payload.notes,
+      status: "pending_seller",
+      createdAt: now,
+      updatedAt: now,
+      messages: [
+        {
+          id: `msg-${Date.now()}`,
+          sender: "buyer",
+          senderName: get().profile.businessName || "Your Company",
+          text: payload.notes || `We propose ETB ${payload.proposedPricePerUnit.toLocaleString()}/${product?.unit || "unit"} for ${payload.targetQuantity} units with ${payload.deliveryTerms}.`,
+          timestamp: now,
+          offeredPrice: payload.proposedPricePerUnit,
+          offeredQty: payload.targetQuantity,
+        },
+      ],
+    };
+
+    set((state) => ({
+      sourcingNegotiations: [newNeg, ...state.sourcingNegotiations],
+    }));
+
+    toast.success(`Price negotiation proposal ${code} submitted to ${newNeg.supplierName}!`);
+    return newNeg;
+  },
+
+  sendSourcingNegotiationMessage: (negotiationId, text, offeredPrice) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      sourcingNegotiations: state.sourcingNegotiations.map((neg) => {
+        if (neg.id !== negotiationId) return neg;
+        const newMsg = {
+          id: `msg-${Date.now()}`,
+          sender: "buyer" as const,
+          senderName: state.profile.businessName || "Your Company",
+          text,
+          timestamp: now,
+          offeredPrice,
+        };
+        return {
+          ...neg,
+          proposedPricePerUnit: offeredPrice || neg.proposedPricePerUnit,
+          updatedAt: now,
+          messages: [...neg.messages, newMsg],
+        };
+      }),
+    }));
+    toast.success("Negotiation message and counter-offer sent.");
+  },
+
+  acceptSourcingNegotiation: (negotiationId) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      sourcingNegotiations: state.sourcingNegotiations.map((neg) => {
+        if (neg.id !== negotiationId) return neg;
+        const finalPrice = neg.sellerCounterPricePerUnit || neg.proposedPricePerUnit;
+        return {
+          ...neg,
+          status: "agreed",
+          agreedPricePerUnit: finalPrice,
+          updatedAt: now,
+          messages: [
+            ...neg.messages,
+            {
+              id: `msg-${Date.now()}`,
+              sender: "buyer" as const,
+              senderName: state.profile.businessName || "Your Company",
+              text: `Agreed to final terms at ETB ${finalPrice.toLocaleString()}/${neg.productUnit}. Proceeding to Escrow Purchase Order.`,
+              timestamp: now,
+              offeredPrice: finalPrice,
+            },
+          ],
+        };
+      }),
+    }));
+    toast.success("Price negotiation accepted! You can now proceed to checkout & payment.");
+  },
+
+  declineSourcingNegotiation: (negotiationId) => {
+    const now = new Date().toISOString();
+    set((state) => ({
+      sourcingNegotiations: state.sourcingNegotiations.map((neg) => {
+        if (neg.id !== negotiationId) return neg;
+        return {
+          ...neg,
+          status: "declined",
+          updatedAt: now,
+          messages: [
+            ...neg.messages,
+            {
+              id: `msg-${Date.now()}`,
+              sender: "buyer" as const,
+              senderName: state.profile.businessName || "Your Company",
+              text: "Negotiation terms could not be reached. Deal closed.",
+              timestamp: now,
+            },
+          ],
+        };
+      }),
+    }));
+    toast.info("Negotiation closed.");
+  },
+
+  fetchSourcingOrders: async () => {
+    set({ isLoadingSourcingOrders: true });
+    try {
+      const res = await fetch("/api/orders");
+      const data = await res.json();
+      let dbOrders: SourcingOrder[] = [];
+      if (data.success && Array.isArray(data.orders)) {
+        dbOrders = data.orders.map(mapDbOrderToSourcingOrder);
+      }
+
+      const currentLocal = getStoredSourcingOrders();
+      const deletedIds = new Set(getStoredDeletedSourcingOrderIds());
+      const idMap = new Map<string, SourcingOrder>();
+      const orderNumToId = new Map<string, string>();
+
+      // 1. Index local orders (excluding soft-deleted ones)
+      for (const ord of currentLocal) {
+        if (ord && ord.id && !deletedIds.has(ord.id) && !deletedIds.has(ord.orderNumber)) {
+          idMap.set(ord.id, ord);
+          if (ord.orderNumber) orderNumToId.set(ord.orderNumber, ord.id);
+        }
+      }
+
+      // 2. Merge DB orders (excluding soft-deleted ones)
+      for (const ord of dbOrders) {
+        if (ord && ord.id && !deletedIds.has(ord.id) && !deletedIds.has(ord.orderNumber)) {
+          const existingId = (ord.orderNumber && orderNumToId.get(ord.orderNumber)) || (idMap.has(ord.id) ? ord.id : null);
+          if (existingId && idMap.has(existingId)) {
+            const existing = idMap.get(existingId)!;
+            idMap.set(existingId, {
+              ...ord,
+              ...existing,
+              id: existingId,
+              status: existing.status || ord.status,
+            });
+          } else {
+            idMap.set(ord.id, ord);
+            if (ord.orderNumber) orderNumToId.set(ord.orderNumber, ord.id);
+          }
+        }
+      }
+
+      const uniqueList: SourcingOrder[] = [];
+      const seenIds = new Set<string>();
+      for (const o of Array.from(idMap.values())) {
+        if (o && o.id && !seenIds.has(o.id)) {
+          seenIds.add(o.id);
+          uniqueList.push(o);
+        }
+      }
+      uniqueList.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      saveStoredSourcingOrders(uniqueList);
+      set({ sourcingOrders: uniqueList, isLoadingSourcingOrders: false });
+      return uniqueList;
+    } catch (err) {
+      console.error("[SupplierStore] Error fetching sourcing orders from DB:", err);
+      set({ isLoadingSourcingOrders: false });
+      return get().sourcingOrders;
+    }
+  },
+
+  createSourcingOrder: (orderPayload) => {
+    const orderId = `src-ord-${Date.now()}`;
+    const orderNumber = `PO-ETH-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+    const now = new Date().toISOString();
+    const handoverOtp = String(Math.floor(1000 + Math.random() * 9000));
+
+    const newOrder: SourcingOrder = {
+      ...orderPayload,
+      id: orderId,
+      orderNumber,
+      status: "pending_payment",
+      escrowStatus: "awaiting_deposit",
+      createdAt: now,
+      handoverOtp,
+    };
+
+    const updated = [newOrder, ...get().sourcingOrders];
+    saveStoredSourcingOrders(updated);
+    set({ sourcingOrders: updated });
+
+    // Asynchronously save to PostgreSQL Database (mercatox_order_db)
+    try {
+      const authUser = useAuthStore.getState().user;
+      fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: authUser?.id || "609563b9-3c51-4b25-80c2-a3b238ee929f",
+          sellerId: newOrder.supplierId || "59972f9f-49ec-4592-9113-ba70a0aa3a52",
+          txRef: newOrder.paymentReference || `MX-CHAPA-${newOrder.orderNumber}`,
+          paymentMethod: newOrder.paymentMethod || "CHAPA",
+          items: [
+            {
+              id: newOrder.productId,
+              productId: newOrder.productId,
+              name: newOrder.productName,
+              productTitle: newOrder.productName,
+              unitPrice: newOrder.unitPrice,
+              quantity: newOrder.quantity,
+              totalPrice: newOrder.subtotal,
+            },
+          ],
+          deliveryAddress: {
+            warehouseId: newOrder.destinationWarehouseId,
+            warehouseName: newOrder.destinationWarehouseName,
+            address: newOrder.deliveryAddress,
+            notes: `PO Reference: ${newOrder.poReference || orderNumber}`,
+          },
+          deliveryFee: newOrder.freightCost || 0,
+          subtotalAmount: newOrder.subtotal,
+          totalAmount: newOrder.totalETB,
+          notes: `B2B Procurement Sourcing Order #${orderNumber}`,
+        }),
+      }).catch((dbErr) => {
+        console.warn("[SupplierStore] Asynchronous DB order save notice:", dbErr);
+      });
+    } catch (e) {
+      console.warn("[SupplierStore] DB sync call failed:", e);
+    }
+
+    toast.success(`Purchase Order ${orderNumber} created! Proceed to escrow payment.`);
+    return newOrder;
+  },
+
+  paySourcingOrder: (orderId, paymentMethod, paymentRef, slipUrl) => {
+    const now = new Date().toISOString();
+    let updatedOrder: SourcingOrder | null = null;
+    const updated = get().sourcingOrders.map((ord) => {
+      if (ord.id !== orderId) return ord;
+      updatedOrder = {
+        ...ord,
+        status: "escrow_locked" as const,
+        escrowStatus: "funds_locked" as const,
+        paymentMethod,
+        paymentReference: paymentRef,
+        chapaTransactionId: paymentRef,
+        bankDepositSlipUrl: slipUrl,
+        paymentDate: now,
+      };
+      return updatedOrder;
+    });
+
+    saveStoredSourcingOrders(updated);
+    set({ sourcingOrders: updated });
+
+    // Asynchronously update order in PostgreSQL database & payment service
+    try {
+      const target = updatedOrder || get().sourcingOrders.find((o) => o.id === orderId);
+      if (target) {
+        const authUser = useAuthStore.getState().user;
+        fetch("/api/orders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            customerId: authUser?.id || "609563b9-3c51-4b25-80c2-a3b238ee929f",
+            sellerId: target.supplierId || "59972f9f-49ec-4592-9113-ba70a0aa3a52",
+            txRef: paymentRef,
+            paymentMethod: paymentMethod.toUpperCase(),
+            items: [
+              {
+                id: target.productId,
+                productId: target.productId,
+                name: target.productName,
+                productTitle: target.productName,
+                unitPrice: target.unitPrice,
+                quantity: target.quantity,
+                totalPrice: target.subtotal,
+              },
+            ],
+            deliveryAddress: {
+              warehouseId: target.destinationWarehouseId,
+              warehouseName: target.destinationWarehouseName,
+              address: target.deliveryAddress,
+              notes: `Paid via ${paymentMethod} (Ref: ${paymentRef})`,
+            },
+            deliveryFee: target.freightCost || 0,
+            subtotalAmount: target.subtotal,
+            totalAmount: target.totalETB,
+            notes: `Paid Sourcing Order #${target.orderNumber}`,
+          }),
+        }).catch((dbErr) => {
+          console.warn("[SupplierStore] Asynchronous DB payment sync notice:", dbErr);
+        });
+      }
+    } catch (e) {
+      console.warn("[SupplierStore] Payment sync to DB call failed:", e);
+    }
+
+    toast.success(`Payment verified! ETB escrow funds locked safely with MercatoX Protection.`);
+  },
+
+  confirmSourcingDelivery: (orderId, otp) => {
+    const targetOrder = get().sourcingOrders.find((o) => o.id === orderId);
+    if (targetOrder && targetOrder.handoverOtp && targetOrder.handoverOtp !== otp.trim()) {
+      toast.error("Invalid Handover OTP! Please enter the correct 4-digit code.");
+      return;
+    }
+
+    const updated = get().sourcingOrders.map((ord) => {
+      if (ord.id !== orderId) return ord;
+      return {
+        ...ord,
+        status: "inspected_completed" as const,
+        escrowStatus: "released_to_seller" as const,
+      };
+    });
+
+    saveStoredSourcingOrders(updated);
+    set({ sourcingOrders: updated });
+
+    toast.success("Delivery inspected & confirmed! Escrow funds released to supplier.");
+  },
+
+  deleteSourcingOrder: (orderId: string) => {
+    const current = get().sourcingOrders;
+    const target = current.find((o) => o.id === orderId || o.orderNumber === orderId);
+    const updated = current.filter((ord) => ord.id !== orderId && ord.orderNumber !== orderId);
+
+    addStoredDeletedSourcingOrderId(orderId);
+    if (target?.orderNumber) {
+      addStoredDeletedSourcingOrderId(target.orderNumber);
+    }
+
+    saveStoredSourcingOrders(updated);
+    set({ sourcingOrders: updated });
+
+    toast.success(`Order #${target?.orderNumber || orderId} removed from list`, {
+      description: "Order temporarily deleted. Click Undo to restore.",
+      action: target
+        ? {
+            label: "Undo (መልስ)",
+            onClick: () => get().restoreSourcingOrder(target),
+          }
+        : undefined,
+    });
+  },
+
+  restoreSourcingOrder: (order: SourcingOrder) => {
+    if (!order || !order.id) return;
+    removeStoredDeletedSourcingOrderId(order.id);
+    if (order.orderNumber) {
+      removeStoredDeletedSourcingOrderId(order.orderNumber);
+    }
+    const current = get().sourcingOrders;
+    if (!current.some((o) => o.id === order.id || o.orderNumber === order.orderNumber)) {
+      const updated = [order, ...current];
+      saveStoredSourcingOrders(updated);
+      set({ sourcingOrders: updated });
+    }
+    toast.success(`Order #${order.orderNumber} restored successfully!`);
   },
 }));

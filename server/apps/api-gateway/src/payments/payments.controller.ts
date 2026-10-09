@@ -57,7 +57,7 @@ export class PaymentsController {
 
   @RateLimit({ limit: 15, ttlMs: 60000 })
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.CUSTOMER)
+  @Roles(UserRole.CUSTOMER, UserRole.SELLER, UserRole.ADMIN)
   @Post('checkout')
   checkout(
     @CurrentUser('id') customerId: string,
@@ -71,7 +71,7 @@ export class PaymentsController {
 
   @RateLimit({ limit: 15, ttlMs: 60000 })
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.CUSTOMER)
+  @Roles(UserRole.CUSTOMER, UserRole.SELLER, UserRole.ADMIN)
   @Post('bank-slip')
   uploadBankSlip(
     @CurrentUser('id') customerId: string,

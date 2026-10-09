@@ -9,6 +9,7 @@ export interface ChapaCheckoutRequest {
   paymentMethod?: string;
   customerId?: string;
   sellerId?: string;
+  returnUrl?: string;
   items?: Array<{
     id: string;
     name: string;

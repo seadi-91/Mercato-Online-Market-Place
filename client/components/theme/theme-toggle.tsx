@@ -58,12 +58,16 @@ export function ThemeToggle({ className = "", variant = "topbar" }: ThemeToggleP
     setIsOpen(false);
 
     const labels: Record<ThemeMode, string> = {
-      light: "Light mode enabled (Pure White on each card)",
-      dark: "Dark mode enabled (Pitch Black canvas & charcoal cards)",
-      system: "System mode enabled (Deep Dark Blue & navy sapphire cards)",
+      light: "Light Mode: Pure White Canvas with Indigo Accent",
+      dark: "Dark Mode: Obsidian Pitch Black with Brand Glow",
+      system: "System Mode: Deep Twilight Sapphire Navy Hub",
     };
     toast.success(labels[mode]);
   };
+
+  const isLight = theme === "light";
+  const isDark = theme === "dark";
+  const isSystem = theme === "system";
 
   const options: {
     id: ThemeMode;
@@ -73,49 +77,58 @@ export function ThemeToggle({ className = "", variant = "topbar" }: ThemeToggleP
     colorClass: string;
     swatchColor: string;
   }[] = [
-      {
-        id: "light",
-        label: "Light",
-        description: "Pure White on each card",
-        icon: Sun,
-        colorClass: "text-amber-400 group-hover:text-amber-300",
-        swatchColor: "bg-white border-zinc-300 shadow-xs",
-      },
-      {
-        id: "dark",
-        label: "Dark",
-        description: "Pitch Black canvas & charcoal cards",
-        icon: Moon,
-        colorClass: "text-zinc-300 group-hover:text-white",
-        swatchColor: "bg-black border-zinc-700 shadow-xs",
-      },
-      {
-        id: "system",
-        label: "System",
-        description: "Deep Dark Blue canvas & navy cards",
-        icon: Monitor,
-        colorClass: "text-blue-400 group-hover:text-blue-300",
-        swatchColor: "bg-[#060e24] border-blue-400 shadow-xs",
-      },
-    ];
+    {
+      id: "light",
+      label: "Light",
+      description: "Pure White canvas & crisp cards",
+      icon: Sun,
+      colorClass: "text-amber-500",
+      swatchColor: "bg-white border-slate-300 shadow-xs",
+    },
+    {
+      id: "dark",
+      label: "Dark",
+      description: "Obsidian Pitch Black & charcoal cards",
+      icon: Moon,
+      colorClass: "text-zinc-300",
+      swatchColor: "bg-[#09090b] border-zinc-700 shadow-xs",
+    },
+    {
+      id: "system",
+      label: "System",
+      description: "Deep Twilight Sapphire & navy cards",
+      icon: Monitor,
+      colorClass: "text-blue-400",
+      swatchColor: "bg-[#070d1e] border-blue-400 shadow-xs",
+    },
+  ];
 
   return (
     <div className={`relative ${className}`} ref={dropdownRef}>
-      {/* Bright Light / Appearance Button */}
+      {/* Dynamic Appearance Button */}
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        title={`Appearance: ${theme.toUpperCase()} (Click to change: White, Black, or Dark Blue)`}
+        title={`Theme Appearance: ${theme.toUpperCase()} (Light: White | Dark: Black | System: Navy)`}
         aria-label="Toggle appearance theme"
-        className={`group relative flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-zinc-300 hover:text-white hover:bg-white/10 transition-all cursor-pointer ${isOpen ? "ring-2 ring-amber-400/50 border-amber-400/60 bg-white/[0.08]" : ""
-          }`}
+        className={`group relative flex h-8 w-8 items-center justify-center rounded-lg border transition-all cursor-pointer ${
+          isLight
+            ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100 hover:text-slate-900 shadow-xs"
+            : isDark
+            ? "border-white/10 bg-white/[0.04] text-zinc-300 hover:text-white hover:bg-white/10"
+            : "border-blue-500/20 bg-blue-950/40 text-blue-200 hover:text-white hover:bg-blue-900/40"
+        } ${
+          isOpen
+            ? "ring-2 ring-indigo-500/50 border-indigo-500/60"
+            : ""
+        }`}
       >
         {/* Glow aura */}
         <span className="absolute -inset-0.5 rounded-lg bg-gradient-to-r from-amber-500/20 via-blue-500/20 to-indigo-500/20 opacity-0 group-hover:opacity-100 blur-xs transition-opacity pointer-events-none" />
 
         {/* Dynamic bright icon reflecting active theme mode */}
         {theme === "light" && (
-          <SunMedium className="h-4 w-4 text-amber-400 drop-shadow-[0_0_7px_rgba(251,191,36,0.7)] animate-pulse" />
+          <SunMedium className="h-4 w-4 text-amber-500 drop-shadow-[0_0_7px_rgba(245,158,11,0.5)]" />
         )}
         {theme === "dark" && (
           <Moon className="h-3.5 w-3.5 text-zinc-200 drop-shadow-[0_0_5px_rgba(255,255,255,0.6)] group-hover:scale-110 transition-transform" />
@@ -127,16 +140,40 @@ export function ThemeToggle({ className = "", variant = "topbar" }: ThemeToggleP
 
       {/* Floating Appearance Dropdown Menu */}
       {isOpen && (
-        <div className="app-dropdown-panel absolute right-0 top-full mt-1.5 w-60 rounded-xl border border-white/10 bg-[#0d121f]/98 p-1.5 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-100">
-          <div className="flex items-center justify-between px-2.5 py-1.5 border-b border-white/[0.08] mb-1">
+        <div
+          className={`app-dropdown-panel absolute right-0 top-full mt-1.5 w-64 rounded-2xl p-2 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-100 border ${
+            isLight
+              ? "bg-white border-slate-200 text-slate-800 shadow-slate-900/15"
+              : isDark
+              ? "bg-[#141418] border-white/10 text-white shadow-black/80"
+              : "bg-[#0c1630] border-blue-500/30 text-white shadow-blue-950/80"
+          }`}
+        >
+          <div
+            className={`flex items-center justify-between px-2.5 py-1.5 border-b mb-1.5 ${
+              isLight ? "border-slate-100" : isDark ? "border-white/5" : "border-blue-500/20"
+            }`}
+          >
             <div className="flex items-center gap-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-amber-400" />
-              <span className="text-[11px] font-semibold text-white tracking-wide uppercase">
-                Appearance
+              <Sparkles className="h-3.5 w-3.5 text-indigo-500" />
+              <span
+                className={`text-[11px] font-bold tracking-wide uppercase ${
+                  isLight ? "text-slate-900" : "text-white"
+                }`}
+              >
+                Appearance Mode
               </span>
             </div>
-            <span className="text-[10px] font-mono text-zinc-400 capitalize">
-              {theme === "light" ? "White" : theme === "dark" ? "Black" : "Dark Blue"}
+            <span
+              className={`text-[10px] font-mono capitalize px-1.5 py-0.5 rounded ${
+                isLight
+                  ? "bg-slate-100 text-slate-600 font-semibold"
+                  : isDark
+                  ? "bg-white/5 text-zinc-400"
+                  : "bg-blue-900/40 text-blue-300"
+              }`}
+            >
+              {theme === "light" ? "Pure White" : theme === "dark" ? "Obsidian" : "Sapphire"}
             </span>
           </div>
 
@@ -150,19 +187,33 @@ export function ThemeToggle({ className = "", variant = "topbar" }: ThemeToggleP
                   key={opt.id}
                   type="button"
                   onClick={() => handleSelect(opt.id)}
-                  className={`group flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left text-xs transition-all cursor-pointer ${isSelected
-                      ? "bg-indigo-600/20 text-white font-medium border border-indigo-500/40"
-                      : "text-zinc-300 hover:bg-white/5 hover:text-white border border-transparent"
-                    }`}
+                  className={`group flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-xs transition-all cursor-pointer border ${
+                    isSelected
+                      ? isLight
+                        ? "bg-indigo-50 text-indigo-700 font-bold border-indigo-200 shadow-xs"
+                        : isDark
+                        ? "bg-indigo-950/60 text-white font-bold border-indigo-500/40"
+                        : "bg-blue-950/80 text-cyan-300 font-bold border-blue-500/50"
+                      : isLight
+                      ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900 border-transparent"
+                      : isDark
+                      ? "text-zinc-300 hover:bg-white/5 hover:text-white border-transparent"
+                      : "text-blue-100/90 hover:bg-blue-900/30 hover:text-white border-transparent"
+                  }`}
                 >
                   <div className="flex items-center gap-2.5">
                     {/* Icon + Swatch */}
                     <div className="relative">
                       <div
-                        className={`flex h-6 w-6 items-center justify-center rounded-md border ${isSelected
+                        className={`flex h-6 w-6 items-center justify-center rounded-lg border ${
+                          isSelected
                             ? "border-indigo-500/50 bg-indigo-500/20"
-                            : "border-white/10 bg-white/[0.03]"
-                          }`}
+                            : isLight
+                            ? "border-slate-200 bg-slate-50"
+                            : isDark
+                            ? "border-white/10 bg-white/[0.04]"
+                            : "border-blue-500/30 bg-blue-950/50"
+                        }`}
                       >
                         <Icon className={`h-3.5 w-3.5 ${opt.colorClass}`} />
                       </div>
@@ -173,32 +224,62 @@ export function ThemeToggle({ className = "", variant = "topbar" }: ThemeToggleP
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold leading-none text-white flex items-center gap-1.5">
+                      <div
+                        className={`text-xs font-semibold leading-none flex items-center gap-1.5 ${
+                          isLight ? "text-slate-900" : "text-white"
+                        }`}
+                      >
                         <span>{opt.label}</span>
                         {opt.id === "light" && (
-                          <span className="text-[9.5px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 font-mono">
+                          <span
+                            className={`text-[9.5px] px-1 py-0.2 rounded font-mono ${
+                              isLight
+                                ? "bg-amber-100 text-amber-800"
+                                : "bg-amber-500/20 text-amber-300"
+                            }`}
+                          >
                             White
                           </span>
                         )}
                         {opt.id === "dark" && (
-                          <span className="text-[9.5px] px-1 py-0.2 rounded bg-zinc-800 text-zinc-300 font-mono">
+                          <span
+                            className={`text-[9.5px] px-1 py-0.2 rounded font-mono ${
+                              isLight
+                                ? "bg-slate-200 text-slate-800"
+                                : "bg-zinc-800 text-zinc-300"
+                            }`}
+                          >
                             Black
                           </span>
                         )}
                         {opt.id === "system" && (
-                          <span className="text-[9.5px] px-1 py-0.2 rounded bg-blue-500/20 text-blue-300 font-mono">
-                            Dark Blue
+                          <span
+                            className={`text-[9.5px] px-1 py-0.2 rounded font-mono ${
+                              isLight
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-blue-500/20 text-blue-300"
+                            }`}
+                          >
+                            Navy
                           </span>
                         )}
                       </div>
-                      <div className="text-[10px] text-zinc-400 mt-0.5">
+                      <div
+                        className={`text-[10px] mt-0.5 ${
+                          isLight ? "text-slate-500" : isDark ? "text-zinc-400" : "text-blue-300/80"
+                        }`}
+                      >
                         {opt.description}
                       </div>
                     </div>
                   </div>
 
                   {isSelected && (
-                    <Check className="h-3.5 w-3.5 text-cyan-400 stroke-[2.5]" />
+                    <Check
+                      className={`h-3.5 w-3.5 stroke-[2.5] ${
+                        isLight ? "text-indigo-600" : "text-cyan-400"
+                      }`}
+                    />
                   )}
                 </button>
               );

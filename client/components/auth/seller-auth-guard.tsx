@@ -99,35 +99,43 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
     return <>{children}</>;
   }
 
-  // If user is authenticated with a non-merchant role (e.g. CUSTOMER)
+  // If user is authenticated with a non-merchant role (e.g. CUSTOMER, SUPPLIER)
   if (hasValidSession && !isSellerRole) {
+    const roleRedirectMap: Record<string, string> = {
+      SUPPLIER: "/dashboard/supplier",
+      CUSTOMER: "/marketplace",
+      DELIVERY: "/dashboard/delivery",
+    };
+    const redirectTo = user?.role ? roleRedirectMap[user.role] ?? "/marketplace" : "/marketplace";
+
     return (
       <div className="flex min-h-[80vh] items-center justify-center p-4">
         <div className="w-full max-w-md rounded-2xl border border-amber-500/20 bg-[#0d121f] p-6 shadow-2xl text-center">
           <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-4">
             <AlertCircle className="h-6 w-6" />
           </div>
-          <h2 className="text-lg font-bold text-white">Merchant Access Restricted</h2>
+          <h2 className="text-lg font-bold text-white">Seller Portal — Access Denied</h2>
           <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-            You are currently signed in as a <span className="font-semibold text-amber-300">{user?.role}</span>.
-            The Seller Portal requires an authenticated merchant account to manage inventory and view payouts.
+            You are signed in as a <span className="font-semibold text-amber-300">{user?.role}</span>.
+            The Seller Portal is only accessible to verified merchant accounts.
           </p>
           <div className="mt-6 flex flex-col gap-2.5">
+            <button
+              onClick={() => router.push(redirectTo)}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg hover:bg-indigo-500 transition-colors cursor-pointer"
+            >
+              <ArrowRight className="h-4 w-4" />
+              <span>Go to My Dashboard</span>
+            </button>
             <button
               onClick={() => {
                 logout();
                 router.push("/login");
               }}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg hover:bg-indigo-500 transition-colors cursor-pointer"
-            >
-              <LogIn className="h-4 w-4" />
-              <span>Sign In with Merchant Account</span>
-            </button>
-            <button
-              onClick={() => router.push("/marketplace")}
               className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.08] transition-colors cursor-pointer"
             >
-              <span>Return to Marketplace</span>
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Sign In with Merchant Account</span>
             </button>
           </div>
         </div>

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getOrderDbPool } from "@/lib/db";
 import { recordPaymentInDatabase } from "@/lib/api/payment-db";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 import crypto from "crypto";
 
 const DEFAULT_CUSTOMER_ID = "609563b9-3c51-4b25-80c2-a3b238ee929f";
@@ -17,6 +18,7 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const customerId = searchParams.get("customerId");
+    const sellerId = searchParams.get("sellerId");
     const txRef = searchParams.get("txRef");
 
     const pool = getOrderDbPool();
@@ -44,7 +46,8 @@ export async function GET(req: Request) {
               'productTitle', oi."productTitle",
               'unitPrice', oi."unitPrice",
               'quantity', oi.quantity,
-              'totalPrice', oi."totalPrice"
+              'totalPrice', oi."totalPrice",
+              'unitOfMeasure', oi."unitOfMeasure"
             )
           ) FILTER (WHERE oi.id IS NOT NULL), '[]'::json
         ) AS items
@@ -61,6 +64,9 @@ export async function GET(req: Request) {
     } else if (customerId && isValidUuid(customerId)) {
       values.push(customerId);
       conditions.push(`o."customerId" = $${values.length}`);
+    } else if (sellerId && isValidUuid(sellerId)) {
+      values.push(sellerId);
+      conditions.push(`(o."sellerId" = $${values.length} OR o."deliveryAddress"::text LIKE '%${sellerId}%')`);
     }
 
     if (conditions.length > 0) {
@@ -73,31 +79,63 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       success: true,
-      orders: result.rows.map((row) => ({
-        id: row.id,
-        orderNumber: row.orderNumber,
-        customerId: row.customerId,
-        sellerId: row.sellerId,
-        status: row.status,
-        paymentStatus: row.paymentStatus,
-        paymentMethod: "Chapa Hosted Gateway (Telebirr / CBE / Card)",
-        txRef: row.txRef || `MX-CHAPA-${row.orderNumber}`,
-        subtotalAmount: Number(row.subtotalAmount),
-        deliveryFee: Number(row.deliveryFee),
-        totalAmount: Number(row.totalAmount),
-        deliveryAddress: row.deliveryAddress || {},
-        notes: row.notes,
-        items: (row.items || []).map((it: any) => ({
-          id: it.id,
-          productId: it.productId,
-          productTitle: it.productTitle,
-          unitPrice: Number(it.unitPrice),
-          quantity: Number(it.quantity),
-          totalPrice: Number(it.totalPrice),
-          image: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80",
-        })),
-        createdAt: row.createdAt,
-      })),
+      orders: result.rows.map((row) => {
+        const delivAddr = typeof row.deliveryAddress === "string"
+          ? (() => { try { return JSON.parse(row.deliveryAddress); } catch { return {}; } })()
+          : row.deliveryAddress || {};
+
+        const snapshotList: any[] = Array.isArray(delivAddr.itemsSnapshot) ? delivAddr.itemsSnapshot : [];
+
+        const mappedItems = (row.items || []).map((it: any) => {
+          const snapshotMatch = snapshotList.find(
+            (s: any) => s.productId === it.productId || s.id === it.id || s.productTitle === it.productTitle || s.name === it.productTitle
+          );
+
+          const rawImg = snapshotMatch?.image || it.image;
+          const finalImg = rawImg || getAccurateProductImage(it.productTitle, it.unitOfMeasure);
+          const resolvedSeller = snapshotMatch?.sellerId || row.sellerId;
+
+          return {
+            id: it.id,
+            productId: it.productId,
+            productTitle: it.productTitle,
+            unitPrice: Number(it.unitPrice),
+            quantity: Number(it.quantity),
+            totalPrice: Number(it.totalPrice),
+            unitOfMeasure: it.unitOfMeasure || "PIECE",
+            sellerId: resolvedSeller,
+            image: finalImg,
+          };
+        });
+
+        return {
+          id: row.id,
+          orderNumber: row.orderNumber,
+          customerId: row.customerId,
+          sellerId: row.sellerId,
+          status: row.status,
+          paymentStatus: row.paymentStatus,
+          paymentMethod: "Chapa Hosted Gateway (Telebirr / CBE / Card)",
+          txRef: row.txRef || `MX-CHAPA-${row.orderNumber}`,
+          subtotalAmount: Number(row.subtotalAmount),
+          deliveryFee: Number(row.deliveryFee),
+          totalAmount: Number(row.totalAmount),
+          deliveryAddress: delivAddr,
+          notes: row.notes,
+          items: mappedItems.length > 0 ? mappedItems : snapshotList.map((s: any) => ({
+            id: s.id || crypto.randomUUID(),
+            productId: s.productId || s.id,
+            productTitle: s.productTitle || s.name || "Mercato Product",
+            unitPrice: Number(s.price || s.unitPrice || 0),
+            quantity: Number(s.quantity || 1),
+            totalPrice: Number(s.totalPrice || Number(s.price || s.unitPrice || 0) * Number(s.quantity || 1)),
+            unitOfMeasure: s.unitOfMeasure || "PIECE",
+            sellerId: s.sellerId || row.sellerId,
+            image: s.image || getAccurateProductImage(s.productTitle || s.name),
+          })),
+          createdAt: row.createdAt,
+        };
+      }),
       total: result.rowCount,
     });
   } catch (err: any) {
@@ -127,6 +165,25 @@ export async function POST(req: Request) {
       notes = "",
     } = body;
 
+    const itemsSnapshot = items.map((it: any) => ({
+      id: it.id,
+      productId: isValidUuid(it.productId || it.id) ? (it.productId || it.id) : it.id,
+      productTitle: it.name || it.productTitle || "Mercato Product",
+      price: Number(it.price || it.unitPrice || 0),
+      unitPrice: Number(it.price || it.unitPrice || 0),
+      quantity: Number(it.quantity || 1),
+      totalPrice: Number(it.price || it.unitPrice || 0) * Number(it.quantity || 1),
+      image: it.image || getAccurateProductImage(it.name || it.productTitle),
+      sellerId: it.sellerId || resolvedSellerId,
+      unitOfMeasure: it.unitOfMeasure || "PIECE",
+      sku: it.sku || it.productSku,
+    }));
+
+    const augmentedDeliveryAddress = {
+      ...(typeof deliveryAddress === "object" ? deliveryAddress : {}),
+      itemsSnapshot,
+    };
+
     // Check if order with this txRef was already recorded
     if (txRef) {
       const existing = await client.query(
@@ -138,8 +195,8 @@ export async function POST(req: Request) {
 
         // Update existing order status to CONFIRMED and paymentStatus to PAID
         await client.query(
-          `UPDATE orders SET "paymentStatus" = 'PAID', status = 'CONFIRMED', "updatedAt" = NOW() WHERE id = $1`,
-          [exOrder.id]
+          `UPDATE orders SET "paymentStatus" = 'PAID', status = 'CONFIRMED', "deliveryAddress" = $2, "updatedAt" = NOW() WHERE id = $1`,
+          [exOrder.id, JSON.stringify(augmentedDeliveryAddress)]
         );
 
         // Ensure payment is also recorded in mercatox_payment_db
@@ -157,8 +214,9 @@ export async function POST(req: Request) {
             escrowStatus: "HELD",
             metadata: {
               orderNumber: exOrder.orderNumber,
-              deliveryAddress,
+              deliveryAddress: augmentedDeliveryAddress,
               itemsCount: items.length,
+              items: itemsSnapshot,
               status: "COMPLETED",
               syncedAt: new Date().toISOString(),
             },
@@ -180,9 +238,10 @@ export async function POST(req: Request) {
     const resolvedCustomerId = isValidUuid(customerId)
       ? customerId
       : DEFAULT_CUSTOMER_ID;
+    const firstItemSeller = items.find((it: any) => isValidUuid(it.sellerId))?.sellerId;
     const resolvedSellerId = isValidUuid(sellerId)
       ? sellerId
-      : DEFAULT_SELLER_ID;
+      : (firstItemSeller || DEFAULT_SELLER_ID);
 
     const orderNumber = `MX-${new Date().getFullYear()}-${Math.floor(
       100000 + Math.random() * 900000
@@ -228,7 +287,7 @@ export async function POST(req: Request) {
         calcSubtotal,
         calcDeliveryFee,
         calcTotal,
-        JSON.stringify(deliveryAddress),
+        JSON.stringify(augmentedDeliveryAddress),
         notes,
         effectiveTxRef,
       ]
@@ -342,5 +401,52 @@ export async function POST(req: Request) {
     );
   } finally {
     client.release();
+  }
+}
+
+export async function PATCH(req: Request) {
+  try {
+    const body = await req.json();
+    const { orderId, newStatus, cancelReason, notes } = body || {};
+
+    if (!orderId) {
+      return NextResponse.json(
+        { success: false, error: "Order ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const pool = getOrderDbPool();
+    const updates: string[] = ['"updatedAt" = NOW()'];
+    const values: any[] = [orderId];
+
+    if (newStatus) {
+      values.push(newStatus);
+      updates.push(`status = $${values.length}`);
+    }
+
+    if (cancelReason !== undefined) {
+      values.push(cancelReason);
+      updates.push(`"cancelReason" = $${values.length}`);
+    }
+
+    if (notes !== undefined) {
+      values.push(notes);
+      updates.push(`notes = $${values.length}`);
+    }
+
+    const query = `UPDATE orders SET ${updates.join(", ")} WHERE id = $1`;
+    await pool.query(query, values);
+
+    return NextResponse.json({
+      success: true,
+      message: "Order updated successfully in database",
+    });
+  } catch (err: any) {
+    console.error("[Orders API PATCH Error]", err);
+    return NextResponse.json(
+      { success: false, error: err.message || "Failed to update order in database" },
+      { status: 500 }
+    );
   }
 }

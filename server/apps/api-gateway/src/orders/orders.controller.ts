@@ -31,7 +31,7 @@ export class OrdersController {
 
   @RateLimit({ limit: 20, ttlMs: 60000 })
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.CUSTOMER)
+  @Roles(UserRole.CUSTOMER, UserRole.SELLER, UserRole.ADMIN)
   @Post()
   createOrder(
     @CurrentUser('id') customerId: string,
@@ -41,7 +41,7 @@ export class OrdersController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.CUSTOMER)
+  @Roles(UserRole.CUSTOMER, UserRole.SELLER, UserRole.ADMIN)
   @Get('my-orders')
   getMyOrders(
     @CurrentUser('id') customerId: string,

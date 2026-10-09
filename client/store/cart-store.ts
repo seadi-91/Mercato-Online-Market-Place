@@ -13,6 +13,7 @@ export interface CartProduct {
   rating?: number;
   selectedSize?: string;
   selectedColor?: string;
+  sellerId?: string;
 }
 
 export interface CartItem extends CartProduct {

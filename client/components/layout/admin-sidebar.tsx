@@ -235,8 +235,8 @@ export function AdminSidebar() {
                     onClick={() => setActiveTab(item.id)}
                     title={isSidebarCollapsed ? item.label : undefined}
                     className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all cursor-pointer ${isActive
-                        ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 font-semibold"
-                        : "text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 border border-transparent"
+                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 font-semibold"
+                      : "text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 border border-transparent"
                       } ${isSidebarCollapsed ? "justify-center px-0 py-2.5" : ""}`}
                   >
                     <Icon
@@ -250,8 +250,8 @@ export function AdminSidebar() {
                         {item.badge !== undefined && item.badge > 0 && (
                           <span
                             className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold border ${isActive
-                                ? "bg-white/20 text-white border-white/30"
-                                : item.badgeColor
+                              ? "bg-white/20 text-white border-white/30"
+                              : item.badgeColor
                               }`}
                           >
                             {item.badge}

@@ -1,5 +1,6 @@
 import React from "react";
 import type { Metadata } from "next";
+import { SupplierAuthGuard } from "@/components/auth/supplier-auth-guard";
 
 export const metadata: Metadata = {
   title: "MercatoX | Enterprise B2B Supplier Dashboard & Workspace",
@@ -14,7 +15,10 @@ export default function SupplierDashboardLayout({
 }) {
   return (
     <div className="min-h-screen app-layout-canvas bg-[#070a10] text-zinc-100 flex flex-row font-sans selection:bg-indigo-600/30 selection:text-indigo-600 dark:text-indigo-400">
-      {children}
+      <SupplierAuthGuard>
+        {children}
+      </SupplierAuthGuard>
     </div>
   );
 }
+

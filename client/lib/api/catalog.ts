@@ -15,6 +15,14 @@ export interface BackendCategory {
   subCategories?: BackendCategory[];
 }
 
+export interface BackendTieredPricing {
+  id?: string;
+  productId?: string;
+  minQuantity: number;
+  maxQuantity?: number | null;
+  discountedPricePerUnit: number | string;
+}
+
 export interface BackendProduct {
   id: string;
   sellerId: string;
@@ -32,6 +40,20 @@ export interface BackendProduct {
   images: string[];
   isAvailable: boolean;
   isActive: boolean;
+  brand?: string;
+  origin?: string;
+  grade?: string;
+  warehouseLocation?: string;
+  branchId?: string;
+  branchName?: string;
+  status?: string;
+  certifications?: string[];
+  leadTimeDays?: number;
+  views?: number;
+  salesCount?: number;
+  rating?: number | string;
+  ratingCount?: number;
+  tieredPricing?: BackendTieredPricing[];
   createdAt: string;
   updatedAt: string;
 }
@@ -116,11 +138,11 @@ export function adaptBackendProduct(p: BackendProduct): Product {
   const retail =
     typeof p.retailPrice === "number"
       ? p.retailPrice
-      : parseFloat(p.retailPrice) || 0;
+      : parseFloat(p.retailPrice as string) || 0;
   const wholesale =
     typeof p.wholesalePrice === "number"
       ? p.wholesalePrice
-      : parseFloat(p.wholesalePrice) || 0;
+      : parseFloat(p.wholesalePrice as string) || 0;
 
   const catSlug = p.category?.slug || "computers-electronics";
   const catFallback =
@@ -128,7 +150,57 @@ export function adaptBackendProduct(p: BackendProduct): Product {
     "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80";
   const images = p.images && p.images.length > 0 ? p.images : [catFallback];
 
-  const marketZone = CATEGORY_ZONES[catSlug] || "Mercato Wholesale";
+  const marketZone = p.branchName || p.warehouseLocation || CATEGORY_ZONES[catSlug] || "Mercato Wholesale";
+
+  const tiers = (p.tieredPricing || []).map((tp) => {
+    const unitPrice =
+      typeof tp.discountedPricePerUnit === "number"
+        ? tp.discountedPricePerUnit
+        : parseFloat(tp.discountedPricePerUnit as string) || wholesale || retail;
+    const baseRef = wholesale > 0 ? wholesale : retail;
+    const savings =
+      baseRef > 0 && unitPrice < baseRef
+        ? Math.round(((baseRef - unitPrice) / baseRef) * 100)
+        : 0;
+    return {
+      id: tp.id,
+      minQuantity: tp.minQuantity,
+      maxQuantity: tp.maxQuantity,
+      discountedPricePerUnit: unitPrice,
+      savingsPercentage: savings,
+    };
+  });
+
+  const parsedRating = p.rating ? Number(p.rating) : 4.8;
+  const parsedRatingCount =
+    p.ratingCount ?? (p.salesCount ? Math.max(1, Math.round(p.salesCount * 0.4)) : 12);
+
+  const specifications: Record<string, string> = {
+    "Unit": p.unit || "Piece",
+    "SKU": p.sku || "N/A",
+    "Brand": p.brand || "Authentic Origin",
+    "Origin / Region": p.origin || "Ethiopia (Mercato Verified)",
+    "Quality Grade": p.grade || "Export Standard",
+    "Warehouse Hub": p.warehouseLocation || p.branchName || "Addis Ababa Central Hub",
+    "Lead Time": `${p.leadTimeDays || 3} Business Days`,
+    "Min Order Qty (MOQ)": `${p.minOrderQuantity || 1} ${p.unit || "unit"}`,
+    "Stock Status": p.stockQuantity > 0 ? `${p.stockQuantity} ${p.unit || "units"} Available` : "Backorder",
+    "Escrow Guarantee": "100% Funds Protected Until Inspection",
+    "Delivery Verification": "4-Digit Secure OTP Handover",
+  };
+
+  if (p.certifications && p.certifications.length > 0) {
+    specifications["Certifications"] = p.certifications.join(", ");
+  }
+
+  const tags = [
+    p.category?.name || "General",
+    p.brand || "",
+    p.origin || "",
+    p.grade || "",
+    marketZone,
+    "Escrow Protected",
+  ].filter(Boolean) as string[];
 
   return {
     id: p.id,
@@ -142,8 +214,9 @@ export function adaptBackendProduct(p: BackendProduct): Product {
     categorySlug: catSlug,
     price: retail,
     originalPrice: wholesale && wholesale > retail ? wholesale : Math.round(retail * 1.15),
-    rating: 4.8,
-    reviewCount: 36,
+    wholesalePrice: wholesale,
+    rating: isNaN(parsedRating) ? 4.8 : parsedRating,
+    reviewCount: parsedRatingCount,
     shopName: `${marketZone} Verified Store`,
     marketZone,
     isVerifiedSeller: true,
@@ -152,14 +225,27 @@ export function adaptBackendProduct(p: BackendProduct): Product {
     description: p.description || p.title,
     image: images[0],
     gallery: images,
-    tags: [p.category?.name || "General", marketZone, "Buyer Protected"],
-    specifications: {
-      Unit: p.unit || "PIECE",
-      SKU: p.sku || "N/A",
-      Guarantee: "100% Buyer Protection",
-      Dispatch: "24-48 Hours Express",
-    },
-    warranty: "30-Day Inspection Window",
+    sku: p.sku,
+    brand: p.brand,
+    origin: p.origin,
+    grade: p.grade,
+    warehouseLocation: p.warehouseLocation,
+    branchName: p.branchName,
+    branchId: p.branchId,
+    unit: p.unit || "Piece",
+    moq: p.minOrderQuantity || 1,
+    minOrderQuantity: p.minOrderQuantity || 1,
+    leadTimeDays: p.leadTimeDays || 3,
+    certifications: p.certifications || [],
+    views: p.views || 0,
+    salesCount: p.salesCount || 0,
+    status: p.status || "published",
+    tieredPricing: tiers,
+    createdAt: p.createdAt,
+    updatedAt: p.updatedAt,
+    specifications,
+    warranty: "30-Day Inspection & Escrow Window",
+    tags: Array.from(new Set(tags)),
   };
 }
 

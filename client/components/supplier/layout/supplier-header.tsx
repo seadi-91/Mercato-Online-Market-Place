@@ -257,8 +257,8 @@ export function SupplierHeader() {
           className="relative flex h-8 w-8 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
         >
           <MessageCircle className="h-4 w-4" />
-          {unreadMessages > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
+          {mounted && unreadMessages > 0 && (
+            <span suppressHydrationWarning className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-blue-600 px-1 text-[10px] font-bold text-white">
               {unreadMessages}
             </span>
           )}
@@ -275,8 +275,8 @@ export function SupplierHeader() {
           }`}
         >
           <Bell className="h-4 w-4" />
-          {unreadNotifications > 0 && (
-            <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
+          {mounted && unreadNotifications > 0 && (
+            <span suppressHydrationWarning className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-600 px-1 text-[10px] font-bold text-white">
               {unreadNotifications}
             </span>
           )}

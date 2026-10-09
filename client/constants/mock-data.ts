@@ -1,12 +1,22 @@
+export interface ProductTierPrice {
+  id?: string;
+  minQuantity: number;
+  maxQuantity?: number | null;
+  discountedPricePerUnit: number;
+  savingsPercentage?: number;
+}
+
 export interface Product {
   id: string;
   sellerId?: string;
   name: string;
+  nameAmharic?: string;
   slug: string;
   category: string;
   categorySlug: string;
   price: number;
   originalPrice?: number;
+  wholesalePrice?: number;
   rating: number;
   reviewCount: number;
   shopName: string;
@@ -20,6 +30,25 @@ export interface Product {
   specifications?: Record<string, string>;
   warranty?: string;
   tags: string[];
+  // Complete Supplier Fields:
+  sku?: string;
+  brand?: string;
+  origin?: string;
+  grade?: string;
+  warehouseLocation?: string;
+  branchName?: string;
+  branchId?: string;
+  unit?: string;
+  moq?: number;
+  minOrderQuantity?: number;
+  leadTimeDays?: number;
+  certifications?: string[];
+  views?: number;
+  salesCount?: number;
+  status?: string;
+  tieredPricing?: ProductTierPrice[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CategoryItem {

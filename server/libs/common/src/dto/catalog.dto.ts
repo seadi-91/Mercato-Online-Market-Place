@@ -318,6 +318,10 @@ export class FilterProductsDto {
   sellerId?: string;
 
   @IsOptional()
+  @IsString()
+  excludeSellerId?: string;
+
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
   @Min(0)

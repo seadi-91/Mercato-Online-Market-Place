@@ -14,10 +14,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
 
   const [product, relResult] = await Promise.all([
     fetchProductById(productId),
-    fetchProducts({ limit: 6, sortBy: "createdAt", sortOrder: "DESC" }),
+    fetchProducts({ limit: 8, sortBy: "createdAt", sortOrder: "DESC" }),
   ]);
 
-  const related = relResult.products.filter((p) => p.id !== productId).slice(0, 4);
+  const related = relResult.products.filter((p) => p.id !== productId).slice(0, 6);
 
   return (
     <ProductDetailClient

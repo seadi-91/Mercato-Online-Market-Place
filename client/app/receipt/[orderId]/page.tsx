@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { fetchCustomerOrders, CustomerOrder } from "@/lib/api/orders";
 import { useAuthStore } from "@/store";
+import { getAccurateProductImage } from "@/lib/utils/product-image";
 
 function ReceiptPageContent() {
   const params = useParams();
@@ -279,11 +280,11 @@ function ReceiptPageContent() {
                         <div className="col-span-7 flex items-center gap-3 min-w-0">
                           <div className="shrink-0">
                             <img
-                              src={item.image || "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=70"}
+                              src={item.image || getAccurateProductImage(item.productTitle)}
                               alt={item.productTitle}
                               className="h-12 w-12 rounded-xl object-cover border border-zinc-200 dark:border-white/10"
                               onError={(e) => {
-                                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200&q=70";
+                                (e.currentTarget as HTMLImageElement).src = getAccurateProductImage(item.productTitle);
                               }}
                             />
                           </div>

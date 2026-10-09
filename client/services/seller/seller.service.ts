@@ -30,6 +30,8 @@ export interface FilterProductsParams {
   search?: string;
   categoryId?: string;
   branchId?: string;
+  sellerId?: string;
+  excludeSellerId?: string;
   isAvailable?: boolean;
   isLowStock?: boolean;
   sortBy?: string;
@@ -139,6 +141,30 @@ export const sellerService = {
   // --- Categories ---
   getCategories: (tree: boolean = true): Promise<Category[]> => {
     return api.get<Category[]>(`${ENDPOINTS.CATEGORIES}?tree=${tree}`);
+  },
+
+  // --- Sourcing & Public Marketplace Catalog ---
+  getCatalogProducts: (
+    params?: FilterProductsParams
+  ): Promise<PaginatedResponse<Product>> => {
+    const query = new URLSearchParams();
+    if (params?.page) query.append("page", String(params.page));
+    if (params?.limit) query.append("limit", String(params.limit));
+    if (params?.search) query.append("search", params.search);
+    if (params?.categoryId) query.append("categoryId", params.categoryId);
+    if (params?.excludeSellerId) query.append("excludeSellerId", params.excludeSellerId);
+    if (params?.sortBy) query.append("sortBy", params.sortBy);
+    if (params?.sortOrder) query.append("sortOrder", params.sortOrder);
+
+    const qs = query.toString();
+    const url = qs
+      ? `${ENDPOINTS.CATALOG_PRODUCTS}?${qs}`
+      : ENDPOINTS.CATALOG_PRODUCTS;
+    return api.get<PaginatedResponse<Product>>(url);
+  },
+
+  getCatalogProductById: (id: string): Promise<Product> => {
+    return api.get<Product>(ENDPOINTS.CATALOG_PRODUCT_BY_ID(id));
   },
 
   // --- Orders ---

@@ -14,6 +14,8 @@ export const ENDPOINTS = {
   // Catalog & Categories
   CATEGORIES: "/catalog/categories",
   CATEGORY_BY_ID: (id: string) => `/catalog/categories/${id}`,
+  CATALOG_PRODUCTS: "/catalog/products",
+  CATALOG_PRODUCT_BY_ID: (id: string) => `/catalog/products/${id}`,
 
   // Seller Orders
   SELLER_ORDERS: "/seller/orders",

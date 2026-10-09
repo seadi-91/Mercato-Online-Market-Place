@@ -62,6 +62,8 @@ export class CatalogService implements OnModuleInit {
         { name: 'Smartphones & Mobile', slug: 'smartphones-mobile', nameAmharic: 'ስልኮች እና ሞባይል' },
         { name: 'Fashion, Apparel & Shoes', slug: 'fashion-apparel-shoes', nameAmharic: 'ፋሽን እና ልብሶች' },
         { name: 'Cosmetics & Skincare', slug: 'cosmetics-skincare', nameAmharic: 'ኮስሞቲክስ' },
+        { name: 'Packaging & Logistics', slug: 'packaging-logistics', nameAmharic: 'የማሸጊያ እና የሎጂስቲክስ እቃዎች' },
+        { name: 'Solar Energy & Electrical', slug: 'solar-energy-electrical', nameAmharic: 'የሶላር ሀይል እና ኤሌክትሪክ' },
         { name: 'Grains, Cereals & Groceries', slug: 'grains-cereals-groceries', nameAmharic: 'እህል እና ግሮሰሪ' },
         { name: 'Home, Kitchen & Appliances', slug: 'home-kitchen-appliances', nameAmharic: 'የቤት እና የወጥ ቤት እቃዎች' },
       ];
@@ -349,92 +351,247 @@ export class CatalogService implements OnModuleInit {
         const agriCatId = catMap.get('agricultural-commodities') || catMap.get('grains-cereals-groceries') || categories[0]?.id;
         const teffCatId = catMap.get('grains-cereals-teff') || catMap.get('grains-cereals-groceries') || categories[0]?.id;
         const sesameCatId = catMap.get('oilseeds-pulses') || catMap.get('grains-cereals-groceries') || categories[0]?.id;
+        const constrCatId = catMap.get('construction-industrial-materials') || categories[0]?.id;
+        const pkgCatId = catMap.get('packaging-logistics') || categories[0]?.id;
+        const coffeeCatId = catMap.get('specialty-coffee-spices') || agriCatId;
 
         const wholesaleCommodities = [
           {
-            title: 'Yirgacheffe Grade 1 Speciality Washed Arabica Coffee',
-            sku: 'ETH-COF-YRG-001',
-            categoryId: agriCatId,
-            retailPrice: 500,
-            wholesalePrice: 480,
-            minOrderQuantity: 500,
+            title: 'Yirgacheffe Grade 1 Specialty Washed Arabica Coffee (Green Beans)',
+            sku: 'SRC-COF-YRG-01',
+            categoryId: coffeeCatId,
+            retailPrice: 45500,
+            wholesalePrice: 42000,
+            minOrderQuantity: 10,
             unit: ProductUnit.KUNTAL,
-            stockQuantity: 42500,
-            lowStockThreshold: 5000,
+            stockQuantity: 450,
+            lowStockThreshold: 50,
             images: [
-              'https://images.unsplash.com/photo-1559525839-8f81ae7d3b5b?auto=format&fit=crop&w=600&q=80',
-              'https://images.unsplash.com/photo-1587734195503-904fca47e0e9?auto=format&fit=crop&w=600&q=80',
+              'https://images.unsplash.com/photo-1587734195503-904fca47e0e9?auto=format&fit=crop&w=800&q=80',
+              'https://images.unsplash.com/photo-1611854779393-1b2da9d400fe?auto=format&fit=crop&w=800&q=80',
             ],
-            description: 'Fully washed high-altitude Arabica coffee with distinct floral bergamot aroma, bright lemon acidity, and sweet nectarine finish. Harvested directly from partner cooperatives in Yirgacheffe highlands.',
-            brand: 'Abyssinia Gold Roast',
+            description: 'Direct-from-origin export quality Yirgacheffe Grade 1 Washed Arabica green coffee beans. Sourced from high-altitude smallholder cooperatives (1,950m - 2,200m). Characterized by floral jasmine aroma, bergamot citrus notes, and refined acidity.',
+            brand: 'Gedeo Highland Reserve',
             origin: 'Gedeo Zone, Yirgacheffe, Ethiopia',
-            grade: 'Grade 1 (SCA 88.5)',
+            grade: 'Grade 1 Washed (Q-Score 88.5)',
             warehouseLocation: 'Addis Ababa Central Logistics Hub (WH-AA)',
             branchId: 'wh-aa',
             branchName: 'Addis Ababa Central Logistics Hub',
             status: 'published',
-            certifications: ['ECX Grade 1', 'Fair Trade', 'Organic Certified'],
-            leadTimeDays: 3,
+            certifications: ['ECX Verified Seat #084', 'Ethiopian Coffee & Tea Authority Grade 1', 'Fairtrade Certified Organic'],
+            leadTimeDays: 2,
             tierPricing: [
-              { minQuantity: 500, maxQuantity: 999, discountedPricePerUnit: 480 },
-              { minQuantity: 1000, maxQuantity: 4999, discountedPricePerUnit: 450 },
-              { minQuantity: 5000, maxQuantity: 999999, discountedPricePerUnit: 420 },
+              { minQuantity: 10, maxQuantity: 50, discountedPricePerUnit: 42000 },
+              { minQuantity: 51, maxQuantity: 150, discountedPricePerUnit: 40500 },
+              { minQuantity: 151, maxQuantity: 999999, discountedPricePerUnit: 38800 },
             ],
           },
           {
-            title: 'Magna White Teff Super Premium Grain',
-            sku: 'ETH-GRN-TEF-102',
+            title: 'Magna Super White Teff - Adet Selected Harvest',
+            sku: 'SRC-GRN-TEF-02',
             categoryId: teffCatId,
-            retailPrice: 120,
-            wholesalePrice: 110,
-            minOrderQuantity: 1000,
+            retailPrice: 12500,
+            wholesalePrice: 11200,
+            minOrderQuantity: 20,
             unit: ProductUnit.KUNTAL,
-            stockQuantity: 85000,
-            lowStockThreshold: 10000,
+            stockQuantity: 1200,
+            lowStockThreshold: 100,
             images: [
-              'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=600&q=80',
+              'https://images.unsplash.com/photo-1586201375761-83865001e31c?auto=format&fit=crop&w=800&q=80',
+              'https://images.unsplash.com/photo-1574323347407-f5e1ad6d020b?auto=format&fit=crop&w=800&q=80',
             ],
-            description: 'Export-grade machine-cleaned Magna white teff grain, 99.8% purity, harvested from fertile Adaa volcanic plains.',
-            brand: 'Sheba Harvest',
-            origin: "Ada'a Bishoftu, Oromia, Ethiopia",
-            grade: 'Magna (First Class White)',
+            description: 'Premium quality Magna White Teff harvested from the fertile volcanic soils of East Gojjam. Machine cleaned, double optical color-sorted, and stone-free. Guaranteed 99.8% purity with zero chemical residues.',
+            brand: 'Gojjam Royal Grain',
+            origin: 'Adet & East Gojjam, Amhara, Ethiopia',
+            grade: 'Super Magna Grade A+ (100% Purity)',
+            warehouseLocation: 'Adama Logistics Terminal & Distribution Hub (WH-AD)',
+            branchId: 'wh-ad',
+            branchName: 'Adama Logistics Terminal',
+            status: 'published',
+            certifications: ['ECAE Quality Compliance Standards', 'Ethiopian Grain Trade Enterprise Seal', 'Halal Certified Grain'],
+            leadTimeDays: 1,
+            tierPricing: [
+              { minQuantity: 20, maxQuantity: 100, discountedPricePerUnit: 11200 },
+              { minQuantity: 101, maxQuantity: 300, discountedPricePerUnit: 10750 },
+              { minQuantity: 301, maxQuantity: 999999, discountedPricePerUnit: 10300 },
+            ],
+          },
+          {
+            title: 'Humera Whitish Sesame Seeds (Export Standard Grade)',
+            sku: 'SRC-OIL-SES-03',
+            categoryId: sesameCatId,
+            retailPrice: 31000,
+            wholesalePrice: 28500,
+            minOrderQuantity: 15,
+            unit: ProductUnit.KUNTAL,
+            stockQuantity: 600,
+            lowStockThreshold: 60,
+            images: [
+              'https://images.unsplash.com/photo-1599940824399-b87987ceb72a?auto=format&fit=crop&w=800&q=80',
+              'https://images.unsplash.com/photo-1543083477-4f785aeafaa9?auto=format&fit=crop&w=800&q=80',
+            ],
+            description: 'World-renowned Humera Whitish Sesame Seeds known for sweet taste, high oil yield (53%+), and uniform seed dimensions. Machine-hulled or natural raw options available.',
+            brand: 'Humera Gold Seeds',
+            origin: 'Humera / Tigray & Western Gondar Corridor',
+            grade: 'Grade 1 Whitish (Oil Content > 53%)',
             warehouseLocation: 'Modjo Dry Port Multi-Modal Terminal (WH-MJ)',
             branchId: 'wh-mj',
             branchName: 'Modjo Dry Port Multi-Modal Terminal',
             status: 'published',
-            certifications: ['Ethiopian Conformity Assessment', 'ECX Grade A'],
+            certifications: ['ECX Prime Certified Seat #012', 'SGS Pre-Shipment Inspection Ready', 'Organic EOS/NOP'],
             leadTimeDays: 2,
             tierPricing: [
-              { minQuantity: 1000, maxQuantity: 4999, discountedPricePerUnit: 110 },
-              { minQuantity: 5000, maxQuantity: 999999, discountedPricePerUnit: 102 },
+              { minQuantity: 15, maxQuantity: 50, discountedPricePerUnit: 28500 },
+              { minQuantity: 51, maxQuantity: 200, discountedPricePerUnit: 27400 },
+              { minQuantity: 201, maxQuantity: 999999, discountedPricePerUnit: 26200 },
             ],
           },
           {
-            title: 'Humera Grade A Whitish Sesame Seeds',
-            sku: 'ETH-OIL-SES-301',
-            categoryId: sesameCatId,
-            retailPrice: 220,
-            wholesalePrice: 210,
-            minOrderQuantity: 2000,
-            unit: ProductUnit.KUNTAL,
-            stockQuantity: 30000,
-            lowStockThreshold: 3000,
+            title: 'High-Tensile Deformed Steel Rebars (16mm x 12m, Grade 60)',
+            sku: 'SRC-IND-STL-16MM',
+            categoryId: constrCatId,
+            retailPrice: 148000,
+            wholesalePrice: 138000,
+            minOrderQuantity: 3,
+            unit: ProductUnit.PIECE,
+            stockQuantity: 180,
+            lowStockThreshold: 20,
             images: [
-              'https://images.unsplash.com/photo-1596040033229-a9821ebd058d?auto=format&fit=crop&w=600&q=80',
+              'https://images.unsplash.com/photo-1504917599217-d4dc5ebe6122?auto=format&fit=crop&w=800&q=80',
+              'https://images.unsplash.com/photo-1581092160607-ee22621dd758?auto=format&fit=crop&w=800&q=80',
             ],
-            description: 'World-renowned sweet aroma Humera sesame with 52% oil content and 99.5% minimum purity.',
-            brand: 'Tigray Agro Alliance',
-            origin: 'Humera, Tigray Region, Ethiopia',
-            grade: 'Grade A Humera Export Standard',
+            description: 'High tensile deformed reinforcement steel bars for multi-story structural concrete engineering, bridges, commercial towers, and industrial foundations. Mill test certificates provided with every bundle.',
+            brand: 'Abyssinia Steels & Metals',
+            origin: 'Dukem Industrial Park, Oromia, Ethiopia',
+            grade: 'ASTM A615 Grade 60 (Yield >= 420 MPa)',
+            warehouseLocation: 'Dukem Eastern Industry Zone Yard (WH-DK)',
+            branchId: 'wh-dk',
+            branchName: 'Dukem Industrial Park Logistics',
+            status: 'published',
+            certifications: ['ECAE Certified', 'ISO 9001:2015', 'Ministry of Urban & Infrastructure Approved'],
+            leadTimeDays: 1,
+            tierPricing: [
+              { minQuantity: 3, maxQuantity: 15, discountedPricePerUnit: 138000 },
+              { minQuantity: 16, maxQuantity: 50, discountedPricePerUnit: 133500 },
+              { minQuantity: 51, maxQuantity: 999999, discountedPricePerUnit: 128000 },
+            ],
+          },
+          {
+            title: 'Dangote Ordinary Portland Cement (OPC 42.5N, 50kg Bags)',
+            sku: 'SRC-IND-CMT-425',
+            categoryId: constrCatId,
+            retailPrice: 2200,
+            wholesalePrice: 1950,
+            minOrderQuantity: 100,
+            unit: ProductUnit.KUNTAL,
+            stockQuantity: 8500,
+            lowStockThreshold: 500,
+            images: [
+              'https://images.unsplash.com/photo-1590069261209-f8e9b8642343?auto=format&fit=crop&w=800&q=80',
+              'https://images.unsplash.com/photo-1541888946425-d0fbb18086f6?auto=format&fit=crop&w=800&q=80',
+            ],
+            description: 'Premium 42.5N Grade high early strength Ordinary Portland Cement. Packed in moisture-resistant 3-ply kraft paper bags with inner polyethylene layer.',
+            brand: 'Dangote Cement Ethiopia',
+            origin: 'Muger Valley, Oromia, Ethiopia',
+            grade: 'CEM I 42.5N High Early Strength',
+            warehouseLocation: 'Addis Ababa West (Gelan Logistics Terminal)',
+            branchId: 'wh-gln',
+            branchName: 'Gelan Bulk Logistics Terminal',
+            status: 'published',
+            certifications: ['ECAE Mark of Quality Certified', 'Standard EN 197-1 CEM I 42.5N'],
+            leadTimeDays: 1,
+            tierPricing: [
+              { minQuantity: 100, maxQuantity: 500, discountedPricePerUnit: 1950 },
+              { minQuantity: 501, maxQuantity: 2000, discountedPricePerUnit: 1880 },
+              { minQuantity: 2001, maxQuantity: 999999, discountedPricePerUnit: 1790 },
+            ],
+          },
+          {
+            title: 'Industrial 50kg PP Woven Grain & Agro Sacks (Heavy 85gsm)',
+            sku: 'SRC-PKG-SAC-50K',
+            categoryId: pkgCatId,
+            retailPrice: 21000,
+            wholesalePrice: 18500,
+            minOrderQuantity: 5,
+            unit: ProductUnit.CARTON,
+            stockQuantity: 340,
+            lowStockThreshold: 30,
+            images: [
+              'https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?auto=format&fit=crop&w=800&q=80',
+              'https://images.unsplash.com/photo-1553413077-190dd305871c?auto=format&fit=crop&w=800&q=80',
+            ],
+            description: 'Heavy-duty virgin polypropylene circular woven sacks designed for storing coffee, teff, sesame, beans, and animal feeds. Anti-slip diamond weave, hemmed mouth.',
+            brand: 'Ethio-Plastic Packaging',
+            origin: 'Hawassa Industrial Park, SNNPR, Ethiopia',
+            grade: 'Heavy Duty 85 GSM UV-Treated Polypropylene',
             warehouseLocation: 'Hawassa Agro-Processing Logistics Depot (WH-HW)',
             branchId: 'wh-hw',
             branchName: 'Hawassa Agro-Processing Logistics Depot',
             status: 'published',
-            certifications: ['ECX Certified', 'Phytosanitary Clearance'],
-            leadTimeDays: 4,
+            certifications: ['Food Grade Contact Certificate FDA', 'ECAE Packaging Standard'],
+            leadTimeDays: 2,
             tierPricing: [
-              { minQuantity: 2000, maxQuantity: 9999, discountedPricePerUnit: 210 },
-              { minQuantity: 10000, maxQuantity: 999999, discountedPricePerUnit: 195 },
+              { minQuantity: 5, maxQuantity: 25, discountedPricePerUnit: 18500 },
+              { minQuantity: 26, maxQuantity: 100, discountedPricePerUnit: 17600 },
+              { minQuantity: 101, maxQuantity: 999999, discountedPricePerUnit: 16800 },
+            ],
+          },
+          {
+            title: 'Sidama Grade 2 Natural Sun-Dried Organic Coffee Beans',
+            sku: 'SRC-COF-SID-02',
+            categoryId: coffeeCatId,
+            retailPrice: 41000,
+            wholesalePrice: 38500,
+            minOrderQuantity: 10,
+            unit: ProductUnit.KUNTAL,
+            stockQuantity: 520,
+            lowStockThreshold: 50,
+            images: [
+              'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80',
+            ],
+            description: 'Naturally processed sun-dried Arabica coffee from Bensa & Chire, Sidama. Blueberry notes, creamy milk chocolate mouthfeel, and balanced sweetness.',
+            brand: 'Sidama Coffee Farmers Union',
+            origin: 'Bensa Zone, Sidama Region, Ethiopia',
+            grade: 'Grade 2 Natural (Q-Score 86.0)',
+            warehouseLocation: 'Addis Ababa Central Logistics Hub (WH-AA)',
+            branchId: 'wh-aa',
+            branchName: 'Addis Ababa Central Logistics Hub',
+            status: 'published',
+            certifications: ['ECX Grade 2 Certified', 'Organic NOP/EU', 'Fairtrade'],
+            leadTimeDays: 2,
+            tierPricing: [
+              { minQuantity: 10, maxQuantity: 50, discountedPricePerUnit: 38500 },
+              { minQuantity: 51, maxQuantity: 200, discountedPricePerUnit: 37100 },
+              { minQuantity: 201, maxQuantity: 999999, discountedPricePerUnit: 35500 },
+            ],
+          },
+          {
+            title: 'High-Yield Yellow Soya Beans - Pawe Research Standard',
+            sku: 'SRC-PLS-SOY-08',
+            categoryId: sesameCatId,
+            retailPrice: 10200,
+            wholesalePrice: 9200,
+            minOrderQuantity: 25,
+            unit: ProductUnit.KUNTAL,
+            stockQuantity: 1500,
+            lowStockThreshold: 150,
+            images: [
+              'https://images.unsplash.com/photo-1543083477-4f785aeafaa9?auto=format&fit=crop&w=800&q=80',
+            ],
+            description: 'High-protein non-GMO yellow soya beans harvested from the Pawe agricultural development corridor in Benishangul-Gumuz. High oil yield and low foreign matter.',
+            brand: 'Abay Agro-Allied SC',
+            origin: 'Pawe & Metekel, Benishangul-Gumuz, Ethiopia',
+            grade: 'Grade 1 Cleaned (Protein > 39.5%)',
+            warehouseLocation: 'Adama Logistics Terminal & Distribution Hub (WH-AD)',
+            branchId: 'wh-ad',
+            branchName: 'Adama Logistics Terminal',
+            status: 'published',
+            certifications: ['Non-GMO Verified', 'ECX Commodity Grade Standard'],
+            leadTimeDays: 3,
+            tierPricing: [
+              { minQuantity: 25, maxQuantity: 100, discountedPricePerUnit: 9200 },
+              { minQuantity: 101, maxQuantity: 500, discountedPricePerUnit: 8800 },
+              { minQuantity: 501, maxQuantity: 999999, discountedPricePerUnit: 8400 },
             ],
           },
         ];
@@ -482,7 +639,7 @@ export class CatalogService implements OnModuleInit {
             }
           }
         }
-        console.log('[CatalogService] Default authentic wholesale products seeded for supplier account');
+        console.log('[CatalogService] Wholesale marketplace commodities seeded in database');
       }
     } catch (err) {
       console.error('[CatalogService] Seed products error:', err);
@@ -702,10 +859,22 @@ export class CatalogService implements OnModuleInit {
   }
 
   async getProductById(id: string): Promise<Product> {
-    const product = await this.productRepository.findOne({
-      where: { id, isActive: true },
-      relations: ['category', 'tieredPricing'],
-    });
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let product: Product | null = null;
+    
+    if (uuidRegex.test(id)) {
+      product = await this.productRepository.findOne({
+        where: { id, isActive: true },
+        relations: ['category', 'tieredPricing'],
+      });
+    }
+    
+    if (!product) {
+      product = await this.productRepository.findOne({
+        where: { sku: id, isActive: true },
+        relations: ['category', 'tieredPricing'],
+      });
+    }
 
     if (!product) {
       throw new RpcException(new NotFoundException('Product not found'));
@@ -745,6 +914,15 @@ export class CatalogService implements OnModuleInit {
       queryBuilder.andWhere('product.sellerId = :sellerId', {
         sellerId: dto.sellerId,
       });
+    }
+
+    if (dto.excludeSellerId) {
+      queryBuilder.andWhere(
+        '(product.sellerId IS NULL OR product.sellerId != :excludeSellerId)',
+        {
+          excludeSellerId: dto.excludeSellerId,
+        },
+      );
     }
 
     if (dto.minPrice !== undefined) {

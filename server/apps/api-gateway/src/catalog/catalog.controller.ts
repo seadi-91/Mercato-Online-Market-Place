@@ -38,7 +38,7 @@ export class CatalogController {
   }
 
   @Get('products/:id')
-  getProductById(@Param('id', new ParseUUIDPipe()) id: string) {
+  getProductById(@Param('id') id: string) {
     return this.catalogClient.send('get_product_by_id', { id });
   }
 
