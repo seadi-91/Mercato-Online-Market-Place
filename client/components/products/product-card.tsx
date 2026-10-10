@@ -19,9 +19,17 @@ interface ProductCardProps {
   product: Product;
   onQuickView?: (product: Product) => void;
   tradeView?: TradeType;
+  hideBadges?: boolean;
+  transparentCartButton?: boolean;
 }
 
-export function ProductCard({ product, onQuickView, tradeView = "ALL" }: ProductCardProps) {
+export function ProductCard({
+  product,
+  onQuickView,
+  tradeView = "ALL",
+  hideBadges = false,
+  transparentCartButton = false,
+}: ProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const isFavorite = useCartStore((state) => state.isFavorite);
@@ -98,30 +106,16 @@ export function ProductCard({ product, onQuickView, tradeView = "ALL" }: Product
           loading="lazy"
         />
 
-        {/* Trade Badges: Wholesale vs Retail */}
-        <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
-          {tradeInfo.classification === "wholesale_only" && (
-            <span className="rounded bg-gradient-to-r from-amber-500 to-orange-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs flex items-center gap-1 uppercase tracking-wider">
-              <span>Wholesale</span>
-            </span>
-          )}
-          {tradeInfo.classification === "dual" && (
-            <span className="rounded bg-gradient-to-r from-amber-500 to-indigo-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs flex items-center gap-1 uppercase tracking-wider">
-              <span>Bulk & Retail</span>
-            </span>
-          )}
-          {tradeInfo.classification === "retail_only" && (
-            <span className="rounded bg-gradient-to-r from-indigo-600 to-cyan-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs flex items-center gap-1 uppercase tracking-wider">
-              <span>Retail</span>
-            </span>
-          )}
-
-          {product.badge && (
-            <span className="rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs">
-              {product.badge}
-            </span>
-          )}
-        </div>
+        {/* Optional product-specific badge */}
+        {!hideBadges && (
+          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
+            {product.badge && (
+              <span className="rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs">
+                {product.badge}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Quick Actions on Top Right */}
         <div className="absolute right-1.5 top-1.5 flex items-center gap-1 z-10">
@@ -134,7 +128,11 @@ export function ProductCard({ product, onQuickView, tradeView = "ALL" }: Product
             title="Quick View"
             className="flex items-center justify-center p-1 text-white hover:scale-115 transition-transform cursor-pointer bg-transparent border-none outline-none"
           >
-            <Eye className="h-3.5 w-3.5 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]" />
+            <Eye
+              className="h-3.5 w-3.5 text-white stroke-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
+              color="#ffffff"
+              style={{ stroke: "#ffffff" }}
+            />
           </button>
 
           <button
@@ -145,8 +143,10 @@ export function ProductCard({ product, onQuickView, tradeView = "ALL" }: Product
           >
             <Heart
               className={`h-3.5 w-3.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] transition-colors ${
-                fav ? "fill-rose-500 text-rose-500" : "text-white"
+                fav ? "fill-white text-white" : "text-white"
               }`}
+              color="#ffffff"
+              style={{ fill: fav ? "#ffffff" : "none", stroke: "#ffffff" }}
             />
           </button>
         </div>
@@ -186,7 +186,7 @@ export function ProductCard({ product, onQuickView, tradeView = "ALL" }: Product
         {/* Price & Compact Cart Action */}
         <div className="mt-1.5 pt-1.5 border-t border-app flex items-center justify-between gap-1">
           <div className="min-w-0">
-            {/* Show wholesale price if viewing wholesale and available */}
+            {/* Show the selected trade-view price when available */}
             {tradeView === "WHOLESALE" && tradeInfo.wholesalePrice ? (
               <div className="flex flex-col">
                 <div className="flex items-baseline gap-1">
@@ -200,9 +200,6 @@ export function ProductCard({ product, onQuickView, tradeView = "ALL" }: Product
                     </span>
                   )}
                 </div>
-                <div className="text-[8.5px] text-app-muted truncate font-mono">
-                  MOQ: {tradeInfo.moq} {tradeInfo.unit}
-                </div>
               </div>
             ) : tradeInfo.wholesalePrice && tradeInfo.classification === "dual" ? (
               <div className="flex flex-col">
@@ -210,18 +207,12 @@ export function ProductCard({ product, onQuickView, tradeView = "ALL" }: Product
                   {product.price.toLocaleString()}{" "}
                   <span className="text-[9px] font-bold opacity-80">ETB</span>
                 </div>
-                <div className="text-[8.5px] text-amber-500 truncate font-mono">
-                  Wholesale: {tradeInfo.wholesalePrice.toLocaleString()} ETB
-                </div>
               </div>
             ) : (
               <div className="flex flex-col">
                 <div className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-app">
                   {product.price.toLocaleString()}{" "}
                   <span className="text-[9px] font-bold opacity-80">ETB</span>
-                </div>
-                <div className="text-[8.5px] text-app-muted truncate">
-                  {tradeInfo.moq > 1 ? `MOQ: ${tradeInfo.moq} ${tradeInfo.unit}` : "1 Unit • Retail"}
                 </div>
               </div>
             )}
@@ -231,16 +222,18 @@ export function ProductCard({ product, onQuickView, tradeView = "ALL" }: Product
             type="button"
             onClick={handleAddToCart}
             title={isAdded ? "Added" : "Add to cart"}
-            className={`flex h-6.5 w-6.5 items-center justify-center rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 shadow-xs ${
-              isAdded
-                ? "bg-emerald-600 text-white shadow-emerald-600/30"
-                : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30 hover:scale-105"
+            className={`flex h-6.5 w-6.5 items-center justify-center rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 ${
+              transparentCartButton
+                ? "bg-transparent text-white shadow-none hover:scale-105"
+                : isAdded
+                  ? "bg-transparent text-emerald-600 shadow-none"
+                  : "bg-transparent text-indigo-600 shadow-none hover:text-indigo-500 hover:scale-105"
             }`}
           >
             {isAdded ? (
-              <Check className="h-3.5 w-3.5 text-white" />
+              <Check className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
             ) : (
-              <ShoppingCart className="h-3.5 w-3.5 text-white" />
+              <ShoppingCart className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
             )}
           </button>
         </div>

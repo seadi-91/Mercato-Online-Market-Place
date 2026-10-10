@@ -71,29 +71,17 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException('No document file provided');
     }
-    try {
-      const result = await this.cloudinaryService.uploadDocument(
-        file,
-        'mercatox/kyc_documents',
-      );
-      return {
-        url: result.secure_url,
-        publicId: result.public_id,
-        format: result.format,
-        originalName: file.originalname,
-        size: file.size,
-      };
-    } catch (err) {
-      const cleanName = file.originalname.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const fallbackUrl = `https://res.cloudinary.com/g6sjmpgr/image/upload/v${Date.now()}/mercatox/kyc/${cleanName}`;
-      return {
-        url: fallbackUrl,
-        publicId: `kyc-${Date.now()}`,
-        format: file.mimetype.split('/')[1] || 'pdf',
-        originalName: file.originalname,
-        size: file.size,
-      };
-    }
+    const result = await this.cloudinaryService.uploadDocument(
+      file,
+      'mercatox/kyc_documents',
+    );
+    return {
+      url: result.secure_url,
+      publicId: result.public_id,
+      format: result.format,
+      originalName: file.originalname,
+      size: file.size,
+    };
   }
 
   @RateLimit({ limit: 20, ttlMs: 60000 })
@@ -204,4 +192,3 @@ export class UploadController {
     return this.cloudinaryService.deleteFile(publicId);
   }
 }
-

@@ -878,6 +878,19 @@ html:not(.dark) header.header-scrolled {
   box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.06) !important;
 }
 
+html[data-theme="light"] header.header-page-top,
+html.theme-light header.header-page-top,
+html[data-theme="dark"] header.header-page-top,
+html.theme-dark header.header-page-top,
+html[data-theme="system"] header.header-page-top,
+html.theme-system header.header-page-top {
+  background-color: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
 html[data-theme="dark"] header.header-scrolled,
 html.theme-dark header.header-scrolled {
   background-color: rgba(9, 9, 11, 0.95) !important;
@@ -1554,4 +1567,90 @@ html.theme-system .supplier-workspace .text-\[\#2E7D32\],
 html[data-theme="system"] .supplier-workspace .text-brand-primary,
 html.theme-system .supplier-workspace .text-brand-primary {
   color: #a5b4fc !important;
+}
+
+html[data-theme="light"] .customer-profile-dropdown .customer-profile-label,
+html.theme-light .customer-profile-dropdown .customer-profile-label,
+html[data-theme="light"] header.header-transparent .customer-profile-dropdown .customer-profile-label,
+html.theme-light header.header-transparent .customer-profile-dropdown .customer-profile-label {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .customer-profile-dropdown a,
+html.theme-light .customer-profile-dropdown a,
+html[data-theme="light"] header.header-transparent .customer-profile-dropdown a,
+html.theme-light header.header-transparent .customer-profile-dropdown a {
+  color: #0f172a !important;
+}
+
+html[data-theme="light"] .customer-profile-dropdown a:hover,
+html.theme-light .customer-profile-dropdown a:hover,
+html[data-theme="light"] header.header-transparent .customer-profile-dropdown a:hover,
+html.theme-light header.header-transparent .customer-profile-dropdown a:hover {
+  background-color: #f1f5f9 !important;
+  color: #020617 !important;
+}
+
+html[data-theme="light"] .customer-profile-dropdown .customer-profile-role,
+html.theme-light .customer-profile-dropdown .customer-profile-role,
+html[data-theme="light"] header.header-transparent .customer-profile-dropdown .customer-profile-role,
+html.theme-light header.header-transparent .customer-profile-dropdown .customer-profile-role {
+  color: #4338ca !important;
+}
+
+/* Admin platform settings surfaces follow the selected application theme. */
+html[data-theme="light"] .admin-settings-surface,
+html.theme-light .admin-settings-surface {
+  background-color: #ffffff !important;
+  border-color: #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 8px 24px -12px rgba(15, 23, 42, 0.18) !important;
+}
+
+html[data-theme="light"] .admin-platform-settings [class*="bg-black/"],
+html.theme-light .admin-platform-settings [class*="bg-black/"] {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #0f172a !important;
+}
+
+html[data-theme="dark"] .admin-settings-surface,
+html.theme-dark .admin-settings-surface {
+  background-color: #09090b !important;
+  border-color: #27272a !important;
+  color: #fafafa !important;
+  box-shadow: 0 8px 24px -12px rgba(0, 0, 0, 0.8) !important;
+}
+
+html[data-theme="dark"] .admin-platform-settings [class*="bg-black/"],
+html.theme-dark .admin-platform-settings [class*="bg-black/"] {
+  background-color: #09090b !important;
+  border-color: #27272a !important;
+  color: #fafafa !important;
+}
+
+html[data-theme="system"] .admin-settings-surface,
+html.theme-system .admin-settings-surface {
+  background-color: #0f1b3b !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+  color: #f8fafc !important;
+  box-shadow: 0 8px 24px -12px rgba(5, 11, 29, 0.8) !important;
+}
+
+html[data-theme="system"] .admin-platform-settings [class*="bg-black/"],
+html.theme-system .admin-platform-settings [class*="bg-black/"] {
+  background-color: #08122c !important;
+  border-color: rgba(59, 130, 246, 0.35) !important;
+  color: #f8fafc !important;
+}
+
+html[data-theme="light"] .admin-platform-settings .admin-settings-dark-preview,
+html.theme-light .admin-platform-settings .admin-settings-dark-preview {
+  background-color: #090d16 !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+html[data-theme="light"] .admin-platform-settings .admin-settings-dark-preview .text-white,
+html.theme-light .admin-platform-settings .admin-settings-dark-preview .text-white {
+  color: #ffffff !important;
 }

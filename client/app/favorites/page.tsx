@@ -220,7 +220,7 @@ export default function FavoritesPage() {
                     className="product-image-action-btn absolute right-2 top-2 p-1 text-white hover:scale-115 transition-transform cursor-pointer"
                   >
                     <Eye
-                      className="h-4 w-4 drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]"
+                      className="h-4 w-4 stroke-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.7)]"
                       color="#ffffff"
                       style={{ stroke: "#ffffff", color: "#ffffff" }}
                     />
@@ -353,10 +353,10 @@ export default function FavoritesPage() {
               >
                 <div
                   onClick={() => handleQuickView(product)}
-                  className="product-card-surface group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-[#0d1222]/90 p-2.5 sm:p-3 backdrop-blur-xl transition-all duration-300 hover:border-indigo-500/50 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden h-full"
+                  className="product-card-surface group relative flex flex-col justify-between rounded-2xl border border-white/10 bg-[#0d1222]/90 backdrop-blur-xl transition-all duration-300 hover:border-indigo-500/50 hover:shadow-xl hover:-translate-y-1 cursor-pointer overflow-hidden h-full"
                 >
                   <div>
-                    <div className="relative aspect-square w-full overflow-hidden rounded-xl bg-[#090d18] mb-2 border border-white/5">
+                    <div className="relative aspect-square w-full overflow-hidden bg-[#090d18]">
                       <img
                         src={product.image}
                         alt={product.name}
@@ -381,30 +381,38 @@ export default function FavoritesPage() {
                           toast.success("Saved to favorites", { description: product.name });
                         }}
                         title="Save to Wishlist"
-                        className="absolute right-1.5 top-1.5 h-6 w-6 sm:h-7 sm:w-7 rounded-md bg-black/70 border border-white/20 flex items-center justify-center text-rose-400 hover:bg-rose-500 hover:text-white transition-all shadow-md"
+                        className="absolute right-1.5 top-1.5 h-6 w-6 sm:h-7 sm:w-7 flex items-center justify-center text-white hover:scale-110 transition-transform"
                       >
-                        <Heart className="h-3.5 w-3.5" />
+                        <Heart
+                          className="h-3.5 w-3.5 stroke-white"
+                          color="#ffffff"
+                          style={{ stroke: "#ffffff" }}
+                        />
                       </button>
                     </div>
 
-                    <span className="text-[9.5px] font-bold uppercase tracking-wider text-indigo-400 truncate block">
-                      {product.category}
-                    </span>
-                    <h3 className="text-xs sm:text-[13px] font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-2 leading-snug min-h-[32px]">
-                      {product.name}
-                    </h3>
+                    <div className="p-2.5 sm:p-3">
+                      <span className="text-[9.5px] font-bold uppercase tracking-wider text-indigo-400 truncate block">
+                        {product.category}
+                      </span>
+                      <h3 className="text-xs sm:text-[13px] font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-2 leading-snug min-h-[32px]">
+                        {product.name}
+                      </h3>
+                    </div>
                   </div>
 
-                  <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between gap-1">
+                  <div className="mx-2.5 sm:mx-3 mt-auto py-2 border-t border-white/10 flex items-center justify-between gap-1">
                     <span className="text-xs sm:text-sm font-black text-white font-mono truncate">
                       {product.price.toLocaleString()} <span className="text-[10px] text-cyan-400">ETB</span>
                     </span>
                     <button
                       type="button"
                       onClick={(e) => handleAddToCart(e, product)}
-                      className="rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white px-2 py-1 text-[11px] font-bold shadow-sm"
+                      title="Add to Cart"
+                      aria-label={`Add ${product.name} to cart`}
+                      className="flex h-7 w-7 items-center justify-center bg-transparent text-white transition-transform hover:scale-110"
                     >
-                      <ShoppingCart className="h-3 w-3" />
+                      <ShoppingCart className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

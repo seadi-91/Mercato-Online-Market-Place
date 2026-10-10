@@ -9,12 +9,9 @@ import {
   Box,
   Eye,
   MoreVertical,
-  X,
   CheckCircle2,
   Package,
   ShieldCheck,
-  Tag,
-  Image as ImageIcon,
   Trash2,
   AlertTriangle,
 } from "lucide-react";
@@ -22,11 +19,9 @@ import { toast } from "sonner";
 import {
   deleteProductAdmin,
   fetchAllProducts,
-  fetchProductById,
   reactivateProduct,
   suspendProduct,
 } from "@/lib/api/catalog";
-import type { Product } from "@/constants/mock-data";
 
 interface ProductRowMeta {
   id: string;
@@ -48,9 +43,6 @@ export function AdminCatalog() {
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("ALL");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isDetailOpen, setIsDetailOpen] = useState(false);
-  const [isFetchingDetail, setIsFetchingDetail] = useState(false);
   const [updatingProductId, setUpdatingProductId] = useState<string | null>(null);
   const [productToDelete, setProductToDelete] = useState<ProductRowMeta | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -99,21 +91,9 @@ export function AdminCatalog() {
 
   const activeCount = products.filter((p) => p.status === "ACTIVE").length;
 
-  const handleViewDetails = async (productId: string) => {
+  const handleViewDetails = (productId: string) => {
     setOpenMenuId(null);
-    setIsFetchingDetail(true);
-
-    try {
-      const detail = await fetchProductById(productId);
-      setSelectedProduct(detail || null);
-      setIsDetailOpen(true);
-    } catch {
-      toast.error("Product details unavailable", {
-        description: "Backend response did not include the requested product details.",
-      });
-    } finally {
-      setIsFetchingDetail(false);
-    }
+    router.push(`/dashboard/admin/products/${encodeURIComponent(productId)}`);
   };
 
   const handleMerchantStore = (item: ProductRowMeta) => {
@@ -312,7 +292,7 @@ export function AdminCatalog() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 transition-colors hover:bg-indigo-500/15 cursor-pointer"
                               >
                                 <Eye className="h-3.5 w-3.5" />
-                                <span>{isFetchingDetail ? "Loading..." : "View details"}</span>
+                                <span>View details</span>
                               </button>
 
                               <button
@@ -358,141 +338,6 @@ export function AdminCatalog() {
           </table>
         </div>
       </div>
-
-      {isDetailOpen && selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-3 backdrop-blur-sm">
-          <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-white/10 bg-[#0d121f] shadow-2xl">
-            <div className="flex items-start justify-between border-b border-white/10 p-4">
-              <div>
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.12em] text-indigo-400">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  <span>Product moderation</span>
-                </div>
-                <h3 className="mt-2 text-lg font-bold text-white">{selectedProduct.name}</h3>
-                <p className="mt-1 text-[11px] font-mono text-zinc-400">SKU: {selectedProduct.specifications?.SKU || "N/A"}</p>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => setIsDetailOpen(false)}
-                className="rounded-lg p-1.5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="max-h-[75vh] overflow-y-auto p-4">
-              <div className="grid gap-4 md:grid-cols-[180px_1fr]">
-                <div className="overflow-hidden rounded-xl border border-white/10 bg-[#090d16]">
-                  {selectedProduct.image ? (
-                    <Image
-                      src={selectedProduct.image}
-                      alt={selectedProduct.name}
-                      width={180}
-                      height={192}
-                      className="h-48 w-full object-cover"
-                      unoptimized
-                    />
-                  ) : (
-                    <div className="flex h-48 items-center justify-center text-zinc-500">
-                      <ImageIcon className="h-10 w-10" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="space-y-4 text-xs text-zinc-300">
-                  <div className="grid grid-cols-2 gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Price</p>
-                      <p className="mt-1 font-mono text-sm font-bold text-emerald-400">
-                        ETB {selectedProduct.price.toLocaleString()}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Stock</p>
-                      <p className="mt-1 font-mono text-sm font-bold text-cyan-300">
-                        {selectedProduct.stock}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Category</p>
-                      <p className="mt-1 font-semibold text-white">{selectedProduct.category}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Market Zone</p>
-                      <p className="mt-1 font-semibold text-white">{selectedProduct.marketZone}</p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500">Merchant / Store</p>
-                    <div className="mt-2 flex items-center gap-2 text-sm font-medium text-white">
-                      <Store className="h-3.5 w-3.5 text-indigo-400" />
-                      <span>{selectedProduct.shopName}</span>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500">Description</p>
-                    <p className="mt-2 leading-relaxed text-zinc-300">
-                      {selectedProduct.description || "No description provided by the backend."}
-                    </p>
-                  </div>
-
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Warranty</p>
-                      <p className="mt-2 font-medium text-white">{selectedProduct.warranty || "Not specified"}</p>
-                    </div>
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Verification</p>
-                      <p className="mt-2 font-medium text-white">
-                        {selectedProduct.isVerifiedSeller ? "Verified Seller" : "Unverified Seller"}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-wider text-zinc-500">Backend metadata</p>
-                    <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                      {selectedProduct.specifications && Object.entries(selectedProduct.specifications).map(([key, value]) => (
-                        <div key={key} className="rounded-lg border border-white/10 bg-[#090d16] px-2.5 py-2">
-                          <p className="text-[9px] uppercase tracking-wider text-zinc-500">{key}</p>
-                          <p className="mt-1 font-medium text-white">{value}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {selectedProduct.tags && selectedProduct.tags.length > 0 && (
-                    <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                      <p className="text-[10px] uppercase tracking-wider text-zinc-500">Tags</p>
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        {selectedProduct.tags.map((tag) => (
-                          <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-1 text-[10px] font-medium text-indigo-300">
-                            <Tag className="h-3 w-3" />
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end border-t border-white/10 p-4">
-              <button
-                type="button"
-                onClick={() => setIsDetailOpen(false)}
-                className="rounded-lg bg-indigo-600 px-4 py-2 text-xs font-semibold text-white transition-colors hover:bg-indigo-500 cursor-pointer"
-              >
-                Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Delete Product Confirmation Pop-Up Modal */}
       {productToDelete && (

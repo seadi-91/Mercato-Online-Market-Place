@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import {
   LayoutDashboard,
   Tag,
@@ -39,6 +39,7 @@ interface NavGroup {
 
 export function AdminSidebar() {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
   const {
@@ -232,7 +233,12 @@ export function AdminSidebar() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setActiveTab(item.id)}
+                    onClick={() => {
+                      setActiveTab(item.id);
+                      if (pathname !== "/dashboard/admin") {
+                        router.push("/dashboard/admin");
+                      }
+                    }}
                     title={isSidebarCollapsed ? item.label : undefined}
                     className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all cursor-pointer ${isActive
                       ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 font-semibold"

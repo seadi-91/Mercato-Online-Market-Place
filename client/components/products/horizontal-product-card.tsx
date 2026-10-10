@@ -21,12 +21,16 @@ interface HorizontalProductCardProps {
   product: Product;
   onQuickView?: (product: Product) => void;
   tradeView?: TradeType;
+  hideBadges?: boolean;
+  transparentCartButton?: boolean;
 }
 
 export function HorizontalProductCard({
   product,
   onQuickView,
   tradeView = "ALL",
+  hideBadges = false,
+  transparentCartButton = false,
 }: HorizontalProductCardProps) {
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
@@ -104,30 +108,16 @@ export function HorizontalProductCard({
           loading="lazy"
         />
 
-        {/* Trade Badge */}
-        <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
-          {tradeInfo.classification === "wholesale_only" && (
-            <span className="rounded bg-gradient-to-r from-amber-500 to-orange-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs uppercase tracking-wider">
-              Wholesale
-            </span>
-          )}
-          {tradeInfo.classification === "dual" && (
-            <span className="rounded bg-gradient-to-r from-amber-500 to-indigo-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs uppercase tracking-wider">
-              Bulk & Retail
-            </span>
-          )}
-          {tradeInfo.classification === "retail_only" && (
-            <span className="rounded bg-gradient-to-r from-indigo-600 to-cyan-600 backdrop-blur-xs px-1.5 py-0.5 text-[8.5px] font-extrabold text-white shadow-xs uppercase tracking-wider">
-              Retail
-            </span>
-          )}
-
-          {product.badge && (
-            <span className="rounded bg-black/85 backdrop-blur-xs px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs">
-              {product.badge}
-            </span>
-          )}
-        </div>
+        {/* Optional product-specific badge */}
+        {!hideBadges && (
+          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
+            {product.badge && (
+              <span className="rounded bg-black/85 backdrop-blur-xs px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs">
+                {product.badge}
+              </span>
+            )}
+          </div>
+        )}
 
         {/* Quick View & Wishlist Overlay */}
         <div className="absolute right-1.5 top-1.5 flex items-center gap-1 z-10">
@@ -140,7 +130,11 @@ export function HorizontalProductCard({
             title="Quick View"
             className="flex items-center justify-center p-1 text-white hover:scale-115 transition-transform cursor-pointer bg-black/40 rounded-md backdrop-blur-xs border border-white/10"
           >
-            <Eye className="h-3.5 w-3.5 text-white" />
+            <Eye
+              className="h-3.5 w-3.5 text-white stroke-white"
+              color="#ffffff"
+              style={{ stroke: "#ffffff" }}
+            />
           </button>
           <button
             type="button"
@@ -150,8 +144,10 @@ export function HorizontalProductCard({
           >
             <Heart
               className={`h-3.5 w-3.5 transition-colors ${
-                fav ? "fill-rose-500 text-rose-500" : "text-white"
+                fav ? "fill-white text-white" : "text-white"
               }`}
+              color="#ffffff"
+              style={{ fill: fav ? "#ffffff" : "none", stroke: "#ffffff" }}
             />
           </button>
         </div>
@@ -225,9 +221,6 @@ export function HorizontalProductCard({
                   </span>
                 )}
               </div>
-              <div className="text-[10px] text-app-muted font-medium">
-                MOQ: {tradeInfo.moq} {tradeInfo.unit}
-              </div>
             </div>
           ) : tradeInfo.wholesalePrice && tradeInfo.classification === "dual" ? (
             <div>
@@ -235,21 +228,12 @@ export function HorizontalProductCard({
                 {product.price.toLocaleString()}{" "}
                 <span className="text-[10px] font-bold text-indigo-500">ETB</span>
               </div>
-              <div className="text-[10.5px] text-amber-500 font-medium">
-                Wholesale: {tradeInfo.wholesalePrice.toLocaleString()} ETB
-              </div>
-              <div className="text-[9.5px] text-app-muted">
-                MOQ: {tradeInfo.moq} {tradeInfo.unit}
-              </div>
             </div>
           ) : (
             <div>
               <div className="text-base sm:text-lg font-black tracking-tight font-mono text-app">
                 {product.price.toLocaleString()}{" "}
                 <span className="text-[10px] font-bold text-indigo-500">ETB</span>
-              </div>
-              <div className="text-[10px] text-app-muted">
-                {tradeInfo.moq > 1 ? `MOQ: ${tradeInfo.moq} ${tradeInfo.unit}` : "1 Unit • Retail Direct"}
               </div>
             </div>
           )}
@@ -258,20 +242,22 @@ export function HorizontalProductCard({
         <button
           type="button"
           onClick={handleAddToCart}
-          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-sm ${
-            isAdded
-              ? "bg-emerald-600 text-white"
-              : "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/20"
+          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
+            transparentCartButton
+              ? "bg-transparent text-white shadow-none"
+              : isAdded
+                ? "bg-transparent text-emerald-600 shadow-none"
+                : "bg-transparent text-indigo-600 shadow-none hover:text-indigo-500"
           }`}
         >
           {isAdded ? (
             <>
-              <Check className="h-3.5 w-3.5" />
+              <Check className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
               <span>Added</span>
             </>
           ) : (
             <>
-              <ShoppingCart className="h-3.5 w-3.5" />
+              <ShoppingCart className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
               <span>Add to Cart</span>
             </>
           )}

@@ -383,7 +383,7 @@ export function ProductDetailClient({
     if (navigator.share) {
       navigator.share({
         title: product.name,
-        text: `Check out ${product.name} on MercatoX Wholesale Marketplace`,
+        text: `Check out ${product.name} on MercatoX`,
         url: window.location.href,
       });
     } else {
@@ -774,7 +774,7 @@ export function ProductDetailClient({
               </div>
             </div>
 
-            {/* Price Box & Wholesale Tiers Calculator */}
+            {/* Price Box & Volume Tiers Calculator */}
             <div className="rounded-2xl border border-white/10 bg-[#0d1222]/90 p-4 sm:p-5 backdrop-blur-xl shadow-xl space-y-4">
               {/* Main Unit Price Display */}
               <div className="space-y-1">
@@ -800,13 +800,13 @@ export function ProductDetailClient({
                   )}
                 </div>
 
-                {/* Wholesale Tier Pricing Matrix (if posted by supplier) */}
+                {/* Volume Tier Pricing Matrix (if posted by supplier) */}
                 {product.tieredPricing && product.tieredPricing.length > 0 && (
                   <div className="pt-3 space-y-2 border-t border-white/10 mt-3">
                     <div className="flex items-center justify-between text-xs font-bold text-indigo-300">
                       <span className="flex items-center gap-1.5">
                         <TrendingDown className="w-3.5 h-3.5 text-cyan-400" />
-                        Wholesale Volume Pricing Tiers
+                        Volume Pricing Tiers
                       </span>
                       <span className="text-[11px] text-zinc-400 font-normal">
                         MOQ: {moq} {product.unit || "units"}
@@ -997,13 +997,13 @@ export function ProductDetailClient({
           </div>
         </div>
 
-        {/* Tabbed Comprehensive Specifications, Wholesale Tiers, Logistics, Escrow & Customer Reviews */}
+        {/* Tabbed Specifications, Volume Pricing, Logistics, Escrow & Customer Reviews */}
         <div className="rounded-3xl border border-white/10 bg-[#0d1222]/90 p-6 backdrop-blur-xl shadow-2xl space-y-6">
           {/* Tab Navigation Header */}
           <div className="flex items-center gap-4 border-b border-white/10 pb-3 overflow-x-auto no-scrollbar">
             {[
               { id: "overview", label: "Description & Specifications" },
-              { id: "wholesale", label: "Wholesale & Volume Tiers" },
+              { id: "wholesale", label: "Volume Pricing" },
               { id: "supplier", label: "Supplier Profile" },
               { id: "logistics", label: "Logistics & Warehousing" },
               { id: "escrow", label: "Escrow & Buyer Guarantee" },
@@ -1061,17 +1061,14 @@ export function ProductDetailClient({
             </div>
           )}
 
-          {/* 2. Wholesale & Volume Tiers Tab */}
+          {/* 2. Volume Pricing Tab */}
           {activeTab === "wholesale" && (
             <div className="space-y-6 text-xs sm:text-sm text-zinc-300 leading-relaxed">
               <div className="space-y-2">
                 <h4 className="text-sm font-bold text-white flex items-center gap-2">
                   <TrendingDown className="w-4 h-4 text-cyan-400" />
-                  <span>Wholesale Tier Pricing Breakdown</span>
+                  <span>Volume Pricing Breakdown</span>
                 </h4>
-                <p className="text-xs text-zinc-400">
-                  Direct B2B discounted prices from verified importers and manufacturers.
-                </p>
               </div>
 
               {product.tieredPricing && product.tieredPricing.length > 0 ? (

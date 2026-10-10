@@ -549,6 +549,9 @@ function RegisterPageContent() {
       }
 
       const data = await res.json();
+      if (typeof data.url !== "string" || !data.url.trim()) {
+        throw new Error("The upload service did not return a document link.");
+      }
       setDoc({
         file,
         name: file.name,
@@ -558,17 +561,22 @@ function RegisterPageContent() {
       });
 
       toast.success(`${file.name} uploaded successfully!`);
-    } catch (err: any) {
-      console.warn("Upload fallback applied:", err);
-      const fallbackUrl = URL.createObjectURL(file);
+    } catch (err: unknown) {
+      console.error("Failed to upload registration document:", err);
       setDoc({
         file,
         name: file.name,
         size: formattedSize,
-        url: fallbackUrl,
         uploading: false,
       });
-      toast.success(`${file.name} attached successfully!`);
+      const message = err instanceof Error ? err.message : "Please try again.";
+      setErrors((prev) => ({
+        ...prev,
+        [docType]: `Upload failed: ${message}`,
+      }));
+      toast.error("Document upload failed", {
+        description: message,
+      });
     }
   };
 

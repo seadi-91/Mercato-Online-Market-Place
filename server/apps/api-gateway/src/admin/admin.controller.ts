@@ -31,6 +31,11 @@ import {
   VerifyKycWithReasonDto,
 } from '@app/common';
 
+const cleanDocumentUrl = (url?: string | null) =>
+  url && !/\/kyc\/(?:trade_license|tin_certificate|commercial_reg)_demo\.pdf$/i.test(url)
+    ? url
+    : undefined;
+
 @Controller('admin')
 @UseGuards(AuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
@@ -148,25 +153,42 @@ export class AdminController {
       stats.totalOrders = Number(orders?.total ?? 0);
     }
 
+    const businessLicenseUrl = cleanDocumentUrl(profile.businessLicenseUrl);
+    const tinCertificateUrl = cleanDocumentUrl(profile.tinCertificateUrl);
+    const commercialRegistrationUrl = cleanDocumentUrl(
+      profile.commercialRegistrationUrl,
+    );
+    const ownerIdUrl = cleanDocumentUrl(profile.ownerIdUrl);
+    const documents = [
+      {
+        type: 'Trade License',
+        docNumber: profile.tradeLicenseNumber,
+        url: businessLicenseUrl,
+      },
+      {
+        type: 'TIN Certificate',
+        docNumber: profile.tinNumber,
+        url: tinCertificateUrl,
+      },
+      {
+        type: 'Commercial Registration',
+        docNumber: profile.tradeLicenseNumber,
+        url: commercialRegistrationUrl,
+      },
+      {
+        type: 'Owner ID',
+        url: ownerIdUrl,
+      },
+    ].filter((document) => Boolean(document.url));
+
     return {
       ...profile,
+      businessLicenseUrl,
+      tinCertificateUrl,
+      commercialRegistrationUrl,
+      ownerIdUrl,
       stats,
-      documents: [
-        {
-          type: profile.role === UserRole.SELLER ? 'Trade License' : profile.role === UserRole.DELIVERY ? 'Driving License' : 'Identity Document',
-          docNumber:
-            profile.role === UserRole.SELLER
-              ? profile.tradeLicenseNumber || 'N/A'
-              : profile.role === UserRole.DELIVERY
-                ? profile.drivingLicenseNumber || 'N/A'
-                : 'N/A',
-          url: profile.role === UserRole.SELLER
-            ? 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=900&q=80'
-            : profile.role === UserRole.DELIVERY
-              ? 'https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=900&q=80'
-              : 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?auto=format&fit=crop&w=900&q=80',
-        },
-      ],
+      documents,
     };
   }
 

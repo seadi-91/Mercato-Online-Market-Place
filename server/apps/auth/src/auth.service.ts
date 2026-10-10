@@ -236,9 +236,6 @@ export class AuthService implements OnModuleInit {
             city: 'Addis Ababa',
             subCity: 'Akaky Kaliti',
             specificLocation: 'Kality Industrial Logistics Hub - Depot Warehouse A (Capacity: Container Loads (FCL / LCL))',
-            businessLicenseUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/trade_license_demo.pdf',
-            tinCertificateUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/tin_certificate_demo.pdf',
-            commercialRegistrationUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/commercial_reg_demo.pdf',
           }),
         ).catch(() => null);
       } else {
@@ -262,9 +259,6 @@ export class AuthService implements OnModuleInit {
             city: 'Addis Ababa',
             subCity: 'Akaky Kaliti',
             specificLocation: 'Kality Industrial Logistics Hub - Depot Warehouse A (Capacity: Container Loads (FCL / LCL))',
-            businessLicenseUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/trade_license_demo.pdf',
-            tinCertificateUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/tin_certificate_demo.pdf',
-            commercialRegistrationUrl: 'https://res.cloudinary.com/g6sjmpgr/image/upload/v1/mercatox/kyc/commercial_reg_demo.pdf',
           }),
         ).catch(() => null);
         console.log('[AuthService] Ensured profile for existing Supplier account');

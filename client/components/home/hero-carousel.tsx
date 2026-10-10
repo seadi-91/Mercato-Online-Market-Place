@@ -2,18 +2,23 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ChevronLeft,
   ChevronRight,
-  ShieldCheck,
   ArrowRight,
   ShoppingCart,
 } from "lucide-react";
-import { HERO_SLIDES } from "@/constants/mock-data";
-import { usePlatformStore } from "@/store";
+import type { Product } from "@/constants/mock-data";
 
-export function HeroCarousel() {
-  const { settings } = usePlatformStore();
+export function HeroCarousel({ products }: { products: Product[] }) {
+  const slides = products.slice(0, 5).map((product) => ({
+    id: product.id,
+    title: product.name,
+    subtitle: product.description,
+    image: product.image,
+    ctaLink: `/products/${encodeURIComponent(product.id)}`,
+  }));
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
@@ -21,23 +26,27 @@ export function HeroCarousel() {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   const nextSlide = () => {
-    setCurrentSlide((prev) => (prev + 1) % HERO_SLIDES.length);
+    if (slides.length > 1) {
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
+    }
   };
 
   const prevSlide = () => {
-    setCurrentSlide((prev) => (prev - 1 + HERO_SLIDES.length) % HERO_SLIDES.length);
+    if (slides.length > 1) {
+      setCurrentSlide((prev) => (prev - 1 + slides.length) % slides.length);
+    }
   };
 
   useEffect(() => {
-    if (isPaused) return;
+    if (isPaused || slides.length < 2) return;
     timerRef.current = setInterval(() => {
-      nextSlide();
+      setCurrentSlide((prev) => (prev + 1) % slides.length);
     }, 6000);
 
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPaused]);
+  }, [isPaused, slides.length]);
 
   // Touch swipe support for mobile
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -69,6 +78,28 @@ export function HeroCarousel() {
     }
   };
 
+  if (slides.length === 0) {
+    return (
+      <div className="hero-carousel-root relative flex h-screen min-h-screen w-full items-center justify-center overflow-hidden bg-[#070a10] px-6 text-center sm:h-[100dvh] sm:min-h-[100dvh]">
+        <div className="max-w-xl space-y-4">
+          <h1 className="text-3xl font-bold text-white sm:text-5xl">
+            Products from local sellers
+          </h1>
+          <p className="text-sm text-zinc-300 sm:text-base">
+            There are no products to feature right now. Check back as sellers add listings.
+          </p>
+          <Link
+            href="/marketplace"
+            className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-500 px-6 py-3 text-sm font-bold text-white"
+          >
+            Explore Marketplace
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className="hero-carousel-root relative w-full h-screen min-h-screen h-[100vh] min-h-[100vh] sm:h-[100dvh] sm:min-h-[100dvh] overflow-hidden bg-black select-none shadow-2xl"
@@ -81,14 +112,8 @@ export function HeroCarousel() {
     >
       {/* 100% Fullscreen Slides Container across all Browsers & Operating Systems */}
       <div className="relative h-full w-full">
-        {HERO_SLIDES.map((slide, index) => {
+        {slides.map((slide, index) => {
           const isActive = index === currentSlide;
-          // Dynamic subtitle from backend platform settings for index 0
-          const displaySubtitle =
-            index === 0 &&
-              (settings.heroSectionDescription || settings.platformDescription)
-              ? settings.heroSectionDescription || settings.platformDescription
-              : slide.subtitle;
 
           return (
             <div
@@ -100,17 +125,13 @@ export function HeroCarousel() {
             >
               {/* Background Image with Dark Vignette Gradient */}
               <div className="relative h-full w-full overflow-hidden">
-                <img
+                <Image
                   src={slide.image}
                   alt={slide.title}
-                  className="h-full w-full object-cover object-center filter brightness-[0.84] transform scale-100 transition-transform duration-7000 ease-out"
-                  style={{
-                    width: "100%",
-                    height: "100%",
-                    maxWidth: "100%",
-                    objectFit: "cover",
-                    objectPosition: "center",
-                  }}
+                  fill
+                  unoptimized
+                  sizes="100vw"
+                  className="object-cover object-center filter brightness-[0.84] transform scale-100 transition-transform duration-7000 ease-out"
                   loading={index === 0 ? "eager" : "lazy"}
                 />
                 {/* Lateral Dark Vignette */}
@@ -122,30 +143,27 @@ export function HeroCarousel() {
               {/* Text & Content Container - Vertically Centered in Fullscreen */}
               <div className="absolute inset-0 flex items-center z-20">
                 <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-8 md:px-16 space-y-3 sm:space-y-4 pt-12 sm:pt-16">
-                  {/* Verified Buyer Protection Badge (Original Brand Color: Emerald / Cyan) */}
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-xs font-bold text-emerald-300 backdrop-blur-md shadow-lg w-fit">
-                    <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4 text-emerald-400" />
-                    <span>{slide.badge}</span>
+                    <span>{products[index]?.category || "Marketplace product"}</span>
                   </div>
 
-                  {/* Title (Original Brand Typography & Backend Content) */}
                   <h1 className="text-2xl xs:text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white leading-tight max-w-4xl drop-shadow-md">
                     {slide.title}
                   </h1>
 
-                  {/* Subtitle (Integrated with Backend Settings) */}
-                  <p className="text-xs xs:text-sm sm:text-base md:text-lg text-zinc-300 leading-relaxed max-w-2xl drop-shadow-sm">
-                    {displaySubtitle}
-                  </p>
+                  {slide.subtitle && (
+                    <p className="text-xs xs:text-sm sm:text-base md:text-lg text-zinc-300 leading-relaxed max-w-2xl drop-shadow-sm">
+                      {slide.subtitle}
+                    </p>
+                  )}
 
-                  {/* CTAs (Original Brand Color: Indigo to Cyan Gradient) */}
                   <div className="pt-2 sm:pt-4 flex flex-row items-center gap-2.5 sm:gap-3 flex-wrap">
                     <Link
                       href={slide.ctaLink}
                       className="inline-flex items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-500 px-6 sm:px-8 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-xl shadow-indigo-500/30 hover:brightness-110 active:scale-95 transition-all"
                     >
                       <ShoppingCart className="h-4 w-4" />
-                      <span>{slide.ctaText}</span>
+                      <span>View Product</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
 
@@ -157,21 +175,6 @@ export function HeroCarousel() {
                     </Link>
                   </div>
 
-                  {/* Micro-Trust Tags (Original Brand Colors) */}
-                  <div className="pt-3 sm:pt-5 hidden md:flex flex-wrap items-center gap-4 text-xs text-zinc-400 border-t border-white/10 max-w-xl">
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-emerald-400" />
-                      <span>100% Protected Payment Guarantee</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-cyan-400" />
-                      <span>Addis Courier SMS OTP Verification</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 rounded-full bg-indigo-400" />
-                      <span>48h Return Window</span>
-                    </div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -180,22 +183,22 @@ export function HeroCarousel() {
       </div>
 
       {/* Navigation Arrows for Tablet & Desktop */}
-      <button
+      {slides.length > 1 && <button
         type="button"
         onClick={prevSlide}
         aria-label="Previous Slide"
         className="hidden sm:flex absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 z-30 h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md hover:bg-white/20 transition-all cursor-pointer shadow-lg"
       >
         <ChevronLeft className="h-5 w-5" />
-      </button>
-      <button
+      </button>}
+      {slides.length > 1 && <button
         type="button"
         onClick={nextSlide}
         aria-label="Next Slide"
         className="hidden sm:flex absolute right-4 sm:right-6 top-1/2 -translate-y-1/2 z-30 h-10 w-10 items-center justify-center rounded-full border border-white/20 bg-black/50 text-white backdrop-blur-md hover:bg-white/20 transition-all cursor-pointer shadow-lg"
       >
         <ChevronRight className="h-5 w-5" />
-      </button>
+      </button>}
 
       {/* Bottom Center "SCROLL" Indicator with Smooth Scroll Navigation */}
       <button
@@ -215,7 +218,7 @@ export function HeroCarousel() {
 
       {/* Indicator Pills (Original Brand Color: Cyan active indicator) */}
       <div className="absolute bottom-5 sm:bottom-7 right-4 sm:right-8 z-30 flex items-center gap-1.5 sm:gap-2">
-        {HERO_SLIDES.map((_, idx) => (
+        {slides.map((_, idx) => (
           <button
             key={idx}
             type="button"

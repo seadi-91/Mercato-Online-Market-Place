@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search,
   CheckCircle2,
@@ -74,6 +75,7 @@ const normalizeUsers = (list: any[]): AdminUserData[] =>
   });
 
 export function AdminUsersTable() {
+  const router = useRouter();
   const [users, setUsers] = useState<AdminUserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -81,7 +83,6 @@ export function AdminUsersTable() {
   const [selectedStatus, setSelectedStatus] = useState<string>("ALL");
   const [selectedKyc, setSelectedKyc] = useState<string>("ALL");
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
-  const [viewingUser, setViewingUser] = useState<any | null>(null);
   const [reviewingUser, setReviewingUser] = useState<AdminUserData | null>(null);
   const [rejectionReason, setRejectionReason] = useState("");
   const [userToDelete, setUserToDelete] = useState<AdminUserData | null>(null);
@@ -151,19 +152,6 @@ export function AdminUsersTable() {
       console.error("Failed to change user active status:", error);
       toast.error("Status update failed", {
         description: "Unable to change the user active state.",
-      });
-    }
-  };
-
-  const handleViewUser = async (user: AdminUserData) => {
-    try {
-      setOpenMenuId(null);
-      const details = await api.get<any>(`/admin/users/${user.id}/details`);
-      setViewingUser(details);
-    } catch (error) {
-      console.error("Failed to fetch user details:", error);
-      toast.error("User details failed", {
-        description: "Unable to load the selected user details.",
       });
     }
   };
@@ -363,7 +351,10 @@ export function AdminUsersTable() {
                             <div className="app-dropdown-panel absolute right-0 mt-1 w-52 rounded-xl border border-white/10 bg-[#0f172a] p-1.5 shadow-2xl z-40 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100">
                               <button
                                 type="button"
-                                onClick={() => handleViewUser(user)}
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  router.push(`/dashboard/admin/users/${encodeURIComponent(user.id)}`);
+                                }}
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 transition-colors cursor-pointer"
                               >
                                 <FileText className="h-3.5 w-3.5" />
@@ -414,106 +405,6 @@ export function AdminUsersTable() {
           </table>
         </div>
       </div>
-
-      {viewingUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-          <div className="relative w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-[#0f172a] shadow-2xl">
-            <div className="flex items-center justify-between border-b border-white/10 px-5 py-3">
-              <div>
-                <p className="text-[11px] uppercase tracking-[0.22em] text-indigo-300">User profile</p>
-                <h3 className="text-lg font-bold text-white">{viewingUser.fullName || viewingUser.name || "User details"}</h3>
-              </div>
-              <button onClick={() => setViewingUser(null)} className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white">
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-
-            <div className="grid gap-4 p-5 md:grid-cols-[1.2fr_0.8fr]">
-              <div className="space-y-4">
-                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                  <div className="flex items-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/20 to-purple-500/20 text-base font-semibold text-indigo-200">
-                      {(viewingUser.fullName || viewingUser.name || "U").charAt(0).toUpperCase()}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-white">{viewingUser.fullName || viewingUser.name}</p>
-                      <p className="text-[11px] text-zinc-400">{viewingUser.role}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Email</p>
-                    <p className="mt-1 text-sm text-zinc-200">{viewingUser.email || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Phone</p>
-                    <p className="mt-1 text-sm text-zinc-200">{viewingUser.alternatePhone || viewingUser.phoneNumber || viewingUser.phone || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">City</p>
-                    <p className="mt-1 text-sm text-zinc-200">{viewingUser.city || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Sub-city</p>
-                    <p className="mt-1 text-sm text-zinc-200">{viewingUser.subCity || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:col-span-2">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Specific location</p>
-                    <p className="mt-1 text-sm text-zinc-200">{viewingUser.specificLocation || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Store name</p>
-                    <p className="mt-1 text-sm text-zinc-200">{viewingUser.shopName || "N/A"}</p>
-                  </div>
-                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                    <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Market zone</p>
-                    <p className="mt-1 text-sm text-zinc-200">{viewingUser.marketZone || "N/A"}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Stats</p>
-                  <div className="mt-3 space-y-3">
-                    <div className="flex items-center justify-between rounded-lg bg-indigo-500/10 p-2 text-sm text-zinc-200">
-                      <span>Total products</span>
-                      <span className="font-semibold text-white">{viewingUser.stats?.postedProducts ?? 0}</span>
-                    </div>
-                    <div className="flex items-center justify-between rounded-lg bg-indigo-500/10 p-2 text-sm text-zinc-200">
-                      <span>Total orders</span>
-                      <span className="font-semibold text-white">{viewingUser.stats?.totalOrders ?? 0}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
-                  <p className="text-[10px] uppercase tracking-[0.18em] text-zinc-500">Documents</p>
-                  <div className="mt-3 space-y-3">
-                    {(viewingUser.documents || []).length > 0 ? (
-                      (viewingUser.documents || []).map((item: any, index: number) => (
-                        <div key={`${item.type}-${index}`} className="overflow-hidden rounded-lg border border-white/10 bg-black/20">
-                          <img src={item.url} alt={item.type} className="h-28 w-full object-cover" />
-                          <div className="p-2 text-[11px] text-zinc-300">
-                            <p className="font-medium text-white">{item.type}</p>
-                            <p className="text-zinc-400">{item.docNumber || "Document reference"}</p>
-                          </div>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="rounded-lg border border-dashed border-white/10 p-3 text-center text-[11px] text-zinc-500">
-                        No uploaded document available.
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {reviewingUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">

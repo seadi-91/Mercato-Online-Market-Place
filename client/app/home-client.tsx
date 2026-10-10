@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useMemo } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import {
   ChevronRight,
   ChevronLeft,
@@ -18,13 +19,16 @@ import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductDetailModal } from "@/components/modals/product-detail-modal";
-import { Product, CategoryItem } from "@/constants/mock-data";
-import {
-  CURATED_HOME_CATEGORIES,
-  getCuratedHomeSections,
-  getQuadProductsForCategory,
-  HomeCategorySection,
-} from "@/constants/curated-home-data";
+import type { Product, CategoryItem } from "@/constants/mock-data";
+
+interface HomeProductSection {
+  id: string;
+  categorySlug: string;
+  order: number;
+  title: string;
+  viewAllLink: string;
+  products: Product[];
+}
 
 interface HomePageClientProps {
   initialProducts: Product[];
@@ -32,7 +36,7 @@ interface HomePageClientProps {
 }
 
 interface HorizontalProductRowProps {
-  section: HomeCategorySection;
+  section: HomeProductSection;
   onQuickView: (product: Product) => void;
 }
 
@@ -75,25 +79,17 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
               {section.order}
             </span>
             <div className="flex items-center gap-1.5 min-w-0">
-              {categoryIcons[section.categorySlug]}
+              {categoryIcons[section.categorySlug] || (
+                <Package className="h-3.5 w-3.5 text-app-muted" />
+              )}
               <h3 className="text-xs sm:text-sm md:text-base font-bold truncate text-app">
                 {section.title}
               </h3>
             </div>
-            {section.badge && (
-              <span className="inline-flex rounded px-1.5 py-0.5 text-[9px] font-bold bg-app-card border border-app text-app-muted">
-                {section.badge}
-              </span>
-            )}
             <span className="text-[10px] font-mono hidden md:inline text-app-muted">
               ({section.products.length} items)
             </span>
           </div>
-          {section.subtitle && (
-            <p className="text-[11px] mt-0.5 truncate text-app-muted pl-6.5 sm:pl-7">
-              {section.subtitle}
-            </p>
-          )}
         </div>
 
         {/* Scroll Controls */}
@@ -152,32 +148,43 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
   );
 }
 
-export function HomePageClient({ initialProducts }: HomePageClientProps) {
+export function HomePageClient({
+  initialProducts,
+  initialCategories,
+}: HomePageClientProps) {
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Strictly 4 curated sections in exact user-requested order:
-  // 1. Kids (Child) Only
-  // 2. Cosmetics
-  // 3. Apparel (Albasat)
-  // 4. Electronics
   const curatedSections = useMemo(() => {
-    return getCuratedHomeSections(initialProducts);
-  }, [initialProducts]);
+    return initialCategories
+      .filter((category) => category.isActive !== false)
+      .map((category, index): HomeProductSection => ({
+        id: category.id,
+        categorySlug: category.slug,
+        order: index + 1,
+        title: category.name,
+        viewAllLink: `/marketplace?category=${encodeURIComponent(category.slug)}`,
+        products: initialProducts.filter(
+          (product) => product.categorySlug === category.slug,
+        ),
+      }))
+      .filter((section) => section.products.length > 0);
+  }, [initialCategories, initialProducts]);
 
-  // Shop by Department: All 6 Categories in 1 row of 6 columns
-  const categories = CURATED_HOME_CATEGORIES;
+  const categories = useMemo(
+    () => initialCategories.filter((category) => category.isActive !== false),
+    [initialCategories],
+  );
 
-  // Retrieve up to 4 distinct products for the 2x2 card preview
   const getQuadProducts = (catSlug: string): (Product | null)[] => {
-    return getQuadProductsForCategory(catSlug, curatedSections, initialProducts);
+    const matchingProducts = initialProducts
+      .filter((product) => product.categorySlug === catSlug)
+      .slice(0, 4);
+    return [0, 1, 2, 3].map((index) => matchingProducts[index] || null);
   };
 
   const getCatCount = (slug: string) => {
-    const sec = curatedSections.find((s) => s.categorySlug === slug);
-    if (sec) return sec.products.length;
-    const count = initialProducts.filter((p) => p.categorySlug === slug).length;
-    return count > 0 ? count : 6;
+    return initialProducts.filter((product) => product.categorySlug === slug).length;
   };
 
   const handleQuickView = (product: Product) => {
@@ -196,20 +203,17 @@ export function HomePageClient({ initialProducts }: HomePageClientProps) {
           className="w-full h-screen min-h-screen h-[100vh] min-h-[100vh] sm:h-[100dvh] sm:min-h-[100dvh] overflow-hidden"
           style={{ height: "100dvh", minHeight: "100vh" }}
         >
-          <HeroCarousel />
+          <HeroCarousel products={initialProducts} />
         </section>
 
         <div className="space-y-7 sm:space-y-10 pt-7 sm:pt-10">
-          {/* Shop by Department Grid Section - All 6 Categories in 1 Row of 6 Columns */}
+          {/* Departments are loaded from active backend categories */}
           <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8 space-y-2.5">
             <div className="flex items-center justify-between border-b border-app pb-2">
               <div>
                 <h2 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-app">
                   Shop by Department
                 </h2>
-                <p className="text-[10.5px] text-app-muted">
-                  Explore verified commercial wholesale and retail stock across Addis Ababa
-                </p>
               </div>
               <Link
                 href="/categories"
@@ -220,9 +224,9 @@ export function HomePageClient({ initialProducts }: HomePageClientProps) {
               </Link>
             </div>
 
-            {/* 6 Columns in 1 Row Grid (Compact, original size) */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
-              {categories.map((category) => {
+            {categories.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
+                {categories.map((category) => {
                 const count = getCatCount(category.slug);
                 const quadProducts = getQuadProducts(category.slug);
 
@@ -240,11 +244,13 @@ export function HomePageClient({ initialProducts }: HomePageClientProps) {
                           className="relative aspect-square w-full overflow-hidden bg-black/5 dark:bg-white/[0.02] border-b border-r border-app/40 [&:nth-child(2n)]:border-r-0 [&:nth-child(n+3)]:border-b-0"
                         >
                           {prod ? (
-                            <img
+                            <Image
                               src={prod.image}
                               alt={prod.name}
-                              className="h-full w-full object-cover object-center group-hover:scale-106 transition-transform duration-300 ease-out"
-                              loading="lazy"
+                              fill
+                              unoptimized
+                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
+                              className="object-cover object-center group-hover:scale-106 transition-transform duration-300 ease-out"
                             />
                           ) : (
                             <div className="h-full w-full flex items-center justify-center bg-black/[0.02] dark:bg-white/[0.015]">
@@ -262,7 +268,7 @@ export function HomePageClient({ initialProducts }: HomePageClientProps) {
                           {category.name}
                         </h3>
                         <p className="text-[9.5px] text-app-muted mt-0.5 truncate">
-                          {count}+ Products
+                          {count} shown
                         </p>
                       </div>
 
@@ -272,21 +278,23 @@ export function HomePageClient({ initialProducts }: HomePageClientProps) {
                     </div>
                   </Link>
                 );
-              })}
-            </div>
+                })}
+              </div>
+            ) : (
+              <p className="rounded-xl border border-app bg-app-card p-6 text-center text-sm text-app-muted">
+                No departments are available right now.
+              </p>
+            )}
           </section>
 
-          {/* Curated Marketplace Catalog - Horizontal Rows Only (No Grid Toggle, No '4 Priority Rows' text) */}
+          {/* Live products grouped by backend category */}
           <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8 space-y-4 sm:space-y-5">
             {/* Section Toolbar */}
             <div className="flex items-center justify-between border-b border-app pb-2.5">
               <div>
                 <h2 className="text-sm sm:text-base md:text-xl font-bold tracking-tight text-app">
-                  Curated Marketplace Collections
+                  Latest Products
                 </h2>
-                <p className="text-xs text-app-muted">
-                  Explore verified commercial stock across Addis Ababa
-                </p>
               </div>
 
               <Link
@@ -298,15 +306,20 @@ export function HomePageClient({ initialProducts }: HomePageClientProps) {
               </Link>
             </div>
 
-            {/* Product Rows in Order: 1. Kids, 2. Cosmetics, 3. Apparel, 4. Electronics */}
             <div className="space-y-6 sm:space-y-8 w-full">
-              {curatedSections.map((section) => (
-                <HorizontalProductRow
-                  key={section.id}
-                  section={section}
-                  onQuickView={handleQuickView}
-                />
-              ))}
+              {curatedSections.length > 0 ? (
+                curatedSections.map((section) => (
+                  <HorizontalProductRow
+                    key={section.id}
+                    section={section}
+                    onQuickView={handleQuickView}
+                  />
+                ))
+              ) : (
+                <p className="rounded-xl border border-app bg-app-card p-6 text-center text-sm text-app-muted">
+                  No products are available right now.
+                </p>
+              )}
             </div>
 
             {/* Explore Link */}

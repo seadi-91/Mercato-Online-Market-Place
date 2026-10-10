@@ -1148,6 +1148,8 @@ export function MarketplaceClient({
                       product={product}
                       onQuickView={handleQuickView}
                       tradeView={tradeType}
+                      hideBadges
+                      transparentCartButton
                     />
                   ))}
                 </div>
@@ -1160,6 +1162,8 @@ export function MarketplaceClient({
                       product={product}
                       onQuickView={handleQuickView}
                       tradeView={tradeType}
+                      hideBadges
+                      transparentCartButton
                     />
                   ))}
                 </div>

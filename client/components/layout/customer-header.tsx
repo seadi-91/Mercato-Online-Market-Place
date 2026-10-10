@@ -155,6 +155,7 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
   const displayName = user?.name || "Customer";
 
   const isHomePage = transparentOverlay || pathname === "/" || pathname === "";
+  const useLightProfileDropdown = theme === "light" && !(isHomePage && !isScrolled);
 
   const navLinks = [
     { name: "Home", href: "/" },
@@ -172,36 +173,19 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
           : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white"
       }`
       : "fixed top-0 left-0 right-0 z-50 w-full header-transparent transition-all duration-300 ease-in-out bg-transparent border-b border-transparent text-white"
-    : `sticky top-0 z-50 w-full border-b transition-colors duration-300 ease-in-out ${theme === "light"
-      ? "border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs text-slate-900"
-      : theme === "dark"
-        ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white shadow-xs"
-        : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white shadow-xs"
-    }`;
+    : !isScrolled
+      ? `header-page-top sticky top-0 z-50 w-full border-b border-transparent bg-transparent transition-all duration-300 ease-in-out ${
+          theme === "light" ? "text-slate-900" : "text-white"
+        }`
+      : `header-scrolled sticky top-0 z-50 w-full border-b transition-all duration-300 ease-in-out shadow-xs ${theme === "light"
+          ? "border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs text-slate-900"
+          : theme === "dark"
+            ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white shadow-xs"
+            : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white shadow-xs"
+        }`;
 
   return (
     <header className={headerClass}>
-      {/* Top Protection Announcement Pill - shown only on non-home pages so hero header height is consistent 64px */}
-      {!isHomePage && (
-        <div
-          className={`hidden sm:block border-b px-4 py-1 text-center text-[11px] ${theme === "light"
-            ? "border-slate-200/80 bg-slate-100/80 text-slate-600"
-            : theme === "dark"
-              ? "border-white/5 bg-[#0b1122] text-zinc-400"
-              : "border-blue-500/10 bg-[#08122c] text-blue-200/80"
-            }`}
-        >
-          <span className="inline-flex items-center gap-2">
-            <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-            <span className="font-medium text-zinc-300">
-              {platformSettings.platformName} Buyer Protection:
-            </span>
-            <span>100% Guaranteed — Funds released only after delivery inspection.</span>
-            <span className="font-mono text-cyan-400">Doorstep OTP Delivery in Addis Ababa</span>
-          </span>
-        </div>
-      )}
-
       {/* Main Navbar */}
       <div className="mx-auto max-w-7xl px-3 sm:px-6 lg:px-8">
         <div className="flex h-16 items-center justify-between gap-2 sm:gap-4">
@@ -338,11 +322,11 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             {/* Favorites Icon - visible on sm+ */}
             <Link
               href="/favorites"
-              className={`hidden sm:flex relative h-9 w-9 items-center justify-center rounded-xl border transition-all ${isHomePage && !isScrolled
-                ? "border-white/20 bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
+              className={`hidden sm:flex relative h-9 w-9 items-center justify-center rounded-xl border-0 transition-all ${isHomePage && !isScrolled
+                ? "bg-transparent text-white hover:bg-transparent"
                 : theme === "light"
-                  ? "border-slate-200 bg-slate-100/80 text-slate-700 hover:bg-slate-200 hover:text-slate-950"
-                  : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/10 hover:text-white"
+                  ? "bg-transparent text-slate-700 hover:bg-transparent hover:text-slate-950"
+                  : "bg-transparent text-zinc-300 hover:bg-transparent hover:text-white"
                 }`}
               title="Saved Favorites"
             >
@@ -356,17 +340,17 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
 
             {/* Bright Light / Appearance Theme Dropdown */}
             <div className="flex items-center">
-              <ThemeToggle className={isHomePage && !isScrolled ? "backdrop-blur-md [&>button]:border-white/20 [&>button]:bg-white/10 [&>button]:text-white hover:[&>button]:bg-white/20" : ""} />
+              <ThemeToggle className="[&>button]:border-0 [&>button]:!bg-transparent [&>button]:hover:!bg-transparent [&>button>span]:hidden" />
             </div>
 
             {/* Wheeled Cart Icon & Count Badge */}
             <Link
               href="/cart"
-              className={`cart-action-text flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-all font-bold group cursor-pointer ${isHomePage && !isScrolled
-                ? "border-white/20 bg-white/10 text-white hover:bg-white/20 backdrop-blur-md"
+              className={`cart-action-text flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-transparent bg-transparent transition-all font-bold group cursor-pointer hover:bg-transparent ${isHomePage && !isScrolled
+                ? "text-white"
                 : theme === "light"
-                  ? "border-indigo-200/80 bg-indigo-50/70 text-indigo-600 hover:bg-indigo-100"
-                  : "border-white/10 bg-white/[0.04] text-indigo-400 hover:bg-white/10 hover:text-cyan-300"
+                  ? "text-indigo-600"
+                  : "text-indigo-400 hover:text-cyan-300"
                 }`}
               title="Shopping Cart"
               aria-label="Shopping Cart"
@@ -392,13 +376,13 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                 <button
                   type="button"
                   onClick={() => setProfileDropdownOpen(!profileDropdownOpen)}
-                  className={`flex items-center gap-2 rounded-xl border p-1.5 sm:px-2.5 sm:py-1.5 transition-colors cursor-pointer ${isHomePage && !isScrolled
-                    ? "border-white/20 bg-white/10 hover:bg-white/20 text-white backdrop-blur-md"
+                  className={`flex items-center gap-2 rounded-xl border-0 p-1.5 sm:px-2.5 sm:py-1.5 transition-colors cursor-pointer ${isHomePage && !isScrolled
+                    ? "bg-transparent hover:bg-transparent text-white"
                     : theme === "light"
-                      ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-800 shadow-xs"
+                      ? "bg-transparent hover:bg-transparent text-slate-800"
                       : theme === "dark"
-                      ? "border-white/10 bg-white/[0.04] hover:bg-white/10 text-white"
-                      : "border-blue-500/20 bg-blue-950/30 hover:bg-blue-900/40 text-white"
+                      ? "bg-transparent hover:bg-transparent text-white"
+                      : "bg-transparent hover:bg-transparent text-white"
                     }`}
                 >
                   <div className="h-6 w-6 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-xs font-bold text-white">
@@ -412,18 +396,18 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
 
                 {profileDropdownOpen && (
                   <div
-                    className={`app-dropdown-panel absolute right-0 mt-2 w-52 rounded-2xl border p-2 shadow-2xl backdrop-blur-2xl space-y-1 z-50 animate-in fade-in zoom-in-95 duration-150 ${
-                      theme === "light"
+                    className={`customer-profile-dropdown app-dropdown-panel absolute right-0 mt-2 w-52 rounded-2xl border p-2 shadow-2xl backdrop-blur-2xl space-y-1 z-50 animate-in fade-in zoom-in-95 duration-150 ${
+                      useLightProfileDropdown
                         ? "bg-white border-slate-200 shadow-slate-900/15"
                         : theme === "dark"
-                        ? "bg-[#141418] border-white/10 shadow-black/80"
-                        : "bg-[#0d1a3a] border-blue-500/30 shadow-blue-950/80"
+                          ? "bg-[#141418] border-white/10 shadow-black/80"
+                          : "bg-[#0d1a3a] border-blue-500/30 shadow-blue-950/80"
                     }`}
                   >
-                    <div className={`px-3 py-2 border-b ${theme === "light" ? "border-slate-100" : theme === "dark" ? "border-white/5" : "border-blue-500/15"}` }>
-                      <p className={`text-xs font-semibold truncate ${theme === "light" ? "text-slate-900" : "text-white"}`}>{displayName}</p>
-                      <p className={`text-[10px] font-mono truncate ${theme === "light" ? "text-slate-500" : "text-zinc-400"}`}>{user?.email || "customer@mercatox.com"}</p>
-                      <span className="inline-block mt-1 rounded bg-indigo-500/20 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-500 dark:text-indigo-300">
+                    <div className={`px-3 py-2 border-b ${useLightProfileDropdown ? "border-slate-100" : theme === "dark" ? "border-white/5" : "border-blue-500/15"}` }>
+                      <p className={`customer-profile-label text-xs font-semibold truncate ${useLightProfileDropdown ? "text-slate-900" : "text-white"}`}>{displayName}</p>
+                      <p className={`customer-profile-label text-[10px] font-mono truncate ${useLightProfileDropdown ? "text-slate-500" : theme === "dark" ? "text-zinc-400" : "text-blue-200/80"}`}>{user?.email || "customer@mercatox.com"}</p>
+                      <span className={`customer-profile-role inline-block mt-1 rounded px-1.5 py-0.5 text-[9px] font-semibold ${useLightProfileDropdown ? "bg-indigo-500/20 text-indigo-500" : "bg-indigo-500/20 text-indigo-200"}`}>
                         {user?.role || "CUSTOMER"}
                       </span>
                     </div>
@@ -433,8 +417,12 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                       onClick={() => setProfileDropdownOpen(false)}
                       className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
                         theme === "light"
-                          ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                          ? isHomePage && !isScrolled
+                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
+                            : "text-black hover:bg-slate-100 hover:text-black"
+                          : theme === "dark"
+                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
                       }`}
                     >
                       <User className="h-3.5 w-3.5 text-cyan-500" />
@@ -446,8 +434,12 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                       onClick={() => setProfileDropdownOpen(false)}
                       className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
                         theme === "light"
-                          ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                          ? isHomePage && !isScrolled
+                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
+                            : "text-black hover:bg-slate-100 hover:text-black"
+                          : theme === "dark"
+                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
                       }`}
                     >
                       <Package className="h-3.5 w-3.5 text-emerald-500" />
@@ -459,15 +451,19 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                       onClick={() => setProfileDropdownOpen(false)}
                       className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
                         theme === "light"
-                          ? "text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
+                          ? isHomePage && !isScrolled
+                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
+                            : "text-black hover:bg-slate-100 hover:text-black"
+                          : theme === "dark"
+                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
                       }`}
                     >
                       <Settings className="h-3.5 w-3.5 text-zinc-400" />
                       <span>Account Settings</span>
                     </Link>
 
-                    <div className={`border-t pt-1 ${theme === "light" ? "border-slate-100" : "border-white/5"}`}>
+                    <div className={`border-t pt-1 ${useLightProfileDropdown ? "border-slate-100" : theme === "dark" ? "border-white/5" : "border-blue-500/15"}`}>
                       <button
                         type="button"
                         onClick={handleSignOut}

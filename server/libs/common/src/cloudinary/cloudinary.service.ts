@@ -48,7 +48,8 @@ export class CloudinaryService {
     file: Express.Multer.File,
     folder: string = 'mercatox/documents',
   ): Promise<UploadApiResponse> {
-    return this.uploadFile(file, folder, 'auto');
+    const resourceType = file.mimetype === 'application/pdf' ? 'raw' : 'image';
+    return this.uploadFile(file, folder, resourceType);
   }
 
   async deleteFile(publicId: string): Promise<any> {

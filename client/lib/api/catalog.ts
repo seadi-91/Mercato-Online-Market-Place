@@ -261,11 +261,12 @@ export interface CreateCategoryInput {
   isActive?: boolean;
 }
 
-export async function fetchCategories(): Promise<CategoryItem[]> {
+export async function fetchCategories(tree = true): Promise<CategoryItem[]> {
   try {
-    const res = await fetch(`${API_CONFIG.baseURL}/catalog/categories?tree=true`, {
-      cache: "no-store",
-    });
+    const res = await fetch(
+      `${API_CONFIG.baseURL}/catalog/categories?tree=${tree}`,
+      { cache: "no-store" },
+    );
     if (!res.ok) {
       throw new Error(`Failed to fetch categories: ${res.statusText}`);
     }

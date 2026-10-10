@@ -9,7 +9,6 @@ yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
 
-# Environment credentials (ወሳኝ! የዳታቤዝ ፓስወርዶች እንዳይወጡ)
 .env
 .env.local
 .env.*.local

@@ -97,7 +97,7 @@ function CategoriesContent() {
   };
 
   return (
-    <div className="relative min-h-screen flex flex-col bg-app text-app transition-colors duration-200 overflow-x-hidden">
+    <div className="relative min-h-screen flex flex-col bg-app text-app transition-colors duration-200 overflow-x-clip">
       <CustomerHeader />
 
       <main className="flex-1 mx-auto max-w-[1600px] w-full px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">

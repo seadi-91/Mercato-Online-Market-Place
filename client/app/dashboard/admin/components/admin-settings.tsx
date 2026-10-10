@@ -405,7 +405,7 @@ export function AdminSettings() {
   const currentTabItem = SIDEBAR_ITEMS.find((item) => item.id === activeTab);
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-12">
+    <div className="admin-platform-settings space-y-4 max-w-6xl mx-auto pb-12">
       {/* Hidden Native File Input for Logo Upload */}
       <input
         ref={fileInputRef}
@@ -499,7 +499,7 @@ export function AdminSettings() {
         {/* ============================================================ */}
         {/* LEFT: Sleek Settings Sidebar Navigation                      */}
         {/* ============================================================ */}
-        <aside className="w-full lg:w-60 shrink-0 space-y-1 bg-[#0c101c]/80 border border-white/[0.08] p-2 rounded-xl backdrop-blur-xl shadow-lg">
+        <aside className="admin-settings-surface w-full lg:w-60 shrink-0 space-y-1 bg-[#0c101c]/80 border border-white/[0.08] p-2 rounded-xl backdrop-blur-xl shadow-lg">
           <div className="px-2.5 py-1.5 mb-1 border-b border-white/5 flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
               Settings Navigation
@@ -574,7 +574,7 @@ export function AdminSettings() {
         {/* RIGHT: Single Narrow/Compact Card Container                  */}
         {/* ============================================================ */}
         <div className="flex-1 w-full max-w-2xl">
-          <div className="rounded-xl border border-white/[0.08] bg-[#0c101c]/90 p-4 sm:p-5 shadow-2xl backdrop-blur-xl space-y-4">
+          <div className="admin-settings-surface rounded-xl border border-white/[0.08] bg-[#0c101c]/90 p-4 sm:p-5 shadow-2xl backdrop-blur-xl space-y-4">
             {/* Single Card Header */}
             <div className="flex items-center justify-between pb-3 border-b border-white/[0.08]">
               <div className="flex items-center gap-2.5">
@@ -704,7 +704,7 @@ export function AdminSettings() {
                   <div className="flex flex-col sm:flex-row items-center gap-4 py-2 border-y border-white/5">
                     {/* Dark Preview */}
                     <div className="flex items-center gap-2">
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[#090d16] border border-white/15 p-1 shadow-inner overflow-hidden">
+                      <div className="admin-settings-dark-preview flex h-12 w-12 items-center justify-center rounded-xl bg-[#090d16] border border-white/15 p-1 shadow-inner overflow-hidden">
                         {settings.logoUrl ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
