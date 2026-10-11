@@ -14,7 +14,6 @@ import { CustomerFooter } from "@/components/layout/footer";
 import { Product, CategoryItem } from "@/constants/mock-data";
 import { fetchCategories, fetchProducts } from "@/lib/api/catalog";
 import {
-  CURATED_HOME_CATEGORIES,
   getCuratedHomeSections,
   getQuadProductsForCategory,
 } from "@/constants/curated-home-data";
@@ -35,15 +34,11 @@ function CategoriesContent() {
           fetchProducts({ limit: 50 }),
         ]);
         if (isMounted) {
-          const loadedCats = cats && cats.length > 0 ? cats : CURATED_HOME_CATEGORIES;
-          setCategories(loadedCats);
+          setCategories(cats);
           setProducts(prodsResult.products);
         }
       } catch (e) {
         console.error("Failed to load categories page data:", e);
-        if (isMounted) {
-          setCategories(CURATED_HOME_CATEGORIES);
-        }
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -56,7 +51,7 @@ function CategoriesContent() {
 
   // Filter categories by search
   const filteredCategories = useMemo(() => {
-    const list = categories.length > 0 ? categories : CURATED_HOME_CATEGORIES;
+    const list = categories;
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(
@@ -73,14 +68,8 @@ function CategoriesContent() {
 
   // Helper to retrieve up to 4 distinct products strictly belonging to this category.
   const getQuadProducts = (catSlug: string): (Product | null)[] => {
-    try {
-      const curated = getQuadProductsForCategory(catSlug, curatedSections, products);
-      if (curated && curated.some((p) => p !== null)) {
-        return curated;
-      }
-    } catch {
-      // ignore
-    }
+    const curated = getQuadProductsForCategory(catSlug, curatedSections, products);
+    if (curated && curated.some((p) => p !== null)) return curated;
     const matching = products.filter((p) => p.categorySlug === catSlug);
     return [
       matching[0] || null,
@@ -91,9 +80,7 @@ function CategoriesContent() {
   };
 
   const getCatCount = (category: CategoryItem) => {
-    const matching = products.filter((p) => p.categorySlug === category.slug).length;
-    if (matching > 0) return matching;
-    return category.itemCount || 6;
+    return products.filter((p) => p.categorySlug === category.slug).length;
   };
 
   return (

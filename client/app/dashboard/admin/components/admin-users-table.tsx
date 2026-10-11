@@ -183,7 +183,7 @@ export function AdminUsersTable() {
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-white/10 bg-[#0d121f]/90 p-3 backdrop-blur-xl">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 w-full sm:max-w-sm">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
           <input
             type="text"
@@ -194,13 +194,13 @@ export function AdminUsersTable() {
           />
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto">
           <label className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1.5 text-[11px] text-zinc-300">
             <span>Role</span>
             <select
               value={selectedRole}
               onChange={(e) => setSelectedRole(e.target.value)}
-              className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none"
+              className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none cursor-pointer"
             >
               <option value="ALL">All Users</option>
               <option value="CUSTOMER">Customer</option>
@@ -214,7 +214,7 @@ export function AdminUsersTable() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none"
+              className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none cursor-pointer"
             >
               <option value="ALL">All Status</option>
               <option value="ACTIVE">Active</option>
@@ -227,7 +227,7 @@ export function AdminUsersTable() {
             <select
               value={selectedKyc}
               onChange={(e) => setSelectedKyc(e.target.value)}
-              className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none"
+              className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none cursor-pointer"
             >
               <option value="ALL">All KYC</option>
               <option value="PENDING">Pending ({pendingKycCount})</option>
@@ -239,7 +239,7 @@ export function AdminUsersTable() {
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
         <div className="overflow-x-auto min-h-[260px]">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[780px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">User & Store Info</th>

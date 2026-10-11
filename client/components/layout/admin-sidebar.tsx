@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Tag,
   Users,
+  Building2,
   Package,
   Receipt,
   Bike,
@@ -95,6 +96,11 @@ export function AdminSidebar() {
           badgeColor: "bg-indigo-500/25 text-indigo-300 border-indigo-500/40",
         },
         {
+          id: "suppliers",
+          label: "Suppliers & Fleet",
+          icon: Building2,
+        },
+        {
           id: "orders",
           label: "Orders & Escrow",
           icon: Package,
@@ -142,7 +148,7 @@ export function AdminSidebar() {
     },
   ];
 
-  const sidebarWidth = isSidebarCollapsed ? "w-16" : "w-64";
+  const sidebarWidth = isSidebarCollapsed ? "w-72 md:w-16" : "w-72 md:w-64";
 
   return (
     <>
@@ -150,13 +156,13 @@ export function AdminSidebar() {
       {isMobileSidebarOpen && (
         <div
           onClick={() => setMobileSidebarOpen(false)}
-          className="fixed inset-0 z-40 bg-black/70 backdrop-blur-xs md:hidden"
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm md:hidden animate-in fade-in duration-200"
         />
       )}
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed md:sticky top-0 z-40 app-sidebar flex h-screen shrink-0 flex-col border-r border-white/[0.08] bg-[#090d16] transition-all duration-200 select-none ${isMobileSidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        className={`fixed md:sticky top-0 z-50 app-sidebar flex h-screen shrink-0 flex-col border-r border-white/[0.08] bg-[#090d16] transition-all duration-200 select-none ${isMobileSidebarOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
           } ${sidebarWidth}`}
       >
         {/* Top Header / Branding */}
@@ -235,16 +241,22 @@ export function AdminSidebar() {
                     key={item.id}
                     onClick={() => {
                       setActiveTab(item.id);
+                      setMobileSidebarOpen(false);
                       if (pathname !== "/dashboard/admin") {
                         router.push("/dashboard/admin");
                       }
                     }}
                     title={isSidebarCollapsed ? item.label : undefined}
                     className={`group relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-xs font-medium transition-all cursor-pointer ${isActive
-                      ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 font-semibold"
-                      : "text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-200 border border-transparent"
+                      ? "bg-gradient-to-r from-indigo-600 to-indigo-700/90 text-white shadow-md shadow-indigo-600/30 font-semibold border border-indigo-400/30"
+                      : "text-zinc-400 hover:bg-white/[0.05] hover:text-zinc-100 border border-transparent"
                       } ${isSidebarCollapsed ? "justify-center px-0 py-2.5" : ""}`}
                   >
+                    {/* Left glow pill for active tab */}
+                    {isActive && !isSidebarCollapsed && (
+                      <span className="absolute left-1 top-2 bottom-2 w-1 rounded-full bg-cyan-400 shadow-[0_0_8px_#22d3ee]" />
+                    )}
+
                     <Icon
                       className={`h-4 w-4 shrink-0 transition-transform group-hover:scale-105 ${isActive ? "text-white" : "text-zinc-400 group-hover:text-zinc-200"
                         }`}
@@ -252,7 +264,7 @@ export function AdminSidebar() {
 
                     {!isSidebarCollapsed && (
                       <>
-                        <span className="truncate flex-1 text-left">{item.label}</span>
+                        <span className="truncate flex-1 text-left pl-0.5">{item.label}</span>
                         {item.badge !== undefined && item.badge > 0 && (
                           <span
                             className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold border ${isActive

@@ -115,6 +115,11 @@ export class UsersController {
     return this.usersService.listUsers(query);
   }
 
+  @MessagePattern('get_admin_suppliers')
+  getAdminSuppliers(@Payload() query: any) {
+    return this.usersService.getAdminSuppliers(query);
+  }
+
   @MessagePattern('create_audit_log')
   createAuditLog(@Payload() dto: CreateAuditLogDto) {
     return this.usersService.createAuditLog(dto);

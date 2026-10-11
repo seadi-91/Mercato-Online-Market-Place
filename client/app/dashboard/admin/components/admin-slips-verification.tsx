@@ -422,7 +422,7 @@ export function AdminSlipsVerification() {
 
       {/* Search & Filter Toolbar */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-white/10 bg-[#0d121f]/90 p-3 backdrop-blur-xl">
-        <div className="relative flex-1 max-w-sm">
+        <div className="relative flex-1 w-full sm:max-w-sm">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
           <input
             type="text"
@@ -433,7 +433,7 @@ export function AdminSlipsVerification() {
           />
         </div>
 
-        <div className="flex items-center rounded-lg bg-white/[0.04] p-0.5 border border-white/5 text-[11px]">
+        <div className="flex items-center overflow-x-auto scrollbar-none rounded-lg bg-white/[0.04] p-0.5 border border-white/5 text-[11px] shrink-0">
           {[
             { id: "ALL", label: `All (${slips.length})` },
             { id: "PENDING", label: `Pending (${pendingCount})` },
@@ -443,7 +443,7 @@ export function AdminSlipsVerification() {
             <button
               key={tab.id}
               onClick={() => setStatusFilter(tab.id)}
-              className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+              className={`rounded-md px-2.5 py-1 font-medium transition-colors shrink-0 cursor-pointer ${
                 statusFilter === tab.id
                   ? "bg-indigo-600 text-white shadow-sm"
                   : "text-zinc-400 hover:text-zinc-200"
@@ -458,7 +458,7 @@ export function AdminSlipsVerification() {
       {/* Slips Table */}
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
         <div className="overflow-x-auto min-h-[260px]">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[760px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">Linked Order</th>

@@ -142,9 +142,8 @@ export function ProductCard({
             className="flex items-center justify-center p-1 text-white hover:scale-115 transition-transform cursor-pointer bg-transparent border-none outline-none"
           >
             <Heart
-              className={`h-3.5 w-3.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] transition-colors ${
-                fav ? "fill-white text-white" : "text-white"
-              }`}
+              className={`h-3.5 w-3.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] transition-colors ${fav ? "fill-white text-white" : "text-white"
+                }`}
               color="#ffffff"
               style={{ fill: fav ? "#ffffff" : "none", stroke: "#ffffff" }}
             />
@@ -222,13 +221,12 @@ export function ProductCard({
             type="button"
             onClick={handleAddToCart}
             title={isAdded ? "Added" : "Add to cart"}
-            className={`flex h-6.5 w-6.5 items-center justify-center rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 ${
-              transparentCartButton
+            className={`flex h-6.5 w-6.5 items-center justify-center rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 ${transparentCartButton
                 ? "bg-transparent text-white shadow-none hover:scale-105"
                 : isAdded
                   ? "bg-transparent text-emerald-600 shadow-none"
                   : "bg-transparent text-indigo-600 shadow-none hover:text-indigo-500 hover:scale-105"
-            }`}
+              }`}
           >
             {isAdded ? (
               <Check className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />

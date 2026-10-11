@@ -143,9 +143,8 @@ export function HorizontalProductCard({
             className="flex items-center justify-center p-1 text-white hover:scale-115 transition-transform cursor-pointer bg-black/40 rounded-md backdrop-blur-xs border border-white/10"
           >
             <Heart
-              className={`h-3.5 w-3.5 transition-colors ${
-                fav ? "fill-white text-white" : "text-white"
-              }`}
+              className={`h-3.5 w-3.5 transition-colors ${fav ? "fill-white text-white" : "text-white"
+                }`}
               color="#ffffff"
               style={{ fill: fav ? "#ffffff" : "none", stroke: "#ffffff" }}
             />
@@ -242,13 +241,12 @@ export function HorizontalProductCard({
         <button
           type="button"
           onClick={handleAddToCart}
-          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${
-            transparentCartButton
+          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${transparentCartButton
               ? "bg-transparent text-white shadow-none"
               : isAdded
                 ? "bg-transparent text-emerald-600 shadow-none"
                 : "bg-transparent text-indigo-600 shadow-none hover:text-indigo-500"
-          }`}
+            }`}
         >
           {isAdded ? (
             <>

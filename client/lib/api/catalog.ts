@@ -120,7 +120,7 @@ export function adaptBackendCategory(c: BackendCategory): CategoryItem {
     name: c.name,
     slug: c.slug,
     iconName: CATEGORY_ICONS[c.slug] || "Layers",
-    itemCount: 80,
+    itemCount: 0,
     description: c.nameAmharic
       ? `${c.name} (${c.nameAmharic})`
       : `${c.name} commercial supply`,
@@ -171,9 +171,8 @@ export function adaptBackendProduct(p: BackendProduct): Product {
     };
   });
 
-  const parsedRating = p.rating ? Number(p.rating) : 4.8;
-  const parsedRatingCount =
-    p.ratingCount ?? (p.salesCount ? Math.max(1, Math.round(p.salesCount * 0.4)) : 12);
+  const parsedRating = p.rating ? Number(p.rating) : 0;
+  const parsedRatingCount = p.ratingCount ?? 0;
 
   const specifications: Record<string, string> = {
     "Unit": p.unit || "Piece",
@@ -213,9 +212,9 @@ export function adaptBackendProduct(p: BackendProduct): Product {
     category: p.category?.name || "General Marketplace",
     categorySlug: catSlug,
     price: retail,
-    originalPrice: wholesale && wholesale > retail ? wholesale : Math.round(retail * 1.15),
+    originalPrice: wholesale && wholesale > retail ? wholesale : undefined,
     wholesalePrice: wholesale,
-    rating: isNaN(parsedRating) ? 4.8 : parsedRating,
+    rating: isNaN(parsedRating) ? 0 : parsedRating,
     reviewCount: parsedRatingCount,
     shopName: `${marketZone} Verified Store`,
     marketZone,

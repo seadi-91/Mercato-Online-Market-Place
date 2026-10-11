@@ -34,6 +34,9 @@ import {
   BadgePercent,
   CheckCircle2,
   ArrowRight,
+  Zap,
+  Globe,
+  Filter,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -65,7 +68,7 @@ export function MarketplaceClient({
   const searchParams = useSearchParams();
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
-  const { theme, resolvedTheme } = useThemeStore();
+  const { theme } = useThemeStore();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -88,7 +91,6 @@ export function MarketplaceClient({
   const [categories, setCategories] = useState<CategoryItem[]>(initialCategories);
   const [isLoading, setIsLoading] = useState<boolean>(initialProducts.length === 0);
 
-  // Filters State
   const [tradeType, setTradeType] = useState<TradeType>(initialType);
   const [moqFilter, setMoqFilter] = useState<"ALL" | "1" | "2-9" | "10+">("ALL");
   const [searchQuery, setSearchQuery] = useState(initialQuery);
@@ -107,7 +109,6 @@ export function MarketplaceClient({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // Load catalog if initialProducts was empty
   useEffect(() => {
     if (initialProducts.length > 0) return;
     let isMounted = true;
@@ -134,7 +135,6 @@ export function MarketplaceClient({
     };
   }, [initialProducts]);
 
-  // Sync URL search params
   useEffect(() => {
     const cat = searchParams.get("category");
     if (cat && cat !== selectedCategory) setSelectedCategory(cat);
@@ -177,7 +177,6 @@ export function MarketplaceClient({
     }
   };
 
-  // Pre-calculate trade counts
   const counts = useMemo(() => {
     let retail = 0;
     let wholesale = 0;
@@ -185,25 +184,18 @@ export function MarketplaceClient({
       if (isRetailProduct(p)) retail++;
       if (isWholesaleProduct(p)) wholesale++;
     }
-    return {
-      total: products.length,
-      retail,
-      wholesale,
-    };
+    return { total: products.length, retail, wholesale };
   }, [products]);
 
-  // Filtering Logic
   const filteredProducts = useMemo(() => {
     let result = [...products];
 
-    // 1. Trade Sector Filter
     if (tradeType === "RETAIL") {
       result = result.filter(isRetailProduct);
     } else if (tradeType === "WHOLESALE") {
       result = result.filter(isWholesaleProduct);
     }
 
-    // 2. MOQ Filter
     if (moqFilter !== "ALL") {
       if (moqFilter === "1") {
         result = result.filter((p) => (p.minOrderQuantity || p.moq || 1) === 1);
@@ -217,7 +209,6 @@ export function MarketplaceClient({
       }
     }
 
-    // 3. Search query
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
       result = result.filter(
@@ -231,12 +222,10 @@ export function MarketplaceClient({
       );
     }
 
-    // 4. Category
     if (selectedCategory !== "ALL") {
       result = result.filter((p) => p.categorySlug === selectedCategory);
     }
 
-    // 5. Price range
     if (priceRange === "under-5k") {
       result = result.filter((p) => p.price < 5000);
     } else if (priceRange === "5k-20k") {
@@ -247,20 +236,10 @@ export function MarketplaceClient({
       result = result.filter((p) => p.price > 60000);
     }
 
-    // 6. Availability and Ratings
-    if (inStockOnly) {
-      result = result.filter((p) => p.stock > 0);
-    }
+    if (inStockOnly) result = result.filter((p) => p.stock > 0);
+    if (escrowOnly) result = result.filter((p) => p.isVerifiedSeller || p.badge === "Escrow Verified");
+    if (minRating > 0) result = result.filter((p) => p.rating >= minRating);
 
-    if (escrowOnly) {
-      result = result.filter((p) => p.isVerifiedSeller || p.badge === "Escrow Verified");
-    }
-
-    if (minRating > 0) {
-      result = result.filter((p) => p.rating >= minRating);
-    }
-
-    // 7. Sorting
     if (sortBy === "price-asc") {
       result.sort((a, b) => {
         const pA = tradeType === "WHOLESALE" && a.wholesalePrice ? a.wholesalePrice : a.price;
@@ -278,18 +257,7 @@ export function MarketplaceClient({
     }
 
     return result;
-  }, [
-    products,
-    tradeType,
-    moqFilter,
-    searchQuery,
-    selectedCategory,
-    priceRange,
-    inStockOnly,
-    escrowOnly,
-    minRating,
-    sortBy,
-  ]);
+  }, [products, tradeType, moqFilter, searchQuery, selectedCategory, priceRange, inStockOnly, escrowOnly, minRating, sortBy]);
 
   const clearFilters = () => {
     setTradeType("ALL");
@@ -322,288 +290,303 @@ export function MarketplaceClient({
     return pool.filter((p) => p.categorySlug === slug).length;
   };
 
-  // Theme-aware container & border classes
+  // Theme-aware classes matching globals.css tokens
   const themePageBg = isLight
-    ? "bg-white text-slate-900"
+    ? "bg-[#fafbfe] text-slate-900"
     : isDark
-    ? "bg-[#09090b] text-white"
-    : "bg-[#070d1e] text-slate-100";
+      ? "bg-[#09090b] text-white"
+      : "bg-[#070d1e] text-slate-100";
 
   const themeBorder = isLight
-    ? "border-slate-200"
+    ? "border-slate-200/80"
     : isDark
-    ? "border-white/10"
-    : "border-blue-500/20";
+      ? "border-white/8"
+      : "border-blue-500/15";
 
   const themeSurfaceBg = isLight
-    ? "bg-slate-50 border-slate-200 shadow-xs"
+    ? "bg-white border-slate-200/80 shadow-xs"
     : isDark
-    ? "bg-[#121215] border-white/10"
-    : "bg-[#0c1630]/90 border-blue-500/20";
+      ? "bg-[#111115] border-white/8"
+      : "bg-[#0c1630] border-blue-500/15";
 
   const themeCardBg = isLight
-    ? "bg-white border-slate-200 shadow-xs hover:border-slate-300"
+    ? "bg-white border-slate-200/80 hover:border-indigo-200 shadow-xs hover:shadow-sm"
     : isDark
-    ? "bg-[#141418] border-white/10 hover:border-white/20"
-    : "bg-[#0f1b3b]/90 border-blue-500/20 hover:border-blue-500/40";
-
-  const themeInputBg = isLight
-    ? "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400 focus:border-indigo-600 focus:ring-indigo-600/20"
-    : isDark
-    ? "bg-[#121215] border-white/10 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-indigo-500/20"
-    : "bg-[#0c1630] border-blue-500/20 text-white placeholder:text-slate-400 focus:border-blue-500 focus:ring-blue-500/20";
+      ? "bg-[#141418] border-white/8 hover:border-white/16"
+      : "bg-[#0f1b3b] border-blue-500/15 hover:border-blue-400/35";
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-200 ${themePageBg}`}>
       <CustomerHeader />
 
-      <main className="flex-1 mx-auto max-w-[1600px] w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-5 pb-24 sm:pb-12">
-        {/* Marketplace Header Banner */}
-        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b pb-4 ${themeBorder}`}>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full bg-indigo-600/10 border border-indigo-600/30 px-2.5 py-0.5 text-[11px] font-bold text-indigo-500 dark:text-indigo-400">
-                Live Commercial Catalog
-              </span>
-              <span className={`text-xs ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                {counts.total} verified products
-              </span>
-            </div>
-            <h1 className={`mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight ${isLight ? "text-slate-900" : "text-white"}`}>
-              Ethiopian Protected Marketplace
-            </h1>
-            <p className={`text-xs mt-0.5 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Wholesale & Retail Commercial Hub — Authentic Direct Supply with CBE & Telebirr Escrow
-            </p>
-          </div>
+      <main className="flex-1 mx-auto max-w-[1600px] w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-6 space-y-4 pb-24 sm:pb-12">
 
-          {/* Quick Search in Banner */}
-          <div className="relative w-full sm:w-80">
-            <Search className={`absolute left-3.5 top-2.5 h-4 w-4 pointer-events-none ${isLight ? "text-slate-400" : "text-zinc-400"}`} />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products, brands, bulk cargo..."
-              className={`w-full rounded-xl border pl-10 pr-9 py-2 text-xs outline-none transition-all ${themeInputBg}`}
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={() => setSearchQuery("")}
-                className={`absolute right-3 top-2.5 hover:opacity-80 cursor-pointer ${isLight ? "text-slate-400" : "text-zinc-400"}`}
+        {/* HERO SECTION - Sleek, Modern, Brand-Aligned */}
+        <div
+          className={`relative overflow-hidden rounded-2xl border transition-all ${isLight
+              ? "bg-white border-slate-200/80 shadow-sm"
+              : isDark
+                ? "bg-[#121216] border-white/8 shadow-md"
+                : "bg-[#0c1630] border-blue-500/20 shadow-md"
+            }`}
+        >
+          {/* Subtle top brand accent line */}
+          <div className="h-1 w-full bg-gradient-to-r from-indigo-600 via-cyan-500 to-indigo-600" />
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 p-5 sm:p-7">
+            {/* Title & Trust Info */}
+            <div className="space-y-2 max-w-2xl">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold border ${isLight
+                      ? "bg-emerald-50 text-emerald-700 border-emerald-200"
+                      : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+                    }`}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  Live Marketplace
+                </span>
+                <span
+                  className={`text-xs ${isLight ? "text-slate-500" : isDark ? "text-zinc-400" : "text-slate-400"
+                    }`}
+                >
+                  {counts.total} Verified Products &bull; Addis Ababa Commercial Hub
+                </span>
+              </div>
+
+              <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
+                Ethiopian Protected{" "}
+                <span className="text-indigo-600 dark:text-indigo-400">
+                  Marketplace
+                </span>
+              </h1>
+
+              <p
+                className={`text-xs sm:text-sm leading-relaxed ${isLight ? "text-slate-600" : isDark ? "text-zinc-400" : "text-slate-300"
+                  }`}
               >
-                <X className="h-3.5 w-3.5" />
-              </button>
-            )}
+                Wholesale bulk supply &amp; retail direct from verified Mercato merchants. Guaranteed with CBE &amp; Telebirr Escrow protection.
+              </p>
+
+              {/* Trust Badges */}
+              <div className="flex items-center gap-4 pt-1 flex-wrap text-xs">
+                <span
+                  className={`inline-flex items-center gap-1.5 font-medium ${isLight ? "text-slate-700" : isDark ? "text-zinc-300" : "text-slate-200"
+                    }`}
+                >
+                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                  Escrow Protected
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1.5 font-medium ${isLight ? "text-slate-700" : isDark ? "text-zinc-300" : "text-slate-200"
+                    }`}
+                >
+                  <CheckCircle2 className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                  Verified Merchants
+                </span>
+                <span
+                  className={`inline-flex items-center gap-1.5 font-medium ${isLight ? "text-slate-700" : isDark ? "text-zinc-300" : "text-slate-200"
+                    }`}
+                >
+                  <Truck className="h-3.5 w-3.5 text-cyan-600 dark:text-cyan-400" />
+                  Direct Delivery
+                </span>
+              </div>
+            </div>
+
+            {/* Modern Search Input */}
+            <div className="w-full md:w-80 lg:w-96 shrink-0">
+              <div className="relative">
+                <Search
+                  className={`absolute left-3.5 top-3 h-4 w-4 pointer-events-none ${isLight ? "text-slate-400" : "text-zinc-500"
+                    }`}
+                />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search products, brands, bulk cargo..."
+                  className={`w-full rounded-xl border pl-10 pr-9 py-2.5 text-xs sm:text-sm outline-none transition-all ${isLight
+                      ? "bg-slate-50/70 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:bg-white focus:border-indigo-600 focus:ring-2 focus:ring-indigo-600/10"
+                      : isDark
+                        ? "bg-[#18181c] border-white/10 text-white placeholder:text-zinc-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                        : "bg-[#091228] border-blue-500/20 text-white placeholder:text-slate-500 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20"
+                    }`}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery("")}
+                    className={`absolute right-3 top-2.5 p-0.5 rounded-full transition-colors cursor-pointer ${isLight
+                        ? "text-slate-400 hover:text-slate-600 hover:bg-slate-100"
+                        : "text-zinc-400 hover:text-white hover:bg-white/10"
+                      }`}
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 🌟 ULTRA-MODERN 3-MODE TRADE SECTOR SWITCHER (LIGHT, DARK & SYSTEM COMPATIBLE) 🌟 */}
+        {/* TRADE SECTOR SWITCHER - Clean Modern Cards adhering strictly to Brand Colors */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* 1. All Products Card */}
-          <button
-            type="button"
-            onClick={() => setTradeType("ALL")}
-            className={`group relative text-left p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
-              tradeType === "ALL"
-                ? isLight
-                  ? "bg-gradient-to-br from-indigo-50 to-white border-indigo-500 shadow-md ring-1 ring-indigo-500/20 text-slate-900"
-                  : isDark
-                  ? "bg-gradient-to-br from-indigo-950/70 via-[#12121e] to-[#09090b] border-indigo-500/60 shadow-lg ring-1 ring-indigo-500/30 text-white"
-                  : "bg-gradient-to-br from-indigo-950/80 via-[#0e1738] to-[#070d1e] border-indigo-400/60 shadow-lg ring-1 ring-indigo-400/30 text-white"
-                : themeCardBg
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
-                    tradeType === "ALL"
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : isLight
-                      ? "bg-slate-100 text-slate-600 group-hover:bg-slate-200"
-                      : "bg-white/5 text-zinc-400 group-hover:text-white"
+          {[
+            {
+              id: "ALL" as TradeType,
+              label: "All Products",
+              sub: "Full Catalog",
+              desc: "Complete marketplace inventory across retail & bulk",
+              count: counts.total,
+              Icon: Layers,
+              // Brand Primary (Indigo)
+              activeTheme: isLight
+                ? "bg-white border-indigo-600 ring-2 ring-indigo-600/15 shadow-sm"
+                : "bg-indigo-950/30 border-indigo-500 ring-1 ring-indigo-500/30 shadow-sm",
+              iconBgActive: isLight ? "bg-indigo-50 text-indigo-600" : "bg-indigo-500/20 text-indigo-400",
+              badgeActive: isLight
+                ? "bg-indigo-50 text-indigo-700 border border-indigo-200"
+                : "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30",
+              activeBorderBar: "bg-indigo-600",
+            },
+            {
+              id: "RETAIL" as TradeType,
+              label: "Retail Direct",
+              sub: "B2C Single Units",
+              desc: "1 Unit Minimum Order — Direct doorstep delivery",
+              count: counts.retail,
+              Icon: ShoppingBag,
+              // Brand Retail (Emerald)
+              activeTheme: isLight
+                ? "bg-white border-emerald-600 ring-2 ring-emerald-600/15 shadow-sm"
+                : "bg-emerald-950/30 border-emerald-500 ring-1 ring-emerald-500/30 shadow-sm",
+              iconBgActive: isLight ? "bg-emerald-50 text-emerald-600" : "bg-emerald-500/20 text-emerald-400",
+              badgeActive: isLight
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30",
+              activeBorderBar: "bg-emerald-600",
+            },
+            {
+              id: "WHOLESALE" as TradeType,
+              label: "Wholesale Hub",
+              sub: "B2B Bulk Orders",
+              desc: "Volume tier discounts — Cartons, sacks & commercial cargo",
+              count: counts.wholesale,
+              Icon: Boxes,
+              // Brand Wholesale (Amber)
+              activeTheme: isLight
+                ? "bg-white border-amber-500 ring-2 ring-amber-500/15 shadow-sm"
+                : "bg-amber-950/30 border-amber-500 ring-1 ring-amber-500/30 shadow-sm",
+              iconBgActive: isLight ? "bg-amber-50 text-amber-600" : "bg-amber-500/20 text-amber-400",
+              badgeActive: isLight
+                ? "bg-amber-50 text-amber-700 border border-amber-200"
+                : "bg-amber-500/20 text-amber-300 border border-amber-500/30",
+              activeBorderBar: "bg-amber-500",
+            },
+          ].map((card) => {
+            const isSelected = tradeType === card.id;
+            return (
+              <button
+                key={card.id}
+                type="button"
+                onClick={() => setTradeType(card.id)}
+                className={`relative text-left rounded-2xl border transition-all duration-150 cursor-pointer overflow-hidden p-4 ${isSelected ? card.activeTheme : `${themeCardBg}`
                   }`}
-                >
-                  <Layers className="h-4.5 w-4.5" />
-                </div>
-                <div>
-                  <h3 className={`text-sm font-bold flex items-center gap-1.5 ${isLight ? "text-slate-900" : "text-white"}`}>
-                    <span>All Products</span>
-                    <span className={`text-[11px] font-normal ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                      (Full Catalog)
-                    </span>
-                  </h3>
-                  <p className={`text-[11px] mt-0.5 line-clamp-1 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                    Complete marketplace inventory across retail & bulk
-                  </p>
-                </div>
-              </div>
-              <span
-                className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
-                  tradeType === "ALL"
-                    ? "bg-indigo-500/20 text-indigo-600 dark:text-indigo-300 border border-indigo-500/30"
-                    : isLight
-                    ? "bg-slate-100 text-slate-600"
-                    : "bg-white/5 text-zinc-400"
-                }`}
               >
-                {counts.total}
-              </span>
-            </div>
-          </button>
+                {/* Active accent top bar */}
+                {isSelected && (
+                  <div className={`absolute top-0 left-0 right-0 h-1 ${card.activeBorderBar}`} />
+                )}
 
-          {/* 2. Retail Direct Card */}
-          <button
-            type="button"
-            onClick={() => setTradeType("RETAIL")}
-            className={`group relative text-left p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
-              tradeType === "RETAIL"
-                ? isLight
-                  ? "bg-gradient-to-br from-cyan-50 to-white border-cyan-500 shadow-md ring-1 ring-cyan-500/20 text-slate-900"
-                  : isDark
-                  ? "bg-gradient-to-br from-cyan-950/70 via-[#0a151f] to-[#09090b] border-cyan-500/60 shadow-lg ring-1 ring-cyan-500/30 text-white"
-                  : "bg-gradient-to-br from-cyan-950/80 via-[#092238] to-[#070d1e] border-cyan-400/60 shadow-lg ring-1 ring-cyan-400/30 text-white"
-                : themeCardBg
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
-                    tradeType === "RETAIL"
-                      ? "bg-cyan-600 text-white shadow-xs"
-                      : isLight
-                      ? "bg-slate-100 text-slate-600 group-hover:text-cyan-600"
-                      : "bg-white/5 text-zinc-400 group-hover:text-cyan-400"
-                  }`}
-                >
-                  <ShoppingBag className="h-4.5 w-4.5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
-                    <span className="text-cyan-600 dark:text-cyan-400">Retail Direct</span>
-                    <span className={`text-[11px] font-normal ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                      (B2C Single Units)
-                    </span>
-                  </h3>
-                  <p className={`text-[11px] mt-0.5 line-clamp-1 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                    1 Unit Minimum Order • Direct doorstep delivery
-                  </p>
-                </div>
-              </div>
-              <span
-                className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
-                  tradeType === "RETAIL"
-                    ? "bg-cyan-500/20 text-cyan-600 dark:text-cyan-200 border border-cyan-500/30"
-                    : isLight
-                    ? "bg-slate-100 text-slate-600"
-                    : "bg-white/5 text-zinc-400"
-                }`}
-              >
-                {counts.retail}
-              </span>
-            </div>
-          </button>
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-colors ${isSelected
+                          ? card.iconBgActive
+                          : isLight
+                            ? "bg-slate-100 text-slate-600"
+                            : "bg-white/5 text-zinc-400"
+                        }`}
+                    >
+                      <card.Icon className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xs sm:text-sm font-bold flex items-center gap-1.5">
+                        <span>{card.label}</span>
+                        <span
+                          className={`text-[11px] font-normal ${isLight ? "text-slate-400" : "text-zinc-500"
+                            }`}
+                        >
+                          ({card.sub})
+                        </span>
+                      </h3>
+                      <p
+                        className={`text-[11px] mt-0.5 line-clamp-1 ${isLight ? "text-slate-500" : "text-zinc-400"
+                          }`}
+                      >
+                        {card.desc}
+                      </p>
+                    </div>
+                  </div>
 
-          {/* 3. Wholesale Bulk Card */}
-          <button
-            type="button"
-            onClick={() => setTradeType("WHOLESALE")}
-            className={`group relative text-left p-3.5 sm:p-4 rounded-2xl border transition-all duration-200 cursor-pointer overflow-hidden ${
-              tradeType === "WHOLESALE"
-                ? isLight
-                  ? "bg-gradient-to-br from-amber-50 to-white border-amber-500 shadow-md ring-1 ring-amber-500/20 text-slate-900"
-                  : isDark
-                  ? "bg-gradient-to-br from-amber-950/70 via-[#1a110a] to-[#09090b] border-amber-500/60 shadow-lg ring-1 ring-amber-500/30 text-white"
-                  : "bg-gradient-to-br from-amber-950/80 via-[#2a1708] to-[#070d1e] border-amber-400/60 shadow-lg ring-1 ring-amber-400/30 text-white"
-                : themeCardBg
-            }`}
-          >
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-2.5">
-                <div
-                  className={`flex h-9 w-9 items-center justify-center rounded-xl transition-colors ${
-                    tradeType === "WHOLESALE"
-                      ? "bg-amber-600 text-white shadow-xs"
-                      : isLight
-                      ? "bg-slate-100 text-slate-600 group-hover:text-amber-600"
-                      : "bg-white/5 text-zinc-400 group-hover:text-amber-400"
-                  }`}
-                >
-                  <Boxes className="h-4.5 w-4.5" />
+                  <span
+                    className={`text-xs font-mono font-bold px-2.5 py-0.5 rounded-full shrink-0 ${isSelected
+                        ? card.badgeActive
+                        : isLight
+                          ? "bg-slate-100 text-slate-600"
+                          : "bg-white/5 text-zinc-400"
+                      }`}
+                  >
+                    {card.count}
+                  </span>
                 </div>
-                <div>
-                  <h3 className="text-sm font-bold flex items-center gap-1.5">
-                    <span className="text-amber-600 dark:text-amber-400">Wholesale Hub</span>
-                    <span className={`text-[11px] font-normal ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                      (B2B Bulk Orders)
-                    </span>
-                  </h3>
-                  <p className={`text-[11px] mt-0.5 line-clamp-1 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                    Volume tier discounts • Sacks, cartons & cargo freight
-                  </p>
-                </div>
-              </div>
-              <span
-                className={`text-xs font-mono font-bold px-2 py-0.5 rounded-full ${
-                  tradeType === "WHOLESALE"
-                    ? "bg-amber-500/20 text-amber-600 dark:text-amber-200 border border-amber-500/30"
-                    : isLight
-                    ? "bg-slate-100 text-slate-600"
-                    : "bg-white/5 text-zinc-400"
-                }`}
-              >
-                {counts.wholesale}
-              </span>
-            </div>
-          </button>
+              </button>
+            );
+          })}
         </div>
 
-        {/* 🌟 CONTEXTUAL FEATURE STRIP (LIGHT, DARK & SYSTEM COMPATIBLE) 🌟 */}
+        {/* CONTEXTUAL FEATURE STRIP - WHOLESALE (Amber brand token) */}
         {tradeType === "WHOLESALE" && (
           <div
-            className={`rounded-2xl border p-3.5 sm:p-4 backdrop-blur-md space-y-3 ${
-              isLight
-                ? "bg-gradient-to-r from-amber-50/90 via-orange-50/40 to-white border-amber-300 text-slate-800 shadow-xs"
+            className={`rounded-2xl border p-4 transition-all ${isLight
+                ? "bg-white border-amber-200/80 shadow-xs"
                 : isDark
-                ? "bg-gradient-to-r from-amber-950/40 via-[#15100a] to-[#09090b] border-amber-500/30 text-zinc-300"
-                : "bg-gradient-to-r from-amber-950/40 via-[#201408] to-[#070d1e] border-amber-500/30 text-slate-200"
-            }`}
+                  ? "bg-[#14120e] border-amber-500/20"
+                  : "bg-[#121324] border-amber-500/20"
+              }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 font-extrabold text-sm">
+                <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-amber-600 dark:text-amber-400">
                   <Boxes className="h-4 w-4" />
                   <span>Wholesale Commercial Hub (B2B Bulk Supply)</span>
                 </div>
-                <p className={`text-xs mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-300"}`}>
-                  Source directly from verified commercial importers and manufacturers with CBE & Telebirr Escrow protection.
+                <p className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
+                  Source directly from verified commercial importers and manufacturers with CBE &amp; Telebirr Escrow protection.
                 </p>
               </div>
 
-              {/* MOQ Quick Selector Pills */}
+              {/* MOQ Filter Pills */}
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className={`text-[11px] font-semibold mr-1 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                  MOQ:
+                  MOQ Filter:
                 </span>
                 {[
                   { label: "All Bulk", value: "ALL" },
-                  { label: "2 - 9 Units", value: "2-9" },
-                  { label: "10+ Units (Sacks/Cargo)", value: "10+" },
+                  { label: "2-9 Units", value: "2-9" },
+                  { label: "10+ Units", value: "10+" },
                 ].map((item) => (
                   <button
                     key={item.value}
                     type="button"
                     onClick={() => setMoqFilter(item.value as any)}
-                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${
-                      moqFilter === item.value
-                        ? "bg-amber-600 text-white shadow-xs"
+                    className={`rounded-lg px-2.5 py-1 text-[11px] font-bold transition-all cursor-pointer ${moqFilter === item.value
+                        ? "bg-amber-500 text-white shadow-xs"
                         : isLight
-                        ? "bg-white border border-slate-200 text-slate-700 hover:bg-slate-100"
-                        : "bg-white/5 text-zinc-300 hover:bg-white/10"
-                    }`}
+                          ? "bg-slate-50 border border-slate-200 text-slate-700 hover:bg-slate-100"
+                          : "bg-white/5 border border-white/10 text-zinc-300 hover:bg-white/10"
+                      }`}
                   >
                     {item.label}
                   </button>
@@ -611,184 +594,173 @@ export function MarketplaceClient({
               </div>
             </div>
 
+            {/* Wholesale Value Highlights */}
             <div
-              className={`grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t text-[11px] ${
-                isLight ? "border-amber-200 text-slate-700" : "border-amber-500/20 text-zinc-300"
-              }`}
+              className={`grid grid-cols-2 sm:grid-cols-4 gap-2 pt-3 mt-3 border-t text-[11px] ${isLight ? "border-slate-100 text-slate-600" : "border-white/5 text-zinc-400"
+                }`}
             >
               <div className="flex items-center gap-1.5">
                 <BadgePercent className="h-3.5 w-3.5 text-amber-500 shrink-0" />
-                <span>Tiered Volume Discounts</span>
+                <span>Tiered Volume Pricing</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                <span>100% Escrow Buyer Protection</span>
+                <span>100% Escrow Protection</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Truck className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
-                <span>Addis Ababa & Regional Freight Logistics</span>
+                <span>Addis Ababa Freight</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <FileText className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                <span>Official Tax & VAT Commercial Invoices</span>
+                <span>Official VAT Invoices</span>
               </div>
             </div>
           </div>
         )}
 
+        {/* CONTEXTUAL FEATURE STRIP - RETAIL (Emerald brand token) */}
         {tradeType === "RETAIL" && (
           <div
-            className={`rounded-2xl border p-3.5 sm:p-4 backdrop-blur-md space-y-3 ${
-              isLight
-                ? "bg-gradient-to-r from-cyan-50/90 via-indigo-50/40 to-white border-cyan-300 text-slate-800 shadow-xs"
+            className={`rounded-2xl border p-4 transition-all ${isLight
+                ? "bg-white border-emerald-200/80 shadow-xs"
                 : isDark
-                ? "bg-gradient-to-r from-cyan-950/40 via-[#0a151f] to-[#09090b] border-cyan-500/30 text-zinc-300"
-                : "bg-gradient-to-r from-cyan-950/40 via-[#091b2c] to-[#070d1e] border-cyan-500/30 text-slate-200"
-            }`}
+                  ? "bg-[#0d1410] border-emerald-500/20"
+                  : "bg-[#0b1820] border-emerald-500/20"
+              }`}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <div className="flex items-center gap-2 text-cyan-600 dark:text-cyan-400 font-extrabold text-sm">
+                <div className="flex items-center gap-2 font-bold text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">
                   <ShoppingBag className="h-4 w-4" />
                   <span>Direct Retail Marketplace (B2C Shopping)</span>
                 </div>
-                <p className={`text-xs mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-300"}`}>
+                <p className={`text-xs mt-1 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
                   Curated consumer items available in individual units (1 Unit Minimum) with rapid doorstep delivery.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-cyan-600/10 border border-cyan-600/30 px-3 py-1 text-xs text-cyan-600 dark:text-cyan-200 font-bold">
-                  <CheckCircle2 className="h-3.5 w-3.5 text-cyan-500" />
-                  <span>1 Unit • Single Item Purchase</span>
-                </span>
-              </div>
+              <span
+                className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1 text-xs font-bold whitespace-nowrap border ${isLight
+                    ? "bg-emerald-50 border-emerald-200 text-emerald-700"
+                    : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
+                  }`}
+              >
+                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
+                1 Unit Minimum
+              </span>
             </div>
 
+            {/* Retail Value Highlights */}
             <div
-              className={`grid grid-cols-2 sm:grid-cols-3 gap-2 pt-2 border-t text-[11px] ${
-                isLight ? "border-cyan-200 text-slate-700" : "border-cyan-500/20 text-zinc-300"
-              }`}
+              className={`grid grid-cols-2 sm:grid-cols-3 gap-2 pt-3 mt-3 border-t text-[11px] ${isLight ? "border-slate-100 text-slate-600" : "border-white/5 text-zinc-400"
+                }`}
             >
               <div className="flex items-center gap-1.5">
                 <Truck className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
-                <span>Fast Doorstep Delivery in Addis Ababa</span>
+                <span>Fast Doorstep Delivery</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 shrink-0" />
-                <span>Inspect Package Before 4-Digit OTP Release</span>
+                <span>OTP Package Inspection</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                <span>Verified Bole & Mercato Commercial Stores</span>
+                <span>Verified Mercato Stores</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Toolbar: Toggle Sidebar, Mobile Filters, View Modes, Sort */}
-        <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 border rounded-2xl p-2.5 backdrop-blur-md ${themeSurfaceBg}`}>
+        {/* TOOLBAR */}
+        <div
+          className={`flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-2xl border p-2.5 transition-all ${themeSurfaceBg}`}
+        >
           <div className="flex items-center gap-2 flex-wrap">
-            {/* Mobile Filter Drawer Button */}
+            {/* Mobile Filter Button */}
             <button
               type="button"
               onClick={() => setIsMobileFilterOpen(true)}
-              className="lg:hidden flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-600/10 px-3 py-1.5 text-xs font-semibold text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600/20 transition-colors cursor-pointer"
+              className="lg:hidden inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 transition-colors cursor-pointer shadow-xs"
             >
-              <SlidersHorizontal className="h-3.5 w-3.5" />
+              <Filter className="h-3.5 w-3.5" />
               <span>Filters</span>
               {activeFilterCount > 0 && (
-                <span className="rounded-full bg-indigo-600 text-white text-[10px] h-4 w-4 flex items-center justify-center font-bold">
+                <span className="rounded-full bg-white text-indigo-600 text-[10px] h-4 w-4 flex items-center justify-center font-bold">
                   {activeFilterCount}
                 </span>
               )}
             </button>
 
-            {/* Desktop Toggle Sidebar Button */}
+            {/* Desktop Sidebar Toggle */}
             <button
               type="button"
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
-              className={`hidden lg:flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                isLight
-                  ? "border-slate-200 bg-white hover:bg-slate-100 text-slate-700 shadow-xs"
-                  : "border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 hover:text-white"
-              }`}
+              className={`hidden lg:inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${isLight
+                  ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
+                  : "border-white/10 bg-white/5 hover:bg-white/8 text-zinc-300 hover:text-white"
+                }`}
               title={isSidebarCollapsed ? "Show Filters Sidebar" : "Minimize Filters Sidebar"}
             >
               {isSidebarCollapsed ? (
                 <>
-                  <PanelLeftOpen className="h-3.5 w-3.5 text-indigo-500" />
+                  <PanelLeftOpen className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Show Sidebar</span>
                 </>
               ) : (
                 <>
-                  <PanelLeftClose className="h-3.5 w-3.5 opacity-70" />
+                  <PanelLeftClose className="h-3.5 w-3.5 opacity-60" />
                   <span>Hide Sidebar</span>
                 </>
               )}
             </button>
 
-            {/* View Mode Switcher: Grid vs Normal View */}
+            {/* View Mode Switcher */}
             <div
-              className={`flex items-center rounded-xl border p-0.5 ml-1 ${
-                isLight ? "border-slate-200 bg-slate-100" : "border-white/10 bg-white/5"
-              }`}
+              className={`flex items-center rounded-xl border p-0.5 ${isLight ? "border-slate-200 bg-slate-50" : "border-white/8 bg-white/5"
+                }`}
             >
-              <button
-                type="button"
-                onClick={() => setViewMode("grid")}
-                title="Grid View"
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
-                  viewMode === "grid"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : isLight
-                    ? "text-slate-600 hover:text-slate-900"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                <LayoutGrid className="h-3.5 w-3.5" />
-                <span>Grid</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setViewMode("normal")}
-                title="Normal View"
-                className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${
-                  viewMode === "normal"
-                    ? "bg-indigo-600 text-white shadow-xs"
-                    : isLight
-                    ? "text-slate-600 hover:text-slate-900"
-                    : "text-zinc-400 hover:text-white"
-                }`}
-              >
-                <List className="h-3.5 w-3.5" />
-                <span>Compact</span>
-              </button>
+              {[
+                { mode: "grid" as const, Icon: LayoutGrid, label: "Grid" },
+                { mode: "normal" as const, Icon: List, label: "Compact" },
+              ].map((v) => (
+                <button
+                  key={v.mode}
+                  type="button"
+                  onClick={() => setViewMode(v.mode)}
+                  className={`flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold transition-all cursor-pointer ${viewMode === v.mode
+                      ? "bg-indigo-600 text-white shadow-xs"
+                      : isLight
+                        ? "text-slate-600 hover:text-slate-900"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                >
+                  <v.Icon className="h-3.5 w-3.5" />
+                  <span>{v.label}</span>
+                </button>
+              ))}
             </div>
 
-            {/* Total count indicator */}
-            <span className={`text-xs hidden xl:inline ml-2 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Showing <strong className={isLight ? "text-slate-900" : "text-white"}>{filteredProducts.length}</strong> items
+            <span className={`text-xs hidden xl:inline ml-1 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
+              Showing{" "}
+              <strong className={isLight ? "text-slate-900" : "text-white"}>{filteredProducts.length}</strong> items
               {tradeType === "WHOLESALE" && <span className="text-amber-500 ml-1 font-semibold">(Wholesale)</span>}
-              {tradeType === "RETAIL" && <span className="text-cyan-500 ml-1 font-semibold">(Retail)</span>}
+              {tradeType === "RETAIL" && <span className="text-emerald-500 ml-1 font-semibold">(Retail)</span>}
             </span>
           </div>
 
-          {/* Sort Selector */}
+          {/* Sort Dropdown */}
           <div className="flex items-center gap-2">
-            <span className={`text-xs hidden sm:inline ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Sort:
-            </span>
+            <span className={`text-xs hidden sm:inline ${isLight ? "text-slate-400" : "text-zinc-500"}`}>Sort:</span>
             <select
               value={sortBy}
               onChange={(e) => setSortBy(e.target.value as any)}
-              className={`rounded-xl border px-3 py-1.5 text-xs outline-none focus:border-indigo-500 cursor-pointer ${
-                isLight
-                  ? "border-slate-300 bg-white text-slate-800 shadow-xs"
+              className={`rounded-xl border px-3 py-1.5 text-xs outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600/20 cursor-pointer transition-all ${isLight
+                  ? "border-slate-200 bg-white text-slate-800"
                   : isDark
-                  ? "border-white/10 bg-[#090e1c] text-zinc-200"
-                  : "border-blue-500/20 bg-[#08122c] text-white"
-              }`}
+                    ? "border-white/10 bg-[#111115] text-zinc-200"
+                    : "border-blue-500/20 bg-[#0a1230] text-white"
+                }`}
             >
               <option value="featured">Featured Picks</option>
               <option value="price-asc">Price: Low to High</option>
@@ -798,54 +770,43 @@ export function MarketplaceClient({
           </div>
         </div>
 
-        {/* Active Filter Chips */}
+        {/* ACTIVE FILTER CHIPS */}
         {activeFilterCount > 0 && (
-          <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
-            <span className={`font-medium ${isLight ? "text-slate-400" : "text-zinc-500"}`}>
-              Applied Filters:
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <span className={`font-semibold flex items-center gap-1 ${isLight ? "text-slate-400" : "text-zinc-500"}`}>
+              <Filter className="h-3 w-3" /> Filters:
             </span>
 
             {tradeType !== "ALL" && (
               <span
-                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-0.5 text-[11px] font-bold border ${
-                  tradeType === "WHOLESALE"
-                    ? "bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-300"
-                    : "bg-cyan-500/15 border-cyan-500/40 text-cyan-600 dark:text-cyan-300"
-                }`}
+                className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-0.5 text-[11px] font-bold border ${tradeType === "WHOLESALE"
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-700 dark:text-amber-300"
+                    : "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300"
+                  }`}
               >
-                <span>{tradeType === "WHOLESALE" ? "Wholesale Only" : "Retail Only"}</span>
-                <button
-                  type="button"
-                  onClick={() => setTradeType("ALL")}
-                  className="hover:opacity-80 cursor-pointer"
-                >
+                {tradeType === "WHOLESALE" ? "Wholesale Only" : "Retail Only"}
+                <button type="button" onClick={() => setTradeType("ALL")} className="hover:opacity-70 cursor-pointer ml-0.5">
                   <X className="h-3 w-3" />
                 </button>
               </span>
             )}
 
             {moqFilter !== "ALL" && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-amber-600 dark:text-amber-300 text-[11px]">
-                <span>MOQ: {moqFilter}</span>
-                <button
-                  type="button"
-                  onClick={() => setMoqFilter("ALL")}
-                  className="hover:opacity-80 cursor-pointer"
-                >
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-amber-700 dark:text-amber-300 text-[11px] font-bold">
+                MOQ: {moqFilter}
+                <button type="button" onClick={() => setMoqFilter("ALL")} className="hover:opacity-70 cursor-pointer">
                   <X className="h-3 w-3" />
                 </button>
               </span>
             )}
 
             {selectedCategory !== "ALL" && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 text-indigo-600 dark:text-indigo-300 text-[11px]">
-                <span>
-                  {categories.find((c) => c.slug === selectedCategory)?.name || selectedCategory}
-                </span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 px-2.5 py-0.5 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold">
+                {categories.find((c) => c.slug === selectedCategory)?.name || selectedCategory}
                 <button
                   type="button"
                   onClick={() => setSelectedCategory("ALL")}
-                  className="hover:opacity-80 cursor-pointer"
+                  className="hover:opacity-70 cursor-pointer"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -853,25 +814,21 @@ export function MarketplaceClient({
             )}
 
             {priceRange !== "ALL" && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 text-indigo-600 dark:text-indigo-300 text-[11px]">
-                <span>{priceRange}</span>
-                <button
-                  type="button"
-                  onClick={() => setPriceRange("ALL")}
-                  className="hover:opacity-80 cursor-pointer"
-                >
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/30 px-2.5 py-0.5 text-indigo-700 dark:text-indigo-300 text-[11px] font-bold">
+                {priceRange}
+                <button type="button" onClick={() => setPriceRange("ALL")} className="hover:opacity-70 cursor-pointer">
                   <X className="h-3 w-3" />
                 </button>
               </span>
             )}
 
             {inStockOnly && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-emerald-600 dark:text-emerald-300 text-[11px]">
-                <span>In Stock Only</span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold">
+                In Stock Only
                 <button
                   type="button"
                   onClick={() => setInStockOnly(false)}
-                  className="hover:opacity-80 cursor-pointer"
+                  className="hover:opacity-70 cursor-pointer"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -879,12 +836,12 @@ export function MarketplaceClient({
             )}
 
             {escrowOnly && (
-              <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-emerald-600 dark:text-emerald-300 text-[11px]">
-                <span>Verified Merchant</span>
+              <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-emerald-700 dark:text-emerald-300 text-[11px] font-bold">
+                Verified Merchant
                 <button
                   type="button"
                   onClick={() => setEscrowOnly(false)}
-                  className="hover:opacity-80 cursor-pointer"
+                  className="hover:opacity-70 cursor-pointer"
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -894,215 +851,200 @@ export function MarketplaceClient({
             <button
               type="button"
               onClick={clearFilters}
-              className={`underline cursor-pointer text-[11px] ml-1 hover:opacity-80 ${
-                isLight ? "text-slate-500" : "text-zinc-400"
-              }`}
+              className={`text-[11px] font-semibold underline cursor-pointer hover:no-underline ml-1 transition-all ${isLight ? "text-slate-400 hover:text-slate-700" : "text-zinc-500 hover:text-zinc-300"
+                }`}
             >
-              Reset All
+              Clear all
             </button>
           </div>
         )}
 
-        {/* Main Layout: Desktop Sidebar + Product Display */}
-        <div className="flex items-start gap-5">
-          {/* Sidebar (Desktop) */}
+        {/* MAIN LAYOUT: SIDEBAR + PRODUCT GRID */}
+        <div className="flex items-start gap-4">
+          {/* Desktop Sidebar */}
           {!isSidebarCollapsed && (
             <aside
-              className={`hidden lg:block w-60 xl:w-64 shrink-0 rounded-2xl border p-4 backdrop-blur-xl space-y-4 sticky top-20 ${
-                isLight
-                  ? "bg-white border-slate-200 shadow-sm text-slate-900"
+              className={`hidden lg:block w-60 xl:w-64 shrink-0 rounded-2xl border sticky top-20 overflow-hidden transition-all ${isLight
+                  ? "bg-white border-slate-200/80 shadow-xs text-slate-900"
                   : isDark
-                  ? "bg-[#141418] border-white/10 shadow-xl text-white"
-                  : "bg-[#0f1b3b]/95 border-blue-500/20 shadow-xl text-white"
-              }`}
+                    ? "bg-[#141418] border-white/8 shadow-md text-white"
+                    : "bg-[#0f1b3b] border-blue-400/15 shadow-md text-white"
+                }`}
             >
-              <div className={`flex items-center justify-between border-b pb-2.5 ${themeBorder}`}>
-                <div className="flex items-center gap-1.5">
-                  <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-500" />
-                  <h3 className={`text-xs font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
-                    Filters & Sectors
-                  </h3>
-                </div>
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className={`text-[10px] underline cursor-pointer hover:opacity-80 ${
-                      isLight ? "text-slate-500" : "text-zinc-400"
-                    }`}
-                  >
-                    Reset
-                  </button>
-                )}
-              </div>
+              {/* Subtle top indicator */}
+              <div className="h-1 w-full bg-indigo-600" />
 
-              {/* Trade Type Filter */}
-              <div className="space-y-1.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 block">
-                  Trade Sector
-                </span>
-                <div className="space-y-1 text-xs">
-                  <button
-                    type="button"
-                    onClick={() => setTradeType("ALL")}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      tradeType === "ALL"
-                        ? "bg-indigo-600 text-white font-bold shadow-xs"
-                        : isLight
-                        ? "text-slate-700 hover:bg-slate-100"
-                        : "text-zinc-300 hover:bg-white/5"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Layers className="h-3.5 w-3.5" />
-                      <span>All Products</span>
-                    </span>
-                    <span className="text-[10px] opacity-75 font-mono">{counts.total}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTradeType("RETAIL")}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      tradeType === "RETAIL"
-                        ? "bg-cyan-600 text-white font-bold shadow-xs"
-                        : isLight
-                        ? "text-slate-700 hover:bg-slate-100"
-                        : "text-zinc-300 hover:bg-white/5"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <ShoppingBag className="h-3.5 w-3.5 text-cyan-500" />
-                      <span>Retail Only (1 Unit)</span>
-                    </span>
-                    <span className="text-[10px] opacity-75 font-mono">{counts.retail}</span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTradeType("WHOLESALE")}
-                    className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
-                      tradeType === "WHOLESALE"
-                        ? "bg-amber-600 text-white font-bold shadow-xs"
-                        : isLight
-                        ? "text-slate-700 hover:bg-slate-100"
-                        : "text-zinc-300 hover:bg-white/5"
-                    }`}
-                  >
-                    <span className="flex items-center gap-1.5">
-                      <Boxes className="h-3.5 w-3.5 text-amber-500" />
-                      <span>Wholesale Only (Bulk)</span>
-                    </span>
-                    <span className="text-[10px] opacity-75 font-mono">{counts.wholesale}</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Categories Section */}
-              <div className={`pt-3 border-t space-y-1 ${themeBorder}`}>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 block mb-1">
-                  Categories
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSelectedCategory("ALL")}
-                  className={`w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                    selectedCategory === "ALL"
-                      ? "bg-indigo-600 text-white shadow-xs font-bold"
-                      : isLight
-                      ? "text-slate-700 hover:bg-slate-100"
-                      : "text-zinc-300 hover:bg-white/5 hover:text-white"
-                  }`}
-                >
-                  <div className="flex items-center gap-2 truncate">
-                    <Layers className="h-3 w-3 shrink-0" />
-                    <span className="truncate">All Categories</span>
+              <div className="p-4 space-y-4">
+                <div className={`flex items-center justify-between border-b pb-2.5 ${themeBorder}`}>
+                  <div className="flex items-center gap-1.5">
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <h3 className="text-xs font-bold">Filters</h3>
                   </div>
-                  <span className="text-[10px] opacity-75 font-mono ml-1 shrink-0">
-                    {getCategoryCount("ALL")}
-                  </span>
-                </button>
+                  {activeFilterCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className="text-[10px] font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+                    >
+                      Reset
+                    </button>
+                  )}
+                </div>
 
-                {categories.map((cat) => {
-                  const isSelected = selectedCategory === cat.slug;
-                  return (
+                {/* Trade Sectors */}
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">
+                    Trade Sector
+                  </span>
+                  <div className="space-y-1 text-xs">
+                    {[
+                      {
+                        id: "ALL" as TradeType,
+                        label: "All Products",
+                        icon: <Layers className="h-3.5 w-3.5" />,
+                        count: counts.total,
+                        activeClass: "bg-indigo-600 text-white font-bold",
+                      },
+                      {
+                        id: "RETAIL" as TradeType,
+                        label: "Retail Only",
+                        icon: <ShoppingBag className="h-3.5 w-3.5" />,
+                        count: counts.retail,
+                        activeClass: "bg-emerald-600 text-white font-bold",
+                      },
+                      {
+                        id: "WHOLESALE" as TradeType,
+                        label: "Wholesale Only",
+                        icon: <Boxes className="h-3.5 w-3.5" />,
+                        count: counts.wholesale,
+                        activeClass: "bg-amber-500 text-white font-bold",
+                      },
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => setTradeType(t.id)}
+                        className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${tradeType === t.id
+                            ? `${t.activeClass} shadow-xs`
+                            : isLight
+                              ? "text-slate-700 hover:bg-slate-100"
+                              : "text-zinc-300 hover:bg-white/5"
+                          }`}
+                      >
+                        <span className="flex items-center gap-1.5">
+                          {t.icon}
+                          <span>{t.label}</span>
+                        </span>
+                        <span className="text-[10px] opacity-75 font-mono">{t.count}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Categories */}
+                <div className={`pt-3 border-t space-y-1 ${themeBorder}`}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block mb-1.5">
+                    Categories
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedCategory("ALL")}
+                    className={`w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${selectedCategory === "ALL"
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : isLight
+                          ? "text-slate-700 hover:bg-slate-100"
+                          : "text-zinc-300 hover:bg-white/5"
+                      }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Layers className="h-3 w-3 shrink-0" />
+                      <span>All Categories</span>
+                    </div>
+                    <span className="text-[10px] opacity-70 font-mono">{getCategoryCount("ALL")}</span>
+                  </button>
+                  {categories.map((cat) => (
                     <button
                       key={cat.id}
                       type="button"
                       onClick={() => setSelectedCategory(cat.slug)}
-                      className={`w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer text-left ${
-                        isSelected
-                          ? "bg-indigo-600 text-white shadow-xs font-bold"
+                      className={`w-full flex items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-all cursor-pointer text-left ${selectedCategory === cat.slug
+                          ? "bg-indigo-600 text-white shadow-xs"
                           : isLight
-                          ? "text-slate-700 hover:bg-slate-100"
-                          : "text-zinc-300 hover:bg-white/5 hover:text-white"
-                      }`}
+                            ? "text-slate-700 hover:bg-slate-100"
+                            : "text-zinc-300 hover:bg-white/5"
+                        }`}
                     >
                       <div className="flex items-center gap-2 truncate">
                         {getCategoryIcon(cat.slug)}
                         <span className="truncate">{cat.name}</span>
                       </div>
-                      <span className="text-[10px] opacity-75 font-mono ml-1 shrink-0">
+                      <span className="text-[10px] opacity-70 font-mono ml-1 shrink-0">
                         {getCategoryCount(cat.slug)}
                       </span>
                     </button>
-                  );
-                })}
-              </div>
-
-              {/* Price Range Filter */}
-              <div className={`pt-3 border-t space-y-2 ${themeBorder}`}>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 block">
-                  Price Range (ETB)
-                </span>
-                <div className="space-y-1 text-xs">
-                  {[
-                    { label: "All Prices", value: "ALL" },
-                    { label: "Under 5,000 ETB", value: "under-5k" },
-                    { label: "5,000 - 20,000 ETB", value: "5k-20k" },
-                    { label: "20,000 - 60,000 ETB", value: "20k-60k" },
-                    { label: "Above 60,000 ETB", value: "over-60k" },
-                  ].map((p) => (
-                    <button
-                      key={p.value}
-                      type="button"
-                      onClick={() => setPriceRange(p.value)}
-                      className={`w-full text-left px-2 py-1 rounded-md text-[11px] font-medium transition-colors cursor-pointer ${
-                        priceRange === p.value
-                          ? isLight
-                            ? "bg-indigo-50 text-indigo-700 font-bold"
-                            : "bg-white/10 text-white font-bold"
-                          : isLight
-                          ? "text-slate-600 hover:text-slate-900 hover:bg-slate-50"
-                          : "text-zinc-400 hover:text-zinc-200"
-                      }`}
-                    >
-                      {p.label}
-                    </button>
                   ))}
                 </div>
-              </div>
 
-              {/* In Stock & Escrow Toggles */}
-              <div className={`pt-3 border-t space-y-2 ${themeBorder}`}>
-                <label className={`flex items-center gap-2 cursor-pointer text-xs ${isLight ? "text-slate-700" : "text-zinc-300"}`}>
-                  <input
-                    type="checkbox"
-                    checked={inStockOnly}
-                    onChange={(e) => setInStockOnly(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
-                  />
-                  <span>In Stock Only</span>
-                </label>
-                <label className={`flex items-center gap-2 cursor-pointer text-xs ${isLight ? "text-slate-700" : "text-zinc-300"}`}>
-                  <input
-                    type="checkbox"
-                    checked={escrowOnly}
-                    onChange={(e) => setEscrowOnly(e.target.checked)}
-                    className="rounded text-indigo-600 focus:ring-0 cursor-pointer"
-                  />
-                  <span>Verified Merchant Only</span>
-                </label>
+                {/* Price Range */}
+                <div className={`pt-3 border-t space-y-1.5 ${themeBorder}`}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">
+                    Price Range (ETB)
+                  </span>
+                  <div className="space-y-0.5 text-xs">
+                    {[
+                      { label: "All Prices", value: "ALL" },
+                      { label: "Under 5,000 ETB", value: "under-5k" },
+                      { label: "5,000 - 20,000 ETB", value: "5k-20k" },
+                      { label: "20,000 - 60,000 ETB", value: "20k-60k" },
+                      { label: "Above 60,000 ETB", value: "over-60k" },
+                    ].map((p) => (
+                      <button
+                        key={p.value}
+                        type="button"
+                        onClick={() => setPriceRange(p.value)}
+                        className={`w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all cursor-pointer ${priceRange === p.value
+                            ? isLight
+                              ? "bg-indigo-50 text-indigo-700 font-bold border border-indigo-200"
+                              : "bg-indigo-500/15 text-indigo-300 font-bold border border-indigo-500/30"
+                            : isLight
+                              ? "text-slate-600 hover:bg-slate-50"
+                              : "text-zinc-400 hover:bg-white/5"
+                          }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Availability Toggles */}
+                <div className={`pt-3 border-t space-y-3 ${themeBorder}`}>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">
+                    Availability
+                  </span>
+                  {[
+                    { label: "In Stock Only", value: inStockOnly, onChange: setInStockOnly },
+                    { label: "Verified Merchant Only", value: escrowOnly, onChange: setEscrowOnly },
+                  ].map((toggle) => (
+                    <label
+                      key={toggle.label}
+                      className={`flex items-center gap-2.5 cursor-pointer text-xs select-none ${isLight ? "text-slate-700" : "text-zinc-300"
+                        }`}
+                    >
+                      <div
+                        onClick={() => toggle.onChange(!toggle.value)}
+                        className={`relative h-4 w-7 rounded-full transition-all cursor-pointer shrink-0 ${toggle.value ? "bg-indigo-600" : isLight ? "bg-slate-200" : "bg-white/10"
+                          }`}
+                      >
+                        <div
+                          className={`absolute top-0.5 h-3 w-3 rounded-full bg-white shadow-xs transition-all ${toggle.value ? "left-3.5" : "left-0.5"
+                            }`}
+                        />
+                      </div>
+                      <span>{toggle.label}</span>
+                    </label>
+                  ))}
+                </div>
               </div>
             </aside>
           )}
@@ -1111,36 +1053,31 @@ export function MarketplaceClient({
           <div className="flex-1 min-w-0">
             {isLoading ? (
               <div
-                className={`grid gap-2.5 sm:gap-3.5 ${
-                  isSidebarCollapsed
+                className={`grid gap-3 ${isSidebarCollapsed
                     ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6"
                     : "grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-                }`}
+                  }`}
               >
                 {[...Array(10)].map((_, i) => (
                   <div
                     key={i}
-                    className={`h-72 rounded-2xl border p-3 animate-pulse space-y-2.5 ${
-                      isLight
-                        ? "bg-slate-100 border-slate-200"
-                        : "bg-[#0d1222]/80 border-white/10"
-                    }`}
+                    className={`h-72 rounded-2xl border animate-pulse space-y-3 p-3 ${isLight ? "bg-slate-100 border-slate-200" : "bg-white/3 border-white/8"
+                      }`}
+                    style={{ animationDelay: `${i * 0.05}s` }}
                   >
-                    <div className={`w-full aspect-square rounded-xl ${isLight ? "bg-slate-200" : "bg-white/5"}`} />
-                    <div className={`h-3 w-1/3 rounded ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
-                    <div className={`h-4 w-4/5 rounded ${isLight ? "bg-slate-200" : "bg-white/15"}`} />
+                    <div className={`w-full aspect-square rounded-xl ${isLight ? "bg-slate-200" : "bg-white/6"}`} />
+                    <div className={`h-3 w-1/3 rounded-full ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                    <div className={`h-4 w-4/5 rounded-full ${isLight ? "bg-slate-200" : "bg-white/8"}`} />
                   </div>
                 ))}
               </div>
             ) : filteredProducts.length > 0 ? (
               viewMode === "grid" ? (
-                /* Grid View */
                 <div
-                  className={`grid gap-2.5 sm:gap-3.5 ${
-                    isSidebarCollapsed
+                  className={`grid gap-2.5 sm:gap-3.5 ${isSidebarCollapsed
                       ? "grid-cols-2 xs:grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-6"
                       : "grid-cols-2 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-5"
-                  }`}
+                    }`}
                 >
                   {filteredProducts.map((product) => (
                     <ProductCard
@@ -1154,7 +1091,6 @@ export function MarketplaceClient({
                   ))}
                 </div>
               ) : (
-                /* Compact View */
                 <div className="grid grid-cols-1 gap-2.5 sm:gap-3 w-full">
                   {filteredProducts.map((product) => (
                     <HorizontalProductCard
@@ -1169,53 +1105,54 @@ export function MarketplaceClient({
                 </div>
               )
             ) : (
+              /* Refined Clean Empty State */
               <div
-                className={`rounded-2xl border border-dashed p-12 text-center space-y-3 ${
-                  isLight
-                    ? "bg-slate-50 border-slate-300"
+                className={`rounded-2xl border border-dashed p-14 text-center space-y-4 ${isLight
+                    ? "bg-white border-slate-300"
                     : isDark
-                    ? "bg-[#141418] border-white/15"
-                    : "bg-[#0d1222]/60 border-blue-500/20"
-                }`}
+                      ? "bg-[#141418] border-white/10"
+                      : "bg-[#0d1222] border-blue-500/15"
+                  }`}
               >
-                {tradeType === "WHOLESALE" ? (
-                  <Boxes className="h-10 w-10 text-amber-500 mx-auto" />
-                ) : tradeType === "RETAIL" ? (
-                  <ShoppingBag className="h-10 w-10 text-cyan-500 mx-auto" />
-                ) : (
-                  <Layers className={`h-10 w-10 mx-auto ${isLight ? "text-slate-400" : "text-zinc-500"}`} />
-                )}
-                <h3 className={`text-base font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
-                  {tradeType === "WHOLESALE"
-                    ? "No wholesale products found"
-                    : tradeType === "RETAIL"
-                    ? "No retail products found"
-                    : "No products found"}
-                </h3>
-                <p className={`text-xs max-w-sm mx-auto ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-                  {tradeType === "WHOLESALE"
-                    ? "No bulk products matched the selected filters. Switch to retail or reset filters."
-                    : "No items matched your current filters. Try resetting filters or searching another keyword."}
-                </p>
-                <div className="flex items-center justify-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => setTradeType("ALL")}
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 transition-colors cursor-pointer shadow-sm"
-                  >
-                    <span>View All Products</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={clearFilters}
-                    className={`inline-flex items-center gap-1.5 rounded-xl border px-4 py-2 text-xs font-semibold transition-colors cursor-pointer ${
-                      isLight
-                        ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                        : "border-white/20 bg-white/5 text-zinc-300 hover:text-white"
-                    }`}
-                  >
-                    <span>Reset All Filters</span>
-                  </button>
+                <div className="relative">
+                  {tradeType === "WHOLESALE" ? (
+                    <Boxes className="h-12 w-12 text-amber-500 mx-auto" />
+                  ) : tradeType === "RETAIL" ? (
+                    <ShoppingBag className="h-12 w-12 text-emerald-500 mx-auto" />
+                  ) : (
+                    <Layers className={`h-12 w-12 mx-auto ${isLight ? "text-slate-300" : "text-zinc-600"}`} />
+                  )}
+                  <h3 className="text-base font-bold mt-4">
+                    {tradeType === "WHOLESALE"
+                      ? "No wholesale products found"
+                      : tradeType === "RETAIL"
+                        ? "No retail products found"
+                        : "No products found"}
+                  </h3>
+                  <p className={`text-xs max-w-sm mx-auto mt-1.5 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
+                    {tradeType === "WHOLESALE"
+                      ? "No bulk products matched the selected filters. Switch to retail or reset filters."
+                      : "No items matched your current filters. Try resetting filters or searching another keyword."}
+                  </p>
+                  <div className="flex items-center justify-center gap-2.5 mt-5">
+                    <button
+                      type="button"
+                      onClick={() => setTradeType("ALL")}
+                      className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-5 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all cursor-pointer shadow-xs"
+                    >
+                      View All Products
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearFilters}
+                      className={`inline-flex items-center gap-1.5 rounded-xl border px-5 py-2 text-xs font-semibold transition-all cursor-pointer ${isLight
+                          ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          : "border-white/15 bg-white/5 text-zinc-300 hover:text-white"
+                        }`}
+                    >
+                      Reset Filters
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -1223,59 +1160,68 @@ export function MarketplaceClient({
         </div>
       </main>
 
-      {/* Mobile Filter Drawer */}
+      {/* MOBILE FILTER DRAWER */}
       {isMobileFilterOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden flex justify-end bg-black/60 backdrop-blur-xs">
+        <div className="fixed inset-0 z-50 lg:hidden flex justify-end bg-black/50 backdrop-blur-xs">
           <div
-            className={`w-full max-w-xs h-full border-l p-5 overflow-y-auto space-y-4 shadow-2xl ${
-              isLight
+            className={`w-full max-w-xs h-full border-l p-5 overflow-y-auto space-y-5 shadow-2xl relative ${isLight
                 ? "bg-white text-slate-900 border-slate-200"
                 : isDark
-                ? "bg-[#09090b] text-white border-white/10"
-                : "bg-[#070d1e] text-white border-blue-500/20"
-            }`}
+                  ? "bg-[#09090b] text-white border-white/8"
+                  : "bg-[#070d1e] text-white border-blue-500/15"
+              }`}
           >
+            {/* Top brand accent bar */}
+            <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-600" />
+
             <div className={`flex items-center justify-between border-b pb-3 ${themeBorder}`}>
               <h3 className="text-sm font-bold flex items-center gap-2">
-                <SlidersHorizontal className="h-4 w-4 text-indigo-500" />
-                <span>Filters & Trade Modes</span>
+                <Filter className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                Filters &amp; Trade Modes
+                {activeFilterCount > 0 && (
+                  <span className="rounded-full bg-indigo-600 text-white text-[10px] h-4 w-4 flex items-center justify-center font-bold">
+                    {activeFilterCount}
+                  </span>
+                )}
               </h3>
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
-                className={`h-8 w-8 rounded-lg flex items-center justify-center cursor-pointer ${
-                  isLight ? "bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-white/5 text-zinc-400 hover:text-white"
-                }`}
+                className={`h-8 w-8 rounded-lg flex items-center justify-center cursor-pointer transition-colors ${isLight ? "bg-slate-100 text-slate-600 hover:bg-slate-200" : "bg-white/8 text-zinc-400 hover:text-white"
+                  }`}
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* Trade Type Selection */}
-            <div className="space-y-1.5">
-              <span className="text-[11px] font-bold text-indigo-500 uppercase">
+            <div className="space-y-2">
+              <span className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block">
                 Trade Sector
               </span>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {[
-                  { id: "ALL", label: "All Products", count: counts.total },
-                  { id: "RETAIL", label: "Retail Direct", count: counts.retail },
-                  { id: "WHOLESALE", label: "Wholesale Hub", count: counts.wholesale },
+                  { id: "ALL" as TradeType, label: "All Products", count: counts.total, color: "bg-indigo-600" },
+                  { id: "RETAIL" as TradeType, label: "Retail Direct", count: counts.retail, color: "bg-emerald-600" },
+                  {
+                    id: "WHOLESALE" as TradeType,
+                    label: "Wholesale Hub",
+                    count: counts.wholesale,
+                    color: "bg-amber-500",
+                  },
                 ].map((t) => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => {
-                      setTradeType(t.id as TradeType);
+                      setTradeType(t.id);
                       setIsMobileFilterOpen(false);
                     }}
-                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold cursor-pointer ${
-                      tradeType === t.id
-                        ? "bg-indigo-600 text-white font-bold shadow-xs"
+                    className={`w-full flex items-center justify-between p-2.5 rounded-xl text-xs font-semibold cursor-pointer transition-all ${tradeType === t.id
+                        ? `${t.color} text-white shadow-xs`
                         : isLight
-                        ? "bg-slate-50 hover:bg-slate-100 text-slate-700"
-                        : "bg-white/5 text-zinc-300"
-                    }`}
+                          ? "bg-slate-50 border border-slate-200 hover:bg-slate-100 text-slate-700"
+                          : "bg-white/5 border border-white/8 text-zinc-300 hover:bg-white/8"
+                      }`}
                   >
                     <span>{t.label}</span>
                     <span className="font-mono text-[10px] opacity-75">{t.count}</span>
@@ -1284,9 +1230,8 @@ export function MarketplaceClient({
               </div>
             </div>
 
-            {/* Categories */}
-            <div className={`pt-3 border-t space-y-1 ${themeBorder}`}>
-              <span className="text-[11px] font-bold text-indigo-500 uppercase block mb-1">
+            <div className={`pt-3 border-t space-y-1.5 ${themeBorder}`}>
+              <span className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block mb-2">
                 Categories
               </span>
               <button
@@ -1295,13 +1240,12 @@ export function MarketplaceClient({
                   setSelectedCategory("ALL");
                   setIsMobileFilterOpen(false);
                 }}
-                className={`w-full text-left p-2 rounded-lg text-xs font-medium cursor-pointer ${
-                  selectedCategory === "ALL"
+                className={`w-full text-left p-2 rounded-lg text-xs font-medium cursor-pointer transition-all ${selectedCategory === "ALL"
                     ? "bg-indigo-600 text-white font-bold"
                     : isLight
-                    ? "text-slate-700 hover:bg-slate-100"
-                    : "text-zinc-300"
-                }`}
+                      ? "text-slate-700 hover:bg-slate-100"
+                      : "text-zinc-300 hover:bg-white/5"
+                  }`}
               >
                 All Categories ({getCategoryCount("ALL")})
               </button>
@@ -1313,20 +1257,47 @@ export function MarketplaceClient({
                     setSelectedCategory(c.slug);
                     setIsMobileFilterOpen(false);
                   }}
-                  className={`w-full text-left p-2 rounded-lg text-xs font-medium cursor-pointer ${
-                    selectedCategory === c.slug
+                  className={`w-full text-left p-2 rounded-lg text-xs font-medium cursor-pointer transition-all ${selectedCategory === c.slug
                       ? "bg-indigo-600 text-white font-bold"
                       : isLight
-                      ? "text-slate-700 hover:bg-slate-100"
-                      : "text-zinc-300"
-                  }`}
+                        ? "text-slate-700 hover:bg-slate-100"
+                        : "text-zinc-300 hover:bg-white/5"
+                    }`}
                 >
                   {c.name} ({getCategoryCount(c.slug)})
                 </button>
               ))}
             </div>
 
-            {/* Reset / Apply */}
+            <div className={`pt-3 border-t space-y-1.5 ${themeBorder}`}>
+              <span className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wider block mb-2">
+                Price Range (ETB)
+              </span>
+              {[
+                { label: "All Prices", value: "ALL" },
+                { label: "Under 5,000 ETB", value: "under-5k" },
+                { label: "5,000 - 20,000 ETB", value: "5k-20k" },
+                { label: "20,000 - 60,000 ETB", value: "20k-60k" },
+                { label: "Above 60,000 ETB", value: "over-60k" },
+              ].map((p) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setPriceRange(p.value)}
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all ${priceRange === p.value
+                      ? isLight
+                        ? "bg-indigo-50 text-indigo-700 font-bold border border-indigo-200"
+                        : "bg-indigo-500/15 text-indigo-300 font-bold border border-indigo-500/30"
+                      : isLight
+                        ? "text-slate-600 hover:bg-slate-50"
+                        : "text-zinc-400 hover:bg-white/5"
+                    }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+
             <div className={`pt-4 border-t space-y-2 ${themeBorder}`}>
               <button
                 type="button"
@@ -1334,18 +1305,17 @@ export function MarketplaceClient({
                   clearFilters();
                   setIsMobileFilterOpen(false);
                 }}
-                className={`w-full py-2.5 rounded-xl border text-xs font-semibold cursor-pointer ${
-                  isLight
-                    ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-100"
-                    : "border-white/10 text-zinc-300 hover:text-white"
-                }`}
+                className={`w-full py-2.5 rounded-xl border text-xs font-semibold cursor-pointer transition-all ${isLight
+                    ? "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                    : "border-white/10 text-zinc-300 hover:text-white hover:border-white/20"
+                  }`}
               >
                 Reset All Filters
               </button>
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
-                className="w-full py-2.5 rounded-xl bg-indigo-600 text-xs font-bold text-white shadow-xs cursor-pointer"
+                className="w-full py-2.5 rounded-xl bg-indigo-600 text-xs font-bold text-white shadow-xs cursor-pointer hover:bg-indigo-700 transition-all"
               >
                 Apply Filters ({filteredProducts.length})
               </button>
@@ -1354,16 +1324,8 @@ export function MarketplaceClient({
         </div>
       )}
 
-      {/* Product Detail Modal */}
-      <ProductDetailModal
-        product={selectedProduct}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
-
-      {/* Floating Mobile Bottom Navigation Bar */}
+      <ProductDetailModal product={selectedProduct} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <CustomerBottomNav />
-
       <CustomerFooter />
     </div>
   );

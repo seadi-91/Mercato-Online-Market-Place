@@ -1,7 +1,6 @@
 import {
   Injectable,
   NotFoundException,
-  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -26,7 +25,7 @@ import { AuditLog } from './entities/audit-log.entity';
 import { Staff } from './entities/staff.entity';
 
 @Injectable()
-export class UsersService implements OnModuleInit {
+export class UsersService {
   constructor(
     @InjectRepository(Profile)
     private readonly profileRepository: Repository<Profile>,
@@ -35,96 +34,6 @@ export class UsersService implements OnModuleInit {
     @InjectRepository(Staff)
     private readonly staffRepository: Repository<Staff>,
   ) {}
-
-  async onModuleInit() {
-    await this.seedDefaultStaff();
-  }
-
-  private async seedDefaultStaff() {
-    try {
-      const defaultStaffList: Partial<Staff>[] = [
-        {
-          sellerId: 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3',
-          fullName: 'Abebe Wolde',
-          email: 'abebe.w@abyssiniasupply.et',
-          phone: '+251911442200',
-          password: 'manager123',
-          role: 'branch_manager',
-          branchId: 'wh-aa',
-          branchName: 'Kality Primary Logistics Hub',
-          employeeId: 'EMP-MGR-101',
-          status: 'active',
-          hireDate: '2023-01-15',
-          notes: 'Chief Branch Operations Director for Addis Ababa & Oromia logistics hub.',
-        },
-        {
-          sellerId: 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3',
-          fullName: 'Mulugeta Tadesse',
-          email: 'mulugeta.t@abyssiniasupply.et',
-          phone: '+251922553311',
-          password: 'driver123',
-          role: 'driver',
-          branchId: 'wh-aa',
-          branchName: 'Kality Primary Logistics Hub',
-          employeeId: 'EMP-DRV-201',
-          status: 'active',
-          hireDate: '2023-04-10',
-          assignedVehiclePlate: 'Plate AA-3-98210',
-          assignedVehicleType: 'Mercedes Actros 40-Ton Heavy Trailer',
-          driverLicenseNumber: 'ETH-DL-COMM-8921',
-          driverLicenseGrade: 'Grade 4 Commercial Heavy Vehicle',
-          currentDriverStatus: 'available',
-          notes: 'Assigned to bulk agro-commodity dry freight runs.',
-        },
-        {
-          sellerId: 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3',
-          fullName: 'Dawit Haile',
-          email: 'dawit.h@abyssiniasupply.et',
-          phone: '+251933664422',
-          password: 'manager123',
-          role: 'branch_manager',
-          branchId: 'wh-mdj',
-          branchName: 'Modjo Dry Port Transit Hub',
-          employeeId: 'EMP-MGR-102',
-          status: 'active',
-          hireDate: '2023-06-01',
-          notes: 'Oversees Mojo multimodal freight and customs clearance.',
-        },
-        {
-          sellerId: 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3',
-          fullName: 'Almaz Bekele',
-          email: 'almaz.b@abyssiniasupply.et',
-          phone: '+251944775533',
-          password: 'driver123',
-          role: 'driver',
-          branchId: 'wh-mdj',
-          branchName: 'Modjo Dry Port Transit Hub',
-          employeeId: 'EMP-DRV-202',
-          status: 'active',
-          hireDate: '2023-08-20',
-          assignedVehiclePlate: 'Plate ETH-4-44109',
-          assignedVehicleType: 'Isuzu FSR 10-Ton Medium Cargo',
-          driverLicenseNumber: 'ETH-DL-COMM-7731',
-          driverLicenseGrade: 'Grade 3 Commercial Medium Truck',
-          currentDriverStatus: 'available',
-          notes: 'Specialized in Mojo to Addis Ababa corridor transfers.',
-        },
-      ];
-
-      for (const item of defaultStaffList) {
-        const existing = await this.staffRepository.findOne({
-          where: [{ email: item.email }, { phone: item.phone }],
-        });
-        if (!existing) {
-          const staff = this.staffRepository.create(item);
-          await this.staffRepository.save(staff);
-        }
-      }
-      console.log('[UsersService] Default enterprise staff personnel seeded in database');
-    } catch (err) {
-      console.error('[UsersService] Error seeding default staff:', err);
-    }
-  }
 
   async createProfile(dto: CreateProfileDto): Promise<Profile> {
     const existingProfile = await this.profileRepository.findOne({
@@ -362,6 +271,91 @@ export class UsersService implements OnModuleInit {
     qb.orderBy('profile.createdAt', 'DESC').skip(skip).take(limit);
 
     const [data, total] = await qb.getManyAndCount();
+
+    return {
+      data,
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+    };
+  }
+
+  async getAdminSuppliers(query: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean;
+    kycStatus?: KycStatus;
+  }) {
+    const page = query.page && query.page > 0 ? query.page : 1;
+    const limit = query.limit && query.limit > 0 ? query.limit : 50;
+    const skip = (page - 1) * limit;
+
+    const qb = this.profileRepository
+      .createQueryBuilder('profile')
+      .where('profile.role = :role', { role: UserRole.SELLER });
+
+    if (query.isActive !== undefined) {
+      qb.andWhere('profile.isActive = :isActive', { isActive: query.isActive });
+    }
+
+    if (query.kycStatus) {
+      qb.andWhere('profile.merchantKycStatus = :kycStatus', {
+        kycStatus: query.kycStatus,
+      });
+    }
+
+    if (query.search) {
+      const sanitized = query.search.replace(/[%_\\]/g, '\\$&').trim();
+      qb.andWhere(
+        '(profile.fullName ILIKE :search OR profile.email ILIKE :search OR profile.shopName ILIKE :search OR profile.tradeLicenseNumber ILIKE :search OR profile.businessType ILIKE :search OR profile.city ILIKE :search OR profile.subCity ILIKE :search)',
+        { search: `%${sanitized}%` },
+      );
+    }
+
+    qb.orderBy('profile.createdAt', 'DESC').skip(skip).take(limit);
+
+    const [sellers, total] = await qb.getManyAndCount();
+
+    const sellerIds = sellers.map((s) => s.userId).filter(Boolean);
+    let staffBySeller: Record<
+      string,
+      {
+        totalStaff: number;
+        managersCount: number;
+        driversCount: number;
+        activeStaff: number;
+      }
+    > = {};
+
+    if (sellerIds.length > 0) {
+      const staffList = await this.staffRepository
+        .createQueryBuilder('staff')
+        .where('staff.sellerId IN (:...sellerIds)', { sellerIds })
+        .getMany();
+
+      staffBySeller = sellerIds.reduce((acc, sid) => {
+        const myStaff = staffList.filter((st) => st.sellerId === sid);
+        acc[sid] = {
+          totalStaff: myStaff.length,
+          managersCount: myStaff.filter((st) => st.role === 'branch_manager').length,
+          driversCount: myStaff.filter((st) => st.role === 'driver').length,
+          activeStaff: myStaff.filter((st) => st.status === 'active').length,
+        };
+        return acc;
+      }, {} as Record<string, any>);
+    }
+
+    const data = sellers.map((s) => ({
+      ...s,
+      staffStats: staffBySeller[s.userId] || {
+        totalStaff: 0,
+        managersCount: 0,
+        driversCount: 0,
+        activeStaff: 0,
+      },
+    }));
 
     return {
       data,

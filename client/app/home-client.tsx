@@ -12,6 +12,9 @@ import {
   Sparkles,
   Shirt,
   Laptop,
+  Wheat,
+  Home,
+  Smartphone,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -40,6 +43,42 @@ interface HorizontalProductRowProps {
   onQuickView: (product: Product) => void;
 }
 
+// Explicitly excluded from the home page per user request:
+const EXCLUDED_HOME_SLUGS = new Set([
+  "construction-industrial-materials",
+  "grains-cereals-groceries",
+  "grains-cereals-teff",
+  "packaging-logistics",
+]);
+
+// Allowed categories on the home page: Agriculture, Kids/Children, Cosmetics, Electronics, Home & Kitchen
+function isAllowedHomeCategory(slug: string): boolean {
+  const s = slug.toLowerCase();
+  if (EXCLUDED_HOME_SLUGS.has(s)) return false;
+  return (
+    s.includes("agri") ||
+    s.includes("kid") ||
+    s.includes("baby") ||
+    s.includes("children") ||
+    s.includes("cosmetic") ||
+    s.includes("electronic") ||
+    s.includes("smartphone") ||
+    s.includes("mobile") ||
+    s.includes("home-kitchen")
+  );
+}
+
+function getHomeCategoryPriority(slug: string): number {
+  const s = slug.toLowerCase();
+  if (s.includes("agri")) return 1;
+  if (s.includes("kid") || s.includes("baby") || s.includes("children")) return 2;
+  if (s.includes("cosmetic")) return 3;
+  if (s.includes("electronic")) return 4;
+  if (s.includes("smartphone") || s.includes("mobile")) return 5;
+  if (s.includes("home-kitchen")) return 6;
+  return 99;
+}
+
 function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -63,10 +102,12 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
   };
 
   const categoryIcons: Record<string, React.ReactNode> = {
+    "agricultural-commodities": <Wheat className="h-3.5 w-3.5 text-app-muted" />,
     "kids-children": <Baby className="h-3.5 w-3.5 text-app-muted" />,
     "cosmetics-skincare": <Sparkles className="h-3.5 w-3.5 text-app-muted" />,
-    "fashion-apparel-shoes": <Shirt className="h-3.5 w-3.5 text-app-muted" />,
     "computers-electronics": <Laptop className="h-3.5 w-3.5 text-app-muted" />,
+    "smartphones-mobile": <Smartphone className="h-3.5 w-3.5 text-app-muted" />,
+    "home-kitchen-appliances": <Home className="h-3.5 w-3.5 text-app-muted" />,
   };
 
   return (
@@ -155,26 +196,45 @@ export function HomePageClient({
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const curatedSections = useMemo(() => {
+  // Filter products for the home page sections (strictly exclude products from excluded categories)
+  const homeProducts = useMemo(() => {
+    return initialProducts.filter((product) => {
+      const slug = (product.categorySlug || "").toLowerCase();
+      if (EXCLUDED_HOME_SLUGS.has(slug)) return false;
+      return isAllowedHomeCategory(slug);
+    });
+  }, [initialProducts]);
+
+  // ALL active categories displayed in "Shop by Department" (6 columns)
+  const departments = useMemo(
+    () => initialCategories.filter((category) => category.isActive !== false),
+    [initialCategories],
+  );
+
+  // Allowed categories for the product sections, sorted by priority and capped at maximum 5
+  const productSectionCategories = useMemo(() => {
     return initialCategories
-      .filter((category) => category.isActive !== false)
+      .filter((category) => category.isActive !== false && isAllowedHomeCategory(category.slug))
+      .sort((a, b) => getHomeCategoryPriority(a.slug) - getHomeCategoryPriority(b.slug))
+      .slice(0, 5); // Capped at 5 sections as requested
+  }, [initialCategories]);
+
+  // Curated product sections for the home page, capped at 5
+  const curatedSections = useMemo(() => {
+    return productSectionCategories
       .map((category, index): HomeProductSection => ({
         id: category.id,
         categorySlug: category.slug,
         order: index + 1,
         title: category.name,
         viewAllLink: `/marketplace?category=${encodeURIComponent(category.slug)}`,
-        products: initialProducts.filter(
+        products: homeProducts.filter(
           (product) => product.categorySlug === category.slug,
         ),
       }))
-      .filter((section) => section.products.length > 0);
-  }, [initialCategories, initialProducts]);
-
-  const categories = useMemo(
-    () => initialCategories.filter((category) => category.isActive !== false),
-    [initialCategories],
-  );
+      .filter((section) => section.products.length > 0)
+      .slice(0, 5);
+  }, [productSectionCategories, homeProducts]);
 
   const getQuadProducts = (catSlug: string): (Product | null)[] => {
     const matchingProducts = initialProducts
@@ -203,7 +263,7 @@ export function HomePageClient({
           className="w-full h-screen min-h-screen h-[100vh] min-h-[100vh] sm:h-[100dvh] sm:min-h-[100dvh] overflow-hidden"
           style={{ height: "100dvh", minHeight: "100vh" }}
         >
-          <HeroCarousel products={initialProducts} />
+          <HeroCarousel products={homeProducts} />
         </section>
 
         <div className="space-y-7 sm:space-y-10 pt-7 sm:pt-10">
@@ -224,9 +284,9 @@ export function HomePageClient({
               </Link>
             </div>
 
-            {categories.length > 0 ? (
+            {departments.length > 0 ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
-                {categories.map((category) => {
+                {departments.map((category) => {
                 const count = getCatCount(category.slug);
                 const quadProducts = getQuadProducts(category.slug);
 

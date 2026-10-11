@@ -99,9 +99,9 @@ export function AdminDisputes() {
   return (
     <div className="space-y-3">
       {/* Alert Header */}
-      <div className="flex items-center justify-between rounded-xl border border-rose-500/20 bg-rose-500/[0.05] p-3 backdrop-blur-xl">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2.5 rounded-xl border border-rose-500/20 bg-rose-500/[0.05] p-3 backdrop-blur-xl">
         <div className="flex items-center gap-2">
-          <Scale className="h-4 w-4 text-rose-400" />
+          <Scale className="h-4 w-4 text-rose-400 shrink-0" />
           <div>
             <h4 className="text-xs font-semibold text-white">
               Escrow Dispute & Arbitration Console
@@ -111,7 +111,7 @@ export function AdminDisputes() {
             </p>
           </div>
         </div>
-        <span className="text-xs font-mono font-bold text-rose-400">
+        <span className="text-xs font-mono font-bold text-rose-400 shrink-0">
           {openCount} Open Arbitration Cases
         </span>
       </div>
@@ -119,7 +119,7 @@ export function AdminDisputes() {
       {/* Disputes Table */}
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
         <div className="overflow-x-auto min-h-[260px]">
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full text-left text-xs border-collapse min-w-[760px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">Order Ref</th>

@@ -6,7 +6,8 @@
     "build": "nest build",
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "start": "nest start",
-    "start:dev": "nest start --watch",
+    "start:dev": "node scripts/start-dev.js",
+    "start:dev:gateway": "nest start api-gateway --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/apps/server/main",
     "test": "jest"

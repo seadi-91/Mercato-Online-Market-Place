@@ -160,7 +160,7 @@ export function AdminCatalog() {
   return (
     <div className="space-y-3">
       <div className="flex flex-col gap-2 rounded-xl border border-white/10 bg-[#0d121f]/90 p-3 backdrop-blur-xl sm:flex-row sm:items-center sm:justify-between">
-        <div className="relative max-w-sm flex-1">
+        <div className="relative w-full sm:max-w-sm flex-1">
           <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
           <input
             type="text"
@@ -171,7 +171,7 @@ export function AdminCatalog() {
           />
         </div>
 
-        <div className="flex items-center rounded-lg border border-white/5 bg-white/[0.04] p-0.5 text-[11px]">
+        <div className="flex items-center overflow-x-auto w-full sm:w-auto scrollbar-none rounded-lg border border-white/5 bg-white/[0.04] p-0.5 text-[11px]">
           {[
             { id: "ALL", label: "All Products" },
             { id: "ACTIVE", label: `Active (${activeCount})` },
@@ -180,7 +180,7 @@ export function AdminCatalog() {
             <button
               key={tab.id}
               onClick={() => setFilterStatus(tab.id)}
-              className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${filterStatus === tab.id ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"}`}
+              className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer shrink-0 ${filterStatus === tab.id ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"}`}
             >
               {tab.label}
             </button>
@@ -190,16 +190,16 @@ export function AdminCatalog() {
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
         <div className="min-h-[260px] overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
+          <table className="w-full border-collapse text-left text-xs min-w-[760px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="px-3 py-2.5">Product Listing</th>
-                <th className="px-3 py-2.5">Merchant / Store</th>
-                <th className="px-3 py-2.5">Category</th>
-                <th className="px-3 py-2.5">Price (ETB)</th>
-                <th className="px-3 py-2.5">Stock Units</th>
-                <th className="px-3 py-2.5">Status</th>
-                <th className="px-3 py-2.5 text-right">Action</th>
+                <th className="px-3 py-2.5 min-w-[200px]">Product Listing</th>
+                <th className="px-3 py-2.5 min-w-[140px]">Merchant / Store</th>
+                <th className="px-3 py-2.5 min-w-[110px]">Category</th>
+                <th className="px-3 py-2.5 min-w-[100px]">Price (ETB)</th>
+                <th className="px-3 py-2.5 min-w-[90px]">Stock Units</th>
+                <th className="px-3 py-2.5 min-w-[90px]">Status</th>
+                <th className="px-3 py-2.5 text-right min-w-[60px]">Action</th>
               </tr>
             </thead>
 

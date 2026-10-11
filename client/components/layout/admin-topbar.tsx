@@ -13,6 +13,15 @@ import {
   Activity,
   Receipt,
   Users,
+  LayoutDashboard,
+  Tag,
+  FolderTree,
+  Building2,
+  Package,
+  Bike,
+  Scale,
+  ShieldAlert,
+  Settings,
 } from "lucide-react";
 import { useAdminUIStore, AdminTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -43,6 +52,7 @@ export function AdminTopbar() {
     catalog: "Products Moderation",
     categories: "Categories Management",
     users: "Merchants & KYC Verification",
+    suppliers: "Suppliers & Fleet Control",
     orders: "Orders & Escrow Operations",
     slips: "Bank Slip Verification Queue",
     delivery: "Delivery Fleet & Logistics",
@@ -50,6 +60,20 @@ export function AdminTopbar() {
     audit: "Security Audit Logs",
     settings: "Platform Governance & Settings",
   };
+
+  const quickTabs: { id: AdminTab; label: string; icon: React.ElementType }[] = [
+    { id: "overview", label: "Overview", icon: LayoutDashboard },
+    { id: "catalog", label: "Products", icon: Tag },
+    { id: "categories", label: "Categories", icon: FolderTree },
+    { id: "users", label: "Users & KYC", icon: Users },
+    { id: "suppliers", label: "Suppliers", icon: Building2 },
+    { id: "orders", label: "Orders", icon: Package },
+    { id: "slips", label: "Bank Slips", icon: Receipt },
+    { id: "delivery", label: "Delivery", icon: Bike },
+    { id: "disputes", label: "Disputes", icon: Scale },
+    { id: "audit", label: "Audit Logs", icon: ShieldAlert },
+    { id: "settings", label: "Settings", icon: Settings },
+  ];
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -66,28 +90,31 @@ export function AdminTopbar() {
   };
 
   return (
-    <header className="sticky top-0 z-30 app-topbar flex h-13 w-full items-center justify-between border-b border-white/[0.08] bg-[#090d16]/90 px-3 sm:px-6 backdrop-blur-xl">
-      {/* Left: Mobile Toggle & Breadcrumb */}
-      <div className="flex items-center gap-3">
-        {/* Mobile Hamburger */}
-        <button
-          onClick={toggleMobileSidebar}
-          className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/10 md:hidden"
-        >
-          <Menu className="h-4 w-4" />
-        </button>
+    <header className="sticky top-0 z-30 app-topbar flex flex-col w-full border-b border-white/[0.08] bg-[#090d16]/95 backdrop-blur-xl">
+      {/* Main Topbar Row */}
+      <div className="flex h-13 w-full items-center justify-between px-3 sm:px-6">
+        {/* Left: Mobile Toggle & Breadcrumb */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {/* Mobile Hamburger */}
+          <button
+            onClick={toggleMobileSidebar}
+            className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/10 hover:text-white transition-colors md:hidden active:scale-95"
+            title="Open navigation menu"
+          >
+            <Menu className="h-4 w-4" />
+          </button>
 
-        {/* Breadcrumb */}
-        <div className="flex items-center gap-2 text-xs">
-          <span className="font-semibold text-zinc-400">
-            {platformSettings.platformName}
-          </span>
-          <span className="text-zinc-600">/</span>
-          <span className="font-semibold text-white">
-            {tabLabels[activeTab] || "Admin Console"}
-          </span>
+          {/* Breadcrumb */}
+          <div className="flex items-center gap-1.5 sm:gap-2 text-xs">
+            <span className="font-semibold text-zinc-400 hidden xs:inline">
+              {platformSettings.platformName}
+            </span>
+            <span className="text-zinc-600 hidden xs:inline">/</span>
+            <span className="font-semibold text-white truncate max-w-[170px] sm:max-w-none">
+              {tabLabels[activeTab] || "Admin Console"}
+            </span>
+          </div>
         </div>
-      </div>
 
       {/* Center: Search Bar */}
       <div className="hidden md:flex items-center flex-1 max-w-sm mx-4">
@@ -254,6 +281,29 @@ export function AdminTopbar() {
             </div>
           )}
         </div>
+      </div>
+    </div>
+
+      {/* Mobile Horizontal Quick-Switch Navigation Ribbon */}
+      <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-3 py-1.5 border-t border-white/[0.06] bg-[#070b14]/95 backdrop-blur-xl scrollbar-none">
+        {quickTabs.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`inline-flex items-center gap-1.5 shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 cursor-pointer ${
+                isActive
+                  ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold shadow-sm shadow-indigo-600/30 border border-indigo-400/40"
+                  : "text-zinc-400 bg-white/[0.03] hover:text-zinc-200 hover:bg-white/[0.07] border border-white/5"
+              }`}
+            >
+              <Icon className={`h-3 w-3 ${isActive ? "text-cyan-300" : "text-zinc-400"}`} />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
       </div>
     </header>
   );

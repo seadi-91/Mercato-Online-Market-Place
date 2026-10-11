@@ -6,6 +6,7 @@ import { AdminStats } from "./components/admin-stats";
 import { AdminCatalog } from "./components/admin-catalog";
 import { AdminCategories } from "./components/admin-categories";
 import { AdminUsersTable } from "./components/admin-users-table";
+import { AdminSuppliers } from "./components/admin-suppliers";
 import { AdminOrdersEscrow } from "./components/admin-orders-escrow";
 import { AdminSlipsVerification } from "./components/admin-slips-verification";
 import { AdminDelivery } from "./components/admin-delivery";
@@ -27,6 +28,8 @@ export default function AdminDashboardPage() {
       {activeTab === "categories" && <AdminCategories />}
 
       {activeTab === "users" && <AdminUsersTable />}
+
+      {activeTab === "suppliers" && <AdminSuppliers />}
 
       {activeTab === "orders" && <AdminOrdersEscrow />}
 

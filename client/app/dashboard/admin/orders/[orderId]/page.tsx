@@ -523,8 +523,8 @@ export default function AdminOrderDetailPage() {
               <h2 className="text-sm font-semibold text-white">Products ordered</h2>
             </div>
 
-            <div className="mt-4 overflow-hidden rounded-xl border border-white/10">
-              <table className="w-full text-left text-xs text-zinc-300">
+            <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
+              <table className="w-full text-left text-xs text-zinc-300 min-w-[480px]">
                 <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-400">
                   <tr>
                     <th className="px-3 py-2">Product & seller</th>

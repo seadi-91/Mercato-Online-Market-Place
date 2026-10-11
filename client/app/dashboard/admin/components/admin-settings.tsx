@@ -497,9 +497,34 @@ export function AdminSettings() {
       {/* MAIN LAYOUT: Left Sidebar + Single Narrow/Compact Card on Right */}
       <div className="flex flex-col lg:flex-row items-start gap-4">
         {/* ============================================================ */}
-        {/* LEFT: Sleek Settings Sidebar Navigation                      */}
+        {/* MOBILE: Horizontal Scrollable Quick-Switcher (< lg)         */}
         {/* ============================================================ */}
-        <aside className="admin-settings-surface w-full lg:w-60 shrink-0 space-y-1 bg-[#0c101c]/80 border border-white/[0.08] p-2 rounded-xl backdrop-blur-xl shadow-lg">
+        <div className="flex lg:hidden overflow-x-auto scrollbar-none gap-1.5 w-full bg-[#0c101c]/80 border border-white/[0.08] p-1.5 rounded-xl backdrop-blur-xl shadow-lg shrink-0">
+          {SIDEBAR_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setActiveTab(item.id)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
+                  isActive
+                    ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30 border border-indigo-500/50"
+                    : "text-zinc-400 hover:text-white bg-white/[0.03] border border-white/5"
+                }`}
+              >
+                <Icon className={`h-3.5 w-3.5 ${isActive ? "text-white" : item.color}`} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ============================================================ */}
+        {/* DESKTOP: Sleek Settings Sidebar Navigation (>= lg)           */}
+        {/* ============================================================ */}
+        <aside className="hidden lg:block admin-settings-surface w-60 shrink-0 space-y-1 bg-[#0c101c]/80 border border-white/[0.08] p-2 rounded-xl backdrop-blur-xl shadow-lg">
           <div className="px-2.5 py-1.5 mb-1 border-b border-white/5 flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
               Settings Navigation

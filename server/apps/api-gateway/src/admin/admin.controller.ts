@@ -7,6 +7,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
+  Post,
   Query,
   Req,
   UseGuards,
@@ -20,6 +21,7 @@ import {
   AnalyticsTimeRangeDto,
   AuditAction,
   AuthGuard,
+  CreateStaffDto,
   CurrentUser,
   FilterAuditLogsDto,
   FilterOrdersDto,
@@ -27,6 +29,7 @@ import {
   ModerateUserDto,
   Roles,
   RolesGuard,
+  UpdateStaffDto,
   UserRole,
   VerifyKycWithReasonDto,
 } from '@app/common';
@@ -341,6 +344,114 @@ export class AdminController {
     );
 
     return profile;
+  }
+
+  @Get('suppliers')
+  getSuppliers(@Query() query: any) {
+    return this.usersClient.send('get_admin_suppliers', {
+      page: query.page ? parseInt(query.page, 10) : 1,
+      limit: query.limit ? parseInt(query.limit, 10) : 50,
+      search: query.search,
+      isActive:
+        query.isActive !== undefined && query.isActive !== 'ALL'
+          ? query.isActive === 'true' || query.isActive === true
+          : undefined,
+      kycStatus:
+        query.kycStatus && query.kycStatus !== 'ALL'
+          ? query.kycStatus
+          : undefined,
+    });
+  }
+
+  @Get('suppliers/:sellerId/staff')
+  getSupplierStaff(@Param('sellerId') sellerId: string) {
+    return this.usersClient.send('get_seller_staff', { sellerId });
+  }
+
+  @Post('suppliers/:sellerId/staff')
+  async createSupplierStaff(
+    @Param('sellerId') sellerId: string,
+    @CurrentUser('id') adminId: string,
+    @Body() dto: CreateStaffDto,
+    @Req() req: Request,
+  ) {
+    const staff = await firstValueFrom(
+      this.usersClient.send('create_staff', { sellerId, dto }),
+    );
+
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.PROFILE_UPDATED,
+        targetEntity: 'Staff',
+        targetId: staff.id ?? 'unknown',
+        details: { sellerId, role: dto.role, branchName: dto.branchName },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return staff;
+  }
+
+  @Patch('suppliers/:sellerId/staff/:staffId')
+  async updateSupplierStaff(
+    @Param('sellerId') sellerId: string,
+    @Param('staffId') staffId: string,
+    @CurrentUser('id') adminId: string,
+    @Body() dto: UpdateStaffDto,
+    @Req() req: Request,
+  ) {
+    const staff = await firstValueFrom(
+      this.usersClient.send('update_staff', {
+        sellerId,
+        staffId,
+        dto,
+      }),
+    );
+
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.PROFILE_UPDATED,
+        targetEntity: 'Staff',
+        targetId: staffId,
+        details: { sellerId, changes: dto },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return staff;
+  }
+
+  @Delete('suppliers/:sellerId/staff/:staffId')
+  async deleteSupplierStaff(
+    @Param('sellerId') sellerId: string,
+    @Param('staffId') staffId: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
+    const res = await firstValueFrom(
+      this.usersClient.send('delete_staff', { sellerId, staffId }),
+    );
+
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.USER_DELETED,
+        targetEntity: 'Staff',
+        targetId: staffId,
+        details: { sellerId },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return res;
   }
 
   @Get('audit-logs')

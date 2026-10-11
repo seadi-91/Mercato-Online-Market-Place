@@ -206,8 +206,8 @@ export function AdminCategories() {
           </div>
         </div>
 
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-          <div className="relative min-w-[220px]">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center w-full lg:w-auto">
+          <div className="relative w-full sm:min-w-[220px]">
             <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" />
             <input
               value={search}
@@ -223,7 +223,7 @@ export function AdminCategories() {
               resetForm();
               setShowForm((prev) => !prev);
             }}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500"
+            className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500 cursor-pointer shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
             {showForm ? "Close" : "Add category"}
@@ -259,7 +259,7 @@ export function AdminCategories() {
             <button
               type="button"
               onClick={resetForm}
-              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
               Cancel
@@ -267,7 +267,7 @@ export function AdminCategories() {
             <button
               type="submit"
               disabled={creating}
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
               {creating ? (editingId ? "Updating..." : "Saving...") : editingId ? "Update category" : "Add category"}
@@ -278,7 +278,7 @@ export function AdminCategories() {
 
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#090d16]">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left text-xs">
+          <table className="w-full border-collapse text-left text-xs min-w-[580px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="px-3 py-3">Category name</th>

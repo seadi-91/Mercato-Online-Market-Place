@@ -296,12 +296,12 @@ export function AdminAuditLogs() {
 
       <div className="space-y-3">
         {/* ── Category Tabs ── */}
-        <div className="flex flex-wrap gap-1 rounded-xl border border-white/10 bg-[#0d121f]/90 p-2 backdrop-blur-xl">
+        <div className="flex items-center overflow-x-auto scrollbar-none gap-1.5 rounded-xl border border-white/10 bg-[#0d121f]/90 p-2 backdrop-blur-xl shrink-0">
           {CATEGORY_TABS.map(({ label, value, icon: Icon }) => (
             <button
               key={value}
               onClick={() => handleCategoryChange(value)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition cursor-pointer ${activeCategory === value
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition shrink-0 cursor-pointer ${activeCategory === value
                   ? "bg-indigo-600 text-white shadow"
                   : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200"
                 }`}
@@ -397,7 +397,7 @@ export function AdminAuditLogs() {
         {/* ── Table ── */}
         <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse text-left text-xs">
+            <table className="w-full border-collapse text-left text-xs min-w-[760px]">
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                   <th className="py-2.5 px-3 whitespace-nowrap">Timestamp</th>

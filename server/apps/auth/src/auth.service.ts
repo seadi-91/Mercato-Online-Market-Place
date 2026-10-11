@@ -4,7 +4,6 @@ import {
   Inject,
   Injectable,
   NotFoundException,
-  OnModuleInit,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -24,7 +23,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { JwtPayload, UserRole } from '@app/common';
 
 @Injectable()
-export class AuthService implements OnModuleInit {
+export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -53,10 +52,6 @@ export class AuthService implements OnModuleInit {
     return 5;
   }
 
-  async onModuleInit() {
-    await this.seedDefaultAccounts();
-  }
-
   private normalizePhoneNumber(phone: string): string {
     const cleaned = (phone || '').replace(/[\s\-\(\)]/g, '');
     if (cleaned.startsWith('0')) {
@@ -69,203 +64,6 @@ export class AuthService implements OnModuleInit {
       return cleaned.startsWith('0') ? `+251${cleaned.slice(1)}` : `+251${cleaned}`;
     }
     return cleaned;
-  }
-
-  private async seedDefaultAccounts() {
-    try {
-      const salt = await bcrypt.genSalt(10);
-
-      // 1. Seed default Admin account if not present or update
-      let existingAdmin = await this.userRepository.findOne({
-        where: [{ email: 'admin@gmail.com' }, { phoneNumber: '+251900000001' }],
-      });
-      if (!existingAdmin) {
-        const passwordHash = await bcrypt.hash('admin123', salt);
-        const admin = this.userRepository.create({
-          phoneNumber: '+251900000001',
-          email: 'admin@gmail.com',
-          passwordHash,
-          role: UserRole.ADMIN,
-          isActive: true,
-        });
-        existingAdmin = await this.userRepository.save(admin);
-        await firstValueFrom(
-          this.usersClient.send('create_profile', {
-            userId: existingAdmin.id,
-            role: existingAdmin.role,
-            fullName: 'System Administrator',
-            phoneNumber: existingAdmin.phoneNumber,
-            email: existingAdmin.email,
-          }),
-        ).catch(() => null);
-        console.log('[AuthService] Default Administrator account seeded in database');
-      } else if (!existingAdmin.phoneNumber) {
-        await this.userRepository.update(existingAdmin.id, {
-          phoneNumber: '+251900000001',
-        });
-      }
-
-      // 2. Seed default Seller account if not present or update
-      let existingSeller = await this.userRepository.findOne({
-        where: [{ email: 'seller@gmail.com' }, { phoneNumber: '+251900000002' }],
-      });
-      if (!existingSeller) {
-        const passwordHash = await bcrypt.hash('seller123', salt);
-        const seller = this.userRepository.create({
-          phoneNumber: '+251900000002',
-          email: 'seller@gmail.com',
-          passwordHash,
-          role: UserRole.SELLER,
-          isActive: true,
-        });
-        existingSeller = await this.userRepository.save(seller);
-        await firstValueFrom(
-          this.usersClient.send('create_profile', {
-            userId: existingSeller.id,
-            role: existingSeller.role,
-            fullName: 'Bole Electronics Hub',
-            phoneNumber: existingSeller.phoneNumber,
-            email: existingSeller.email,
-            shopName: 'Bole Electronics Hub',
-            marketZone: 'Bole Medhanialem Commercial',
-            city: 'Addis Ababa',
-            subCity: 'Bole',
-          }),
-        ).catch(() => null);
-        console.log('[AuthService] Default Merchant account seeded in database');
-      } else if (!existingSeller.phoneNumber) {
-        await this.userRepository.update(existingSeller.id, {
-          phoneNumber: '+251900000002',
-        });
-      }
-
-      // 3. Seed default Customer account if not present or update
-      let existingCustomer = await this.userRepository.findOne({
-        where: [{ email: 'customer@gmail.com' }, { phoneNumber: '+251900000003' }],
-      });
-      if (!existingCustomer) {
-        const passwordHash = await bcrypt.hash('customer123', salt);
-        const customer = this.userRepository.create({
-          phoneNumber: '+251900000003',
-          email: 'customer@gmail.com',
-          passwordHash,
-          role: UserRole.CUSTOMER,
-          isActive: true,
-        });
-        existingCustomer = await this.userRepository.save(customer);
-        await firstValueFrom(
-          this.usersClient.send('create_profile', {
-            userId: existingCustomer.id,
-            role: existingCustomer.role,
-            fullName: 'Standard Customer',
-            phoneNumber: existingCustomer.phoneNumber,
-            email: existingCustomer.email,
-            city: 'Addis Ababa',
-            subCity: 'Bole',
-          }),
-        ).catch(() => null);
-        console.log('[AuthService] Default Customer account seeded in database');
-      } else if (!existingCustomer.phoneNumber) {
-        await this.userRepository.update(existingCustomer.id, {
-          phoneNumber: '+251900000003',
-        });
-      }
-
-      // 4. Seed default Delivery account if not present or update
-      let existingDelivery = await this.userRepository.findOne({
-        where: [{ email: 'delivery@gmail.com' }, { phoneNumber: '+251900000004' }],
-      });
-      if (!existingDelivery) {
-        const passwordHash = await bcrypt.hash('delivery123', salt);
-        const delivery = this.userRepository.create({
-          phoneNumber: '+251900000004',
-          email: 'delivery@gmail.com',
-          passwordHash,
-          role: UserRole.DELIVERY,
-          isActive: true,
-        });
-        existingDelivery = await this.userRepository.save(delivery);
-        await firstValueFrom(
-          this.usersClient.send('create_profile', {
-            userId: existingDelivery.id,
-            role: existingDelivery.role,
-            fullName: 'Express Delivery Partner',
-            phoneNumber: existingDelivery.phoneNumber,
-            email: existingDelivery.email,
-            city: 'Addis Ababa',
-            subCity: 'Kirkos',
-          }),
-        ).catch(() => null);
-        console.log('[AuthService] Default Delivery account seeded in database');
-      } else if (!existingDelivery.phoneNumber) {
-        await this.userRepository.update(existingDelivery.id, {
-          phoneNumber: '+251900000004',
-        });
-      }
-
-      // 5. Seed default Wholesale Supplier account if not present or update
-      let existingSupplier = await this.userRepository.findOne({
-        where: [
-          { email: 'suplayer@gmail.com' },
-          { email: 'supplier@gmail.com' },
-          { phoneNumber: '+251911987654' },
-        ],
-      });
-      if (!existingSupplier) {
-        const passwordHash = await bcrypt.hash('12345678', salt);
-        const supplier = this.userRepository.create({
-          phoneNumber: '+251911987654',
-          email: 'suplayer@gmail.com',
-          passwordHash,
-          role: UserRole.SELLER,
-          isActive: true,
-        });
-        existingSupplier = await this.userRepository.save(supplier);
-        await firstValueFrom(
-          this.usersClient.send('create_profile', {
-            userId: existingSupplier.id,
-            role: existingSupplier.role,
-            fullName: 'Abyssinia Agri-Commodities (Supplier HQ)',
-            phoneNumber: existingSupplier.phoneNumber,
-            email: existingSupplier.email,
-            shopName: 'Abyssinia Agri-Commodities',
-            marketZone: 'Kality Industrial Logistics Hub',
-            tradeLicenseNumber: 'MOTRI-KAL-2024-9912',
-            tinNumber: '1098765432',
-            businessType: 'Supplier - Primary Bulk Importer',
-            city: 'Addis Ababa',
-            subCity: 'Akaky Kaliti',
-            specificLocation: 'Kality Industrial Logistics Hub - Depot Warehouse A (Capacity: Container Loads (FCL / LCL))',
-          }),
-        ).catch(() => null);
-      } else {
-        if (!existingSupplier.phoneNumber) {
-          await this.userRepository.update(existingSupplier.id, {
-            phoneNumber: '+251911987654',
-          });
-        }
-        await firstValueFrom(
-          this.usersClient.send('create_profile', {
-            userId: existingSupplier.id,
-            role: existingSupplier.role,
-            fullName: 'Abyssinia Agri-Commodities (Supplier HQ)',
-            phoneNumber: existingSupplier.phoneNumber || '+251911987654',
-            email: existingSupplier.email,
-            shopName: 'Abyssinia Agri-Commodities',
-            marketZone: 'Kality Industrial Logistics Hub',
-            tradeLicenseNumber: 'MOTRI-KAL-2024-9912',
-            tinNumber: '1098765432',
-            businessType: 'Supplier - Primary Bulk Importer',
-            city: 'Addis Ababa',
-            subCity: 'Akaky Kaliti',
-            specificLocation: 'Kality Industrial Logistics Hub - Depot Warehouse A (Capacity: Container Loads (FCL / LCL))',
-          }),
-        ).catch(() => null);
-        console.log('[AuthService] Ensured profile for existing Supplier account');
-      }
-    } catch (e) {
-      console.error('[AuthService] Notice during seedDefaultAccounts:', e);
-    }
   }
 
   async register(dto: RegisterDto) {

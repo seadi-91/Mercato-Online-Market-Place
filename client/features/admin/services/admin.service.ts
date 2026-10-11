@@ -62,3 +62,101 @@ export const adminAnalyticsService = {
   },
 };
 
+export interface SupplierStaff {
+  id: string;
+  sellerId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: 'branch_manager' | 'driver' | string;
+  branchId?: string;
+  branchName?: string;
+  employeeId?: string;
+  status: 'active' | 'suspended';
+  hireDate?: string;
+  nationalIdOrFayda?: string;
+  assignedVehicleType?: string;
+  assignedVehiclePlate?: string;
+  driverLicenseNumber?: string;
+  driverLicenseGrade?: string;
+  currentDriverStatus?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SupplierItem {
+  id: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  alternatePhone?: string;
+  shopName: string;
+  businessType?: string;
+  marketZone?: string;
+  city: string;
+  subCity?: string;
+  specificLocation?: string;
+  tradeLicenseNumber?: string;
+  tinNumber?: string;
+  isVerifiedMerchant: boolean;
+  merchantKycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'VERIFIED' | 'REJECTED';
+  merchantRejectionReason?: string;
+  isActive: boolean;
+  createdAt: string;
+  staffStats?: {
+    totalStaff: number;
+    managersCount: number;
+    driversCount: number;
+    activeStaff: number;
+  };
+}
+
+export const adminSupplierService = {
+  getSuppliers: (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean | string;
+    kycStatus?: string;
+  } = {}): Promise<{ data: SupplierItem[]; total: number; page: number; limit: number; totalPages: number }> => {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.search) qs.set('search', params.search);
+    if (params.isActive !== undefined && params.isActive !== 'ALL') qs.set('isActive', String(params.isActive));
+    if (params.kycStatus && params.kycStatus !== 'ALL') qs.set('kycStatus', params.kycStatus);
+    const query = qs.toString();
+    return api.get(`${BASE}/suppliers${query ? `?${query}` : ''}`);
+  },
+
+  getSupplierStaff: (sellerId: string): Promise<SupplierStaff[]> => {
+    return api.get(`${BASE}/suppliers/${sellerId}/staff`);
+  },
+
+  updateSupplierStaff: (sellerId: string, staffId: string, dto: Partial<SupplierStaff>): Promise<SupplierStaff> => {
+    return api.patch(`${BASE}/suppliers/${sellerId}/staff/${staffId}`, dto);
+  },
+
+  createSupplierStaff: (sellerId: string, dto: Partial<SupplierStaff>): Promise<SupplierStaff> => {
+    return api.post(`${BASE}/suppliers/${sellerId}/staff`, dto);
+  },
+
+  deleteSupplierStaff: (sellerId: string, staffId: string): Promise<{ success: boolean; id: string }> => {
+    return api.delete(`${BASE}/suppliers/${sellerId}/staff/${staffId}`);
+  },
+
+  verifyMerchant: (userId: string, isVerified: boolean, rejectionReason?: string): Promise<any> => {
+    return api.patch(`${BASE}/merchants/${userId}/verify`, { isVerified, rejectionReason });
+  },
+
+  setUserStatus: (userId: string, isActive: boolean, reason?: string): Promise<any> => {
+    return api.patch(`${BASE}/users/${userId}/status`, { isActive, reason });
+  },
+
+  getSupplierDetails: (userId: string): Promise<any> => {
+    return api.get(`${BASE}/users/${userId}/details`);
+  },
+};
+
+
