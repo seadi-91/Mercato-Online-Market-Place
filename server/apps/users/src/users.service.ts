@@ -2,6 +2,7 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
+  OnModuleInit,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -25,7 +26,7 @@ import { AuditLog } from './entities/audit-log.entity';
 import { Staff } from './entities/staff.entity';
 
 @Injectable()
-export class UsersService {
+export class UsersService implements OnModuleInit {
   constructor(
     @InjectRepository(Profile)
     private readonly profileRepository: Repository<Profile>,
@@ -33,9 +34,23 @@ export class UsersService {
     private readonly auditLogRepository: Repository<AuditLog>,
     @InjectRepository(Staff)
     private readonly staffRepository: Repository<Staff>,
-  ) {}
+  ) { }
 
-  async createProfile(dto: CreateProfileDto): Promise<Profile> {
+  async onModuleInit() {
+    try {
+      await this.profileRepository.query(`
+        ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "nationalIdNumber" varchar(100);
+        ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "businessLicenseUrl" varchar(500);
+        ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "tinCertificateUrl" varchar(500);
+        ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "commercialRegistrationUrl" varchar(500);
+        ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "ownerIdUrl" varchar(500);
+      `);
+    } catch (err) {
+      console.error('Error ensuring profile schema columns:', err);
+    }
+  }
+
+  async createProfile(dto: CreateProfileDto & { isSupplier?: boolean }): Promise<Profile> {
     const existingProfile = await this.profileRepository.findOne({
       where: { userId: dto.userId },
     });
@@ -43,6 +58,17 @@ export class UsersService {
     if (existingProfile) {
       return existingProfile;
     }
+
+    const isSupplier = Boolean(
+      (dto.role as any) === 'SUPPLIER' ||
+      (dto.businessType && dto.businessType.toLowerCase().includes('supplier')) ||
+      (dto as any).isSupplier
+    );
+
+    const isMerchantOrSupplier = isSupplier || dto.role === UserRole.SELLER;
+    const initialKycStatus = isMerchantOrSupplier && (dto.tradeLicenseNumber || dto.businessLicenseUrl || isSupplier)
+      ? KycStatus.PENDING
+      : KycStatus.NONE;
 
     const profile = this.profileRepository.create({
       userId: dto.userId,
@@ -53,6 +79,7 @@ export class UsersService {
       marketZone: dto.marketZone,
       tradeLicenseNumber: dto.tradeLicenseNumber,
       tinNumber: dto.tinNumber,
+      nationalIdNumber: dto.nationalIdNumber,
       businessType: dto.businessType,
       city: dto.city || 'Addis Ababa',
       subCity: dto.subCity,
@@ -62,7 +89,7 @@ export class UsersService {
       commercialRegistrationUrl: dto.commercialRegistrationUrl,
       ownerIdUrl: dto.ownerIdUrl,
       isActive: true,
-      merchantKycStatus: KycStatus.NONE,
+      merchantKycStatus: initialKycStatus,
       deliveryKycStatus: KycStatus.NONE,
     });
 
@@ -73,7 +100,8 @@ export class UsersService {
       dto.tinCertificateUrl ||
       dto.commercialRegistrationUrl ||
       dto.ownerIdUrl ||
-      dto.businessType
+      dto.businessType ||
+      dto.nationalIdNumber
     ) {
       await this.profileRepository.query(
         `UPDATE profiles 
@@ -81,14 +109,16 @@ export class UsersService {
              "tinCertificateUrl" = COALESCE($2, "tinCertificateUrl"),
              "commercialRegistrationUrl" = COALESCE($3, "commercialRegistrationUrl"),
              "ownerIdUrl" = COALESCE($4, "ownerIdUrl"),
-             "businessType" = COALESCE($5, "businessType")
-         WHERE id = $6`,
+             "businessType" = COALESCE($5, "businessType"),
+             "nationalIdNumber" = COALESCE($6, "nationalIdNumber")
+         WHERE id = $7`,
         [
           dto.businessLicenseUrl || null,
           dto.tinCertificateUrl || null,
           dto.commercialRegistrationUrl || null,
           dto.ownerIdUrl || null,
           dto.businessType || null,
+          dto.nationalIdNumber || null,
           savedProfile.id,
         ],
       ).catch((err) => console.error('Error updating compliance doc columns:', err));
@@ -201,6 +231,17 @@ export class UsersService {
     profile.merchantRejectionReason = isVerified
       ? null
       : rejectionReason || 'KYC documentation rejected by administrator';
+
+    if (isVerified) {
+      profile.role = UserRole.SELLER;
+      profile.isActive = true;
+    } else {
+      // When rejected, convert account type to CUSTOMER so they login as regular customer
+      profile.role = UserRole.CUSTOMER;
+      profile.isVerifiedMerchant = false;
+      profile.isActive = true;
+    }
+
     return this.profileRepository.save(profile);
   }
 
@@ -294,7 +335,14 @@ export class UsersService {
 
     const qb = this.profileRepository
       .createQueryBuilder('profile')
-      .where('profile.role = :role', { role: UserRole.SELLER });
+      .where(
+        '(profile.role = :role OR profile.businessType ILIKE :suppTerm OR profile.merchantKycStatus IN (:...kycStatuses))',
+        {
+          role: UserRole.SELLER,
+          suppTerm: '%supplier%',
+          kycStatuses: [KycStatus.PENDING, KycStatus.APPROVED, KycStatus.REJECTED],
+        },
+      );
 
     if (query.isActive !== undefined) {
       qb.andWhere('profile.isActive = :isActive', { isActive: query.isActive });

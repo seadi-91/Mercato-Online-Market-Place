@@ -48,8 +48,20 @@ export class AuthController {
     );
   }
 
+  @MessagePattern('set_user_role_and_status')
+  setUserRoleAndStatus(
+    @Payload() payload: { userId: string; role?: any; isActive?: boolean },
+  ) {
+    return this.authService.setUserRoleAndStatus(payload);
+  }
+
   @MessagePattern('delete_user')
   deleteUser(@Payload() payload: { userId: string }) {
     return this.authService.deleteUser(payload.userId);
+  }
+
+  @MessagePattern('get_user_by_id')
+  getUserById(@Payload() payload: { userId: string }) {
+    return this.authService.getUserById(payload.userId);
   }
 }

@@ -708,30 +708,13 @@ export class CatalogService {
   // --- Warehouse Logistics & Depots API ---
 
   async getSellerWarehouses(sellerId: string) {
-    let warehouses = await this.warehouseRepository.find({
+    const warehouses = await this.warehouseRepository.find({
       where: { sellerId },
       order: { createdAt: 'ASC' },
     });
 
-    // If fresh seller has no warehouses, provision default hubs
     if (warehouses.length === 0) {
-      const defaultSupplierId = 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3';
-      const existingDefaults = await this.warehouseRepository.find({
-        where: { sellerId: defaultSupplierId },
-        order: { createdAt: 'ASC' },
-      });
-      if (existingDefaults.length > 0 && sellerId !== defaultSupplierId) {
-        const cloned = existingDefaults.map((w) =>
-          this.warehouseRepository.create({
-            ...w,
-            id: undefined,
-            sellerId,
-          }),
-        );
-        warehouses = await this.warehouseRepository.save(cloned);
-      } else if (existingDefaults.length > 0) {
-        warehouses = existingDefaults;
-      }
+      return [];
     }
 
     // Fetch all products for this seller to calculate live stock distribution per warehouse

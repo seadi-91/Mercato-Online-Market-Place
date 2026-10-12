@@ -91,6 +91,26 @@ export function SupplierSidebar() {
       o.status === "escrow_locked"
   ).length;
 
+  const userDisplayName = mounted
+    ? user?.name || (user as any)?.fullName || (user as any)?.shopName || profile?.businessName || "Supplier User"
+    : "Supplier User";
+
+  const userInitials = mounted
+    ? (user?.name || (user as any)?.fullName || profile?.businessName || "SP")
+      .split(" ")
+      .filter(Boolean)
+      .map((n: string) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "SP"
+    : "SP";
+
+  const userRoleTitle = mounted
+    ? String(user?.role || "").toLowerCase() === "supplier" || String(user?.role || "").toLowerCase() === "seller"
+      ? profile?.executiveTitle || "Enterprise Owner"
+      : currentStaffUser?.role || "Staff Member"
+    : "Enterprise Owner";
+
   const navGroups: NavGroup[] = [
     {
       groupTitle: "Core Operations",
@@ -203,9 +223,8 @@ export function SupplierSidebar() {
 
       {/* Sidebar Container */}
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-white/10 bg-[#090d16] transition-all duration-300 md:static ${
-          isMobileDrawerOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
-        } w-72 max-w-[85vw] ${isCollapsed ? "md:w-18" : "md:w-64"}`}
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col border-r border-white/10 bg-[#090d16] transition-all duration-300 md:static ${isMobileDrawerOpen ? "translate-x-0 shadow-2xl" : "-translate-x-full md:translate-x-0"
+          } w-72 max-w-[85vw] ${isCollapsed ? "md:w-18" : "md:w-64"}`}
       >
         {/* Brand & Organization Header */}
         <div className="flex h-16 shrink-0 items-center justify-between border-b border-white/10 px-4">
@@ -249,21 +268,20 @@ export function SupplierSidebar() {
           <div className="mx-3 mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
             <div className="flex items-center gap-2.5">
               <div
-                className={`h-8 w-8 rounded-md flex items-center justify-center font-bold text-xs shrink-0 border ${
-                  user?.staffRole === "branch_manager"
+                className={`h-8 w-8 rounded-md flex items-center justify-center font-bold text-xs shrink-0 border ${user?.staffRole === "branch_manager"
                     ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
                     : "bg-indigo-500/20 border-indigo-500/30 text-indigo-300"
-                }`}
+                  }`}
               >
-                {user?.staffRole === "branch_manager" ? user.name.slice(0, 2).toUpperCase() : "AP"}
+                {user?.staffRole === "branch_manager" ? user.name?.slice(0, 2).toUpperCase() : userInitials}
               </div>
               <div className="truncate min-w-0">
                 <p className="text-xs font-bold text-white truncate" suppressHydrationWarning>
                   {user?.staffRole === "branch_manager"
                     ? user.name
                     : mounted
-                    ? profile.businessName
-                    : "Abyssinia Agri-Commodities & Industrial Supply PLC"}
+                      ? profile.businessName || userDisplayName
+                      : "Supplier Portal"}
                 </p>
                 <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-mono" suppressHydrationWarning>
                   {user?.staffRole === "branch_manager" ? (
@@ -272,8 +290,12 @@ export function SupplierSidebar() {
                     </span>
                   ) : (
                     <>
-                      <span suppressHydrationWarning>TIN: {mounted ? profile.tinNumber : "0019283419"}</span>
-                      <span className="text-indigo-400 font-bold">• Gold</span>
+                      <span suppressHydrationWarning>
+                        {mounted && profile.tinNumber ? `TIN: ${profile.tinNumber}` : "Supplier"}
+                      </span>
+                      {mounted && profile.verificationStatus ? (
+                        <span className="text-indigo-400 font-bold capitalize">• {profile.verificationStatus}</span>
+                      ) : null}
                     </>
                   )}
                 </div>
@@ -301,16 +323,14 @@ export function SupplierSidebar() {
                     key={item.id}
                     onClick={() => handleSelectTab(item.id)}
                     title={!showFull ? item.label : undefined}
-                    className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${
-                      isActive
+                    className={`group relative flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-all cursor-pointer ${isActive
                         ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 font-semibold"
                         : "text-zinc-400 hover:bg-white/[0.04] hover:text-white"
-                    } ${!showFull ? "justify-center px-0 py-2.5" : ""}`}
+                      } ${!showFull ? "justify-center px-0 py-2.5" : ""}`}
                   >
                     <Icon
-                      className={`h-4 w-4 shrink-0 ${
-                        isActive ? "text-white" : "text-zinc-400 group-hover:text-white"
-                      }`}
+                      className={`h-4 w-4 shrink-0 ${isActive ? "text-white" : "text-zinc-400 group-hover:text-white"
+                        }`}
                     />
 
                     {showFull && (
@@ -319,9 +339,8 @@ export function SupplierSidebar() {
                         {mounted && item.badge !== undefined && item.badge > 0 && (
                           <span
                             suppressHydrationWarning
-                            className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                              isActive ? "bg-white/20 text-white" : item.badgeColor
-                            }`}
+                            className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${isActive ? "bg-white/20 text-white" : item.badgeColor
+                              }`}
                           >
                             {item.badge}
                           </span>
@@ -346,9 +365,8 @@ export function SupplierSidebar() {
           <button
             onClick={() => openModal("help-support")}
             title={isCollapsed ? "Help & B2B Support" : undefined}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-white transition-colors cursor-pointer ${
-              isCollapsed ? "justify-center px-0" : ""
-            }`}
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium text-zinc-400 hover:bg-white/[0.04] hover:text-white transition-colors cursor-pointer ${isCollapsed ? "justify-center px-0" : ""
+              }`}
           >
             <HelpCircle className="h-4 w-4 text-zinc-400 shrink-0" />
             {!isCollapsed && <span>Help & Support</span>}
@@ -358,11 +376,10 @@ export function SupplierSidebar() {
           <button
             onClick={() => handleSelectTab("notifications")}
             title={isCollapsed ? "Notifications" : undefined}
-            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
-              activeTab === "notifications"
+            className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${activeTab === "notifications"
                 ? "bg-indigo-600 text-white shadow-sm shadow-indigo-600/30 font-semibold"
                 : "text-zinc-400 hover:bg-white/[0.04] hover:text-white"
-            } ${isCollapsed ? "justify-center px-0" : ""}`}
+              } ${isCollapsed ? "justify-center px-0" : ""}`}
           >
             <div className="relative">
               <Bell className="h-4 w-4 text-zinc-400 shrink-0" />
@@ -384,18 +401,17 @@ export function SupplierSidebar() {
 
           {/* Supplier Account Menu */}
           <div
-            className={`mt-1 flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] p-2 ${
-              isCollapsed ? "justify-center" : "justify-between"
-            }`}
+            className={`mt-1 flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/[0.03] p-2 ${isCollapsed ? "justify-center" : "justify-between"
+              }`}
           >
             <div className="flex items-center gap-2 overflow-hidden">
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-[11px] font-bold text-white">
-                AK
+                {userInitials}
               </div>
               {!isCollapsed && (
                 <div className="truncate">
-                  <p className="text-xs font-bold text-white truncate">Ato Kassahun T.</p>
-                  <p className="text-[10px] text-zinc-400 truncate">Commercial Lead</p>
+                  <p className="text-xs font-bold text-white truncate">{userDisplayName}</p>
+                  <p className="text-[10px] text-zinc-400 truncate">{userRoleTitle}</p>
                 </div>
               )}
             </div>

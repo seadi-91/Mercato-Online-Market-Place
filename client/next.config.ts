@@ -4,7 +4,7 @@ const cspHeader = `
     default-src 'self';
     script-src 'self' 'unsafe-eval' 'unsafe-inline';
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
-    img-src 'self' blob: data: https://res.cloudinary.com https://images.unsplash.com https://*.unsplash.com https://ui-avatars.com;
+    img-src 'self' blob: data: http://localhost:3001 http://127.0.0.1:3001 https://res.cloudinary.com https://images.unsplash.com https://*.unsplash.com https://ui-avatars.com;
     font-src 'self' https://fonts.gstatic.com;
     object-src 'none';
     base-uri 'self';

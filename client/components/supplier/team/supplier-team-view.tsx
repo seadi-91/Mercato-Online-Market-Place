@@ -85,7 +85,7 @@ export function SupplierTeamView() {
   const [password, setPassword] = useState("staff123");
   const [phone, setPhone] = useState("+251 9");
   const [role, setRole] = useState<StaffRole>("branch_manager");
-  const [branchId, setBranchId] = useState(warehouses[0]?.id || "wh-aa");
+  const [branchId, setBranchId] = useState(warehouses[0]?.id || "");
   const [employeeId, setEmployeeId] = useState(`EMP-${Math.floor(100 + Math.random() * 900)}`);
   const [nationalIdOrFayda, setNationalIdOrFayda] = useState("");
   const [notes, setNotes] = useState("");
@@ -154,7 +154,7 @@ export function SupplierTeamView() {
     setPassword("driver123");
     setPhone("+251 9");
     const finalRole: StaffRole = isBranchManager ? "driver" : (presetRole || "branch_manager");
-    const finalBranch = isBranchManager && userBranchId ? userBranchId : (warehouses[0]?.id || "wh-aa");
+    const finalBranch = isBranchManager && userBranchId ? userBranchId : (warehouses[0]?.id || "");
     setRole(finalRole);
     setBranchId(finalBranch);
     setEmployeeId(finalRole === "driver" ? `EMP-DRV-${Math.floor(100 + Math.random() * 900)}` : `EMP-MGR-${Math.floor(100 + Math.random() * 900)}`);

@@ -20,7 +20,7 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { JwtPayload, UserRole } from '@app/common';
+import { JwtPayload, UserRole, KycStatus, AuditAction } from '@app/common';
 
 @Injectable()
 export class AuthService {
@@ -102,6 +102,11 @@ export class AuthService {
 
     console.log('[AuthService] register forwarding to create_profile dto:', JSON.stringify(dto));
 
+    const isSupplier = Boolean(
+      (dto.role as any) === 'SUPPLIER' ||
+      (dto.businessType && dto.businessType.toLowerCase().includes('supplier'))
+    );
+
     const profileResult = await firstValueFrom(
       this.usersClient.send('create_profile', {
         userId: savedUser.id,
@@ -113,6 +118,7 @@ export class AuthService {
         marketZone: dto.marketZone,
         tradeLicenseNumber: dto.tradeLicenseNumber,
         tinNumber: dto.tinNumber,
+        nationalIdNumber: dto.nationalIdNumber,
         businessType: dto.businessType,
         city: dto.city || 'Addis Ababa',
         subCity: dto.subCity,
@@ -121,8 +127,29 @@ export class AuthService {
         tinCertificateUrl: dto.tinCertificateUrl,
         commercialRegistrationUrl: dto.commercialRegistrationUrl,
         ownerIdUrl: dto.ownerIdUrl,
+        isSupplier,
       }),
     ).catch(() => null);
+
+    if (isSupplier || role === UserRole.SELLER) {
+      firstValueFrom(
+        this.usersClient.send('create_audit_log', {
+          actorId: savedUser.id,
+          actorRole: savedUser.role,
+          action: AuditAction.KYC_SUBMITTED,
+          targetEntity: 'Profile',
+          targetId: savedUser.id,
+          details: {
+            shopName: dto.shopName,
+            fullName: dto.fullName,
+            tradeLicenseNumber: dto.tradeLicenseNumber,
+            tinNumber: dto.tinNumber,
+            isSupplier,
+            action: 'NEW_SUPPLIER_REGISTRATION_SUBMITTED',
+          },
+        }),
+      ).catch(() => null);
+    }
 
     const tokens = await this.generateTokens(
       savedUser.id,
@@ -133,11 +160,6 @@ export class AuthService {
 
     const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, salt);
     await this.userRepository.update(savedUser.id, { refreshTokenHash });
-
-    const isSupplier = Boolean(
-      (dto.role as any) === 'SUPPLIER' ||
-      (dto.businessType && dto.businessType.toLowerCase().includes('supplier'))
-    );
 
     return {
       ...tokens,
@@ -151,6 +173,8 @@ export class AuthService {
         businessType: dto.businessType,
         shopName: dto.shopName,
         isSupplier,
+        merchantKycStatus: isSupplier ? 'PENDING' : 'NONE',
+        isVerifiedMerchant: false,
       },
     };
   }
@@ -298,18 +322,37 @@ export class AuthService {
       // ignore
     }
 
-    const isSupplier = Boolean(
+    const isCustomerOrRejected =
+      user.role === UserRole.CUSTOMER ||
+      profileData?.merchantKycStatus === KycStatus.REJECTED;
+
+    const isSupplierApplicant = Boolean(
       (user.role as any) === 'SUPPLIER' ||
+      user.role === UserRole.SELLER ||
+      (profileData?.businessType && profileData.businessType.toLowerCase().includes('supplier')) ||
       (user.email &&
         (user.email.toLowerCase().includes('suplayer') ||
-          user.email.toLowerCase().includes('supplier'))) ||
-      (profileData?.businessType &&
-        profileData.businessType.toLowerCase().includes('supplier')) ||
-      (profileData?.specificLocation &&
-        profileData.specificLocation.toLowerCase().includes('capacity:')) ||
-      (profileData?.specificLocation &&
-        profileData.specificLocation.toLowerCase().includes('supplier'))
+          user.email.toLowerCase().includes('supplier')))
     );
+
+    const isSupplierApproved =
+      !isCustomerOrRejected &&
+      isSupplierApplicant &&
+      (profileData?.merchantKycStatus === KycStatus.APPROVED || profileData?.isVerifiedMerchant === true);
+
+    const isSupplierPending =
+      !isCustomerOrRejected &&
+      isSupplierApplicant &&
+      profileData?.merchantKycStatus === KycStatus.PENDING;
+
+    let returnedRole: string = user.role;
+    if (isCustomerOrRejected) {
+      returnedRole = UserRole.CUSTOMER;
+    } else if (isSupplierApproved || isSupplierPending) {
+      returnedRole = 'SUPPLIER';
+    }
+
+    const isSupplier = !isCustomerOrRejected && Boolean(isSupplierApproved || isSupplierPending);
 
     return {
       ...tokens,
@@ -318,10 +361,12 @@ export class AuthService {
         phoneNumber: user.phoneNumber,
         email: user.email,
         fullName,
-        role: isSupplier ? 'SUPPLIER' : user.role,
-        actualRole: user.role,
+        role: returnedRole,
+        actualRole: isCustomerOrRejected ? UserRole.CUSTOMER : user.role,
         businessType: profileData?.businessType,
         shopName: profileData?.shopName,
+        merchantKycStatus: profileData?.merchantKycStatus || KycStatus.NONE,
+        isVerifiedMerchant: Boolean(profileData?.isVerifiedMerchant),
         isSupplier,
       },
     };
@@ -434,6 +479,26 @@ export class AuthService {
     return { success: true, userId, isActive };
   }
 
+  async setUserRoleAndStatus(payload: { userId: string; role?: UserRole; isActive?: boolean }) {
+    const user = await this.userRepository.findOne({ where: { id: payload.userId } });
+    if (!user) {
+      throw new RpcException(new NotFoundException('User not found'));
+    }
+
+    if (payload.role !== undefined) {
+      user.role = payload.role;
+    }
+    if (payload.isActive !== undefined) {
+      user.isActive = payload.isActive;
+      if (!payload.isActive) {
+        user.refreshTokenHash = null;
+      }
+    }
+
+    await this.userRepository.save(user);
+    return { success: true, userId: user.id, role: user.role, isActive: user.isActive };
+  }
+
   async deleteUser(userId: string) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
@@ -503,5 +568,18 @@ export class AuthService {
         this.configService.get<string>('REFRESH_TOKEN_EXPIRATION') || '7d',
     });
     return { accessToken, refreshToken };
+  }
+
+  async getUserById(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) return null;
+    return {
+      id: user.id,
+      phoneNumber: user.phoneNumber,
+      email: user.email,
+      role: user.role,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+    };
   }
 }

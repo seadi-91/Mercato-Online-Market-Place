@@ -31,12 +31,64 @@ import {
   SourcingOrder,
   SourcingOrderStatus,
 } from "@/types/supplier";
-import {
-  initialSupplierProfile,
-  initialVerificationDocs,
-  initialPromotions,
-} from "@/data/supplier-mock-data";
-import { initialSourcingOrders } from "@/data/supplier-sourcing-data";
+// Clean dynamic supplier defaults (Zero mock or static fallback data)
+export const emptySupplierProfile: SupplierBusinessProfile = {
+  businessName: "",
+  legalEntity: "Wholesale Distributor",
+  tinNumber: "",
+  licenseNumber: "",
+  establishedYear: new Date().getFullYear(),
+  website: "",
+  description: "",
+  logoUrl: "",
+  coverUrl: "",
+  verificationBadge: "Unverified Merchant",
+  phone: "",
+  email: "",
+  country: "Ethiopia",
+  region: "",
+  city: "",
+  address: "",
+  categories: [],
+  certifications: [],
+  shippingRegions: [],
+  minOrderValueETB: 0,
+  executiveName: "",
+  executiveTitle: "Enterprise Owner",
+  storeSlug: "",
+  tagline: "",
+  vacationMode: false,
+  defaultLeadTimeDays: 2,
+  defaultIncoterm: "FOB Logistics Hub",
+  samplePolicy: "",
+  hidePhonePublicly: false,
+  preferredLanguage: "en",
+  primarySettlementMethod: "Commercial Bank of Ethiopia (Primary Wire)",
+  settlementSchedule: "instant",
+  autoPayoutThresholdETB: 50000,
+  autoQuoteEnabled: false,
+  autoQuoteMinETB: 0,
+  quoteValidityDays: 14,
+  maxCounterDiscount: 0,
+  autoReserveStock: false,
+  strictEscrowRequired: true,
+  twoFactorEnabled: false,
+  notifications: {
+    email: true,
+    sms: true,
+    push: true,
+    rfqInstant: true,
+    orderUpdates: true,
+    escrowAlerts: true,
+    dailyDigest: true,
+  },
+};
+
+export const initialSupplierProfile: SupplierBusinessProfile = emptySupplierProfile;
+export const initialVerificationDocs: VerificationDocument[] = [];
+export const initialPromotions: PromotionCampaign[] = [];
+export const initialSourcingOrders: SourcingOrder[] = [];
+
 import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { sellerService, FilterOrdersParams } from "@/services/seller/seller.service";
 import {
@@ -110,12 +162,20 @@ export function getBankAccentColor(name: string): string {
   return palette[Math.abs(hash) % palette.length];
 }
 
-const SETTLEMENT_ACCOUNTS_STORAGE_KEY = "mercatox_supplier_settlement_accounts";
+function getScopedStorageKey(baseKey: string): string | null {
+  if (typeof window === "undefined") return null;
+  const user = useAuthStore.getState().user;
+  const userId = user?.id || (user as any)?.userId;
+  return userId ? `${baseKey}_${userId}` : null;
+}
 
 export function getStoredSettlementAccounts(): SettlementAccount[] {
   if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(SETTLEMENT_ACCOUNTS_STORAGE_KEY);
+    localStorage.removeItem("mercatox_supplier_settlement_accounts");
+    const key = getScopedStorageKey("mercatox_supplier_settlement_accounts");
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
     if (raw) return JSON.parse(raw);
   } catch (err) {
     console.error("[SupplierStore] Error reading settlement accounts from localStorage:", err);
@@ -126,51 +186,69 @@ export function getStoredSettlementAccounts(): SettlementAccount[] {
 export function saveStoredSettlementAccounts(accounts: SettlementAccount[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(SETTLEMENT_ACCOUNTS_STORAGE_KEY, JSON.stringify(accounts));
+    const key = getScopedStorageKey("mercatox_supplier_settlement_accounts");
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(accounts));
   } catch (err) {
     console.error("[SupplierStore] Error saving settlement accounts to localStorage:", err);
   }
 }
 
-const PROMOTIONS_STORAGE_KEY = "mercatox_supplier_promotions";
-
 export function getStoredPromotions(): PromotionCampaign[] {
-  if (typeof window === "undefined") return initialPromotions;
+  if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(PROMOTIONS_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    localStorage.removeItem("mercatox_supplier_promotions");
+    const key = getScopedStorageKey("mercatox_supplier_promotions");
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
   } catch (err) {
     console.error("[SupplierStore] Error reading promotions from localStorage:", err);
   }
-  return initialPromotions;
+  return [];
 }
 
 export function saveStoredPromotions(promotions: PromotionCampaign[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(PROMOTIONS_STORAGE_KEY, JSON.stringify(promotions));
+    const key = getScopedStorageKey("mercatox_supplier_promotions");
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(promotions));
   } catch (err) {
     console.error("[SupplierStore] Error saving promotions to localStorage:", err);
   }
 }
 
-const STAFF_STORAGE_KEY = "mercatox_supplier_staff_list";
-
 export function getStoredStaff(): SupplierStaff[] {
-  if (typeof window === "undefined") return initialStaffList;
+  if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(STAFF_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    localStorage.removeItem("mercatox_supplier_staff_list");
+    const key = getScopedStorageKey("mercatox_supplier_staff_list");
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed;
+      }
+    }
   } catch (err) {
     console.error("[SupplierStore] Error reading staff from localStorage:", err);
   }
-  return initialStaffList;
+  return [];
 }
 
 export function saveStoredStaff(staff: SupplierStaff[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(STAFF_STORAGE_KEY, JSON.stringify(staff));
+    const key = getScopedStorageKey("mercatox_supplier_staff_list");
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(staff));
   } catch (err) {
     console.error("[SupplierStore] Error saving staff to localStorage:", err);
   }
@@ -217,23 +295,35 @@ export function removeStoredDeletedSourcingOrderId(id: string): void {
 }
 
 export function getStoredSourcingOrders(): SourcingOrder[] {
-  if (typeof window === "undefined") return initialSourcingOrders;
+  if (typeof window === "undefined") return [];
   try {
-    const raw = localStorage.getItem(SOURCING_ORDERS_STORAGE_KEY);
+    localStorage.removeItem("mercatox_sourcing_orders");
+    const key = getScopedStorageKey("mercatox_sourcing_orders");
+    if (!key) return [];
+    const raw = localStorage.getItem(key);
     if (raw !== null) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed)) {
+        const hasMock = parsed.some((o: any) => o.id === "src-ord-01" || o.orderNumber === "PO-ETH-2026-8831");
+        if (hasMock) {
+          localStorage.removeItem(key);
+          return [];
+        }
+        return parsed;
+      }
     }
   } catch (err) {
     console.error("[SupplierStore] Error reading sourcing orders from localStorage:", err);
   }
-  return initialSourcingOrders;
+  return [];
 }
 
 export function saveStoredSourcingOrders(orders: SourcingOrder[]): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(SOURCING_ORDERS_STORAGE_KEY, JSON.stringify(orders));
+    const key = getScopedStorageKey("mercatox_sourcing_orders");
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(orders));
   } catch (err) {
     console.error("[SupplierStore] Error saving sourcing orders to localStorage:", err);
   }
@@ -244,12 +334,12 @@ export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
   const deliveryAddr =
     typeof dbOrder.deliveryAddress === "string"
       ? (() => {
-          try {
-            return JSON.parse(dbOrder.deliveryAddress);
-          } catch {
-            return {};
-          }
-        })()
+        try {
+          return JSON.parse(dbOrder.deliveryAddress);
+        } catch {
+          return {};
+        }
+      })()
       : dbOrder.deliveryAddress || {};
 
   const qty =
@@ -259,7 +349,7 @@ export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
     ) || 1;
   const unitPrice = Number(
     firstItem.unitPrice ||
-      (dbOrder.totalAmount ? Number(dbOrder.totalAmount) / qty : 0)
+    (dbOrder.totalAmount ? Number(dbOrder.totalAmount) / qty : 0)
   );
 
   let status: SourcingOrderStatus = "escrow_locked";
@@ -280,8 +370,8 @@ export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
   const cleanOrderNum = dbOrder.orderNumber?.startsWith("PO-")
     ? dbOrder.orderNumber
     : dbOrder.orderNumber
-    ? `PO-${dbOrder.orderNumber}`
-    : `PO-ETH-2026-${String(dbOrder.id || "").slice(0, 5)}`;
+      ? `PO-${dbOrder.orderNumber}`
+      : `PO-ETH-2026-${String(dbOrder.id || "").slice(0, 5)}`;
 
   return {
     id: dbOrder.id,
@@ -322,9 +412,9 @@ export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
     deliveryAddress:
       typeof deliveryAddr === "object"
         ? deliveryAddr.specificLocation ||
-          deliveryAddr.address ||
-          deliveryAddr.city ||
-          "Addis Ababa"
+        deliveryAddr.address ||
+        deliveryAddr.city ||
+        "Addis Ababa"
         : String(deliveryAddr),
     deliveryEstimateDays: 2,
     poReference: dbOrder.txRef || cleanOrderNum,
@@ -352,20 +442,21 @@ const PROFILE_STORAGE_KEY = "mercatox_supplier_profile";
 
 export function mapBackendProfileToSupplier(
   backend: any,
-  fallback: SupplierBusinessProfile = initialSupplierProfile
+  fallback: SupplierBusinessProfile = emptySupplierProfile
 ): SupplierBusinessProfile {
   if (!backend) return fallback;
 
-  const fullName = backend.fullName || fallback.executiveName || "Enterprise Director";
-  const shopName = backend.shopName || backend.businessName || fallback.businessName || "My Enterprise";
-  const tinNumber = backend.tinNumber || fallback.tinNumber || "";
-  const licenseNumber = backend.tradeLicenseNumber || fallback.licenseNumber || "";
-  const businessType = backend.businessType || fallback.legalEntity || "Private Limited Company (PLC)";
-  const city = backend.city || fallback.city || "Addis Ababa";
-  const subCity = backend.subCity || fallback.region || "Addis Ababa";
-  const address = backend.specificLocation || backend.marketZone || fallback.address || "Mercato Commercial District";
-  const phone = backend.alternatePhone || backend.phone || fallback.phone || "";
-  const email = backend.email || fallback.email || "";
+  const authUser = useAuthStore.getState().user;
+  const fullName = backend.fullName || (authUser as any)?.fullName || authUser?.name || fallback.executiveName || "";
+  const shopName = backend.shopName || backend.businessName || (authUser as any)?.shopName || fallback.businessName || fullName || "Supplier Enterprise";
+  const tinNumber = backend.tinNumber || "";
+  const licenseNumber = backend.tradeLicenseNumber || "";
+  const businessType = backend.businessType || fallback.legalEntity || "Wholesale Distributor";
+  const city = backend.city || fallback.city || "";
+  const subCity = backend.subCity || fallback.region || "";
+  const address = backend.specificLocation || backend.marketZone || "";
+  const phone = backend.alternatePhone || backend.phone || (authUser as any)?.phone || (authUser as any)?.phoneNumber || "";
+  const email = backend.email || authUser?.email || "";
   const isVerified = Boolean(backend.isVerifiedMerchant);
   const kycStatus = backend.merchantKycStatus;
 
@@ -381,35 +472,56 @@ export function mapBackendProfileToSupplier(
     region: subCity,
     address: address,
     executiveName: fullName,
-    executiveTitle: backend.role ? `${backend.role.replace(/_/g, " ")} Director` : fallback.executiveTitle,
-    tagline: backend.tagline || `${shopName} — Verified Supplier on MercatoX`,
-    description: backend.description || fallback.description,
-    website: backend.website || fallback.website,
-    logoUrl: backend.logoUrl || fallback.logoUrl,
-    coverUrl: backend.coverUrl || fallback.coverUrl,
+    executiveTitle: backend.role ? `${backend.role.replace(/_/g, " ")} Director` : "Enterprise Director",
+    tagline: backend.tagline || (shopName ? `${shopName} — Verified Supplier on MercatoX` : ""),
+    description: backend.description || "",
+    website: backend.website || "",
+    logoUrl: backend.logoUrl || "",
+    coverUrl: backend.coverUrl || "",
     verificationBadge: isVerified
       ? "Gold Verified B2B Supplier"
       : kycStatus === "PENDING"
         ? "Pending Review"
-        : fallback.verificationBadge,
+        : kycStatus === "REJECTED"
+          ? "Verification Rejected"
+          : "Unverified Merchant",
+    verificationStatus: isVerified
+      ? "verified"
+      : kycStatus === "PENDING"
+        ? "pending"
+        : kycStatus === "REJECTED"
+          ? "rejected"
+          : "unverified",
   };
 }
 
 export function getStoredProfile(): SupplierBusinessProfile {
-  if (typeof window === "undefined") return initialSupplierProfile;
+  if (typeof window === "undefined") return emptySupplierProfile;
   try {
-    const raw = localStorage.getItem(PROFILE_STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
+    localStorage.removeItem("mercatox_supplier_profile");
+    const key = getScopedStorageKey("mercatox_supplier_profile");
+    if (!key) return emptySupplierProfile;
+    const raw = localStorage.getItem(key);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.businessName && parsed.businessName.includes("Abyssinia Agri-Commodities")) {
+        localStorage.removeItem(key);
+        return emptySupplierProfile;
+      }
+      return parsed;
+    }
   } catch (err) {
     console.error("[SupplierStore] Error reading profile from localStorage:", err);
   }
-  return initialSupplierProfile;
+  return emptySupplierProfile;
 }
 
 export function saveStoredProfile(profile: SupplierBusinessProfile): void {
   if (typeof window === "undefined") return;
   try {
-    localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profile));
+    const key = getScopedStorageKey("mercatox_supplier_profile");
+    if (!key) return;
+    localStorage.setItem(key, JSON.stringify(profile));
   } catch (err) {
     console.error("[SupplierStore] Error saving profile to localStorage:", err);
   }
@@ -645,78 +757,7 @@ interface SupplierState {
   restoreSourcingOrder: (order: SourcingOrder) => void;
 }
 
-export const initialStaffList: SupplierStaff[] = [
-  {
-    id: "stf-mgr-101",
-    fullName: "Abebe Wolde",
-    email: "abebe.w@abyssiniasupply.et",
-    phone: "+251 91 144 2200",
-    password: "manager123",
-    role: "branch_manager",
-    branchId: "wh-aa",
-    branchName: "Kality Primary Logistics Hub",
-    employeeId: "EMP-MGR-101",
-    status: "active",
-    hireDate: "2023-01-15",
-    nationalIdOrFayda: "FYD-9812-4412-01",
-    notes: "Chief Branch Operations Director for Addis Ababa & Oromia logistics hub.",
-  },
-  {
-    id: "stf-drv-201",
-    fullName: "Mulugeta Tadesse",
-    email: "mulugeta.t@abyssiniasupply.et",
-    phone: "+251 92 255 3311",
-    password: "driver123",
-    role: "driver",
-    branchId: "wh-aa",
-    branchName: "Kality Primary Logistics Hub",
-    employeeId: "EMP-DRV-201",
-    status: "active",
-    hireDate: "2023-04-10",
-    nationalIdOrFayda: "FYD-8821-3319-02",
-    assignedVehiclePlate: "Plate AA-3-98210",
-    assignedVehicleType: "Mercedes Actros 40-Ton Heavy Trailer",
-    driverLicenseNumber: "ETH-DL-COMM-8921",
-    driverLicenseGrade: "Grade 4 Commercial Heavy Vehicle",
-    currentDriverStatus: "available",
-    notes: "Assigned to bulk agro-commodity dry freight runs.",
-  },
-  {
-    id: "stf-mgr-102",
-    fullName: "Dawit Haile",
-    email: "dawit.h@abyssiniasupply.et",
-    phone: "+251 93 366 4422",
-    password: "manager123",
-    role: "branch_manager",
-    branchId: "wh-mdj",
-    branchName: "Modjo Dry Port Transit Hub",
-    employeeId: "EMP-MGR-102",
-    status: "active",
-    hireDate: "2023-06-01",
-    nationalIdOrFayda: "FYD-7731-2290-03",
-    notes: "Oversees Mojo multimodal freight and customs clearance.",
-  },
-  {
-    id: "stf-drv-202",
-    fullName: "Almaz Bekele",
-    email: "almaz.b@abyssiniasupply.et",
-    phone: "+251 94 477 5533",
-    password: "driver123",
-    role: "driver",
-    branchId: "wh-mdj",
-    branchName: "Modjo Dry Port Transit Hub",
-    employeeId: "EMP-DRV-202",
-    status: "active",
-    hireDate: "2023-08-20",
-    nationalIdOrFayda: "FYD-6642-1188-04",
-    assignedVehiclePlate: "Plate ETH-4-44109",
-    assignedVehicleType: "Isuzu FSR 10-Ton Medium Cargo",
-    driverLicenseNumber: "ETH-DL-COMM-7731",
-    driverLicenseGrade: "Grade 3 Commercial Medium Truck",
-    currentDriverStatus: "available",
-    notes: "Specialized in Mojo to Addis Ababa corridor transfers.",
-  },
-];
+export const initialStaffList: SupplierStaff[] = [];
 
 export const useSupplierStore = create<SupplierState>((set, get) => ({
   activeTab: "dashboard",
@@ -743,7 +784,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   openModal: (modal, data = null) => set({ activeModal: modal, modalData: data }),
   closeModal: () => set({ activeModal: null, modalData: null }),
 
-  profile: initialSupplierProfile,
+  profile: emptySupplierProfile,
   isLoadingProfile: false,
   profileError: null,
   products: [],
@@ -772,12 +813,12 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   shipments: [],
   invoices: [],
   transactions: [],
-  promotions: initialPromotions,
+  promotions: [],
   returns: [],
   disputes: [],
   chatThreads: [],
   activeChatThreadId: "",
-  verificationDocs: initialVerificationDocs,
+  verificationDocs: [],
   notifications: [],
   settlementAccounts: [],
 
@@ -803,8 +844,8 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         profile: storedProfile,
         settlementAccounts: storedAccounts,
         promotions: storedPromos,
-        staffList: storedStaff.length > 0 ? storedStaff : get().staffList,
-        sourcingOrders: storedSourcingOrders.length > 0 ? storedSourcingOrders : get().sourcingOrders,
+        staffList: storedStaff,
+        sourcingOrders: storedSourcingOrders,
       });
     } catch (err) {
       console.warn("[SupplierStore] Error during client hydration:", err);
@@ -820,7 +861,12 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     try {
       const mergedList: any[] = [];
       const user = useAuthStore.getState().user;
-      const targetSellerId = (user as any)?.sellerId || user?.id || "59972f9f-49ec-4592-9113-ba70a0aa3a52";
+      const targetSellerId = (user as any)?.sellerId || user?.id;
+
+      if (!targetSellerId) {
+        set({ orders: [], isLoadingOrders: false });
+        return;
+      }
 
       // 1. Fetch live orders from backend Orders microservice via Seller API
       try {
@@ -838,12 +884,10 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         console.warn("[SupplierStore] Seller API fetch warning, checking database directly:", backendErr);
       }
 
-      // 2. Fetch directly from PostgreSQL database via /api/orders
+      // 2. Fetch directly from PostgreSQL database via /api/orders for this specific supplier
       try {
         const queryParams = new URLSearchParams();
-        if (targetSellerId) {
-          queryParams.set("sellerId", targetSellerId);
-        }
+        queryParams.set("sellerId", targetSellerId);
         const dbRes = await fetch(`/api/orders?${queryParams.toString()}`);
         if (dbRes.ok) {
           const dbData = await dbRes.json();
@@ -867,84 +911,6 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         console.warn("[SupplierStore] Could not fetch orders from /api/orders:", dbErr);
       }
 
-      // 3. If list is still empty, fetch all orders from /api/orders as fallback
-      if (mergedList.length === 0) {
-        try {
-          const allDbRes = await fetch("/api/orders");
-          if (allDbRes.ok) {
-            const allDbData = await allDbRes.json();
-            if (allDbData.success && Array.isArray(allDbData.orders)) {
-              for (const ord of allDbData.orders) {
-                if (!mergedList.some((m) => m.id === ord.id || (m.txRef && m.txRef === ord.txRef))) {
-                  mergedList.push(ord);
-                }
-              }
-            }
-          }
-        } catch (e) {}
-      }
-
-      // 4. Merge recent localStorage completed orders
-      if (typeof window !== "undefined") {
-        try {
-          const compRaw = localStorage.getItem("mercatox_completed_orders");
-          if (compRaw) {
-            const localOrders = JSON.parse(compRaw);
-            if (Array.isArray(localOrders)) {
-              for (const lOrd of localOrders) {
-                if (!mergedList.some((m) => m.id === lOrd.id || (m.txRef && m.txRef === lOrd.txRef))) {
-                  mergedList.push(lOrd);
-                }
-              }
-            }
-          }
-
-          const lastRaw = localStorage.getItem("mercatox_last_checkout_order");
-          if (lastRaw) {
-            const last = JSON.parse(lastRaw);
-            if (last && (last.txRef || last.orderId)) {
-              const existing = mergedList.some((m) => m.id === last.orderId || m.txRef === last.txRef);
-              if (!existing) {
-                mergedList.unshift({
-                  id: last.orderId || last.txRef,
-                  orderNumber: last.orderNumber || `MX-${last.txRef.slice(-6)}`,
-                  customerId: last.customerId || "current-customer",
-                  sellerId: last.sellerId || targetSellerId,
-                  status: "CONFIRMED",
-                  paymentStatus: "PAID",
-                  subtotalAmount: Number(last.amount) - 150,
-                  deliveryFee: 150,
-                  totalAmount: Number(last.amount),
-                  deliveryAddress: {
-                    recipientName: last.fullName,
-                    phone: last.phoneNumber,
-                    city: "Addis Ababa",
-                    subCity: last.subcity,
-                    specificLocation: last.specificAddress,
-                    notes: last.deliveryNotes,
-                  },
-                  notes: last.deliveryNotes,
-                  items: (last.items || []).map((it: any) => ({
-                    id: it.id,
-                    productId: it.productId || it.id,
-                    productTitle: it.name || it.productTitle || "Mercato Product",
-                    unitPrice: Number(it.price || it.unitPrice || 0),
-                    quantity: Number(it.quantity || 1),
-                    totalPrice: Number(it.price || it.unitPrice || 0) * Number(it.quantity || 1),
-                    image: it.image || getAccurateProductImage(it.name || it.productTitle),
-                    sellerId: it.sellerId || last.sellerId || targetSellerId,
-                  })),
-                  createdAt: last.createdAt || new Date().toISOString(),
-                  txRef: last.txRef,
-                });
-              }
-            }
-          }
-        } catch (storageErr) {
-          console.warn("[SupplierStore] Storage merge warning:", storageErr);
-        }
-      }
-
       const mapped = mergedList
         .map((ord) => mapBackendOrderToB2B(ord, targetSellerId))
         .filter((b): b is B2BOrder => Boolean(b));
@@ -960,11 +926,13 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     } catch (err: any) {
       console.error("[SupplierStore] Error fetching seller orders:", err);
       set({
+        orders: [],
         isLoadingOrders: false,
         ordersError: err?.response?.data?.message || err?.message || "Failed to load orders",
       });
     }
   },
+
 
   acceptOrder: async (orderId, sellerNote) => {
     try {
@@ -987,11 +955,11 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       orders: state.orders.map((o) =>
         o.id === orderId
           ? {
-              ...o,
-              orderStatus: "confirmed",
-              deliveryStatus: "processing",
-              sellerNotes: sellerNote || o.sellerNotes,
-            }
+            ...o,
+            orderStatus: "confirmed",
+            deliveryStatus: "processing",
+            sellerNotes: sellerNote || o.sellerNotes,
+          }
           : o
       ),
       activeModal: null,
@@ -1024,10 +992,10 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       orders: state.orders.map((o) =>
         o.id === orderId
           ? {
-              ...o,
-              orderStatus: "cancelled",
-              rejectionReason: reason,
-            }
+            ...o,
+            orderStatus: "cancelled",
+            rejectionReason: reason,
+          }
           : o
       ),
       activeModal: null,
@@ -1096,23 +1064,6 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
           : [];
       if (productList.length > 0) {
         b2bProducts = productList.map(mapBackendProductToB2B);
-      } else {
-        // Fallback: If supplier account is fresh, also check active catalog products from database
-        try {
-          const catRes = await api.get<any>(
-            `${ENDPOINTS.CATEGORIES.replace("/categories", "/products")}?limit=50`
-          );
-          const catList = Array.isArray(catRes)
-            ? catRes
-            : catRes && Array.isArray(catRes.data)
-              ? catRes.data
-              : [];
-          if (catList.length > 0) {
-            b2bProducts = catList.map(mapBackendProductToB2B);
-          }
-        } catch {
-          // ignore fallback
-        }
       }
 
       // STRICT BRANCH SCOPING: If user is a Branch Manager, strictly filter to their branch
@@ -1139,52 +1090,19 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         });
       }
 
+      // STRICT ISOLATION: Ensure only products posted by this supplier are shown
+      const currentSellerId = (user as any)?.sellerId || user?.id;
+      if (currentSellerId) {
+        b2bProducts = b2bProducts.filter(
+          (p) => !p.sellerId || p.sellerId === currentSellerId
+        );
+      }
+
       set({ products: b2bProducts, isLoadingProducts: false });
     } catch (err: any) {
       console.error("[SupplierStore] Failed to fetch products from database:", err);
-      try {
-        const catRes = await api.get<any>(`/catalog/products?limit=50`);
-        if (catRes && Array.isArray(catRes.data) && catRes.data.length > 0) {
-          let b2b = catRes.data.map(mapBackendProductToB2B);
-          const user = useAuthStore.getState().user;
-          const currentStaffUser = get().currentStaffUser;
-          const isBranchManager =
-            user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
-          const branchId =
-            branchFilter || user?.branchId || currentStaffUser?.branchId;
-          const branchName =
-            user?.branchName || currentStaffUser?.branchName;
-
-          if (isBranchManager && (branchId || branchName)) {
-            const targetId = (branchId || "").toLowerCase().trim();
-            const strippedId = targetId.replace("wh-", "");
-            const targetName = (branchName || "").toLowerCase().trim();
-            const firstKeyword = targetName.split(" ")[0];
-
-            b2b = b2b.filter((p: B2BProduct) => {
-              const pBranchId = (p.branchId || "").toLowerCase().trim();
-              const pWarehouse = (p.warehouseLocation || "").toLowerCase().trim();
-              const pBranchName = (p.branchName || "").toLowerCase().trim();
-
-              const matchId = targetId && (pBranchId === targetId || pBranchId.includes(strippedId));
-              const matchWarehouse = strippedId && pWarehouse.includes(strippedId);
-              const matchName =
-                targetName &&
-                (pWarehouse.includes(targetName) ||
-                  pBranchName.includes(targetName) ||
-                  (firstKeyword && pWarehouse.includes(firstKeyword)));
-
-              return matchId || matchWarehouse || matchName;
-            });
-          }
-
-          set({ products: b2b, isLoadingProducts: false });
-          return;
-        }
-      } catch {
-        // ignore
-      }
       set({
+        products: [],
         isLoadingProducts: false,
         productsError: err?.message || "Failed to load products from database",
       });
@@ -1768,7 +1686,59 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       const res = await sellerService.getProfile();
       if (res) {
         const mapped = mapBackendProfileToSupplier(res, get().profile);
-        set({ profile: mapped, isLoadingProfile: false });
+
+        // Map genuine uploaded KYC documents from database
+        const realDocs: VerificationDocument[] = [];
+        const isVerified = Boolean(res.isVerifiedMerchant);
+        const kycStatus = res.merchantKycStatus;
+
+        if (res.tinCertificateDocUrl) {
+          realDocs.push({
+            id: "doc-tin",
+            type: "tin_cert",
+            label: "Taxpayer Identification Number (TIN) Certificate",
+            status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+            fileName: res.tinCertificateDocUrl.split("/").pop() || "tin_certificate.pdf",
+            uploadedAt: res.createdAt ? new Date(res.createdAt).toLocaleDateString() : "Uploaded",
+            reviewerNotes: res.merchantRejectionReason || (isVerified ? "Verified with Ministry of Revenues registry database." : "Under verification review."),
+          });
+        }
+        if (res.tradeLicenseDocUrl) {
+          realDocs.push({
+            id: "doc-license",
+            type: "business_license",
+            label: "Principal Commercial Business License",
+            status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+            fileName: res.tradeLicenseDocUrl.split("/").pop() || "trade_license.pdf",
+            uploadedAt: res.createdAt ? new Date(res.createdAt).toLocaleDateString() : "Uploaded",
+            reviewerNotes: res.merchantRejectionReason || (isVerified ? "Verified with Ministry of Trade." : "Under verification review."),
+          });
+        }
+        if (res.commercialRegDocUrl) {
+          realDocs.push({
+            id: "doc-reg",
+            type: "registration_cert",
+            label: "Commercial Registration Certificate",
+            status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+            fileName: res.commercialRegDocUrl.split("/").pop() || "commercial_registration.pdf",
+            uploadedAt: res.createdAt ? new Date(res.createdAt).toLocaleDateString() : "Uploaded",
+            reviewerNotes: res.merchantRejectionReason || (isVerified ? "Entity registered under Commercial Code." : "Under verification review."),
+          });
+        }
+        if (res.kebeleIdDocUrl || res.ownerIdDocUrl) {
+          const docUrl = res.kebeleIdDocUrl || res.ownerIdDocUrl;
+          realDocs.push({
+            id: "doc-id",
+            type: "owner_id",
+            label: "Owner National ID / Fayda",
+            status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+            fileName: docUrl.split("/").pop() || "owner_id.pdf",
+            uploadedAt: res.createdAt ? new Date(res.createdAt).toLocaleDateString() : "Uploaded",
+            reviewerNotes: res.merchantRejectionReason || (isVerified ? "Biometric ID verified." : "Under verification review."),
+          });
+        }
+
+        set({ profile: mapped, verificationDocs: realDocs, isLoadingProfile: false });
         saveStoredProfile(mapped);
       } else {
         set({ isLoadingProfile: false });
@@ -1780,7 +1750,57 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         const userRes = await api.get<any>("/users/me");
         if (userRes) {
           const mapped = mapBackendProfileToSupplier(userRes, get().profile);
-          set({ profile: mapped, isLoadingProfile: false });
+          const realDocs: VerificationDocument[] = [];
+          const isVerified = Boolean(userRes.isVerifiedMerchant);
+          const kycStatus = userRes.merchantKycStatus;
+
+          if (userRes.tinCertificateDocUrl) {
+            realDocs.push({
+              id: "doc-tin",
+              type: "tin_cert",
+              label: "Taxpayer Identification Number (TIN) Certificate",
+              status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+              fileName: userRes.tinCertificateDocUrl.split("/").pop() || "tin_certificate.pdf",
+              uploadedAt: userRes.createdAt ? new Date(userRes.createdAt).toLocaleDateString() : "Uploaded",
+              reviewerNotes: userRes.merchantRejectionReason || (isVerified ? "Verified." : "Under review."),
+            });
+          }
+          if (userRes.tradeLicenseDocUrl) {
+            realDocs.push({
+              id: "doc-license",
+              type: "business_license",
+              label: "Principal Commercial Business License",
+              status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+              fileName: userRes.tradeLicenseDocUrl.split("/").pop() || "trade_license.pdf",
+              uploadedAt: userRes.createdAt ? new Date(userRes.createdAt).toLocaleDateString() : "Uploaded",
+              reviewerNotes: userRes.merchantRejectionReason || (isVerified ? "Verified." : "Under review."),
+            });
+          }
+          if (userRes.commercialRegDocUrl) {
+            realDocs.push({
+              id: "doc-reg",
+              type: "registration_cert",
+              label: "Commercial Registration Certificate",
+              status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+              fileName: userRes.commercialRegDocUrl.split("/").pop() || "commercial_registration.pdf",
+              uploadedAt: userRes.createdAt ? new Date(userRes.createdAt).toLocaleDateString() : "Uploaded",
+              reviewerNotes: userRes.merchantRejectionReason || (isVerified ? "Verified." : "Under review."),
+            });
+          }
+          if (userRes.kebeleIdDocUrl || userRes.ownerIdDocUrl) {
+            const docUrl = userRes.kebeleIdDocUrl || userRes.ownerIdDocUrl;
+            realDocs.push({
+              id: "doc-id",
+              type: "owner_id",
+              label: "Owner National ID / Fayda",
+              status: isVerified ? "verified" : kycStatus === "REJECTED" ? "rejected" : "under_review",
+              fileName: docUrl.split("/").pop() || "owner_id.pdf",
+              uploadedAt: userRes.createdAt ? new Date(userRes.createdAt).toLocaleDateString() : "Uploaded",
+              reviewerNotes: userRes.merchantRejectionReason || (isVerified ? "Verified." : "Under review."),
+            });
+          }
+
+          set({ profile: mapped, verificationDocs: realDocs, isLoadingProfile: false });
           saveStoredProfile(mapped);
           return;
         }
@@ -2117,7 +2137,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       console.warn("[SupplierStore] Backend staff fetch notice:", err?.message || err);
       const stored = getStoredStaff();
       set({
-        staffList: stored.length > 0 ? stored : get().staffList,
+        staffList: stored,
         isLoadingStaff: false,
         staffError: err?.response?.data?.message || err?.message || "Failed to load staff",
       });
@@ -2687,9 +2707,9 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       description: "Order temporarily deleted. Click Undo to restore.",
       action: target
         ? {
-            label: "Undo (መልስ)",
-            onClick: () => get().restoreSourcingOrder(target),
-          }
+          label: "Undo (መልስ)",
+          onClick: () => get().restoreSourcingOrder(target),
+        }
         : undefined,
     });
   },

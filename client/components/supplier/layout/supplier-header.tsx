@@ -63,18 +63,18 @@ export function SupplierHeader() {
   const isBranchManager =
     user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
   const displayName = mounted
-    ? user?.name || currentStaffUser?.fullName || profile?.businessName || "Abyssinia Supply PLC"
-    : "Abyssinia Supply PLC";
+    ? user?.name || (user as any)?.fullName || (user as any)?.shopName || currentStaffUser?.fullName || profile?.businessName || "Supplier"
+    : "Supplier";
   const displayEmail = mounted
-    ? user?.email || currentStaffUser?.email || profile?.email || "hq@abyssiniasupply.et"
-    : "hq@abyssiniasupply.et";
+    ? user?.email || currentStaffUser?.email || profile?.email || ""
+    : "";
   const userBranchName =
     user?.branchName || currentStaffUser?.branchName;
 
   const avatarInitials = displayName
     .split(" ")
     .filter(Boolean)
-    .map((n) => n[0])
+    .map((n: string) => n[0])
     .join("")
     .slice(0, 2)
     .toUpperCase() || "SP";

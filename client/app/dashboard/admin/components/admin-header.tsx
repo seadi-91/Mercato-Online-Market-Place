@@ -182,7 +182,7 @@ export function AdminHeader({
 
                   <div
                     onClick={() => {
-                      setActiveTab("users");
+                      setActiveTab("suppliers");
                       setShowNotifications(false);
                     }}
                     className="flex items-start gap-2.5 p-2 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer"

@@ -1,11 +1,19 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
-import { json, urlencoded } from 'express';
+import { json, urlencoded, static as expressStatic } from 'express';
+import * as path from 'path';
+import * as fs from 'fs';
 import { ApiGatewayModule } from './api-gateway.module';
 import { GlobalExceptionFilter } from '@app/common';
 
 async function bootstrap() {
   const app = await NestFactory.create(ApiGatewayModule);
+
+  const uploadsDir = path.join(process.cwd(), 'uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  app.use('/uploads', expressStatic(uploadsDir));
 
   app.use(json({ limit: '50mb' }));
   app.use(urlencoded({ extended: true, limit: '50mb' }));

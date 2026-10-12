@@ -103,10 +103,11 @@ export function mapBackendProductToB2B(p: Product): B2BProduct {
     certifications: Array.isArray(p.certifications) && p.certifications.length > 0
       ? p.certifications
       : ["ECX Verified", "Quality Certified"],
-    warehouseLocation: p.warehouseLocation || "Addis Ababa Central Logistics Hub (WH-AA)",
-    branchId: p.branchId || "wh-aa",
-    branchName: p.branchName || "Addis Ababa Central Logistics Hub",
+    warehouseLocation: p.warehouseLocation || "",
+    branchId: p.branchId || "",
+    branchName: p.branchName || "",
     leadTimeDays: Number(p.leadTimeDays ?? 3),
+    sellerId: p.sellerId,
   };
 }
 

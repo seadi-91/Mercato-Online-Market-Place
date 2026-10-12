@@ -159,4 +159,35 @@ export const adminSupplierService = {
   },
 };
 
+export interface AdminNotification {
+  id: string;
+  type: 'SUPPLIER_REGISTRATION' | 'BANK_SLIP' | 'DISPUTE';
+  title: string;
+  message: string;
+  supplierId: string;
+  shopName: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  tradeLicense?: string;
+  tin?: string;
+  marketZone?: string;
+  businessType?: string;
+  kycStatus?: string;
+  createdAt: string;
+  timestamp: string;
+  read?: boolean;
+}
+
+export const adminNotificationService = {
+  getNotifications: (): Promise<{
+    notifications: AdminNotification[];
+    pendingKycCount: number;
+    pendingSlipsCount: number;
+    totalUnread: number;
+  }> => {
+    return api.get(`${BASE}/notifications`);
+  },
+};
+
 

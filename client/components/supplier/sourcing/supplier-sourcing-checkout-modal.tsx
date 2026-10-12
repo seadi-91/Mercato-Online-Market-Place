@@ -150,17 +150,17 @@ export function SupplierSourcingCheckoutModal({
 
   // Buyer Organization Information (Pre-filled & Editable)
   const [buyerBusinessName, setBuyerBusinessName] = useState(
-    profile.businessName || "Abyssinia Agri-Commodities PLC"
+    profile.businessName || user?.name || ""
   );
-  const [buyerTin, setBuyerTin] = useState(profile.tinNumber || "0048291048");
+  const [buyerTin, setBuyerTin] = useState(profile.tinNumber || "");
   const [buyerOfficerName, setBuyerOfficerName] = useState(
-    profile.executiveName || user?.name || "Procurement Officer"
+    profile.executiveName || user?.name || ""
   );
   const [buyerEmail, setBuyerEmail] = useState(
-    profile.email || user?.email || "procurement@abyssiniasupply.et"
+    profile.email || user?.email || ""
   );
   const [buyerPhone, setBuyerPhone] = useState(
-    profile.phone || user?.phoneNumber || "+251 91 144 2200"
+    profile.phone || user?.phoneNumber || ""
   );
   const [poReference, setPoReference] = useState(
     `PO-ETH-2026-${Math.floor(1000 + Math.random() * 9000)}`

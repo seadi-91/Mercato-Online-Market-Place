@@ -27,7 +27,7 @@ import { Quotation } from "@/types/supplier";
 import { toast } from "sonner";
 
 export function SupplierQuotationsView() {
-  const { quotations, isLoadingQuotations, fetchQuotations, openModal, setActiveTab } = useSupplierStore();
+  const { quotations, isLoadingQuotations, fetchQuotations, openModal, setActiveTab, profile } = useSupplierStore();
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
@@ -345,8 +345,10 @@ export function SupplierQuotationsView() {
                   </div>
                   <div className="text-right">
                     <span className="text-[10px] font-bold text-slate-400 uppercase">ISSUING SUPPLIER</span>
-                    <p className="font-bold text-slate-900">Abyssinia Agri-Commodities PLC</p>
-                    <p className="text-slate-500 font-mono text-[11px]">TIN: 0048291048</p>
+                    <p className="font-bold text-slate-900">{profile.businessName || "Supplier Enterprise"}</p>
+                    {profile.tinNumber && (
+                      <p className="text-slate-500 font-mono text-[11px]">TIN: {profile.tinNumber}</p>
+                    )}
                   </div>
                 </div>
               </div>

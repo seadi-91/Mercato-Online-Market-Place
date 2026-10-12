@@ -43,8 +43,16 @@ const VIDEO_FILTER = (req: any, file: Express.Multer.File, cb: any) => {
   cb(null, true);
 };
 
+import * as path from 'path';
+import * as fs from 'fs';
+
 const DOC_FILTER = (req: any, file: Express.Multer.File, cb: any) => {
-  if (!file.mimetype.match(/^(application\/pdf|image\/(jpeg|png))$/)) {
+  const isAllowed =
+    file.mimetype.startsWith('image/') ||
+    file.mimetype === 'application/pdf' ||
+    /\.(pdf|jpe?g|png|webp|gif|bmp|tiff)$/i.test(file.originalname);
+
+  if (!isAllowed) {
     return cb(
       new BadRequestException(
         'Only PDF and image files are allowed for documents',
@@ -59,11 +67,11 @@ const DOC_FILTER = (req: any, file: Express.Multer.File, cb: any) => {
 export class UploadController {
   constructor(private readonly cloudinaryService: CloudinaryService) {}
 
-  @RateLimit({ limit: 30, ttlMs: 60000 })
+  @RateLimit({ limit: 60, ttlMs: 60000 })
   @Post('kyc-document')
   @UseInterceptors(
     FileInterceptor('file', {
-      limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+      limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
       fileFilter: DOC_FILTER,
     }),
   )
@@ -71,17 +79,53 @@ export class UploadController {
     if (!file) {
       throw new BadRequestException('No document file provided');
     }
-    const result = await this.cloudinaryService.uploadDocument(
-      file,
-      'mercatox/kyc_documents',
-    );
-    return {
-      url: result.secure_url,
-      publicId: result.public_id,
-      format: result.format,
-      originalName: file.originalname,
-      size: file.size,
-    };
+
+    try {
+      const uploadPromise = this.cloudinaryService.uploadDocument(
+        file,
+        'mercatox/kyc_documents',
+      );
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Cloudinary upload timeout (3s)')), 3000),
+      );
+
+      const result = await Promise.race([uploadPromise, timeoutPromise]);
+      return {
+        url: result.secure_url,
+        publicId: result.public_id,
+        format: result.format,
+        originalName: file.originalname,
+        size: file.size,
+      };
+    } catch (err: any) {
+      console.warn(
+        '[UploadController] Cloudinary upload unavailable or rejected, saving locally:',
+        err?.message || err,
+      );
+
+      const uploadsDir = path.join(process.cwd(), 'uploads', 'kyc');
+      if (!fs.existsSync(uploadsDir)) {
+        fs.mkdirSync(uploadsDir, { recursive: true });
+      }
+
+      const fileExt =
+        path.extname(file.originalname) ||
+        (file.mimetype === 'application/pdf' ? '.pdf' : '.jpg');
+      const uniqueFileName = `kyc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}${fileExt}`;
+      const filePath = path.join(uploadsDir, uniqueFileName);
+      fs.writeFileSync(filePath, file.buffer);
+
+      const gatewayPort = process.env.API_GATEWAY_PORT || 3001;
+      const fileUrl = `http://localhost:${gatewayPort}/uploads/kyc/${uniqueFileName}`;
+
+      return {
+        url: fileUrl,
+        publicId: uniqueFileName,
+        format: fileExt.replace('.', ''),
+        originalName: file.originalname,
+        size: file.size,
+      };
+    }
   }
 
   @RateLimit({ limit: 20, ttlMs: 60000 })

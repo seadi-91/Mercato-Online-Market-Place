@@ -153,31 +153,29 @@ export function SupplierSettingsView() {
   const [showApiKey, setShowApiKey] = useState(false);
 
   // Form State initialized from Store
-  const [executiveName, setExecutiveName] = useState(profile.executiveName || "Ato Kassahun Tessema");
+  const [executiveName, setExecutiveName] = useState(profile.executiveName || "");
   const [executiveTitle, setExecutiveTitle] = useState(profile.executiveTitle || "Commercial Operations Director");
-  const [userEmail, setUserEmail] = useState(profile.email || "kassahun@abyssinia-commodities.et");
-  const [userPhone, setUserPhone] = useState(profile.phone || "+251 91 198 7654");
+  const [userEmail, setUserEmail] = useState(profile.email || "");
+  const [userPhone, setUserPhone] = useState(profile.phone || "");
   const [preferredLanguage, setPreferredLanguage] = useState(profile.preferredLanguage || "en");
   const [workingHours, setWorkingHours] = useState("08:30 - 17:30 EAT (Mon - Sat)");
   const [primaryChannel, setPrimaryChannel] = useState("in_app");
 
   // Legal & Statutory Registry
-  const [businessName, setBusinessName] = useState(profile.businessName || "Abyssinia Commodities PLC");
+  const [businessName, setBusinessName] = useState(profile.businessName || "");
   const [legalEntity, setLegalEntity] = useState(profile.legalEntity || "Private Limited Company (PLC)");
-  const [tinNumber, setTinNumber] = useState(profile.tinNumber || "0019283419");
-  const [licenseNumber, setLicenseNumber] = useState(profile.licenseNumber || "ET-AA-MT-2024-88192");
-  const [city, setCity] = useState(profile.city || "Addis Ababa");
-  const [region, setRegion] = useState(profile.region || "Addis Ababa");
-  const [address, setAddress] = useState(profile.address || "Mercato Commercial District");
+  const [tinNumber, setTinNumber] = useState(profile.tinNumber || "");
+  const [licenseNumber, setLicenseNumber] = useState(profile.licenseNumber || "");
+  const [city, setCity] = useState(profile.city || "");
+  const [region, setRegion] = useState(profile.region || "");
+  const [address, setAddress] = useState(profile.address || "");
 
   // Storefront & Policies
-  const [storeSlug, setStoreSlug] = useState(profile.storeSlug || "abyssinia-commodities");
-  const [tagline, setTagline] = useState(
-    profile.tagline || "Premier Ethiopian Agricultural Aggregator & Certified Industrial Materials Supplier"
-  );
+  const [storeSlug, setStoreSlug] = useState(profile.storeSlug || "");
+  const [tagline, setTagline] = useState(profile.tagline || "");
   const [vacationMode, setVacationMode] = useState(profile.vacationMode || false);
-  const [minOrderETB, setMinOrderETB] = useState<number>(profile.minOrderValueETB || 50000);
-  const [leadTimeDays, setLeadTimeDays] = useState<number>(profile.defaultLeadTimeDays || 4);
+  const [minOrderETB, setMinOrderETB] = useState<number>(profile.minOrderValueETB || 0);
+  const [leadTimeDays, setLeadTimeDays] = useState<number>(profile.defaultLeadTimeDays || 3);
   const [defaultIncoterm, setDefaultIncoterm] = useState(profile.defaultIncoterm || "FOB Addis Ababa Logistics Hub");
   const [samplePolicy, setSamplePolicy] = useState(
     profile.samplePolicy || "Deposit required, refundable upon bulk order placement"
@@ -216,8 +214,8 @@ export function SupplierSettingsView() {
   // Security
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(profile.twoFactorEnabled ?? true);
   const [twoFactorMethod, setTwoFactorMethod] = useState<"sms" | "app" | "token">("sms");
-  const [apiKey, setApiKey] = useState("mk_live_89f02c91837b42aa990145e982");
-  const [webhookUrl, setWebhookUrl] = useState("https://api.abyssinia-commodities.et/mercatox-webhook");
+  const [apiKey, setApiKey] = useState("");
+  const [webhookUrl, setWebhookUrl] = useState("");
   const [isTestingWebhook, setIsTestingWebhook] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -241,10 +239,10 @@ export function SupplierSettingsView() {
       setLegalEntity(profile.legalEntity || "Private Limited Company (PLC)");
       setTinNumber(profile.tinNumber || "");
       setLicenseNumber(profile.licenseNumber || "");
-      setCity(profile.city || "Addis Ababa");
-      setRegion(profile.region || "Addis Ababa");
-      setAddress(profile.address || "Mercato Commercial District");
-      setStoreSlug(profile.storeSlug || "abyssinia-commodities");
+      setCity(profile.city || "");
+      setRegion(profile.region || "");
+      setAddress(profile.address || "");
+      setStoreSlug(profile.storeSlug || "");
       setTagline(profile.tagline || "");
       setVacationMode(profile.vacationMode || false);
       setMinOrderETB(profile.minOrderValueETB || 50000);

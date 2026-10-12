@@ -271,47 +271,47 @@ export default function LoginPage() {
       const staffRole = data?.user?.staffRole;
       const isStaffDriver = staffRole === "driver" || data?.user?.role === "DELIVERY";
       const isBranchManager = staffRole === "branch_manager";
+      const returnedRole = data?.user?.role;
+      const merchantKycStatus = data?.user?.merchantKycStatus;
+      const isVerifiedMerchant = data?.user?.isVerifiedMerchant === true || merchantKycStatus === "APPROVED";
 
-      let isSupplierUser =
-        !isStaffDriver &&
-        (data?.user?.role === "SUPPLIER" ||
-          data?.user?.isSupplier === true ||
-          isBranchManager ||
-          (typeof data?.user?.businessType === "string" &&
-            data.user.businessType.toLowerCase().includes("supplier")) ||
-          cleanId.includes("suplayer") ||
-          cleanId.includes("supplier"));
+      // If account was REJECTED by admin or role is CUSTOMER:
+      const isRejected = merchantKycStatus === "REJECTED";
+      const isCustomer = returnedRole === "CUSTOMER" || isRejected;
 
-      // Robust check: If returned as SELLER, check profile to detect registered suppliers
-      if (!isSupplierUser && !isStaffDriver && (data?.user?.role === "SELLER" || !data?.user?.role) && data?.accessToken) {
-        try {
-          const profileRes = await fetch(`${API_CONFIG.baseURL}/users/me`, {
-            headers: {
-              Authorization: `Bearer ${data.accessToken}`,
-            },
-          });
-          if (profileRes.ok) {
-            const profileData = await profileRes.json();
-            if (
-              profileData?.businessType?.toLowerCase().includes("supplier") ||
-              profileData?.specificLocation?.toLowerCase().includes("capacity:") ||
-              profileData?.specificLocation?.toLowerCase().includes("supplier") ||
-              profileData?.businessLicenseUrl ||
-              profileData?.tinCertificateUrl
-            ) {
-              isSupplierUser = true;
-            }
-          }
-        } catch {
-          // ignore profile fetch fallback
+      let isSupplierUser = false;
+      let effectiveRole: "ADMIN" | "SELLER" | "SUPPLIER" | "DELIVERY" | "CUSTOMER" = "CUSTOMER";
+
+      if (isStaffDriver) {
+        effectiveRole = "DELIVERY";
+      } else if (returnedRole === "ADMIN") {
+        effectiveRole = "ADMIN";
+      } else if (isCustomer) {
+        // Converted to customer or regular customer -> Never supplier, always redirect to home "/"
+        effectiveRole = "CUSTOMER";
+        isSupplierUser = false;
+      } else {
+        // Check for approved or pending supplier
+        const isSupplierApproved =
+          (returnedRole === "SUPPLIER" || data?.user?.isSupplier === true || returnedRole === "SELLER") &&
+          isVerifiedMerchant;
+
+        const isSupplierPending =
+          merchantKycStatus === "PENDING" ||
+          (!isVerifiedMerchant && (returnedRole === "SUPPLIER" || data?.user?.isSupplier === true));
+
+        if (isSupplierApproved || isBranchManager) {
+          effectiveRole = "SUPPLIER";
+          isSupplierUser = true;
+        } else if (isSupplierPending) {
+          effectiveRole = "SUPPLIER";
+          isSupplierUser = true;
+        } else if (returnedRole === "SELLER") {
+          effectiveRole = "SELLER";
+        } else {
+          effectiveRole = "CUSTOMER";
         }
       }
-
-      const effectiveRole: "ADMIN" | "SELLER" | "SUPPLIER" | "DELIVERY" | "CUSTOMER" = isStaffDriver
-        ? "DELIVERY"
-        : isSupplierUser
-        ? "SUPPLIER"
-        : (data?.user?.role || "CUSTOMER");
 
       const userData = {
         id: data?.user?.id || "user",
@@ -330,19 +330,33 @@ export default function LoginPage() {
         driverLicenseNumber: data?.user?.driverLicenseNumber,
         businessType: data?.user?.businessType,
         shopName: data?.user?.shopName,
-        isVerified: true,
+        isVerified: isVerifiedMerchant,
+        merchantKycStatus: merchantKycStatus,
       };
 
       login(userData, data?.accessToken);
-      toast.success(`Welcome back, ${userData.name}!`, {
-        description: isStaffDriver
-          ? `Commercial Courier & Freight Portal (${userData.assignedVehiclePlate || "Fleet Truck"})`
-          : isBranchManager
-          ? `Branch Manager Console · ${userData.branchName || "Logistics Hub"}`
-          : isSupplierUser
-          ? "Signed in to B2B Wholesale Supplier Console"
-          : `Signed in to ${effectiveRole} console`,
-      });
+
+      if (isRejected) {
+        toast.info("Account Type: Customer (ደንበኛ)", {
+          description: "Your wholesale application was not approved. You are signed in as a Customer to browse and shop.",
+          duration: 7000,
+        });
+      } else if (effectiveRole === "SUPPLIER" && !isVerifiedMerchant) {
+        toast.info("Account Under Review · እባክዎ በትዕግስት ይጠብቁ", {
+          description: "Your wholesale supplier application is currently under review by administrators. Please wait for approval.",
+          duration: 7000,
+        });
+      } else {
+        toast.success(`Welcome back, ${userData.name}!`, {
+          description: isStaffDriver
+            ? `Commercial Courier & Freight Portal (${userData.assignedVehiclePlate || "Fleet Truck"})`
+            : isBranchManager
+            ? `Branch Manager Console · ${userData.branchName || "Logistics Hub"}`
+            : isSupplierUser
+            ? "Signed in to B2B Wholesale Supplier Console"
+            : `Signed in to ${effectiveRole} console`,
+        });
+      }
 
       if (effectiveRole === "ADMIN") {
         router.push("/dashboard/admin");
@@ -355,6 +369,7 @@ export default function LoginPage() {
       } else if (effectiveRole === "DELIVERY" || isStaffDriver) {
         router.push("/dashboard/delivery");
       } else {
+        // Customer or Rejected Account -> Redirect to home / guest page!
         router.push("/");
       }
     } catch {

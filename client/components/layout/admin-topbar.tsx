@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu,
@@ -22,11 +22,21 @@ import {
   Scale,
   ShieldAlert,
   Settings,
+  Eye,
+  CheckCircle2,
+  XCircle,
+  ArrowRight,
+  FileCheck,
 } from "lucide-react";
 import { useAdminUIStore, AdminTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
 import { usePlatformStore } from "@/store/platform-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import {
+  adminNotificationService,
+  adminSupplierService,
+  type AdminNotification,
+} from "@/features/admin/services/admin.service";
 import { toast } from "sonner";
 
 export function AdminTopbar() {
@@ -39,13 +49,57 @@ export function AdminTopbar() {
     toggleMobileSidebar,
     pendingSlipsCount,
     pendingKycCount,
+    setSelectedSupplierId,
+    setPendingCounts,
   } = useAdminUIStore();
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const totalAlerts = pendingSlipsCount + pendingKycCount;
+  // Dynamic real-time notifications from database
+  const [notifications, setNotifications] = useState<AdminNotification[]>([]);
+  const [processingSupplierId, setProcessingSupplierId] = useState<string | null>(null);
+
+  const fetchNotifications = async (showToastOnNew = false) => {
+    try {
+      const res = await adminNotificationService.getNotifications();
+      const newNotifs = res.notifications || [];
+
+      // If a new supplier registered while admin is on the page, toast notification immediately!
+      if (showToastOnNew && newNotifs.length > notifications.length) {
+        const latest = newNotifs[0];
+        toast.info(`New Supplier Registered: ${latest.shopName || latest.fullName}`, {
+          description: "Submitted official documents for KYC review.",
+          action: {
+            label: "Review Application",
+            onClick: () => {
+              setActiveTab("suppliers");
+              setSelectedSupplierId(latest.supplierId);
+            },
+          },
+        });
+      }
+
+      setNotifications(newNotifs);
+      setPendingCounts({
+        kyc: res.pendingKycCount,
+        slips: res.pendingSlipsCount,
+      });
+    } catch (err) {
+      console.warn("Failed to fetch admin notifications:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchNotifications(false);
+    const interval = setInterval(() => {
+      fetchNotifications(true);
+    }, 12000);
+    return () => clearInterval(interval);
+  }, [notifications.length]);
+
+  const totalAlerts = notifications.length + pendingSlipsCount;
 
   const tabLabels: Record<AdminTab, string> = {
     overview: "Overview & Analytics",
@@ -77,10 +131,43 @@ export function AdminTopbar() {
 
   const handleRefresh = () => {
     setIsRefreshing(true);
+    fetchNotifications(false);
     setTimeout(() => {
       setIsRefreshing(false);
       toast.success("Metrics & data refreshed");
     }, 500);
+  };
+
+  const handleQuickApprove = async (e: React.MouseEvent, n: AdminNotification) => {
+    e.stopPropagation();
+    setProcessingSupplierId(n.supplierId);
+    try {
+      await adminSupplierService.verifyMerchant(n.supplierId, true);
+      toast.success(`Verified & Activated supplier: ${n.shopName || n.fullName}`);
+      await fetchNotifications(false);
+    } catch {
+      toast.error("Failed to approve supplier");
+    } finally {
+      setProcessingSupplierId(null);
+    }
+  };
+
+  const handleQuickReject = async (e: React.MouseEvent, n: AdminNotification) => {
+    e.stopPropagation();
+    setProcessingSupplierId(n.supplierId);
+    try {
+      await adminSupplierService.verifyMerchant(
+        n.supplierId,
+        false,
+        "Documentation rejected by admin"
+      );
+      toast.success(`Rejected application: ${n.shopName || n.fullName}. Converted to Customer.`);
+      await fetchNotifications(false);
+    } catch {
+      toast.error("Failed to reject supplier");
+    } finally {
+      setProcessingSupplierId(null);
+    }
   };
 
   const handleLogout = () => {
@@ -171,50 +258,149 @@ export function AdminTopbar() {
           </button>
 
           {showNotifications && (
-            <div className="app-dropdown-panel absolute right-0 mt-2 w-72 rounded-xl border border-white/10 bg-[#0d121f] p-3 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in duration-150">
-              <div className="flex items-center justify-between pb-2 border-b border-white/10">
-                <span className="text-xs font-semibold text-white">Action Required</span>
-                <span className="rounded bg-rose-500/20 px-1.5 py-0.2 text-[10px] font-bold text-rose-300">
-                  {totalAlerts} Pending
-                </span>
-              </div>
-              <div className="divide-y divide-white/5 py-1">
+            <div className="app-dropdown-panel absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-white/10 bg-[#0c101d] p-3.5 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in duration-150">
+              <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-white tracking-wide">
+                    Compliance &amp; Approvals
+                  </span>
+                  {notifications.length > 0 && (
+                    <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
+                      {notifications.length} Pending
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    setActiveTab("slips");
-                    setShowNotifications(false);
-                  }}
-                  className="flex w-full items-start gap-2 p-2 rounded-lg text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
+                  onClick={() => fetchNotifications(false)}
+                  className="text-[11px] text-zinc-400 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
                 >
-                  <Receipt className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-medium text-zinc-200">
-                      {pendingSlipsCount} Pending Bank Slips
-                    </p>
-                    <p className="text-[10px] text-zinc-400">
-                      CBE & Awash manual deposits awaiting review.
-                    </p>
-                  </div>
+                  <RefreshCw className="h-3 w-3" />
+                  <span>Refresh</span>
                 </button>
+              </div>
 
+              <div className="max-h-[380px] overflow-y-auto divide-y divide-white/5 py-1.5 space-y-2">
+                {notifications.length === 0 ? (
+                  <div className="py-6 text-center">
+                    <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
+                      <CheckCircle2 className="h-5 w-5" />
+                    </div>
+                    <p className="text-xs font-semibold text-white">All Caught Up</p>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      No new supplier applications awaiting verification.
+                    </p>
+                  </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className="rounded-xl border border-amber-500/25 bg-amber-500/[0.04] p-2.5 hover:bg-amber-500/[0.08] transition-all space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-start gap-2.5 min-w-0">
+                          <div className="mt-0.5 flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 border border-amber-500/30 text-amber-400 shrink-0">
+                            <Building2 className="h-3.5 w-3.5" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <span className="text-xs font-bold text-white truncate max-w-[170px]">
+                                {n.shopName || n.fullName}
+                              </span>
+                              <span className="text-[9px] font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded">
+                                New Supplier
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-zinc-300 truncate">
+                              Rep: {n.fullName} {n.phone ? `• ${n.phone}` : ""}
+                            </p>
+                            <p className="text-[10px] text-zinc-400 truncate">
+                              TL: {n.tradeLicense || "Submitted"} • TIN: {n.tin || "Submitted"}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Action buttons */}
+                      <div className="flex items-center justify-between gap-1.5 pt-1 border-t border-white/5">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab("suppliers");
+                            setSelectedSupplierId(n.supplierId);
+                            setShowNotifications(false);
+                          }}
+                          className="flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium rounded-lg bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 transition-all cursor-pointer"
+                        >
+                          <Eye className="h-3 w-3" />
+                          <span>Review Account</span>
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            disabled={processingSupplierId === n.supplierId}
+                            onClick={(e) => handleQuickApprove(e, n)}
+                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/30 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <CheckCircle2 className="h-3 w-3" />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled={processingSupplierId === n.supplierId}
+                            onClick={(e) => handleQuickReject(e, n)}
+                            className="flex items-center gap-1 px-2 py-1 text-[11px] font-medium rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-300 border border-rose-500/30 transition-all cursor-pointer disabled:opacity-50"
+                          >
+                            <XCircle className="h-3 w-3" />
+                            <span>Reject</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {pendingSlipsCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab("slips");
+                      setShowNotifications(false);
+                    }}
+                    className="flex w-full items-start gap-2 p-2 rounded-lg text-left hover:bg-white/[0.04] transition-colors cursor-pointer border border-white/5"
+                  >
+                    <Receipt className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="text-xs font-medium text-zinc-200">
+                        {pendingSlipsCount} Pending Bank Deposits
+                      </p>
+                      <p className="text-[10px] text-zinc-400">
+                        CBE & Awash manual deposits awaiting review.
+                      </p>
+                    </div>
+                  </button>
+                )}
+              </div>
+
+              <div className="pt-2.5 border-t border-white/10 flex items-center justify-between">
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveTab("users");
+                    setActiveTab("suppliers");
                     setShowNotifications(false);
                   }}
-                  className="flex w-full items-start gap-2 p-2 rounded-lg text-left hover:bg-white/[0.04] transition-colors cursor-pointer"
+                  className="text-[11px] font-medium text-amber-400 hover:underline cursor-pointer flex items-center gap-1"
                 >
-                  <Users className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-xs font-medium text-zinc-200">
-                      {pendingKycCount} Merchant KYC Requests
-                    </p>
-                    <p className="text-[10px] text-zinc-400">
-                      Trade licenses waiting for document audit.
-                    </p>
-                  </div>
+                  <span>Go to Suppliers Queue</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowNotifications(false)}
+                  className="text-[11px] text-zinc-400 hover:text-white cursor-pointer"
+                >
+                  Close
                 </button>
               </div>
             </div>

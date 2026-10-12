@@ -71,6 +71,7 @@ export interface B2BProduct {
   shippingWeight?: string;
   branchId?: string;
   branchName?: string;
+  sellerId?: string;
 }
 
 export interface InventoryMovement {
@@ -661,7 +662,8 @@ export interface SupplierBusinessProfile {
   description: string;
   logoUrl: string;
   coverUrl: string;
-  verificationBadge: "Gold Verified B2B Supplier" | "Verified Exporter" | "Pending Review";
+  verificationBadge: "Gold Verified B2B Supplier" | "Verified Exporter" | "Pending Review" | "Unverified Merchant" | "Verification Rejected";
+  verificationStatus?: "verified" | "pending" | "unverified" | "rejected";
   phone: string;
   email: string;
   country: string;

@@ -69,6 +69,61 @@ export class AdminController {
     };
   }
 
+  @Get('notifications')
+  async getNotifications() {
+    try {
+      const [pendingSuppliersRes, metrics] = await Promise.all([
+        firstValueFrom(
+          this.usersClient.send('get_admin_suppliers', {
+            limit: 30,
+            kycStatus: 'PENDING',
+          }),
+        ).catch(() => ({ data: [], total: 0 })),
+        firstValueFrom(
+          this.usersClient.send('get_user_metrics', {}),
+        ).catch(() => ({ pendingSellerApprovals: 0 })),
+      ]);
+
+      const suppliers = pendingSuppliersRes?.data || [];
+      const notifications = suppliers.map((sup: any) => ({
+        id: `supplier_reg_${sup.userId}`,
+        type: 'SUPPLIER_REGISTRATION',
+        title: `New Supplier: ${sup.shopName || sup.fullName}`,
+        message: `${sup.fullName} registered ${sup.shopName || 'B2B Enterprise'} and submitted KYC compliance documents. Awaiting review.`,
+        supplierId: sup.userId,
+        shopName: sup.shopName || sup.fullName,
+        fullName: sup.fullName,
+        email: sup.email,
+        phone: sup.alternatePhone,
+        tradeLicense: sup.tradeLicenseNumber,
+        tin: sup.tinNumber,
+        marketZone: sup.marketZone,
+        businessType: sup.businessType,
+        kycStatus: sup.merchantKycStatus,
+        createdAt: sup.createdAt,
+        timestamp: sup.createdAt,
+        read: false,
+      }));
+
+      const pendingKycCount = Number(metrics?.pendingSellerApprovals ?? suppliers.length);
+
+      return {
+        notifications,
+        pendingKycCount,
+        pendingSlipsCount: 0,
+        totalUnread: notifications.length,
+      };
+    } catch (err: any) {
+      console.error('[AdminController] Failed to fetch notifications:', err);
+      return {
+        notifications: [],
+        pendingKycCount: 0,
+        pendingSlipsCount: 0,
+        totalUnread: 0,
+      };
+    }
+  }
+
   @Get('analytics/sales-trends')
   getSalesTrends(@Query() query: AnalyticsTimeRangeDto) {
     return this.ordersClient.send('get_sales_trends', {
@@ -113,84 +168,119 @@ export class AdminController {
 
   @Get('users/:userId/details')
   async getUserDetails(@Param('userId', new ParseUUIDPipe()) userId: string) {
-    const profile = await firstValueFrom(
-      this.usersClient.send('get_profile', { userId }),
-    );
+    const [profile, authUser] = await Promise.all([
+      firstValueFrom(this.usersClient.send('get_profile', { userId })).catch(() => null),
+      firstValueFrom(this.authClient.send('get_user_by_id', { userId })).catch(() => null),
+    ]);
 
-    const stats = {
+    if (!profile && !authUser) {
+      return {
+        userId,
+        error: 'User not found',
+      };
+    }
+
+    const effectiveRole = profile?.role || authUser?.role || UserRole.SELLER;
+
+    const stats: Record<string, any> = {
       postedProducts: 0,
       totalOrders: 0,
+      recentProducts: [],
+      recentOrders: [],
     };
 
-    if (profile.role === UserRole.SELLER) {
-      const products = await firstValueFrom(
-        this.catalogClient.send('get_seller_products', {
-          sellerId: userId,
-          dto: { page: 1, limit: 1 },
-        }),
-      );
-      stats.postedProducts = Number(products?.total ?? 0);
+    if (effectiveRole === UserRole.SELLER) {
+      const [products, orders] = await Promise.all([
+        firstValueFrom(
+          this.catalogClient.send('get_seller_products', {
+            sellerId: userId,
+            dto: { page: 1, limit: 6 },
+          }),
+        ).catch(() => null),
+        firstValueFrom(
+          this.ordersClient.send('get_seller_orders', {
+            sellerId: userId,
+            dto: { page: 1, limit: 6 },
+          }),
+        ).catch(() => null),
+      ]);
 
-      const orders = await firstValueFrom(
-        this.ordersClient.send('get_seller_orders', {
-          sellerId: userId,
-          dto: { page: 1, limit: 1 },
-        }),
-      );
+      stats.postedProducts = Number(products?.total ?? 0);
+      stats.recentProducts = Array.isArray(products?.items) ? products.items : [];
       stats.totalOrders = Number(orders?.total ?? 0);
-    } else if (profile.role === UserRole.CUSTOMER) {
+      stats.recentOrders = Array.isArray(orders?.items) ? orders.items : [];
+    } else if (effectiveRole === UserRole.CUSTOMER) {
       const orders = await firstValueFrom(
         this.ordersClient.send('get_customer_orders', {
           customerId: userId,
-          dto: { page: 1, limit: 1 },
+          dto: { page: 1, limit: 6 },
         }),
-      );
+      ).catch(() => null);
       stats.totalOrders = Number(orders?.total ?? 0);
-    } else if (profile.role === UserRole.DELIVERY) {
+      stats.recentOrders = Array.isArray(orders?.items) ? orders.items : [];
+    } else if (effectiveRole === UserRole.DELIVERY) {
       const orders = await firstValueFrom(
         this.ordersClient.send('get_delivery_staff_orders', {
           deliveryStaffId: userId,
-          dto: { page: 1, limit: 1 },
+          dto: { page: 1, limit: 6 },
         }),
-      );
+      ).catch(() => null);
       stats.totalOrders = Number(orders?.total ?? 0);
+      stats.recentOrders = Array.isArray(orders?.items) ? orders.items : [];
     }
 
-    const businessLicenseUrl = cleanDocumentUrl(profile.businessLicenseUrl);
-    const tinCertificateUrl = cleanDocumentUrl(profile.tinCertificateUrl);
+    const auditLogs = await firstValueFrom(
+      this.usersClient.send('get_audit_logs', {
+        targetId: userId,
+        page: 1,
+        limit: 8,
+      }),
+    ).catch(() => null);
+
+    const businessLicenseUrl = cleanDocumentUrl(profile?.businessLicenseUrl);
+    const tinCertificateUrl = cleanDocumentUrl(profile?.tinCertificateUrl);
     const commercialRegistrationUrl = cleanDocumentUrl(
-      profile.commercialRegistrationUrl,
+      profile?.commercialRegistrationUrl,
     );
-    const ownerIdUrl = cleanDocumentUrl(profile.ownerIdUrl);
+    const ownerIdUrl = cleanDocumentUrl(profile?.ownerIdUrl);
     const documents = [
       {
         type: 'Trade License',
-        docNumber: profile.tradeLicenseNumber,
+        docNumber: profile?.tradeLicenseNumber,
         url: businessLicenseUrl,
       },
       {
         type: 'TIN Certificate',
-        docNumber: profile.tinNumber,
+        docNumber: profile?.tinNumber,
         url: tinCertificateUrl,
       },
       {
         type: 'Commercial Registration',
-        docNumber: profile.tradeLicenseNumber,
+        docNumber: profile?.tradeLicenseNumber,
         url: commercialRegistrationUrl,
       },
       {
         type: 'Owner ID',
+        docNumber: profile?.nationalIdNumber,
         url: ownerIdUrl,
       },
     ].filter((document) => Boolean(document.url));
 
     return {
-      ...profile,
+      ...(profile || {}),
+      userId,
+      phoneNumber: profile?.alternatePhone || authUser?.phoneNumber || undefined,
+      alternatePhone: profile?.alternatePhone || authUser?.phoneNumber || undefined,
+      email: profile?.email || authUser?.email || undefined,
+      accountRole: authUser?.role || profile?.role || UserRole.SELLER,
+      accountCreatedAt: authUser?.createdAt || profile?.createdAt,
+      accountIsActive: authUser?.isActive ?? profile?.isActive ?? true,
       businessLicenseUrl,
       tinCertificateUrl,
       commercialRegistrationUrl,
       ownerIdUrl,
       stats,
+      auditLogs: auditLogs?.data || [],
       documents,
     };
   }
@@ -286,6 +376,17 @@ export class AdminController {
         rejectionReason: dto.rejectionReason,
       }),
     );
+
+    // Sync role and status to Auth service:
+    // If approved -> SELLER, isActive = true
+    // If rejected -> CUSTOMER, isActive = true (so they can log in as a normal customer)
+    await firstValueFrom(
+      this.authClient.send('set_user_role_and_status', {
+        userId,
+        role: dto.isVerified ? UserRole.SELLER : UserRole.CUSTOMER,
+        isActive: true,
+      }),
+    ).catch((err) => console.error('Failed to sync user role in auth service:', err));
 
     await firstValueFrom(
       this.usersClient.send('create_audit_log', {

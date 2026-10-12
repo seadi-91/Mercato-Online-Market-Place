@@ -16,6 +16,8 @@ export type AdminTab =
 interface AdminUIState {
   activeTab: AdminTab;
   setActiveTab: (tab: AdminTab) => void;
+  selectedSupplierId: string | null;
+  setSelectedSupplierId: (id: string | null) => void;
   isSidebarCollapsed: boolean;
   toggleSidebar: () => void;
   setSidebarCollapsed: (collapsed: boolean) => void;
@@ -37,6 +39,8 @@ interface AdminUIState {
 export const useAdminUIStore = create<AdminUIState>((set) => ({
   activeTab: "overview",
   setActiveTab: (tab) => set({ activeTab: tab, isMobileSidebarOpen: false }),
+  selectedSupplierId: null,
+  setSelectedSupplierId: (id) => set({ selectedSupplierId: id }),
   isSidebarCollapsed: false,
   toggleSidebar: () =>
     set((state) => ({ isSidebarCollapsed: !state.isSidebarCollapsed })),

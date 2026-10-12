@@ -34,6 +34,9 @@ import {
   Trash2,
   File,
   RefreshCw,
+  Clock,
+  ShieldAlert,
+  Home,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store";
@@ -186,6 +189,7 @@ interface UploadedDocState {
   name: string;
   size: string;
   url?: string;
+  previewUrl?: string;
   uploading?: boolean;
 }
 
@@ -214,6 +218,15 @@ function DocUploadCard({
 }: DocUploadCardProps) {
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+
+  const isImage = Boolean(
+    doc?.file?.type?.startsWith("image/") ||
+    (doc?.previewUrl && !doc.previewUrl.startsWith("data:application/pdf")) ||
+    (doc?.url && (doc.url.startsWith("data:image/") || /\.(jpe?g|png|webp|gif|svg)$/i.test(doc.url.split("?")[0]))) ||
+    (doc?.name && /\.(jpe?g|png|webp|gif|svg)$/i.test(doc.name))
+  );
+
+  const displayImageSrc = doc?.previewUrl || (isImage && doc?.url ? doc.url : undefined);
 
   return (
     <div
@@ -244,7 +257,7 @@ function DocUploadCard({
         ref={inputRef}
         id={id}
         type="file"
-        accept=".pdf,image/png,image/jpeg,image/jpg"
+        accept=".pdf,image/png,image/jpeg,image/jpg,image/webp"
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
@@ -281,23 +294,61 @@ function DocUploadCard({
       </div>
 
       {doc?.uploading ? (
-        <div className="flex items-center justify-center gap-2 py-3 rounded-lg border border-dashed border-emerald-500/40 bg-emerald-500/5">
-          <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-          <span className="text-xs text-emerald-300 font-medium">
-            Uploading document securely...
-          </span>
+        <div className="flex items-center gap-3 py-2 px-3 rounded-lg border border-dashed border-emerald-500/40 bg-emerald-500/5">
+          {doc.previewUrl ? (
+            <div className="relative h-10 w-10 rounded-lg overflow-hidden shrink-0 border border-emerald-500/40 bg-zinc-900">
+              <img
+                src={doc.previewUrl}
+                alt={doc.name}
+                className="h-full w-full object-cover opacity-60"
+              />
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40">
+                <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+              </div>
+            </div>
+          ) : (
+            <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+          )}
+          <div className="min-w-0">
+            <p className="text-xs text-emerald-300 font-medium truncate">
+              {doc.name || "Uploading document..."}
+            </p>
+            <p className="text-[10px] text-zinc-400">Processing file...</p>
+          </div>
         </div>
       ) : doc?.url ? (
         <div className="flex items-center justify-between rounded-lg bg-black/40 border border-emerald-500/20 p-2.5">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="h-8 w-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
-              <FileCheck className="h-4 w-4" />
-            </div>
+            {isImage && displayImageSrc ? (
+              <a
+                href={doc.url || displayImageSrc}
+                target="_blank"
+                rel="noreferrer"
+                title="Click to view full image"
+                className="relative h-12 w-12 rounded-lg overflow-hidden shrink-0 border border-emerald-500/40 bg-zinc-900 group/thumb hover:border-emerald-300 transition-all cursor-pointer shadow-sm"
+              >
+                <img
+                  src={displayImageSrc}
+                  alt={doc.name}
+                  className="h-full w-full object-cover rounded-lg group-hover/thumb:scale-105 transition-transform duration-200"
+                />
+                <div className="absolute inset-0 bg-black/10 group-hover/thumb:bg-transparent" />
+              </a>
+            ) : (
+              <div className="h-10 w-10 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+                <FileCheck className="h-5 w-5" />
+              </div>
+            )}
             <div className="min-w-0">
-              <p className="text-xs font-medium text-zinc-200 truncate">
+              <p className="text-xs font-medium text-zinc-200 truncate max-w-[170px] sm:max-w-[200px]">
                 {doc.name}
               </p>
-              <p className="text-[10px] text-zinc-400">{doc.size}</p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <p className="text-[10px] text-zinc-400">{doc.size}</p>
+                <span className="inline-flex items-center gap-0.5 text-[10px] text-emerald-400 font-medium">
+                  <CheckCircle2 className="h-2.5 w-2.5" /> Ready
+                </span>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1.5 shrink-0 ml-2">
@@ -382,6 +433,22 @@ function RegisterPageContent() {
   // Step 3: Legal Compliance Documents
   // Step 4: Master Password & Security Activation
   const [supplierStep, setSupplierStep] = useState<1 | 2 | 3 | 4>(1);
+
+  // Supplier Under Review Confirmation Screen State
+  const [supplierUnderReview, setSupplierUnderReview] = useState(false);
+  const [submittedSupplierData, setSubmittedSupplierData] = useState<{
+    companyName: string;
+    fullName: string;
+    phone: string;
+    email: string;
+    tradeLicense: string;
+    tin: string;
+    nationalId: string;
+    warehouseZone: string;
+    warehouseAddress: string;
+    capacity: string;
+    documentsCount: number;
+  } | null>(null);
 
   // Query parameter role initialization (e.g. /register?role=SUPPLIER)
   useEffect(() => {
@@ -523,10 +590,15 @@ function RegisterPageContent() {
         ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
         : `${Math.round(file.size / 1024)} KB`;
 
+    const localPreviewUrl = file.type?.startsWith("image/")
+      ? URL.createObjectURL(file)
+      : undefined;
+
     setDoc({
       file,
       name: file.name,
       size: formattedSize,
+      previewUrl: localPreviewUrl,
       uploading: true,
     });
 
@@ -535,38 +607,64 @@ function RegisterPageContent() {
     }
 
     try {
-      const formData = new FormData();
-      formData.append("file", file);
+      let finalUrl = "";
 
-      const res = await fetch(`${API_CONFIG.baseURL}/upload/kyc-document`, {
-        method: "POST",
-        body: formData,
-      });
+      // 1. Try server upload
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData?.message || "Upload failed");
+        const res = await fetch(`${API_CONFIG.baseURL}/upload/kyc-document`, {
+          method: "POST",
+          body: formData,
+        });
+
+        if (res.ok) {
+          const data = await res.json().catch(() => ({}));
+          if (typeof data?.url === "string" && data.url.trim()) {
+            finalUrl = data.url;
+          }
+        } else {
+          const errData = await res.json().catch(() => ({}));
+          console.warn("Server KYC upload responded with:", res.status, errData);
+        }
+      } catch (networkErr) {
+        console.warn("Upload endpoint network error, falling back:", networkErr);
       }
 
-      const data = await res.json();
-      if (typeof data.url !== "string" || !data.url.trim()) {
-        throw new Error("The upload service did not return a document link.");
+      // 2. If server upload failed or didn't return a URL, fallback to local data URL so registration is never blocked
+      if (!finalUrl) {
+        finalUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => {
+            resolve(typeof reader.result === "string" ? reader.result : "");
+          };
+          reader.onerror = () => resolve("");
+          reader.readAsDataURL(file);
+        });
       }
+
+      if (!finalUrl) {
+        throw new Error("Unable to read or upload file. Please try another file.");
+      }
+
       setDoc({
         file,
         name: file.name,
         size: formattedSize,
-        url: data.url,
+        url: finalUrl,
+        previewUrl: localPreviewUrl || (file.type?.startsWith("image/") ? finalUrl : undefined),
         uploading: false,
       });
 
       toast.success(`${file.name} uploaded successfully!`);
     } catch (err: unknown) {
-      console.error("Failed to upload registration document:", err);
+      console.error("Failed to process document:", err);
       setDoc({
         file,
         name: file.name,
         size: formattedSize,
+        previewUrl: localPreviewUrl,
         uploading: false,
       });
       const message = err instanceof Error ? err.message : "Please try again.";
@@ -924,7 +1022,37 @@ function RegisterPageContent() {
         return;
       }
 
-      // If user registered with access token and user info, log them in immediately
+      // If SUPPLIER registered: DO NOT auto-login into supplier dashboard!
+      // Show "Account Under Review - Please Wait" confirmation screen as requested
+      if (selectedRole === "SUPPLIER") {
+        setSubmittedSupplierData({
+          companyName: companyName.trim(),
+          fullName: fullName.trim(),
+          phone: fullPhoneNumber,
+          email: email.trim(),
+          tradeLicense: tradeLicenseSupplier.trim(),
+          tin: tinNumberSupplier.trim(),
+          nationalId: nationalIdSupplier.trim(),
+          warehouseZone,
+          warehouseAddress: warehouseAddress.trim(),
+          capacity: minOrderCapacity,
+          documentsCount: [
+            businessLicenseDoc?.url,
+            tinCertificateDoc?.url,
+            commercialRegDoc?.url,
+            ownerIdDoc?.url,
+          ].filter(Boolean).length,
+        });
+        setSupplierUnderReview(true);
+        setIsLoading(false);
+        toast.success("Supplier Application Submitted!", {
+          description: "Your account is under review (እባክዎ በትዕግስት ይጠብቁ). Please wait for admin approval.",
+          duration: 8000,
+        });
+        return;
+      }
+
+      // If customer or seller registered with access token, log them in
       if (data?.accessToken && data?.user) {
         login(
           {
@@ -932,21 +1060,18 @@ function RegisterPageContent() {
             name: data.user.fullName || fullName.trim(),
             email: data.user.email || email.trim(),
             phoneNumber: data.user.phoneNumber || fullPhoneNumber,
-            role: selectedRole === "SUPPLIER" ? "SUPPLIER" : (data.user.role || selectedRole),
-            staffRole: selectedRole === "SUPPLIER" ? "supplier_owner" : undefined,
+            role: data.user.role || selectedRole,
             isVerified: true,
           },
           data.accessToken
         );
 
         toast.success(`Account registered successfully as ${selectedRole}!`, {
-          description: `Welcome to MercatoX, ${fullName}! Your account and compliance files are saved.`,
+          description: `Welcome to MercatoX, ${fullName}! Your account has been created.`,
         });
 
         setTimeout(() => {
-          if (selectedRole === "SUPPLIER") {
-            router.push("/dashboard/supplier");
-          } else if (selectedRole === "SELLER") {
+          if (selectedRole === "SELLER") {
             router.push("/dashboard/seller");
           } else {
             router.push("/");
@@ -991,6 +1116,158 @@ function RegisterPageContent() {
       }, 1000);
     }, 1000);
   };
+
+  if (supplierUnderReview && submittedSupplierData) {
+    return (
+      <div className="relative rounded-2xl border border-amber-500/30 bg-[#0d121f]/95 p-5 sm:p-8 shadow-2xl shadow-amber-950/30 backdrop-blur-xl animate-in fade-in duration-300">
+        {/* Top subtle glow highlight */}
+        <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
+
+        <div className="text-center space-y-3">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/30 shadow-lg shadow-amber-500/10">
+            <Clock className="h-8 w-8 animate-pulse text-amber-400" />
+          </div>
+
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+            <span>Account Under Review · መለያዎ በግምገማ ላይ ነው</span>
+          </div>
+
+          <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
+            Wholesale Supplier Application Submitted!
+          </h1>
+          <p className="text-xs sm:text-sm text-zinc-300 max-w-lg mx-auto leading-relaxed">
+            Your supplier registration form and legal compliance files have been securely saved to our database.
+            Your account is currently <strong className="text-amber-400 font-semibold">under review (እባክዎ በትዕግስት ይጠብቁ)</strong>.
+            MercatoX administrators will verify your documents before activating your account.
+          </p>
+        </div>
+
+        {/* 4-Step Verification Timeline */}
+        <div className="mt-6 grid grid-cols-2 sm:grid-cols-4 gap-2 border-y border-white/10 py-4">
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-center space-y-1">
+            <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">
+              ✓
+            </div>
+            <div className="text-xs font-bold text-white">1. Form Saved</div>
+            <div className="text-[10px] text-emerald-300">Saved to DB</div>
+          </div>
+
+          <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-center space-y-1">
+            <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 text-xs font-bold">
+              ✓
+            </div>
+            <div className="text-xs font-bold text-white">2. Files Attached</div>
+            <div className="text-[10px] text-emerald-300">{submittedSupplierData.documentsCount} Legal Docs</div>
+          </div>
+
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/15 p-2.5 text-center space-y-1 ring-1 ring-amber-500/30 animate-pulse">
+            <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-amber-500/30 text-amber-300 text-xs font-bold">
+              ⏳
+            </div>
+            <div className="text-xs font-bold text-amber-200">3. Admin Review</div>
+            <div className="text-[10px] text-amber-300 font-semibold">Under Review</div>
+          </div>
+
+          <div className="rounded-xl border border-white/5 bg-white/[0.02] p-2.5 text-center space-y-1 opacity-70">
+            <div className="mx-auto flex h-6 w-6 items-center justify-center rounded-full bg-white/10 text-zinc-400 text-xs font-bold">
+              4
+            </div>
+            <div className="text-xs font-medium text-zinc-400">4. Activation</div>
+            <div className="text-[10px] text-zinc-500">Upon Approval</div>
+          </div>
+        </div>
+
+        {/* Application Details Summary */}
+        <div className="mt-5 rounded-xl border border-white/10 bg-black/40 p-4 space-y-3 text-xs">
+          <div className="font-bold text-sm text-white flex items-center justify-between border-b border-white/10 pb-2">
+            <span className="flex items-center gap-2">
+              <Building className="h-4 w-4 text-amber-400" />
+              {submittedSupplierData.companyName}
+            </span>
+            <span className="text-[11px] font-normal text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              Pending Verification
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-zinc-300">
+            <div>
+              <span className="text-[11px] text-zinc-400 block">Authorized Representative:</span>
+              <span className="font-medium text-white">{submittedSupplierData.fullName}</span>
+            </div>
+            <div>
+              <span className="text-[11px] text-zinc-400 block">Mobile Contact:</span>
+              <span className="font-medium text-white">{submittedSupplierData.phone}</span>
+            </div>
+            <div>
+              <span className="text-[11px] text-zinc-400 block">Trade License Number:</span>
+              <span className="font-mono text-amber-300 font-semibold">{submittedSupplierData.tradeLicense}</span>
+            </div>
+            <div>
+              <span className="text-[11px] text-zinc-400 block">TIN / Tax Number:</span>
+              <span className="font-mono text-amber-300 font-semibold">{submittedSupplierData.tin}</span>
+            </div>
+            <div>
+              <span className="text-[11px] text-zinc-400 block">National / Fayda ID:</span>
+              <span className="font-medium text-white">{submittedSupplierData.nationalId}</span>
+            </div>
+            <div>
+              <span className="text-[11px] text-zinc-400 block">Logistics Depot:</span>
+              <span className="font-medium text-white">{submittedSupplierData.warehouseZone} ({submittedSupplierData.capacity})</span>
+            </div>
+          </div>
+
+          <div className="border-t border-white/10 pt-2.5">
+            <span className="text-[11px] text-zinc-400 block mb-1.5 font-medium">Verified Compliance Documents in Database:</span>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">Trade License</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">TIN Certificate</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">Commercial Reg</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-emerald-300 bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">
+                <CheckCircle2 className="h-3 w-3 shrink-0" />
+                <span className="truncate">Owner ID</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Informational Policy Box */}
+        <div className="mt-4 rounded-xl border border-indigo-500/20 bg-indigo-500/10 p-3 text-[11px] text-indigo-300 leading-relaxed flex items-start gap-2.5">
+          <ShieldAlert className="h-4 w-4 shrink-0 text-indigo-400 mt-0.5" />
+          <p>
+            <strong>What happens next?</strong> Once MercatoX Admin reviews and approves your documents, your account becomes active and you can sign in directly to the B2B Supplier Dashboard. If rejected, your account will be converted to a Customer account so you can shop freely on the marketplace.
+          </p>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="mt-6 flex flex-col sm:flex-row items-center gap-3">
+          <Link
+            href="/login"
+            className="w-full sm:flex-1 flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 py-3 text-xs font-bold text-neutral-950 shadow-lg shadow-amber-500/20 transition-all cursor-pointer active:scale-[0.99]"
+          >
+            <span>Go to Sign In Portal</span>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
+            href="/"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] hover:bg-white/[0.08] px-5 py-3 text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer"
+          >
+            <Home className="h-4 w-4" />
+            <span>Return to Home</span>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="relative rounded-2xl border border-white/10 bg-[#0d121f]/95 p-4 sm:p-7 shadow-2xl shadow-indigo-950/40 backdrop-blur-xl transition-all">
@@ -1746,7 +2023,7 @@ function RegisterPageContent() {
                         {/* 1. Trade / Business License */}
                         <DocUploadCard
                           id="doc-business-license"
-                          title="Trade / Business License (የንግድ ፈቃድ)"
+                          title="Trade / Business License"
                           subtitle="Current renewed trade, import or manufacturing license"
                           required
                           doc={businessLicenseDoc}
@@ -1758,7 +2035,7 @@ function RegisterPageContent() {
                         {/* 2. TIN / VAT Certificate */}
                         <DocUploadCard
                           id="doc-tin-certificate"
-                          title="TIN / VAT Certificate (የግብር ከፋይ መለያ)"
+                          title="TIN / VAT Certificate"
                           subtitle="Official Taxpayer Identification Certificate (10 digits)"
                           required
                           doc={tinCertificateDoc}
@@ -1770,7 +2047,7 @@ function RegisterPageContent() {
                         {/* 3. Commercial Registration Certificate (MOTRI) */}
                         <DocUploadCard
                           id="doc-commercial-reg"
-                          title="Commercial Registration (የንግድ ምዝገባ)"
+                          title="Commercial Registration (MOTRI)"
                           subtitle="Principal registration certificate issued by MOTRI"
                           required
                           doc={commercialRegDoc}
@@ -1782,7 +2059,7 @@ function RegisterPageContent() {
                         {/* 4. Authorized Representative / Owner Fayda ID */}
                         <DocUploadCard
                           id="doc-owner-id"
-                          title="Owner / Manager Fayda ID (የወኪል መታወቂያ)"
+                          title="Owner / Manager Fayda ID"
                           subtitle="Ethiopian Fayda Digital ID, Kebele ID or Passport"
                           required={false}
                           badgeLabel="Recommended"

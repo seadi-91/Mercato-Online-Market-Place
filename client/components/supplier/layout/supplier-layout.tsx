@@ -98,7 +98,7 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
             const createdOrder = createSourcingOrder(pendingOrder);
             paySourcingOrder(createdOrder.id, "chapa", txRef);
             localStorage.removeItem("mercatox_pending_sourcing_order");
-            
+
             setPaymentSuccessModalData({
               orderNumber: createdOrder.orderNumber,
               transactionNumber: txRef,

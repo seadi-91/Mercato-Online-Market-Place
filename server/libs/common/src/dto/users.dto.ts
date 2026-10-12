@@ -40,6 +40,10 @@ export class CreateProfileDto {
 
   @IsString()
   @IsOptional()
+  nationalIdNumber?: string;
+
+  @IsString()
+  @IsOptional()
   city?: string;
 
   @IsString()
@@ -111,6 +115,10 @@ export class UpdateProfileDto {
   @IsString()
   @IsOptional()
   tinNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  nationalIdNumber?: string;
 
   @IsString()
   @IsOptional()

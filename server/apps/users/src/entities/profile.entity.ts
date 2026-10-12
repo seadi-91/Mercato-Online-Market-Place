@@ -46,6 +46,9 @@ export class Profile {
   tinNumber: string;
 
   @Column({ type: 'varchar', length: 100, nullable: true })
+  nationalIdNumber: string;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
   businessType: string;
 
   @Column({ type: 'boolean', default: false })
