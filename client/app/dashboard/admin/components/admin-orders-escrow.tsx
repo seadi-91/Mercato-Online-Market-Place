@@ -566,7 +566,7 @@ export function AdminOrdersEscrow() {
   return (
     <div className="space-y-3.5 animate-in fade-in duration-150">
       {/* Overview Cards with Sleek Glowing Borders */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Total Orders */}
         <div className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
@@ -633,18 +633,20 @@ export function AdminOrdersEscrow() {
       </div>
 
       {/* Sub-view Navigation Tabs */}
-      <div className="flex items-center gap-2 border-b border-white/10 pb-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border-b border-white/10 pb-2">
         <button
           type="button"
           onClick={() => setActiveSubTab("ORDERS")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center justify-between sm:justify-start gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
             activeSubTab === "ORDERS"
               ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30 border border-indigo-400/30"
               : "text-zinc-400 hover:bg-white/5 hover:text-white"
           }`}
         >
-          <Package className="h-4 w-4" />
-          <span>Orders & Escrow Lifecycle</span>
+          <div className="flex items-center gap-2">
+            <Package className="h-4 w-4" />
+            <span>Orders &amp; Escrow Lifecycle</span>
+          </div>
           <span className="rounded-full bg-white/15 px-2 py-0.2 text-[10px] font-mono">
             {orders.length}
           </span>
@@ -653,14 +655,16 @@ export function AdminOrdersEscrow() {
         <button
           type="button"
           onClick={() => setActiveSubTab("PAYOUTS")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center justify-between sm:justify-start gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
             activeSubTab === "PAYOUTS"
               ? "bg-gradient-to-r from-amber-600 to-amber-700 text-white shadow-md shadow-amber-600/30 border border-amber-400/30"
               : "text-zinc-400 hover:bg-white/5 hover:text-white"
           }`}
         >
-          <DollarSign className="h-4 w-4" />
-          <span>Merchant Escrow Payouts (Vault Releases)</span>
+          <div className="flex items-center gap-2">
+            <DollarSign className="h-4 w-4" />
+            <span>Merchant Escrow Payouts (Vault Releases)</span>
+          </div>
           {pendingPayoutCount > 0 && (
             <span className="rounded-full bg-amber-400 text-black font-bold px-2 py-0.2 text-[10px] font-mono">
               {pendingPayoutCount}
@@ -739,8 +743,18 @@ export function AdminOrdersEscrow() {
 
           {/* Orders Table */}
           <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-            <div className="overflow-x-auto min-h-[260px]">
-              <table className="w-full text-left text-xs border-collapse min-w-[920px]">
+            {/* Mobile Swipe Hint */}
+            <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+              <span className="flex items-center gap-1.5 text-[10.5px]">
+                <span>←</span>
+                <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+                <span>→</span>
+              </span>
+              <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredOrders.length} Orders</span>
+            </div>
+
+            <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
+              <table className="w-full text-left text-xs border-collapse min-w-[940px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                     <th className="py-2.5 px-3">Order Ref & Date</th>
@@ -1083,8 +1097,18 @@ export function AdminOrdersEscrow() {
 
           {/* Payouts Table */}
           <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-            <div className="overflow-x-auto min-h-[260px]">
-              <table className="w-full text-left text-xs border-collapse min-w-[820px]">
+            {/* Mobile Swipe Hint */}
+            <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+              <span className="flex items-center gap-1.5 text-[10.5px]">
+                <span>←</span>
+                <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+                <span>→</span>
+              </span>
+              <span className="text-[10px] font-mono text-amber-400 font-semibold">{filteredPayouts.length} Releases</span>
+            </div>
+
+            <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
+              <table className="w-full text-left text-xs border-collapse min-w-[860px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                     <th className="py-2.5 px-3">Merchant Beneficiary</th>

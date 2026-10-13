@@ -270,7 +270,7 @@ export default function AdminUserDetailPage() {
           </div>
         </div>
 
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="mt-5 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 xl:grid-cols-4 gap-2.5 sm:gap-3">
           <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <Mail className="h-4 w-4 shrink-0 text-indigo-300" />
             <div className="min-w-0">

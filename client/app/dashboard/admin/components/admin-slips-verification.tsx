@@ -457,8 +457,18 @@ export function AdminSlipsVerification() {
 
       {/* Slips Table */}
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        <div className="overflow-x-auto min-h-[260px]">
-          <table className="w-full text-left text-xs border-collapse min-w-[760px]">
+        {/* Mobile Swipe Hint */}
+        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-[10.5px]">
+            <span>←</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>→</span>
+          </span>
+          <span className="text-[10px] font-mono text-amber-400 font-semibold">{filteredSlips.length} Deposits</span>
+        </div>
+
+        <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
+          <table className="w-full text-left text-xs border-collapse min-w-[840px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">Linked Order</th>

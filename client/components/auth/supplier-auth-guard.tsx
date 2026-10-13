@@ -118,7 +118,8 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
   if (hasValidSession && !isSupplierRole) {
     const roleRedirectMap: Record<string, string> = {
       CUSTOMER: "/marketplace",
-      DELIVERY: "/dashboard/delivery",
+      DELIVERY: "/dashboard/driver",
+      DRIVER: "/dashboard/driver",
       ADMIN: "/dashboard/admin",
     };
     const redirectTo = user?.role ? roleRedirectMap[user.role] ?? "/marketplace" : "/marketplace";

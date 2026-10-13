@@ -29,7 +29,8 @@ export class RolesGuard implements CanActivate {
 
     const hasRole =
       requiredRoles.includes(user.role) ||
-      ((user.role as any) === 'SUPPLIER' && requiredRoles.includes(UserRole.SELLER));
+      ((user.role as any) === 'SUPPLIER' && requiredRoles.includes(UserRole.SELLER)) ||
+      ((user.role as any) === 'DRIVER' && requiredRoles.includes(UserRole.DELIVERY));
     if (!hasRole) {
       throw new ForbiddenException('Access denied: insufficient permissions');
     }

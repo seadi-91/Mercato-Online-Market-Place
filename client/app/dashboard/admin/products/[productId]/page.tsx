@@ -276,7 +276,7 @@ export default function AdminProductDetailPage() {
 
             <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
               <h2 className="mb-3 text-sm font-semibold text-white">Product information</h2>
-              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 xl:grid-cols-3 gap-2">
                 <DetailField label="Brand" value={product.brand} />
                 <DetailField label="Origin" value={product.origin} />
                 <DetailField label="Quality grade" value={product.grade} />
@@ -309,6 +309,10 @@ export default function AdminProductDetailPage() {
                   Tiered pricing
                 </h2>
                 <div className="overflow-x-auto">
+                  <div className="sm:hidden px-3 py-1.5 bg-indigo-500/10 border-b border-white/10 text-[10.5px] text-indigo-300 font-medium flex items-center justify-between">
+                    <span>← ወደ ጎን ያሸብልሉ (Swipe) →</span>
+                    <span className="font-mono text-[9px] uppercase tracking-wider text-indigo-400">Horizontal</span>
+                  </div>
                   <table className="w-full min-w-[420px] text-left text-xs">
                     <thead className="text-zinc-500">
                       <tr>

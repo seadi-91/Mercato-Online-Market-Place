@@ -329,7 +329,7 @@ export function AdminSuppliers() {
       </div>
 
       {/* Real DB Overview Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Suppliers in DB */}
         <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-indigo-500/40 transition-all`}>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-80" />
@@ -436,7 +436,7 @@ export function AdminSuppliers() {
       )}
 
       {/* Filter and Search Bar */}
-      <div className={`rounded-2xl border ${cardBg} p-4 backdrop-blur-md space-y-3`}>
+      <div className={`rounded-2xl border ${cardBg} p-3.5 sm:p-4 backdrop-blur-md space-y-3`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="relative flex-1">
             <Search className={`absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 ${textMuted}`} />
@@ -457,12 +457,12 @@ export function AdminSuppliers() {
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:flex sm:flex-wrap items-center gap-2 w-full lg:w-auto">
             {/* KYC Filter */}
             <select
               value={selectedKyc}
               onChange={(e) => setSelectedKyc(e.target.value)}
-              className={`flex-1 sm:flex-none rounded-xl border px-3 py-2 text-xs focus:outline-none cursor-pointer ${selectBg}`}
+              className={`w-full sm:w-auto rounded-xl border px-3 py-2 text-xs focus:outline-none cursor-pointer ${selectBg}`}
             >
               <option value="ALL">All KYC Statuses</option>
               <option value="APPROVED">Verified Only</option>
@@ -475,7 +475,7 @@ export function AdminSuppliers() {
             <select
               value={selectedStatus}
               onChange={(e) => setSelectedStatus(e.target.value)}
-              className={`flex-1 sm:flex-none rounded-xl border px-3 py-2 text-xs focus:outline-none cursor-pointer ${selectBg}`}
+              className={`w-full sm:w-auto rounded-xl border px-3 py-2 text-xs focus:outline-none cursor-pointer ${selectBg}`}
             >
               <option value="ALL">All Account Status</option>
               <option value="ACTIVE">Active Accounts</option>
@@ -486,7 +486,7 @@ export function AdminSuppliers() {
             <select
               value={selectedType}
               onChange={(e) => setSelectedType(e.target.value)}
-              className={`flex-1 sm:flex-none rounded-xl border px-3 py-2 text-xs focus:outline-none cursor-pointer ${selectBg}`}
+              className={`w-full sm:w-auto col-span-1 xs:col-span-2 sm:col-span-1 rounded-xl border px-3 py-2 text-xs focus:outline-none cursor-pointer ${selectBg}`}
             >
               <option value="ALL">All Business Types</option>
               <option value="Importer">Bulk Importers</option>
@@ -499,18 +499,28 @@ export function AdminSuppliers() {
 
       {/* Suppliers Table */}
       <div className={`overflow-visible rounded-2xl border ${cardBg} backdrop-blur-md`}>
-        <div className="overflow-x-auto overflow-y-visible">
-          <table className="w-full text-left text-xs min-w-[850px]">
+        {/* Mobile Swipe Hint */}
+        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-[10.5px]">
+            <span>←</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>→</span>
+          </span>
+          <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredSuppliers.length} Merchants</span>
+        </div>
+
+        <div className="overflow-x-auto overflow-y-visible scrollbar-thin">
+          <table className="w-full text-left text-xs min-w-[1240px]">
             <thead className={`border-b ${borderDivider} ${tableHeaderBg} text-[11px] font-semibold uppercase tracking-wider`}>
               <tr>
-                <th className="py-3.5 pl-4 pr-3 sm:pl-6">Supplier & Company</th>
-                <th className="px-3 py-3.5">Business Classification</th>
-                <th className="px-3 py-3.5">Hub / Warehouse Location</th>
-                <th className="px-3 py-3.5">Owner & Contact</th>
-                <th className="px-3 py-3.5">Staff & Fleet</th>
-                <th className="px-3 py-3.5">KYC Status</th>
-                <th className="px-3 py-3.5">Status</th>
-                <th className="py-3.5 pl-3 pr-4 sm:pr-6 text-right">Actions</th>
+                <th className="py-3.5 pl-4 pr-3 sm:pl-6 min-w-[240px]">Supplier &amp; Company</th>
+                <th className="px-3.5 py-3.5 min-w-[180px]">Business Classification</th>
+                <th className="px-4 py-3.5 min-w-[280px] w-[320px]">Hub / Warehouse Location</th>
+                <th className="px-3.5 py-3.5 min-w-[190px]">Owner &amp; Contact</th>
+                <th className="px-3.5 py-3.5 min-w-[140px]">Staff &amp; Fleet</th>
+                <th className="px-3.5 py-3.5 min-w-[130px]">KYC Status</th>
+                <th className="px-3.5 py-3.5 min-w-[110px]">Status</th>
+                <th className="py-3.5 pl-3 pr-4 sm:pr-6 text-right min-w-[90px]">Actions</th>
               </tr>
             </thead>
             <tbody className={`divide-y ${borderDivider} ${textSub}`}>
@@ -581,7 +591,7 @@ export function AdminSuppliers() {
                       className={`group transition-colors ${hoverRowBg}`}
                     >
                       {/* Supplier & Company */}
-                      <td className="py-4 pl-4 pr-3 sm:pl-6">
+                      <td className="py-4 pl-4 pr-3 sm:pl-6 min-w-[240px]">
                         <div
                           className="flex items-start gap-3 cursor-pointer group/supplier"
                           onClick={() => setSelectedSupplierId(supplier.userId)}
@@ -620,10 +630,10 @@ export function AdminSuppliers() {
                       </td>
 
                       {/* Business Classification */}
-                      <td className="px-3 py-4">
+                      <td className="px-3.5 py-4 min-w-[180px]">
                         {supplier.businessType ? (
                           <span
-                            className={`inline-block rounded-lg px-2 py-1 text-[11px] font-medium max-w-[220px] truncate border ${
+                            className={`inline-block rounded-lg px-2.5 py-1 text-[11px] font-medium max-w-[220px] truncate border ${
                               isLight
                                 ? "bg-slate-100 border-slate-200 text-indigo-700"
                                 : isSystem
@@ -639,17 +649,33 @@ export function AdminSuppliers() {
                         )}
                       </td>
 
-                      {/* Hub Location */}
-                      <td className="px-3 py-4">
-                        <div className={`flex items-start gap-1.5 ${textSub}`}>
-                          <MapPin className="h-3.5 w-3.5 text-indigo-500 shrink-0 mt-0.5" />
-                          <div>
-                            <div className={`font-medium ${textHeading} text-xs`}>
-                              {supplier.subCity ? `${supplier.subCity}, ` : ""}{supplier.city || "—"}
+                      {/* Hub / Warehouse Location - EXPANDED WIDTH */}
+                      <td className="px-4 py-4 min-w-[280px] max-w-[340px]">
+                        <div className={`flex items-start gap-2.5 ${textSub}`}>
+                          <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                            <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className={`font-semibold ${textHeading} text-xs flex items-center gap-1.5 flex-wrap`}>
+                              <span>{supplier.subCity ? `${supplier.subCity}, ` : ""}{supplier.city || "Addis Ababa"}</span>
+                              {supplier.city && (
+                                <span className={`text-[9.5px] font-mono px-1.5 py-0.2 rounded border ${
+                                  isLight ? "bg-slate-100 border-slate-200 text-slate-600" : "bg-white/5 border-white/10 text-zinc-400"
+                                }`}>
+                                  Hub
+                                </span>
+                              )}
                             </div>
-                            {supplier.specificLocation && (
-                              <div className={`text-[11px] ${textMuted} line-clamp-1 max-w-[200px]`} title={supplier.specificLocation}>
+                            {supplier.specificLocation ? (
+                              <div
+                                className={`text-[11.5px] ${textMuted} line-clamp-2 leading-relaxed mt-0.5`}
+                                title={supplier.specificLocation}
+                              >
                                 {supplier.specificLocation}
+                              </div>
+                            ) : (
+                              <div className={`text-[11px] ${textMuted} italic mt-0.5`}>
+                                Warehouse address not set
                               </div>
                             )}
                           </div>
@@ -657,15 +683,15 @@ export function AdminSuppliers() {
                       </td>
 
                       {/* Owner & Contact */}
-                      <td className="px-3 py-4">
+                      <td className="px-3.5 py-4 min-w-[190px]">
                         <div className="space-y-0.5">
                           <div className={`text-[11px] ${textSub} flex items-center gap-1`}>
-                            <Mail className={`h-3 w-3 ${textMuted}`} />
-                            <span className="truncate max-w-[150px]">{supplier.email || "—"}</span>
+                            <Mail className={`h-3 w-3 ${textMuted} shrink-0`} />
+                            <span className="truncate max-w-[160px]">{supplier.email || "—"}</span>
                           </div>
                           {supplier.alternatePhone && (
                             <div className={`text-[11px] ${textMuted} flex items-center gap-1`}>
-                              <Phone className={`h-3 w-3 ${textMuted}`} />
+                              <Phone className={`h-3 w-3 ${textMuted} shrink-0`} />
                               <span>{supplier.alternatePhone}</span>
                             </div>
                           )}
@@ -678,7 +704,7 @@ export function AdminSuppliers() {
                       </td>
 
                       {/* Staff & Fleet Counters */}
-                      <td className="px-3 py-4">
+                      <td className="px-3.5 py-4 min-w-[140px]">
                         <button
                           onClick={() => openStaffInspector(supplier)}
                           className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-all cursor-pointer ${neutralBtn} hover:border-indigo-500/40`}
@@ -695,7 +721,7 @@ export function AdminSuppliers() {
                       </td>
 
                       {/* KYC Status */}
-                      <td className="px-3 py-4">
+                      <td className="px-3.5 py-4 min-w-[130px]">
                         {supplier.isVerifiedMerchant || supplier.merchantKycStatus === "APPROVED" ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-500">
                             <CheckCircle2 className="h-3 w-3" />
@@ -727,7 +753,7 @@ export function AdminSuppliers() {
                       </td>
 
                       {/* Account Status */}
-                      <td className="px-3 py-4">
+                      <td className="px-3.5 py-4 min-w-[110px]">
                         {supplier.isActive ? (
                           <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-500">
                             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
@@ -742,7 +768,7 @@ export function AdminSuppliers() {
                       </td>
 
                       {/* Actions: 3-DOTS MENU BUTTON */}
-                      <td className="py-4 pl-3 pr-4 sm:pr-6 text-right relative">
+                      <td className="py-4 pl-3 pr-4 sm:pr-6 text-right min-w-[90px] relative">
                         <div className="relative inline-block text-left">
                           <button
                             type="button"
@@ -842,12 +868,12 @@ export function AdminSuppliers() {
       {/* MODAL / DRAWER: INSPECT SUPPLIER STAFF & FLEET PERSONNEL */}
       {/* ======================================================== */}
       {inspectingSupplier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4 overflow-y-auto">
-          <div className={`relative w-full max-w-4xl rounded-2xl border ${modalBg} overflow-hidden my-8`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-2 sm:p-4 overflow-y-auto">
+          <div className={`relative w-full max-w-4xl rounded-2xl border ${modalBg} overflow-hidden my-4 sm:my-8 max-h-[92vh] flex flex-col`}>
             {/* Modal Header */}
-            <div className={`border-b ${borderDivider} ${modalHeaderBg} p-5 flex items-start justify-between`}>
-              <div>
-                <div className="flex items-center gap-2">
+            <div className={`border-b ${borderDivider} ${modalHeaderBg} p-3.5 sm:p-5 flex items-start justify-between gap-3 shrink-0`}>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span
                     className={`rounded-lg px-2 py-0.5 text-xs font-semibold border ${
                       isLight
@@ -855,28 +881,28 @@ export function AdminSuppliers() {
                         : "bg-indigo-500/15 border-indigo-500/30 text-indigo-300"
                     }`}
                   >
-                    Supplier Staff & Fleet Roster
+                    Supplier Staff &amp; Fleet Roster
                   </span>
                   <span className={`text-xs ${textMuted} font-mono`}>
                     ID: {inspectingSupplier.userId.slice(0, 8)}...
                   </span>
                 </div>
-                <h2 className={`mt-1 text-xl font-bold ${textHeading} flex items-center gap-2`}>
+                <h2 className={`mt-1 text-lg sm:text-xl font-bold ${textHeading} flex items-center gap-2 truncate`}>
                   {inspectingSupplier.shopName || inspectingSupplier.fullName}
                 </h2>
-                <p className={`text-xs ${textMuted} flex items-center gap-3 mt-1`}>
+                <p className={`text-xs ${textMuted} flex flex-wrap items-center gap-3 mt-1`}>
                   <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5 text-indigo-500" />
-                    {inspectingSupplier.specificLocation || inspectingSupplier.city || "—"}
+                    <MapPin className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
+                    <span className="truncate max-w-[200px]">{inspectingSupplier.specificLocation || inspectingSupplier.city || "—"}</span>
                   </span>
                   <span className="flex items-center gap-1">
-                    <Mail className={`h-3.5 w-3.5 ${textMuted}`} />
-                    {inspectingSupplier.email || "—"}
+                    <Mail className={`h-3.5 w-3.5 ${textMuted} shrink-0`} />
+                    <span className="truncate max-w-[200px]">{inspectingSupplier.email || "—"}</span>
                   </span>
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 shrink-0">
                 <button
                   onClick={() => setInspectingSupplier(null)}
                   className={`rounded-xl border p-2 cursor-pointer transition-colors ${neutralBtn}`}
@@ -887,11 +913,11 @@ export function AdminSuppliers() {
             </div>
 
             {/* Sub-header / Filters with Brand Active Background */}
-            <div className={`border-b ${borderDivider} ${modalHeaderBg} px-5 py-3 flex flex-wrap items-center justify-between gap-3`}>
-              <div className="flex items-center gap-2">
+            <div className={`border-b ${borderDivider} ${modalHeaderBg} px-3.5 sm:px-5 py-3 flex flex-wrap items-center justify-between gap-3 shrink-0`}>
+              <div className="flex items-center gap-2 overflow-x-auto scrollbar-none w-full sm:w-auto pb-1 sm:pb-0">
                 <button
                   onClick={() => setStaffRoleFilter("ALL")}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     staffRoleFilter === "ALL"
                       ? "bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30 border border-indigo-400/40 ring-1 ring-indigo-500/30"
                       : neutralBtn
@@ -901,7 +927,7 @@ export function AdminSuppliers() {
                 </button>
                 <button
                   onClick={() => setStaffRoleFilter("branch_manager")}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     staffRoleFilter === "branch_manager"
                       ? "bg-gradient-to-r from-indigo-600 via-indigo-600 to-indigo-700 text-white shadow-md shadow-indigo-600/30 border border-indigo-400/40 ring-1 ring-indigo-500/30"
                       : neutralBtn
@@ -911,7 +937,7 @@ export function AdminSuppliers() {
                 </button>
                 <button
                   onClick={() => setStaffRoleFilter("driver")}
-                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                  className={`rounded-lg px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition-all cursor-pointer ${
                     staffRoleFilter === "driver"
                       ? "bg-gradient-to-r from-cyan-600 via-cyan-600 to-blue-600 text-white shadow-md shadow-cyan-600/30 border border-cyan-400/40 ring-1 ring-cyan-500/30"
                       : neutralBtn
@@ -1096,8 +1122,8 @@ export function AdminSuppliers() {
       {/* MODAL: KYC VERIFY OR REJECT CONFIRMATION                 */}
       {/* ======================================================== */}
       {kycModalSupplier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4">
-          <div className={`relative w-full max-w-md rounded-2xl border ${modalBg} p-6`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+          <div className={`relative w-[95%] sm:w-full max-w-md rounded-2xl border ${modalBg} p-4 sm:p-6 shadow-2xl my-auto`}>
             <div className={`flex items-center justify-between pb-3 border-b ${borderDivider}`}>
               <h3 className={`text-base font-bold ${textHeading} flex items-center gap-2`}>
                 <ShieldCheck className="h-5 w-5 text-emerald-500" />
@@ -1130,7 +1156,7 @@ export function AdminSuppliers() {
                 />
               </div>
 
-              <div className={`flex items-center justify-end gap-2 pt-3 border-t ${borderDivider}`}>
+              <div className={`flex flex-wrap items-center justify-end gap-2 pt-3 border-t ${borderDivider}`}>
                 <button
                   type="button"
                   onClick={() => setKycModalSupplier(null)}
@@ -1164,8 +1190,8 @@ export function AdminSuppliers() {
       {/* MODAL: ACCOUNT SUSPEND / ACTIVATE CONFIRMATION           */}
       {/* ======================================================== */}
       {statusModalSupplier && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-4">
-          <div className={`relative w-full max-w-md rounded-2xl border ${modalBg} p-6`}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 dark:bg-black/80 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto">
+          <div className={`relative w-[95%] sm:w-full max-w-md rounded-2xl border ${modalBg} p-4 sm:p-6 shadow-2xl my-auto`}>
             <div className={`flex items-center justify-between pb-3 border-b ${borderDivider}`}>
               <h3 className={`text-base font-bold ${textHeading} flex items-center gap-2`}>
                 <AlertTriangle className="h-5 w-5 text-indigo-500" />

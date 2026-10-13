@@ -461,7 +461,7 @@ export default function AdminOrderDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="mt-6 grid grid-cols-1 xs:grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
               <div className="flex items-center gap-2 text-zinc-400">
                 <Calendar className="h-4 w-4" />
@@ -681,7 +681,7 @@ export default function AdminOrderDetailPage() {
               </div>
             </div>
 
-            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="mt-4 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
               <div className="rounded-xl border border-white/5 bg-[#0b1220] p-3.5">
                 <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Transaction Reference</p>
                 <div className="mt-1 flex items-center justify-between gap-1">
@@ -756,7 +756,11 @@ export default function AdminOrderDetailPage() {
             </div>
 
             <div className="mt-4 overflow-x-auto rounded-xl border border-white/10">
-              <table className="w-full text-left text-xs text-zinc-300 min-w-[480px]">
+              <div className="sm:hidden px-3 py-1.5 bg-indigo-500/10 border-b border-white/10 text-[10.5px] text-indigo-300 font-medium flex items-center justify-between">
+                <span>← ወደ ጎን ያሸብልሉ (Swipe to scroll) →</span>
+                <span className="font-mono text-[9px] uppercase tracking-wider text-indigo-400">Horizontal</span>
+              </div>
+              <table className="w-full text-left text-xs text-zinc-300 min-w-[500px]">
                 <thead className="bg-white/[0.03] text-[10px] uppercase tracking-[0.18em] text-zinc-400">
                   <tr>
                     <th className="px-3 py-2">Product & seller</th>
@@ -814,8 +818,8 @@ export default function AdminOrderDetailPage() {
 
       {/* ASSIGN COURIER MODAL */}
       {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
-          <div className="relative w-full max-w-xl rounded-2xl border border-indigo-500/30 bg-[#0f172a] p-5 shadow-2xl max-h-[90vh] flex flex-col">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3.5 sm:p-4 animate-in fade-in duration-150">
+          <div className="relative w-[95%] sm:w-full max-w-xl rounded-2xl border border-indigo-500/30 bg-[#0f172a] p-4 sm:p-5 shadow-2xl max-h-[90vh] flex flex-col">
             <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">

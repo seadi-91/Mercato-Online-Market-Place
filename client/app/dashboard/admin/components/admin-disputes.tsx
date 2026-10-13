@@ -284,7 +284,7 @@ export function AdminDisputes() {
   return (
     <div className="space-y-3.5 animate-in fade-in duration-150">
       {/* Overview Cards with Sleek Glowing Borders */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Open Arbitration Cases */}
         <div className="relative overflow-hidden rounded-xl border border-rose-500/30 bg-gradient-to-b from-rose-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
@@ -397,8 +397,18 @@ export function AdminDisputes() {
 
       {/* Disputes Table */}
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        <div className="overflow-x-auto min-h-[260px]">
-          <table className="w-full text-left text-xs border-collapse min-w-[780px]">
+        {/* Mobile Swipe Hint */}
+        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-[10.5px]">
+            <span>←</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>→</span>
+          </span>
+          <span className="text-[10px] font-mono text-rose-400 font-semibold">{filtered.length} Disputes</span>
+        </div>
+
+        <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
+          <table className="w-full text-left text-xs border-collapse min-w-[850px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">Order Reference</th>

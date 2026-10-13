@@ -86,7 +86,7 @@ export default function LoginPage() {
     setIdentifierError("");
     setPasswordError("");
     toast.info("Fleet Driver credentials loaded", {
-      description: "Click Sign In to access Commercial Courier & Freight Portal",
+      description: "Click Sign In to access Driver Dashboard (/dashboard/driver)",
     });
   };
 
@@ -170,7 +170,7 @@ export default function LoginPage() {
           name: staffMember.fullName,
           email: staffMember.email,
           phoneNumber: staffMember.phone,
-          role: "DELIVERY" as const,
+          role: "DRIVER" as const,
           staffRole: "driver" as const,
           branchId: staffMember.branchId,
           branchName: staffMember.branchName,
@@ -182,9 +182,9 @@ export default function LoginPage() {
 
         login(driverUser, "jwt-driver-session-" + Date.now());
         toast.success(`Welcome, Driver ${staffMember.fullName}!`, {
-          description: `Assigned Truck: ${staffMember.assignedVehiclePlate || "Freight Truck"} · Opening Mobile Courier Portal`,
+          description: `Assigned Truck: ${staffMember.assignedVehiclePlate || "Freight Truck"} · Opening Driver Dashboard`,
         });
-        router.push("/dashboard/delivery");
+        router.push("/dashboard/driver");
         setIsLoading(false);
         return;
       }
@@ -269,9 +269,12 @@ export default function LoginPage() {
       }
 
       const staffRole = data?.user?.staffRole;
-      const isStaffDriver = staffRole === "driver" || data?.user?.role === "DELIVERY";
-      const isBranchManager = staffRole === "branch_manager";
       const returnedRole = data?.user?.role;
+      const isStaffDriver =
+        staffRole === "driver" ||
+        returnedRole === "DELIVERY" ||
+        returnedRole === "DRIVER";
+      const isBranchManager = staffRole === "branch_manager";
       const merchantKycStatus = data?.user?.merchantKycStatus;
       const isVerifiedMerchant = data?.user?.isVerifiedMerchant === true || merchantKycStatus === "APPROVED";
 
@@ -280,10 +283,10 @@ export default function LoginPage() {
       const isCustomer = returnedRole === "CUSTOMER" || isRejected;
 
       let isSupplierUser = false;
-      let effectiveRole: "ADMIN" | "SELLER" | "SUPPLIER" | "DELIVERY" | "CUSTOMER" = "CUSTOMER";
+      let effectiveRole: "ADMIN" | "SELLER" | "SUPPLIER" | "DELIVERY" | "DRIVER" | "CUSTOMER" = "CUSTOMER";
 
       if (isStaffDriver) {
-        effectiveRole = "DELIVERY";
+        effectiveRole = "DRIVER";
       } else if (returnedRole === "ADMIN") {
         effectiveRole = "ADMIN";
       } else if (isCustomer) {
@@ -317,20 +320,20 @@ export default function LoginPage() {
         id: data?.user?.id || "user",
         name:
           data?.user?.fullName ||
-          (data?.user?.email || data?.user?.phoneNumber || "User"),
+          (data?.user?.email || data?.user?.phoneNumber || (isStaffDriver ? "Fleet Driver" : "User")),
         email: data?.user?.email || (identifier.includes("@") ? identifier : ""),
         phoneNumber:
           data?.user?.phoneNumber || (!identifier.includes("@") ? formattedIdentifier : ""),
-        role: effectiveRole,
-        staffRole: data?.user?.staffRole || (isSupplierUser ? ("supplier_owner" as const) : undefined),
+        role: isStaffDriver ? ("DRIVER" as const) : effectiveRole,
+        staffRole: data?.user?.staffRole || (isStaffDriver ? ("driver" as const) : isSupplierUser ? ("supplier_owner" as const) : undefined),
         branchId: data?.user?.branchId,
         branchName: data?.user?.branchName,
-        assignedVehiclePlate: data?.user?.assignedVehiclePlate,
-        assignedVehicleType: data?.user?.assignedVehicleType,
-        driverLicenseNumber: data?.user?.driverLicenseNumber,
+        assignedVehiclePlate: data?.user?.assignedVehiclePlate || data?.user?.plateNumber,
+        assignedVehicleType: data?.user?.assignedVehicleType || data?.user?.vehicleType,
+        driverLicenseNumber: data?.user?.driverLicenseNumber || data?.user?.drivingLicenseNumber,
         businessType: data?.user?.businessType,
         shopName: data?.user?.shopName,
-        isVerified: isVerifiedMerchant,
+        isVerified: isVerifiedMerchant || data?.user?.isVerifiedDelivery === true || data?.user?.isVerified === true,
         merchantKycStatus: merchantKycStatus,
       };
 
@@ -349,7 +352,7 @@ export default function LoginPage() {
       } else {
         toast.success(`Welcome back, ${userData.name}!`, {
           description: isStaffDriver
-            ? `Commercial Courier & Freight Portal (${userData.assignedVehiclePlate || "Fleet Truck"})`
+            ? `Commercial Driver & Courier Portal (${userData.assignedVehiclePlate || "Fleet Truck"})`
             : isBranchManager
             ? `Branch Manager Console · ${userData.branchName || "Logistics Hub"}`
             : isSupplierUser
@@ -366,8 +369,8 @@ export default function LoginPage() {
         router.push("/dashboard/supplier");
       } else if (effectiveRole === "SELLER") {
         router.push("/dashboard/seller");
-      } else if (effectiveRole === "DELIVERY" || isStaffDriver) {
-        router.push("/dashboard/delivery");
+      } else if (isStaffDriver || effectiveRole === "DRIVER" || (effectiveRole as string) === "DELIVERY") {
+        router.push("/dashboard/driver");
       } else {
         // Customer or Rejected Account -> Redirect to home / guest page!
         router.push("/");

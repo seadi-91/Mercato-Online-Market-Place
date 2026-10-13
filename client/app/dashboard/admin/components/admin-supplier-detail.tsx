@@ -438,7 +438,7 @@ export function AdminSupplierDetail({
       {/* ───────────────────────────────────────────────────────────────────────── */}
       {/* 3. KEY METRICS STRIP                                                      */}
       {/* ───────────────────────────────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 xs:grid-cols-3 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         {/* Metric 1: KYC Status */}
         <div className={`rounded-2xl border p-3.5 ${cardBg}`}>
           <div className={`text-[11px] font-semibold ${textMuted}`}>KYC Status</div>
@@ -1077,7 +1077,11 @@ export function AdminSupplierDetail({
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs">
+              <div className="sm:hidden mb-2 px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-[10.5px] text-indigo-300 font-medium flex items-center justify-between">
+                <span>← ወደ ጎን ያሸብልሉ (Swipe to scroll) →</span>
+                <span className="font-mono text-[9px] uppercase tracking-wider text-indigo-400">Horizontal</span>
+              </div>
+              <table className="w-full text-left text-xs min-w-[540px]">
                 <thead>
                   <tr className={`border-b ${borderDivider} ${textMuted}`}>
                     <th className="py-2.5 px-3 font-semibold">Order ID</th>
@@ -1225,8 +1229,8 @@ export function AdminSupplierDetail({
       {/* 7. MODAL: MODERATE KYC (APPROVE / REJECT)                                  */}
       {/* ───────────────────────────────────────────────────────────────────────── */}
       {isKycModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className={`relative w-full max-w-md rounded-3xl border p-6 shadow-2xl ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3.5 sm:p-4">
+          <div className={`relative w-[95%] sm:w-full max-w-md rounded-2xl sm:rounded-3xl border p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto ${
             isLight
               ? "bg-white border-slate-300 text-slate-900"
               : isSystem
@@ -1310,8 +1314,8 @@ export function AdminSupplierDetail({
       {/* 8. MODAL: ACCOUNT SUSPEND / ACTIVATE CONFIRMATION                          */}
       {/* ───────────────────────────────────────────────────────────────────────── */}
       {isStatusModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className={`relative w-full max-w-md rounded-3xl border p-6 shadow-2xl ${
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-3.5 sm:p-4">
+          <div className={`relative w-[95%] sm:w-full max-w-md rounded-2xl sm:rounded-3xl border p-4 sm:p-6 shadow-2xl max-h-[90vh] overflow-y-auto ${
             isLight
               ? "bg-white border-slate-300 text-slate-900"
               : isSystem

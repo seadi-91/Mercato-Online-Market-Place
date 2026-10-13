@@ -466,7 +466,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
       </div>
 
       {/* 4 Cards: Total Products, Total Orders, Total Users, Total Sellers */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
@@ -560,7 +560,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
           </button>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2.5">
+        <div className="mt-3 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-2.5">
           {pipelineStatuses.map((st) => (
             <div
               key={st.key}
@@ -605,7 +605,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
           </div>
         </div>
 
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
+        <div className="mt-3 grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2">
           {microservices.map((svc, i) => (
             <div
               key={i}

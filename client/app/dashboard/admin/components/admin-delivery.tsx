@@ -44,6 +44,7 @@ import {
   type DeliveryStaffItem,
 } from "@/features/admin/services/admin.service";
 import { useAdminUIStore } from "@/store/ui-store";
+import { useSupplierStore } from "@/store/supplier-store";
 
 export interface DeliveryOrderItem {
   id: string;
@@ -598,9 +599,33 @@ export function AdminDelivery() {
 
       setRiders((prev) => [createdRider, ...prev.filter((r) => r.id !== createdRider.id)]);
 
-      toast.success("Driver & Vehicle Saved in Backend Database!", {
-        description: `${createdRider.name} created with Role: DELIVERY. Default Password: "${password}"`,
-        duration: 8000,
+      // Sync into supplier store staff list so mock/offline logins also recognize the driver instantly
+      try {
+        const staffObj = {
+          id: createdRider.id,
+          fullName: createdRider.name,
+          email: createdRider.email,
+          phone: createdRider.phone,
+          role: "driver" as const,
+          branchId: "branch-01",
+          branchName: "Addis Ababa Central Freight Depot",
+          employeeId: `DRV-${Date.now().toString().slice(-4)}`,
+          status: "active" as const,
+          password: password,
+          assignedVehiclePlate: createdRider.plateNumber,
+          assignedVehicleType: createdRider.vehicleType,
+          driverLicenseNumber: createdRider.drivingLicenseNumber,
+        };
+        const currentStaff: any[] = useSupplierStore.getState().staffList || [];
+        const staffEmail = (staffObj.email || "").toLowerCase();
+        if (staffEmail && !currentStaff.some((s: any) => (s?.email || "").toLowerCase() === staffEmail)) {
+          useSupplierStore.setState({ staffList: [staffObj as any, ...currentStaff] });
+        }
+      } catch {}
+
+      toast.success("Driver & Vehicle Saved in Database!", {
+        description: `${createdRider.name} created (Role: DRIVER). Login: "${createdRider.phone || createdRider.email}" · Password: "${password}". When this driver logs in, they will be routed directly to the Driver Dashboard (/dashboard/driver).`,
+        duration: 9000,
       });
 
       // Reset Form
@@ -992,7 +1017,7 @@ export function AdminDelivery() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <button
             type="button"
             onClick={() => {
@@ -1000,7 +1025,7 @@ export function AdminDelivery() {
               loadOrders(true);
             }}
             disabled={loading || isRefreshing || loadingOrders}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing || loading ? "animate-spin text-cyan-400" : ""}`} />
             <span>Refresh Live Data</span>
@@ -1009,7 +1034,7 @@ export function AdminDelivery() {
           <button
             type="button"
             onClick={() => setShowAddModal(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+            className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="h-4 w-4" />
             <span>Add Courier to DB</span>
@@ -1018,18 +1043,20 @@ export function AdminDelivery() {
       </div>
 
       {/* Sub Tabs: Fleet vs Tasks & Dispatch */}
-      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-2">
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 border-b border-white/10 pb-2">
         <button
           type="button"
           onClick={() => setActiveDeliverySubTab("FLEET")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center justify-between sm:justify-start gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
             activeDeliverySubTab === "FLEET"
               ? "bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/40 shadow-lg shadow-cyan-500/10"
               : "text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent"
           }`}
         >
-          <Bike className="h-4 w-4 text-cyan-400" />
-          <span>Fleet &amp; Couriers (የአሽከርካሪዎች ዝርዝር)</span>
+          <div className="flex items-center gap-2">
+            <Bike className="h-4 w-4 text-cyan-400" />
+            <span>Fleet &amp; Couriers (የአሽከርካሪዎች ዝርዝር)</span>
+          </div>
           <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-300 font-mono">
             {riders.length} Drivers in DB
           </span>
@@ -1038,14 +1065,16 @@ export function AdminDelivery() {
         <button
           type="button"
           onClick={() => setActiveDeliverySubTab("TASKS")}
-          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+          className={`flex items-center justify-between sm:justify-start gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
             activeDeliverySubTab === "TASKS"
               ? "bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 text-indigo-300 border border-indigo-500/40 shadow-lg shadow-indigo-500/10"
               : "text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent"
           }`}
         >
-          <Truck className="h-4 w-4 text-indigo-400" />
-          <span>Delivery Tasks &amp; Dispatch (የተመደቡ ስራዎች እና Dispatch)</span>
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-indigo-400" />
+            <span>Delivery Tasks &amp; Dispatch</span>
+          </div>
           {unassignedOrders.length > 0 ? (
             <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-300 font-mono border border-amber-500/30 animate-pulse">
               {unassignedOrders.length} Unassigned
@@ -1061,7 +1090,7 @@ export function AdminDelivery() {
       {activeDeliverySubTab === "FLEET" && (
         <>
           {/* Overview Cards with Sleek Glowing Borders */}
-          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Active Couriers on Duty */}
         <div className="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
@@ -1194,8 +1223,18 @@ export function AdminDelivery() {
 
       {/* Couriers Fleet Table */}
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        <div className="overflow-x-auto min-h-[260px]">
-          <table className="w-full text-left text-xs border-collapse min-w-[850px]">
+        {/* Mobile Swipe Hint */}
+        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-[10.5px]">
+            <span>←</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>→</span>
+          </span>
+          <span className="text-[10px] font-mono text-cyan-400 font-semibold">{filtered.length} Couriers</span>
+        </div>
+
+        <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
+          <table className="w-full text-left text-xs border-collapse min-w-[1020px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">Driver Name & Role</th>
@@ -1584,7 +1623,7 @@ export function AdminDelivery() {
   {activeDeliverySubTab === "TASKS" && (
     <div className="space-y-3.5 animate-in fade-in duration-150">
       {/* Dispatch Overview KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         {/* Total Orders in Dispatch */}
         <div className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
@@ -1783,8 +1822,18 @@ export function AdminDelivery() {
 
       {/* All Delivery Tasks & Dispatch Table */}
       <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        <div className="overflow-x-auto min-h-[260px]">
-          <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+        {/* Mobile Swipe Hint */}
+        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-[10.5px]">
+            <span>←</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>→</span>
+          </span>
+          <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredDeliveryOrders.length} Shipments</span>
+        </div>
+
+        <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
+          <table className="w-full text-left text-xs border-collapse min-w-[1020px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">Order Ref & Date</th>

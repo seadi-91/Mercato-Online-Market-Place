@@ -104,7 +104,8 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
     const roleRedirectMap: Record<string, string> = {
       SUPPLIER: "/dashboard/supplier",
       CUSTOMER: "/marketplace",
-      DELIVERY: "/dashboard/delivery",
+      DELIVERY: "/dashboard/driver",
+      DRIVER: "/dashboard/driver",
     };
     const redirectTo = user?.role ? roleRedirectMap[user.role] ?? "/marketplace" : "/marketplace";
 
