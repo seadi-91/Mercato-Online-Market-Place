@@ -330,40 +330,56 @@ export function AdminSuppliers() {
 
       {/* Real DB Overview Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:gap-4">
-        <div className={`rounded-2xl border ${cardBg} p-4 backdrop-blur-md`}>
+        {/* Suppliers in DB */}
+        <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-indigo-500/40 transition-all`}>
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
             <span>Suppliers in DB</span>
-            <Building2 className="h-4 w-4 text-indigo-500" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/25">
+              <Building2 className="h-4 w-4" />
+            </div>
           </div>
-          <div className={`mt-2 text-2xl font-bold ${textHeading} tracking-tight`}>{stats.total}</div>
-          <p className={`mt-1 text-[11px] ${textMuted}`}>Total registered profiles</p>
+          <div className={`mt-2 text-2xl font-bold font-mono ${textHeading} tracking-tight`}>{stats.total}</div>
+          <p className={`mt-1 text-[11px] ${textMuted}`}>Live PostgreSQL merchant profiles</p>
         </div>
 
-        <div className={`rounded-2xl border ${cardBg} p-4 backdrop-blur-md`}>
+        {/* Verified Wholesalers */}
+        <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-emerald-500/40 transition-all`}>
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
             <span>Verified Wholesalers</span>
-            <ShieldCheck className="h-4 w-4 text-emerald-500" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
           </div>
-          <div className="mt-2 text-2xl font-bold text-emerald-500 tracking-tight">{stats.verified}</div>
-          <p className={`mt-1 text-[11px] ${textMuted}`}>KYC Trade License Verified</p>
+          <div className="mt-2 text-2xl font-bold font-mono text-emerald-400 tracking-tight">{stats.verified}</div>
+          <p className={`mt-1 text-[11px] ${textMuted}`}>MOTRI &amp; TIN KYC verified</p>
         </div>
 
-        <div className={`rounded-2xl border ${cardBg} p-4 backdrop-blur-md`}>
+        {/* Total Staff */}
+        <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-cyan-500/40 transition-all`}>
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
-            <span>Total Staff</span>
-            <Users className="h-4 w-4 text-cyan-500" />
+            <span>Total Staff &amp; Fleet</span>
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/25">
+              <Users className="h-4 w-4" />
+            </div>
           </div>
-          <div className="mt-2 text-2xl font-bold text-cyan-500 tracking-tight">{stats.totalStaff}</div>
-          <p className={`mt-1 text-[11px] ${textMuted}`}>{stats.totalDrivers} heavy fleet drivers</p>
+          <div className="mt-2 text-2xl font-bold font-mono text-cyan-400 tracking-tight">{stats.totalStaff}</div>
+          <p className={`mt-1 text-[11px] ${textMuted}`}>{stats.totalDrivers} drivers · {Math.max(0, stats.totalStaff - stats.totalDrivers)} managers</p>
         </div>
 
-        <div className={`rounded-2xl border ${cardBg} p-4 backdrop-blur-md`}>
+        {/* Pending Approvals */}
+        <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-amber-500/40 transition-all`}>
+          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
             <span>Pending Approvals</span>
-            <AlertTriangle className="h-4 w-4 text-indigo-500" />
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/25">
+              <AlertTriangle className="h-4 w-4" />
+            </div>
           </div>
-          <div className="mt-2 text-2xl font-bold text-indigo-500 tracking-tight">{stats.pendingKyc}</div>
-          <p className={`mt-1 text-[11px] ${textMuted}`}>Awaiting KYC verification</p>
+          <div className="mt-2 text-2xl font-bold font-mono text-amber-400 tracking-tight">{stats.pendingKyc}</div>
+          <p className={`mt-1 text-[11px] ${textMuted}`}>Awaiting compliance review</p>
         </div>
       </div>
 
@@ -509,10 +525,48 @@ export function AdminSuppliers() {
                 </tr>
               ) : filteredSuppliers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className={`py-12 text-center ${textMuted}`}>
-                    <Building2 className={`mx-auto h-8 w-8 mb-2 ${textMuted}`} />
-                    <p className={`text-sm font-medium ${textHeading}`}>No suppliers found in database</p>
-                    <p className={`text-xs ${textMuted} mt-0.5`}>Try resetting the search filters.</p>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/30 bg-gradient-to-tr from-indigo-500/20 to-cyan-500/10 text-indigo-400 shadow-xl shadow-indigo-500/10">
+                        <Building2 className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <h4 className={`text-sm font-bold ${textHeading}`}>
+                          {suppliers.length === 0
+                            ? "No Suppliers in Database (ምንም አቅራቢ አልተገኘም)"
+                            : "No Suppliers Match Current Search Filters"}
+                        </h4>
+                        <p className={`text-xs ${textMuted} mt-1 leading-relaxed`}>
+                          {suppliers.length === 0
+                            ? "All wholesale merchant accounts and suppliers are loaded live from the PostgreSQL database. When merchants register or submit KYC documents, they will appear here."
+                            : "Try clearing search keywords or resetting status and business type filters."}
+                        </p>
+                      </div>
+                      {suppliers.length === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => loadSuppliers()}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-700 to-cyan-600 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-indigo-600/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <RefreshCw className="h-3.5 w-3.5" />
+                          <span>Refresh Suppliers Database</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearchQuery("");
+                            setSelectedKyc("ALL");
+                            setSelectedStatus("ALL");
+                            setSelectedType("ALL");
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          <span>Reset Filters</span>
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ) : (

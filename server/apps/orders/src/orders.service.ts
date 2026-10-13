@@ -694,6 +694,42 @@ export class OrdersService {
     };
   }
 
+  async assignOrderCarrier(payload: {
+    orderId: string;
+    carrierId?: string | null;
+    assignedDriver?: any;
+    newStatus?: OrderStatus;
+  }): Promise<Order> {
+    const order = await this.orderRepository.findOne({
+      where: { id: payload.orderId },
+      relations: ['items'],
+    });
+
+    if (!order) {
+      throw new RpcException(new NotFoundException('Order not found'));
+    }
+
+    if (payload.carrierId !== undefined) {
+      order.carrierId = (payload.carrierId as any) || null;
+    }
+
+    if (payload.assignedDriver !== undefined) {
+      const currentAddress = order.deliveryAddress || ({} as any);
+      order.deliveryAddress = {
+        ...currentAddress,
+        assignedDriver: payload.assignedDriver,
+      } as any;
+    }
+
+    if (payload.newStatus) {
+      order.status = payload.newStatus;
+    } else if (payload.carrierId && order.status === OrderStatus.READY_FOR_PICKUP) {
+      order.status = OrderStatus.IN_TRANSIT;
+    }
+
+    return this.orderRepository.save(order);
+  }
+
   async updateOrderPaymentStatus(
     orderId: string,
     paymentStatus: PaymentStatus,

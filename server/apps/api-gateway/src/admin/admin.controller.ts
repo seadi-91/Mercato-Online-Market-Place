@@ -28,6 +28,7 @@ import {
   FilterOrdersDto,
   FilterUsersDto,
   ModerateUserDto,
+  OrderStatus,
   ProcessPayoutDto,
   Roles,
   RolesGuard,
@@ -809,6 +810,33 @@ export class AdminController {
   @Get('orders')
   getAllOrders(@Query() query: FilterOrdersDto) {
     return this.ordersClient.send('get_all_orders_admin', query);
+  }
+
+  @Patch('orders/:id/assign')
+  assignOrderDriver(
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body: { carrierId?: string; assignedDriver?: any; newStatus?: OrderStatus },
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
+    return this.ordersClient.send('assign_order_carrier', {
+      orderId: id,
+      carrierId: body.carrierId,
+      assignedDriver: body.assignedDriver,
+      newStatus: body.newStatus,
+      adminId,
+    });
+  }
+
+  @Get('delivery/:deliveryStaffId/orders')
+  getDeliveryStaffOrders(
+    @Param('deliveryStaffId') deliveryStaffId: string,
+    @Query() query: FilterOrdersDto,
+  ) {
+    return this.ordersClient.send('get_delivery_staff_orders', {
+      deliveryStaffId,
+      dto: query,
+    });
   }
 
   @Delete('orders/:id')

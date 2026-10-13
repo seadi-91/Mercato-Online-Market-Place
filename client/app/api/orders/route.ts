@@ -29,6 +29,7 @@ export async function GET(req: Request) {
         o."orderNumber",
         o."customerId",
         o."sellerId",
+        o."carrierId",
         o.status,
         o."paymentStatus",
         o."subtotalAmount",
@@ -135,6 +136,8 @@ export async function GET(req: Request) {
           orderNumber: row.orderNumber,
           customerId: row.customerId,
           sellerId: row.sellerId,
+          carrierId: row.carrierId || delivAddr?.assignedDriver?.id || null,
+          assignedDriver: delivAddr?.assignedDriver || null,
           status: row.status,
           paymentStatus: row.paymentStatus,
           paymentMethod: "Chapa Hosted Gateway (Telebirr / CBE / Card)",
@@ -497,7 +500,7 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { orderId, newStatus, cancelReason, notes } = body || {};
+    const { orderId, newStatus, cancelReason, notes, carrierId, assignedDriver } = body || {};
 
     if (!orderId) {
       return NextResponse.json(
@@ -523,6 +526,22 @@ export async function PATCH(req: Request) {
     if (notes !== undefined) {
       values.push(notes);
       updates.push(`notes = $${values.length}`);
+    }
+
+    if (carrierId !== undefined) {
+      if (carrierId && isValidUuid(carrierId)) {
+        values.push(carrierId);
+        updates.push(`"carrierId" = $${values.length}`);
+      } else if (carrierId === null || carrierId === "") {
+        updates.push(`"carrierId" = NULL`);
+      }
+    }
+
+    if (assignedDriver !== undefined) {
+      values.push(JSON.stringify(assignedDriver));
+      updates.push(
+        `"deliveryAddress" = jsonb_set(COALESCE("deliveryAddress", '{}'::jsonb), '{assignedDriver}', $${values.length}::jsonb)`
+      );
     }
 
     const query = `UPDATE orders SET ${updates.join(", ")} WHERE id = $1`;

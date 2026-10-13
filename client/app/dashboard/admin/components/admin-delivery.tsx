@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Bike,
   Navigation,
@@ -31,13 +31,40 @@ import {
   Copy,
   Mail,
   Check,
+  Package,
+  ClipboardList,
+  RotateCcw,
+  Eye,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { api } from "@/services/api/client";
 import {
   adminDeliveryService,
   type DeliveryStaffItem,
 } from "@/features/admin/services/admin.service";
 import { useAdminUIStore } from "@/store/ui-store";
+
+export interface DeliveryOrderItem {
+  id: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone?: string;
+  deliveryAddress: string;
+  amount: number;
+  paymentStatus: string;
+  status: string;
+  createdAt: string;
+  carrierId?: string;
+  assignedDriver?: {
+    id?: string;
+    name?: string;
+    phone?: string;
+    plateNumber?: string;
+    vehicleType?: string;
+  } | null;
+  items?: Array<{ productTitle?: string; quantity?: number; unitPrice?: number; title?: string }>;
+}
 
 export interface DeliveryRider {
   id: string;
@@ -61,108 +88,8 @@ export interface DeliveryRider {
   defaultPassword?: string;
 }
 
-const INITIAL_DEMO_RIDERS: DeliveryRider[] = [
-  {
-    id: "rd-01",
-    name: "Kidus Assefa",
-    phone: "+251 98 112 3344",
-    email: "kidus.assefa@mercatox.et",
-    nationalId: "ID-ETH-884102",
-    zone: "Bole Sub-city & Atlas",
-    vehicleType: "Motorcycle",
-    vehicleModel: "Bajaj Boxer 150 (2024)",
-    plateNumber: "AA 3-B98124",
-    drivingLicenseNumber: "DL-AA-99412",
-    activeOrdersCount: 3,
-    completionRate: "99.4%",
-    status: "IN_TRANSIT",
-    kycStatus: "APPROVED",
-    isVerified: true,
-    isActive: true,
-    registeredDate: "2026-08-30",
-    defaultPassword: "Delivery@123",
-  },
-  {
-    id: "rd-02",
-    name: "Dawit Kebede",
-    phone: "+251 94 550 7890",
-    email: "dawit.kebede@mercatox.et",
-    nationalId: "ID-ETH-772910",
-    zone: "Piassa & Arada District",
-    vehicleType: "Motorcycle",
-    vehicleModel: "TVS King 150 (2023)",
-    plateNumber: "AA 2-C44102",
-    drivingLicenseNumber: "DL-AA-88102",
-    activeOrdersCount: 2,
-    completionRate: "98.1%",
-    status: "IN_TRANSIT",
-    kycStatus: "APPROVED",
-    isVerified: true,
-    isActive: true,
-    registeredDate: "2026-09-02",
-    defaultPassword: "Delivery@123",
-  },
-  {
-    id: "rd-03",
-    name: "Ermias Hailu",
-    phone: "+251 91 334 5566",
-    email: "ermias.hailu@mercatox.et",
-    nationalId: "ID-ETH-661902",
-    zone: "Kazanchis & Kirkos",
-    vehicleType: "Cargo Van",
-    vehicleModel: "Toyota HiAce Cargo Van (2022)",
-    plateNumber: "AA 3-A12903",
-    drivingLicenseNumber: "DL-COMM-77291",
-    activeOrdersCount: 5,
-    completionRate: "99.8%",
-    status: "IN_TRANSIT",
-    kycStatus: "APPROVED",
-    isVerified: true,
-    isActive: true,
-    registeredDate: "2026-07-15",
-    defaultPassword: "Delivery@123",
-  },
-  {
-    id: "rd-04",
-    name: "Natnael Desta",
-    phone: "+251 92 778 9900",
-    email: "natnael.desta@mercatox.et",
-    nationalId: "ID-ETH-559102",
-    zone: "Mercato Wholesale Hub",
-    vehicleType: "Delivery Van",
-    vehicleModel: "Suzuki Carry Van (2023)",
-    plateNumber: "AA 2-E99412",
-    drivingLicenseNumber: "DL-COMM-66102",
-    activeOrdersCount: 0,
-    completionRate: "97.5%",
-    status: "ON_DUTY",
-    kycStatus: "APPROVED",
-    isVerified: true,
-    isActive: true,
-    registeredDate: "2026-08-10",
-    defaultPassword: "Delivery@123",
-  },
-  {
-    id: "rd-05",
-    name: "Yohannes Berhe",
-    phone: "+251 93 221 4455",
-    email: "yohannes.b@mercatox.et",
-    nationalId: "ID-ETH-448201",
-    zone: "Sarbet & Nifas Silk",
-    vehicleType: "Motorcycle",
-    vehicleModel: "Honda Ace 125",
-    plateNumber: "AA 3-K77102",
-    drivingLicenseNumber: "DL-AA-55912",
-    activeOrdersCount: 0,
-    completionRate: "96.9%",
-    status: "OFFLINE",
-    kycStatus: "PENDING",
-    isVerified: false,
-    isActive: true,
-    registeredDate: "2026-09-12",
-    defaultPassword: "Delivery@123",
-  },
-];
+// All couriers and delivery staff are strictly fetched from the live database
+export const INITIAL_DEMO_RIDERS: DeliveryRider[] = [];
 
 const OPERATING_ZONES = [
   "Bole Sub-city & Atlas",
@@ -361,40 +288,37 @@ export function AdminDelivery() {
               : "PENDING";
 
           const isAvailable = item.isAvailable ?? true;
-          const status: DeliveryRider["status"] = isAvailable
-            ? (idx % 2 === 0 ? "IN_TRANSIT" : "ON_DUTY")
-            : "OFFLINE";
+          const status: DeliveryRider["status"] = isAvailable ? "ON_DUTY" : "OFFLINE";
 
           return {
-            id: item.userId || item.id || `rd-${idx + 1}`,
+            id: item.userId || item.id,
             name: item.fullName || "Delivery Courier",
-            phone: item.alternatePhone || item.phoneNumber || "N/A",
+            phone: item.alternatePhone || item.phoneNumber || item.phone || "N/A",
             email: item.email || "",
-            nationalId: item.nationalIdNumber || `ID-ETH-${700000 + idx}`,
+            nationalId: item.nationalIdNumber || "Pending ID",
             zone: item.marketZone || item.subCity || item.city || "Addis Ababa",
             vehicleType: (item.vehicleType as any) || "Motorcycle",
-            vehicleModel: item.specificLocation || item.vehicleModel || `${item.vehicleType || "Fleet"} Standard`,
-            plateNumber: (item.plateNumber || `AA 3-B${90000 + idx}`).toUpperCase(),
-            drivingLicenseNumber: item.drivingLicenseNumber || `DL-AA-${80000 + idx}`,
-            activeOrdersCount: isAvailable ? (idx % 3) + 1 : 0,
-            completionRate: "99.2%",
+            vehicleModel: item.specificLocation || item.vehicleModel || `${item.vehicleType || "Fleet"} Vehicle`,
+            plateNumber: item.plateNumber ? item.plateNumber.toUpperCase() : "Pending Plate",
+            drivingLicenseNumber: item.drivingLicenseNumber || "Pending License",
+            activeOrdersCount: 0,
+            completionRate: "100%",
             status,
             kycStatus,
             isVerified,
             isActive: item.isActive ?? true,
-            registeredDate: item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : "2026-09-01",
+            registeredDate: item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             rejectionReason: item.deliveryRejectionReason,
             defaultPassword: "Delivery@123",
           };
         });
         setRiders(mapped);
       } else {
-        // Fallback to demo fleet if no riders in database yet
-        setRiders(INITIAL_DEMO_RIDERS);
+        setRiders([]);
       }
     } catch (err) {
-      console.warn("Failed to load delivery couriers from backend, loading default fleet:", err);
-      setRiders(INITIAL_DEMO_RIDERS);
+      console.error("Failed to load delivery couriers from database:", err);
+      setRiders([]);
     } finally {
       setLoading(false);
       setIsRefreshing(false);
@@ -404,6 +328,196 @@ export function AdminDelivery() {
   useEffect(() => {
     loadDeliveryStaff();
   }, [loadDeliveryStaff]);
+
+  // Delivery Tasks & Dispatch State
+  const [activeDeliverySubTab, setActiveDeliverySubTab] = useState<"FLEET" | "TASKS">("FLEET");
+  const [orders, setOrders] = useState<DeliveryOrderItem[]>([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [selectedDriverFilter, setSelectedDriverFilter] = useState<string>("ALL");
+  const [orderDeliveryStatusFilter, setOrderDeliveryStatusFilter] = useState<string>("ALL");
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
+
+  // Modals for Tasks and Assignment
+  const [inspectingDriverTasks, setInspectingDriverTasks] = useState<DeliveryRider | null>(null);
+  const [orderToAssign, setOrderToAssign] = useState<DeliveryOrderItem | null>(null);
+  const [selectedRiderForAssignment, setSelectedRiderForAssignment] = useState<string>("");
+  const [isAssigningDriver, setIsAssigningDriver] = useState(false);
+  const [assignmentNewStatus, setAssignmentNewStatus] = useState<string>("IN_TRANSIT");
+  const [driverSearchInModal, setDriverSearchInModal] = useState("");
+
+  // Load orders & task assignments from backend database API
+  const loadOrders = useCallback(async (isManual = false) => {
+    try {
+      setLoadingOrders(true);
+      let rawOrders: any[] = [];
+      try {
+        const response = await api.get<{ data: any[]; total: number }>(`/admin/orders?page=1&limit=100`);
+        rawOrders = response?.data || [];
+      } catch (err) {
+        console.warn("API gateway /admin/orders error, falling back to /api/orders:", err);
+        const fbRes = await fetch("/api/orders");
+        if (fbRes.ok) {
+          const json = await fbRes.json();
+          rawOrders = json.orders || [];
+        }
+      }
+
+      if (!rawOrders || rawOrders.length === 0) {
+        setOrders([]);
+        return;
+      }
+
+      const normalized: DeliveryOrderItem[] = rawOrders.map((o: any) => {
+        const del = o?.deliveryAddress || {};
+        const addr = [del.city, del.subCity, del.specificLocation, del.recipientName].filter(Boolean).join(", ");
+        const rawDriver = o?.assignedDriver || del?.assignedDriver || null;
+        const carrierId = o?.carrierId || rawDriver?.id || null;
+
+        return {
+          id: o.id || "",
+          orderNumber: o.orderNumber || "N/A",
+          customerName: del.recipientName || "Customer",
+          customerPhone: del.phoneNumber || del.recipientPhone || "N/A",
+          deliveryAddress: addr || "Address not provided",
+          amount: Number(o.totalAmount || 0),
+          paymentStatus: o.paymentStatus || "UNPAID",
+          status: o.status || "PENDING",
+          createdAt: o.createdAt || new Date().toISOString(),
+          carrierId: carrierId || undefined,
+          assignedDriver: rawDriver,
+          items: o.items || [],
+        };
+      });
+
+      setOrders(normalized);
+      if (isManual) toast.success("Orders & Tasks updated from backend");
+    } catch (e) {
+      console.error("Failed to load delivery orders from database:", e);
+      setOrders([]);
+    } finally {
+      setLoadingOrders(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadOrders();
+  }, [loadOrders]);
+
+  // Helper: get live assigned orders for any rider
+  const getRiderTasks = useCallback(
+    (riderId: string) => {
+      return orders.filter(
+        (o) =>
+          o.carrierId === riderId ||
+          o.assignedDriver?.id === riderId ||
+          (o.assignedDriver as any)?.userId === riderId
+      );
+    },
+    [orders]
+  );
+
+  // Action: Assign order to driver
+  const handleAssignDriverToOrder = async (orderId: string, riderId: string) => {
+    const rider = riders.find((r) => r.id === riderId);
+    if (!rider) return;
+
+    setIsAssigningDriver(true);
+    try {
+      const assignedDriverData = {
+        id: rider.id,
+        name: rider.name,
+        phone: rider.phone,
+        vehicleType: rider.vehicleType,
+        plateNumber: rider.plateNumber,
+        zone: rider.zone,
+        status: rider.status,
+      };
+
+      await adminDeliveryService.assignOrderDriver(orderId, {
+        carrierId: rider.id,
+        assignedDriver: assignedDriverData,
+        newStatus: assignmentNewStatus || "IN_TRANSIT",
+      });
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                carrierId: rider.id,
+                assignedDriver: assignedDriverData,
+                status: assignmentNewStatus || "IN_TRANSIT",
+              }
+            : o
+        )
+      );
+
+      setRiders((prev) =>
+        prev.map((r) =>
+          r.id === rider.id
+            ? {
+                ...r,
+                activeOrdersCount: r.activeOrdersCount + 1,
+                status: "IN_TRANSIT",
+              }
+            : r
+        )
+      );
+
+      toast.success(`Order assigned to ${rider.name}!`, {
+        description: `Shipment assigned to ${rider.vehicleType} (${rider.plateNumber}).`,
+      });
+      setOrderToAssign(null);
+    } catch (err: any) {
+      console.error("Assign driver error:", err);
+      toast.error("Assignment failed", {
+        description: err?.message || "Could not assign driver to order.",
+      });
+    } finally {
+      setIsAssigningDriver(false);
+    }
+  };
+
+  // Action: Unassign driver
+  const handleUnassignDriver = async (orderId: string) => {
+    try {
+      await adminDeliveryService.assignOrderDriver(orderId, {
+        carrierId: null,
+        assignedDriver: null,
+        newStatus: "READY_FOR_PICKUP",
+      });
+
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                carrierId: undefined,
+                assignedDriver: null,
+                status: "READY_FOR_PICKUP",
+              }
+            : o
+        )
+      );
+
+      toast.success("Driver unassigned from order");
+    } catch (err: any) {
+      toast.error("Failed to unassign driver", { description: err?.message });
+    }
+  };
+
+  // Action: Update delivery order status
+  const handleUpdateDeliveryOrderStatus = async (orderId: string, newStatus: string) => {
+    try {
+      await adminDeliveryService.assignOrderDriver(orderId, { newStatus });
+      setOrders((prev) =>
+        prev.map((o) => (o.id === orderId ? { ...o, status: newStatus } : o))
+      );
+      toast.success(`Status updated to ${newStatus.replace(/_/g, " ")}`);
+    } catch (err: any) {
+      toast.error("Failed to update status", { description: err?.message });
+    }
+  };
 
   // Copy driver login credentials helper
   const handleCopyCredentials = (rider: DeliveryRider) => {
@@ -812,10 +926,142 @@ export function AdminDelivery() {
   const pendingKycCount = riders.filter((r) => r.kycStatus === "PENDING").length;
   const verifiedCount = riders.filter((r) => r.isVerified).length;
 
+  // Filtered orders for Tasks & Dispatch
+  const filteredDeliveryOrders = useMemo(() => {
+    return orders.filter((o) => {
+      const q = orderSearchQuery.toLowerCase();
+      const matchesSearch =
+        o.orderNumber.toLowerCase().includes(q) ||
+        o.customerName.toLowerCase().includes(q) ||
+        o.deliveryAddress.toLowerCase().includes(q) ||
+        (o.assignedDriver?.name && o.assignedDriver.name.toLowerCase().includes(q)) ||
+        (o.assignedDriver?.plateNumber && o.assignedDriver.plateNumber.toLowerCase().includes(q));
+
+      const matchesDriver =
+        selectedDriverFilter === "ALL"
+          ? true
+          : selectedDriverFilter === "UNASSIGNED"
+          ? !o.carrierId && !o.assignedDriver
+          : o.carrierId === selectedDriverFilter ||
+            o.assignedDriver?.id === selectedDriverFilter ||
+            (o.assignedDriver as any)?.userId === selectedDriverFilter;
+
+      const matchesStatus =
+        orderDeliveryStatusFilter === "ALL"
+          ? true
+          : orderDeliveryStatusFilter === "UNASSIGNED"
+          ? !o.carrierId && !o.assignedDriver
+          : o.status === orderDeliveryStatusFilter;
+
+      return matchesSearch && matchesDriver && matchesStatus;
+    });
+  }, [orders, orderSearchQuery, selectedDriverFilter, orderDeliveryStatusFilter]);
+
+  const unassignedOrders = useMemo(() => {
+    return orders.filter((o) => !o.carrierId && !o.assignedDriver);
+  }, [orders]);
+
+  const inTransitOrders = useMemo(() => {
+    return orders.filter((o) => o.status === "IN_TRANSIT");
+  }, [orders]);
+
+  const deliveredOrders = useMemo(() => {
+    return orders.filter((o) => o.status === "DELIVERED");
+  }, [orders]);
+
   return (
-    <div className="space-y-3.5 animate-in fade-in duration-150">
-      {/* Overview Cards with Sleek Glowing Borders */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+    <div className="space-y-4 animate-in fade-in duration-150">
+      {/* Top Page Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-b border-white/10 pb-3">
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-cyan-500/30 bg-gradient-to-tr from-cyan-500/20 to-indigo-500/20 text-cyan-400 shadow-md shadow-cyan-500/10">
+              <Bike className="h-5 w-5" />
+            </div>
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
+                <span>Fleet &amp; Delivery Logistics</span>
+                <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold border border-cyan-500/30 bg-cyan-500/15 text-cyan-300">
+                  Live Database
+                </span>
+              </h1>
+              <p className="text-xs sm:text-sm text-zinc-400">
+                Manage registered couriers, vehicle records, dispatch assignments, and live orders directly from the database.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              loadDeliveryStaff(true);
+              loadOrders(true);
+            }}
+            disabled={loading || isRefreshing || loadingOrders}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing || loading ? "animate-spin text-cyan-400" : ""}`} />
+            <span>Refresh Live Data</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowAddModal(true)}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+          >
+            <Plus className="h-4 w-4" />
+            <span>Add Courier to DB</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Sub Tabs: Fleet vs Tasks & Dispatch */}
+      <div className="flex flex-wrap items-center gap-2 border-b border-white/10 pb-2">
+        <button
+          type="button"
+          onClick={() => setActiveDeliverySubTab("FLEET")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+            activeDeliverySubTab === "FLEET"
+              ? "bg-gradient-to-r from-cyan-500/20 to-indigo-500/20 text-cyan-300 border border-cyan-500/40 shadow-lg shadow-cyan-500/10"
+              : "text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent"
+          }`}
+        >
+          <Bike className="h-4 w-4 text-cyan-400" />
+          <span>Fleet &amp; Couriers (የአሽከርካሪዎች ዝርዝር)</span>
+          <span className="rounded-full bg-cyan-500/20 px-2 py-0.5 text-[10px] text-cyan-300 font-mono">
+            {riders.length} Drivers in DB
+          </span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveDeliverySubTab("TASKS")}
+          className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-semibold transition-all cursor-pointer ${
+            activeDeliverySubTab === "TASKS"
+              ? "bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 text-indigo-300 border border-indigo-500/40 shadow-lg shadow-indigo-500/10"
+              : "text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent"
+          }`}
+        >
+          <Truck className="h-4 w-4 text-indigo-400" />
+          <span>Delivery Tasks &amp; Dispatch (የተመደቡ ስራዎች እና Dispatch)</span>
+          {unassignedOrders.length > 0 ? (
+            <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-300 font-mono border border-amber-500/30 animate-pulse">
+              {unassignedOrders.length} Unassigned
+            </span>
+          ) : (
+            <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] text-indigo-300 font-mono">
+              {orders.length} Orders in DB
+            </span>
+          )}
+        </button>
+      </div>
+
+      {activeDeliverySubTab === "FLEET" && (
+        <>
+          {/* Overview Cards with Sleek Glowing Borders */}
+          <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         {/* Active Couriers on Duty */}
         <div className="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
@@ -956,15 +1202,16 @@ export function AdminDelivery() {
                 <th className="py-2.5 px-3">Email & Contact</th>
                 <th className="py-2.5 px-3">Assigned Zone</th>
                 <th className="py-2.5 px-3">Vehicle & Plate</th>
+                <th className="py-2.5 px-3">Assigned Tasks</th>
                 <th className="py-2.5 px-3">KYC Status</th>
                 <th className="py-2.5 px-3">Duty Status</th>
-                <th className="py-2.5 px-3 text-right">Driver Governance</th>
+                <th className="py-2.5 px-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-zinc-400">
+                  <td colSpan={8} className="py-12 text-center text-zinc-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="h-6 w-6 animate-spin text-cyan-400" />
                       <span>Loading delivery staff from backend database...</span>
@@ -973,11 +1220,44 @@ export function AdminDelivery() {
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-12 text-center text-zinc-400">
-                    <div className="flex flex-col items-center justify-center gap-1.5">
-                      <Bike className="h-8 w-8 text-zinc-500" />
-                      <p className="text-sm font-semibold text-zinc-300">No delivery drivers match criteria</p>
-                      <p className="text-xs text-zinc-500">Click &ldquo;Add Driver &amp; Vehicle&rdquo; above to onboard your first courier.</p>
+                  <td colSpan={8} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-cyan-500/30 bg-gradient-to-tr from-cyan-500/20 to-indigo-500/10 text-cyan-400 shadow-xl shadow-cyan-500/10">
+                        <Bike className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">
+                          {riders.length === 0 ? "No Couriers in Database (ምንም አሽከርካሪ አልተገኘም)" : "No Couriers Match Search Filters"}
+                        </h4>
+                        <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                          {riders.length === 0
+                            ? "All courier and delivery staff are fetched live from the PostgreSQL database. Click below to onboard your first courier."
+                            : "Try clearing your search query or adjusting status filters to find couriers."}
+                        </p>
+                      </div>
+                      {riders.length === 0 ? (
+                        <button
+                          type="button"
+                          onClick={() => setShowAddModal(true)}
+                          className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                        >
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Add First Courier to DB</span>
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSearch("");
+                            setStatusFilter("ALL");
+                            setKycFilter("ALL");
+                          }}
+                          className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          <span>Reset Filters</span>
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -1044,6 +1324,20 @@ export function AdminDelivery() {
                       </div>
                     </td>
 
+                    {/* Assigned Tasks */}
+                    <td className="py-2.5 px-3">
+                      <button
+                        type="button"
+                        onClick={() => setInspectingDriverTasks(rider)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2.5 py-1 text-[10.5px] font-semibold text-cyan-300 hover:bg-cyan-500/20 hover:text-white transition-colors cursor-pointer"
+                        title="View assigned tasks & orders for this driver"
+                      >
+                        <Package className="h-3.5 w-3.5 text-cyan-400" />
+                        <span>{getRiderTasks(rider.id).length} Tasks</span>
+                        <span className="text-[10px] text-cyan-400/80 font-normal">· View</span>
+                      </button>
+                    </td>
+
                     {/* KYC Status */}
                     <td className="py-2.5 px-3">
                       {rider.kycStatus === "APPROVED" && (
@@ -1069,10 +1363,15 @@ export function AdminDelivery() {
                     {/* Duty Status */}
                     <td className="py-2.5 px-3">
                       {rider.status === "IN_TRANSIT" && (
-                        <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-cyan-400">
+                        <button
+                          type="button"
+                          onClick={() => setInspectingDriverTasks(rider)}
+                          className="inline-flex items-center gap-1.5 text-[11px] font-medium text-cyan-400 hover:text-cyan-300 cursor-pointer"
+                          title="Click to view in-transit tasks"
+                        >
                           <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-                          In Transit ({rider.activeOrdersCount})
-                        </span>
+                          In Transit ({getRiderTasks(rider.id).length})
+                        </button>
                       )}
                       {rider.status === "ON_DUTY" && (
                         <button
@@ -1080,7 +1379,7 @@ export function AdminDelivery() {
                           className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400 hover:text-emerald-300 cursor-pointer transition-colors"
                         >
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          Available
+                          Available ({getRiderTasks(rider.id).length})
                         </button>
                       )}
                       {rider.status === "OFFLINE" && (
@@ -1094,189 +1393,182 @@ export function AdminDelivery() {
                       )}
                     </td>
 
-                    {/* Quick Governance Actions */}
+                    {/* Actions Menu (Consolidated 3-Dots Dropdown) */}
                     <td className="py-2.5 px-3 text-right relative">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {/* Direct Edit Button */}
+                      <div className="relative inline-block text-left">
                         <button
                           type="button"
-                          onClick={() => handleOpenEditModal(rider)}
-                          className="flex items-center gap-1 rounded-md bg-indigo-500/15 px-2 py-1 text-[11px] font-semibold text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/25 hover:text-white transition-colors cursor-pointer"
-                          title="Edit Driver & Vehicle"
+                          onClick={() => setOpenMenuId(openMenuId === rider.id ? null : rider.id)}
+                          className={`inline-flex h-7 w-7 items-center justify-center rounded-lg border transition-all cursor-pointer ${
+                            openMenuId === rider.id
+                              ? "border-cyan-500/50 bg-cyan-500/15 text-white ring-2 ring-cyan-500/20 shadow-md"
+                              : "border-white/10 bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/10 hover:border-white/20"
+                          }`}
+                          title="Actions & Governance"
+                          aria-label="Actions"
                         >
-                          <Pencil className="h-3 w-3" />
-                          <span>Edit</span>
+                          <MoreVertical className="h-4 w-4" />
                         </button>
 
-                        {/* Direct Delete Button */}
-                        <button
-                          type="button"
-                          onClick={() => setDeletingRider(rider)}
-                          className="flex items-center gap-1 rounded-md bg-rose-500/15 px-2 py-1 text-[11px] font-semibold text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 hover:text-white transition-colors cursor-pointer"
-                          title="Delete Driver"
-                        >
-                          <Trash2 className="h-3 w-3" />
-                          <span>Delete</span>
-                        </button>
+                        {openMenuId === rider.id && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-30 cursor-default"
+                              onClick={() => setOpenMenuId(null)}
+                            />
+                            <div className="app-dropdown-panel absolute right-0 mt-1 w-60 rounded-xl border border-white/15 bg-[#0d1322] p-1.5 shadow-2xl z-40 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100 backdrop-blur-xl">
+                              {/* Edit Driver & Vehicle */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleOpenEditModal(rider);
+                                }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 hover:text-indigo-200 transition-colors cursor-pointer"
+                              >
+                                <Pencil className="h-3.5 w-3.5 text-indigo-400" />
+                                <span>Edit Driver & Vehicle</span>
+                              </button>
 
-                        {/* Copy credentials button */}
-                        <button
-                          type="button"
-                          onClick={() => handleCopyCredentials(rider)}
-                          className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-cyan-300 hover:bg-cyan-500/10 transition-colors cursor-pointer"
-                          title="Copy Driver Login (Email & Password)"
-                        >
-                          {copiedId === rider.id ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-400" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5" />
-                          )}
-                        </button>
+                              {/* View Tasks */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setInspectingDriverTasks(rider);
+                                }}
+                                className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200 transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <Package className="h-3.5 w-3.5 text-cyan-400" />
+                                  <span>View Assigned Tasks</span>
+                                </div>
+                                <span className="rounded-full bg-cyan-500/20 px-1.5 py-0.5 text-[10px] font-mono text-cyan-300 font-semibold">
+                                  {getRiderTasks(rider.id).length}
+                                </span>
+                              </button>
 
-                        {/* Quick KYC Approve button if pending */}
-                        {rider.kycStatus === "PENDING" && (
-                          <button
-                            type="button"
-                            onClick={() => handleApproveKyc(rider)}
-                            className="flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[10.5px] font-semibold text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer"
-                            title="Quick Approve Courier"
-                          >
-                            <CheckCircle2 className="h-3 w-3" />
-                            <span>Approve</span>
-                          </button>
-                        )}
+                              {/* Inspect Profile & KYC */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setInspectingRider(rider);
+                                }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                              >
+                                <FileText className="h-3.5 w-3.5 text-zinc-400" />
+                                <span>Inspect Vehicle & Record</span>
+                              </button>
 
-                        {/* More Menu */}
-                        <div className="relative inline-block text-left">
-                          <button
-                            type="button"
-                            onClick={() => setOpenMenuId(openMenuId === rider.id ? null : rider.id)}
-                            className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                            title="More Actions"
-                          >
-                            <MoreVertical className="h-4 w-4" />
-                          </button>
-
-                          {openMenuId === rider.id && (
-                            <>
-                              <div
-                                className="fixed inset-0 z-30 cursor-default"
-                                onClick={() => setOpenMenuId(null)}
-                              />
-                              <div className="app-dropdown-panel absolute right-0 mt-1 w-56 rounded-xl border border-white/10 bg-[#0f172a] p-1.5 shadow-2xl z-40 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100">
-                                {/* Inspect Profile */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenMenuId(null);
-                                    setInspectingRider(rider);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 transition-colors cursor-pointer"
-                                >
-                                  <FileText className="h-3.5 w-3.5" />
-                                  <span>Inspect Vehicle & Credentials</span>
-                                </button>
-
-                                {/* Edit Driver & Vehicle */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleOpenEditModal(rider)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 transition-colors cursor-pointer"
-                                >
-                                  <Pencil className="h-3.5 w-3.5" />
-                                  <span>Edit Driver & Vehicle</span>
-                                </button>
-
-                                {/* Copy Credentials */}
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setOpenMenuId(null);
-                                    handleCopyCredentials(rider);
-                                  }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/15 transition-colors cursor-pointer"
-                                >
-                                  <KeyRound className="h-3.5 w-3.5" />
+                              {/* Copy Login Credentials */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleCopyCredentials(rider);
+                                }}
+                                className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-500/15 hover:text-sky-200 transition-colors cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <KeyRound className="h-3.5 w-3.5 text-sky-400" />
                                   <span>Copy Login Credentials</span>
-                                </button>
-
-                                {/* Approve KYC */}
-                                {rider.kycStatus !== "APPROVED" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleApproveKyc(rider)}
-                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/15 transition-colors cursor-pointer"
-                                  >
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    <span>Approve KYC Verification</span>
-                                  </button>
+                                </div>
+                                {copiedId === rider.id && (
+                                  <span className="text-[10px] text-emerald-400 font-semibold">Copied!</span>
                                 )}
+                              </button>
 
-                                {/* Reject KYC */}
-                                {rider.kycStatus !== "REJECTED" && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleOpenRejectModal(rider)}
-                                    className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/15 transition-colors cursor-pointer"
-                                  >
-                                    <XCircle className="h-3.5 w-3.5" />
-                                    <span>Reject / Request Re-audit</span>
-                                  </button>
-                                )}
+                              <div className="my-1 border-t border-white/10" />
 
-                                {/* Toggle Duty Status */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleDutyStatus(rider.id)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/15 transition-colors cursor-pointer"
-                                >
-                                  <Bike className="h-3.5 w-3.5" />
-                                  <span>{rider.status === "OFFLINE" ? "Set On-Duty (Available)" : "Set Offline"}</span>
-                                </button>
-
-                                {/* Toggle Active / Suspend */}
-                                <button
-                                  type="button"
-                                  onClick={() => handleToggleAccountStatus(rider)}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/15 transition-colors cursor-pointer"
-                                >
-                                  <Power className="h-3.5 w-3.5" />
-                                  <span>{rider.isActive ? "Suspend Driver Account" : "Activate Driver Account"}</span>
-                                </button>
-
-                                <div className="my-1 border-t border-white/5" />
-
-                                {/* Call Courier */}
+                              {/* Approve KYC (if pending or rejected) */}
+                              {rider.kycStatus !== "APPROVED" && (
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
-                                    toast.info(`Contacting ${rider.name}`, {
-                                      description: `Phone: ${rider.phone} | Zone: ${rider.zone}`,
-                                    });
+                                    handleApproveKyc(rider);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/15 hover:text-emerald-200 transition-colors cursor-pointer"
                                 >
-                                  <Phone className="h-3.5 w-3.5 text-emerald-400" />
-                                  <span>Call Driver Direct</span>
+                                  <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400" />
+                                  <span>Approve KYC Verification</span>
                                 </button>
+                              )}
 
-                                {/* Delete Courier */}
+                              {/* Reject KYC (if pending or approved) */}
+                              {rider.kycStatus !== "REJECTED" && (
                                 <button
                                   type="button"
                                   onClick={() => {
                                     setOpenMenuId(null);
-                                    setDeletingRider(rider);
+                                    handleOpenRejectModal(rider);
                                   }}
-                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                                  className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/15 hover:text-amber-200 transition-colors cursor-pointer"
                                 >
-                                  <Trash2 className="h-3.5 w-3.5" />
-                                  <span>Delete Driver Permanently</span>
+                                  <XCircle className="h-3.5 w-3.5 text-amber-400" />
+                                  <span>Reject / Request Re-audit</span>
                                 </button>
-                              </div>
-                            </>
-                          )}
-                        </div>
+                              )}
+
+                              {/* Toggle Duty Status */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleToggleDutyStatus(rider.id);
+                                }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-cyan-300 hover:bg-cyan-500/15 hover:text-cyan-200 transition-colors cursor-pointer"
+                              >
+                                <Bike className="h-3.5 w-3.5 text-cyan-400" />
+                                <span>{rider.status === "OFFLINE" ? "Set On-Duty (Available)" : "Set Offline"}</span>
+                              </button>
+
+                              {/* Toggle Active / Suspend Account */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  handleToggleAccountStatus(rider);
+                                }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-orange-300 hover:bg-orange-500/15 hover:text-orange-200 transition-colors cursor-pointer"
+                              >
+                                <Power className="h-3.5 w-3.5 text-orange-400" />
+                                <span>{rider.isActive ? "Suspend Driver Account" : "Activate Driver Account"}</span>
+                              </button>
+
+                              {/* Call Courier */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  toast.info(`Contacting ${rider.name}`, {
+                                    description: `Phone: ${rider.phone} | Zone: ${rider.zone}`,
+                                  });
+                                }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                              >
+                                <Phone className="h-3.5 w-3.5 text-emerald-400" />
+                                <span>Call Driver Direct</span>
+                              </button>
+
+                              <div className="my-1 border-t border-white/10" />
+
+                              {/* Delete Courier */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOpenMenuId(null);
+                                  setDeletingRider(rider);
+                                }}
+                                className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-400 hover:bg-rose-500/15 hover:text-rose-300 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-rose-400" />
+                                <span>Delete Driver Permanently</span>
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1286,6 +1578,416 @@ export function AdminDelivery() {
           </table>
         </div>
       </div>
+    </>
+  )}
+
+  {activeDeliverySubTab === "TASKS" && (
+    <div className="space-y-3.5 animate-in fade-in duration-150">
+      {/* Dispatch Overview KPI Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+        {/* Total Orders in Dispatch */}
+        <div className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+          <div className="flex items-center justify-between text-zinc-400 text-xs">
+            <span className="font-medium text-zinc-300">Total Deliveries</span>
+            <div className="rounded-lg bg-sky-500/20 p-1.5 text-sky-300">
+              <Package className="h-4 w-4" />
+            </div>
+          </div>
+          <h3 className="mt-2 text-2xl font-bold font-mono text-white">
+            {orders.length} Orders
+          </h3>
+          <p className="text-[10px] text-sky-300 mt-0.5 font-mono">
+            Total shipments in system
+          </p>
+        </div>
+
+        {/* Unassigned Orders */}
+        <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+          <div className="flex items-center justify-between text-zinc-400 text-xs">
+            <span className="font-medium text-zinc-300">Awaiting Courier (ያልተመደቡ)</span>
+            <div className="rounded-lg bg-amber-500/20 p-1.5 text-amber-300">
+              <Clock className="h-4 w-4" />
+            </div>
+          </div>
+          <h3 className="mt-2 text-2xl font-bold font-mono text-white">
+            {unassignedOrders.length} Pending
+          </h3>
+          <p className="text-[10px] text-amber-300 mt-0.5">
+            Ready for driver assignment
+          </p>
+        </div>
+
+        {/* Active In-Transit */}
+        <div className="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+          <div className="flex items-center justify-between text-zinc-400 text-xs">
+            <span className="font-medium text-zinc-300">In Transit (በጉዞ ላይ)</span>
+            <div className="rounded-lg bg-cyan-500/20 p-1.5 text-cyan-300">
+              <Truck className="h-4 w-4" />
+            </div>
+          </div>
+          <h3 className="mt-2 text-2xl font-bold font-mono text-white">
+            {inTransitOrders.length} On the Road
+          </h3>
+          <p className="text-[10px] text-cyan-300 mt-0.5">
+            Live courier fulfillment in progress
+          </p>
+        </div>
+
+        {/* Completed */}
+        <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+          <div className="flex items-center justify-between text-zinc-400 text-xs">
+            <span className="font-medium text-zinc-300">Completed (የተጠናቀቁ)</span>
+            <div className="rounded-lg bg-emerald-500/20 p-1.5 text-emerald-300">
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+          </div>
+          <h3 className="mt-2 text-2xl font-bold font-mono text-white">
+            {deliveredOrders.length} Fulfilled
+          </h3>
+          <p className="text-[10px] text-emerald-300 mt-0.5">
+            Verified package drop-offs
+          </p>
+        </div>
+      </div>
+
+      {/* Dispatch Control Bar */}
+      <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between rounded-xl border border-white/10 bg-[#0d121f]/90 p-3 shadow-xl backdrop-blur-xl">
+        <div className="flex flex-1 flex-wrap items-center gap-2">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px] sm:max-w-xs">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+            <input
+              type="text"
+              value={orderSearchQuery}
+              onChange={(e) => setOrderSearchQuery(e.target.value)}
+              placeholder="Search order #, customer, destination, driver..."
+              className="w-full h-8 rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-cyan-500"
+            />
+          </div>
+
+          {/* Filter by Driver */}
+          <select
+            value={selectedDriverFilter}
+            onChange={(e) => setSelectedDriverFilter(e.target.value)}
+            className="h-8 rounded-lg border border-white/10 bg-[#141b2d] px-2.5 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer max-w-[230px]"
+          >
+            <option value="ALL">All Drivers & Couriers (ሁሉም)</option>
+            <option value="UNASSIGNED">Unassigned Orders Only (ያልተመደቡ ብቻ)</option>
+            {riders.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} · {r.vehicleType} ({r.plateNumber})
+              </option>
+            ))}
+          </select>
+
+          {/* Filter by Delivery Status */}
+          <select
+            value={orderDeliveryStatusFilter}
+            onChange={(e) => setOrderDeliveryStatusFilter(e.target.value)}
+            className="h-8 rounded-lg border border-white/10 bg-[#141b2d] px-2.5 text-xs text-zinc-200 outline-none focus:border-cyan-500 cursor-pointer"
+          >
+            <option value="ALL">All Delivery Statuses</option>
+            <option value="READY_FOR_PICKUP">Ready for Pickup</option>
+            <option value="IN_TRANSIT">In Transit</option>
+            <option value="DELIVERED">Delivered</option>
+            <option value="PENDING">Pending</option>
+            <option value="CONFIRMED">Confirmed</option>
+          </select>
+
+          {/* Refresh Button */}
+          <button
+            type="button"
+            onClick={() => loadOrders(true)}
+            disabled={loadingOrders}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            title="Refresh Orders"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${loadingOrders ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh Tasks</span>
+          </button>
+        </div>
+
+        <div className="text-[11px] font-mono text-zinc-400">
+          Showing <span className="text-white font-bold">{filteredDeliveryOrders.length}</span> assigned shipments
+        </div>
+      </div>
+
+      {/* UNASSIGNED ORDERS QUEUE */}
+      {unassignedOrders.length > 0 && (selectedDriverFilter === "ALL" || selectedDriverFilter === "UNASSIGNED") && (
+        <div className="rounded-xl border border-amber-500/30 bg-amber-500/[0.04] p-3.5 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                <AlertTriangle className="h-4 w-4" />
+              </div>
+              <div>
+                <h4 className="text-xs font-bold text-white">
+                  Orders Awaiting Driver Assignment ({unassignedOrders.length})
+                </h4>
+                <p className="text-[10px] text-zinc-400">
+                  These orders are placed and awaiting driver assignment to customer destination.
+                </p>
+              </div>
+            </div>
+            <span className="rounded-full bg-amber-500/20 px-2.5 py-0.5 text-[10px] font-mono font-bold text-amber-300 border border-amber-500/30 animate-pulse">
+              NEEDS DISPATCH
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+            {unassignedOrders.slice(0, 6).map((order: DeliveryOrderItem) => (
+              <div
+                key={order.id}
+                className="flex flex-col justify-between rounded-xl border border-white/10 bg-[#0d121f] p-3 shadow-md hover:border-amber-500/40 transition-colors"
+              >
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono font-bold text-xs text-white">{order.orderNumber}</span>
+                    <span className="font-mono text-xs font-bold text-emerald-400">
+                      ETB {order.amount.toLocaleString()}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-xs text-zinc-200 font-medium">{order.customerName}</p>
+                  <p className="text-[10.5px] text-zinc-400 truncate flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3 text-cyan-400 shrink-0" />
+                    <span>{order.deliveryAddress}</span>
+                  </p>
+                  {order.items && order.items.length > 0 && (
+                    <p className="text-[10px] text-zinc-500 mt-1 truncate">
+                      {order.items.map((i: any) => i.productTitle || i.title).filter(Boolean).join(", ")}
+                    </p>
+                  )}
+                </div>
+
+                <div className="mt-3 flex items-center justify-between border-t border-white/5 pt-2">
+                  <span className="text-[10px] font-mono text-zinc-400">
+                    Status: <span className="text-amber-400">{order.status}</span>
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOrderToAssign(order);
+                      setSelectedRiderForAssignment(riders[0]?.id || "");
+                    }}
+                    className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-amber-500 to-orange-600 px-2.5 py-1 text-xs font-bold text-white shadow-md shadow-amber-500/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    <span>Assign Driver (አሽከርካሪ መድብ)</span>
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* All Delivery Tasks & Dispatch Table */}
+      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
+        <div className="overflow-x-auto min-h-[260px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+            <thead>
+              <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
+                <th className="py-2.5 px-3">Order Ref & Date</th>
+                <th className="py-2.5 px-3">Customer & Contact</th>
+                <th className="py-2.5 px-3">Delivery Destination</th>
+                <th className="py-2.5 px-3">Amount (ETB)</th>
+                <th className="py-2.5 px-3">Delivery Status</th>
+                <th className="py-2.5 px-3">Assigned Driver / Courier</th>
+                <th className="py-2.5 px-3 text-right">Dispatch Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {loadingOrders ? (
+                <tr>
+                  <td colSpan={7} className="py-12 text-center text-zinc-400">
+                    <div className="flex flex-col items-center justify-center gap-2">
+                      <RefreshCw className="h-6 w-6 animate-spin text-cyan-400" />
+                      <span>Loading dispatch tasks and orders...</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredDeliveryOrders.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="py-16 text-center">
+                    <div className="flex flex-col items-center justify-center max-w-md mx-auto space-y-3">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-indigo-500/30 bg-gradient-to-tr from-indigo-500/20 to-cyan-500/10 text-indigo-400 shadow-xl shadow-indigo-500/10">
+                        <Truck className="h-7 w-7" />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-white">
+                          {orders.length === 0 ? "No Deliveries in Database (ምንም ትዕዛዝ አልተገኘም)" : "No Orders Match Current Filters"}
+                        </h4>
+                        <p className="text-xs text-zinc-400 mt-1 leading-relaxed">
+                          {orders.length === 0
+                            ? "Orders submitted by customers needing delivery dispatch will automatically load here in real time from the database."
+                            : "Try clearing your search query or driver filter to view all shipments."}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => loadOrders(true)}
+                        className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-zinc-300 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <RefreshCw className="h-3.5 w-3.5" />
+                        <span>Refresh Orders DB</span>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredDeliveryOrders.map((order: DeliveryOrderItem) => {
+                  const assignedDriver =
+                    order.assignedDriver ||
+                    (order.carrierId ? riders.find((r) => r.id === order.carrierId) : null);
+
+                  return (
+                    <tr key={order.id} className="hover:bg-white/[0.02] transition-colors">
+                      {/* Order Number */}
+                      <td className="py-2.5 px-3">
+                        <span className="font-mono font-bold text-white">{order.orderNumber}</span>
+                        <p className="text-[10px] text-zinc-500 font-mono">
+                          {new Date(order.createdAt).toLocaleString("en-ET", {
+                            dateStyle: "short",
+                            timeStyle: "short",
+                          })}
+                        </p>
+                      </td>
+
+                      {/* Customer */}
+                      <td className="py-2.5 px-3">
+                        <p className="font-semibold text-zinc-200 leading-tight">{order.customerName}</p>
+                        <p className="text-[10px] font-mono text-cyan-300">{order.customerPhone}</p>
+                      </td>
+
+                      {/* Address */}
+                      <td className="py-2.5 px-3 text-zinc-300 max-w-[200px] truncate" title={order.deliveryAddress}>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-cyan-400 shrink-0" />
+                          <span className="truncate">{order.deliveryAddress}</span>
+                        </span>
+                      </td>
+
+                      {/* Amount */}
+                      <td className="py-2.5 px-3">
+                        <span className="font-mono font-bold text-emerald-400">
+                          ETB {order.amount.toLocaleString()}
+                        </span>
+                      </td>
+
+                      {/* Status */}
+                      <td className="py-2.5 px-3">
+                        <div className="flex items-center gap-1.5">
+                          {order.status === "DELIVERED" ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-2 py-0.5 text-[10.5px] font-medium text-emerald-400 border border-emerald-500/20">
+                              <CheckCircle2 className="h-3 w-3 text-emerald-400" />
+                              <span>Delivered</span>
+                            </span>
+                          ) : order.status === "IN_TRANSIT" ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-cyan-500/10 px-2 py-0.5 text-[10.5px] font-medium text-cyan-300 border border-cyan-500/20">
+                              <Truck className="h-3 w-3 text-cyan-400 animate-pulse" />
+                              <span>In Transit</span>
+                            </span>
+                          ) : order.status === "READY_FOR_PICKUP" ? (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-sky-500/10 px-2 py-0.5 text-[10.5px] font-medium text-sky-300 border border-sky-500/20">
+                              <Package className="h-3 w-3 text-sky-400" />
+                              <span>Ready for Pickup</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-medium text-amber-400 border border-amber-500/20">
+                              <Clock className="h-3 w-3 text-amber-400" />
+                              <span>{order.status}</span>
+                            </span>
+                          )}
+                        </div>
+                      </td>
+
+                      {/* Assigned Driver */}
+                      <td className="py-2.5 px-3">
+                        {assignedDriver ? (
+                          <div className="flex items-center gap-2">
+                            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-500/15 text-xs font-semibold text-indigo-300">
+                              {assignedDriver.name?.charAt(0) || "D"}
+                            </div>
+                            <div>
+                              <p className="font-semibold text-white leading-tight">
+                                {assignedDriver.name}
+                              </p>
+                              <p className="text-[10px] font-mono text-indigo-300">
+                                {assignedDriver.plateNumber} · {assignedDriver.phone}
+                              </p>
+                            </div>
+                          </div>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/10 px-2 py-0.5 text-[10.5px] font-semibold text-amber-400 border border-amber-500/30">
+                            <AlertTriangle className="h-3 w-3" />
+                            <span>Unassigned (አልተመደበም)</span>
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="py-2.5 px-3 text-right">
+                        <div className="flex items-center justify-end gap-1.5">
+                          {/* Assign / Change Driver Button */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOrderToAssign(order);
+                              setSelectedRiderForAssignment(order.carrierId || riders[0]?.id || "");
+                            }}
+                            className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-semibold cursor-pointer transition-all ${
+                              assignedDriver
+                                ? "border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
+                                : "bg-gradient-to-r from-cyan-500 to-indigo-600 text-white shadow-md shadow-cyan-500/20 hover:brightness-110 active:scale-95"
+                            }`}
+                          >
+                            <Plus className="h-3 w-3" />
+                            <span>{assignedDriver ? "Change Driver" : "Assign Driver"}</span>
+                          </button>
+
+                          {/* Unassign Quick Button */}
+                          {assignedDriver && (
+                            <button
+                              type="button"
+                              onClick={() => handleUnassignDriver(order.id)}
+                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+                              title="Unassign Driver"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+
+                          {/* Quick status advance */}
+                          {order.status !== "DELIVERED" && (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                handleUpdateDeliveryOrderStatus(
+                                  order.id,
+                                  order.status === "READY_FOR_PICKUP"
+                                    ? "IN_TRANSIT"
+                                    : "DELIVERED"
+                                )
+                              }
+                              className="inline-flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[10.5px] font-semibold text-emerald-300 border border-emerald-500/25 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                              title="Advance Delivery Status"
+                            >
+                              <Check className="h-3 w-3" />
+                              <span>{order.status === "READY_FOR_PICKUP" ? "Dispatch" : "Mark Delivered"}</span>
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )}
 
       {/* MODAL 1: REGISTER NEW DELIVERY STAFF & CAR/VEHICLE */}
       {showAddModal && (
@@ -1698,6 +2400,62 @@ export function AdminDelivery() {
                   <span className="font-mono text-zinc-300">{inspectingRider.registeredDate}</span>
                 </div>
               </div>
+
+              {/* Assigned Tasks Summary Box */}
+              {(() => {
+                const driverTasks = getRiderTasks(inspectingRider.id);
+                return (
+                  <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1.5">
+                        <Package className="h-3.5 w-3.5 text-cyan-400" />
+                        <span>Active Assigned Deliveries ({driverTasks.length})</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const r = inspectingRider;
+                          setInspectingRider(null);
+                          setInspectingDriverTasks(r);
+                        }}
+                        className="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-medium cursor-pointer"
+                      >
+                        Open Task Board →
+                      </button>
+                    </div>
+
+                    {driverTasks.length === 0 ? (
+                      <p className="text-[11px] text-zinc-500 italic">
+                        No active shipments assigned to this driver at the moment.
+                      </p>
+                    ) : (
+                      <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
+                        {driverTasks.slice(0, 3).map((task) => (
+                          <div
+                            key={task.id}
+                            className="flex items-center justify-between rounded-lg bg-black/40 border border-white/5 px-2 py-1.5 text-[11px]"
+                          >
+                            <div>
+                              <p className="font-mono font-bold text-white">#{task.orderNumber}</p>
+                              <p className="text-[10px] text-zinc-400 truncate max-w-[180px]">
+                                {task.customerName} · {task.deliveryAddress}
+                              </p>
+                            </div>
+                            <span className="rounded bg-indigo-500/15 border border-indigo-500/25 px-1.5 py-0.5 text-[9.5px] font-semibold text-indigo-300 uppercase">
+                              {task.status}
+                            </span>
+                          </div>
+                        ))}
+                        {driverTasks.length > 3 && (
+                          <p className="text-[10px] text-zinc-500 text-center pt-0.5">
+                            +{driverTasks.length - 3} more shipments...
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
@@ -2180,6 +2938,440 @@ export function AdminDelivery() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 6: DRIVER ASSIGNED TASKS MODAL (የተመረጠው አሽከርካሪ የተመደቡበት ስራዎች) */}
+      {inspectingDriverTasks && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="app-modal-window relative w-full max-w-2xl rounded-2xl border border-cyan-500/30 bg-[#0f172a] p-5 shadow-2xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/30">
+                  <Package className="h-5 w-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-bold text-white">
+                      {inspectingDriverTasks.name} — Assigned Delivery Tasks
+                    </h3>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                        inspectingDriverTasks.status === "IN_TRANSIT"
+                          ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                          : inspectingDriverTasks.status === "ON_DUTY"
+                          ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                          : "bg-zinc-500/15 border-zinc-500/30 text-zinc-400"
+                      }`}
+                    >
+                      {inspectingDriverTasks.status.replace("_", " ")}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400">
+                    <span className="font-mono text-zinc-300">{inspectingDriverTasks.phone}</span> ·{" "}
+                    <span className="text-indigo-300 font-medium">{inspectingDriverTasks.vehicleType}</span> (
+                    <span className="font-mono font-bold text-white">{inspectingDriverTasks.plateNumber}</span>) ·{" "}
+                    <span>{inspectingDriverTasks.zone}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setInspectingDriverTasks(null)}
+                className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content List */}
+            <div className="mt-4 flex-1 overflow-y-auto space-y-3 pr-1">
+              {(() => {
+                const driverOrders = getRiderTasks(inspectingDriverTasks.id);
+                if (driverOrders.length === 0) {
+                  return (
+                    <div className="rounded-xl border border-dashed border-white/10 bg-white/[0.02] p-8 text-center">
+                      <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 mb-3">
+                        <CheckCircle2 className="h-6 w-6" />
+                      </div>
+                      <h4 className="text-sm font-semibold text-white">
+                        No Active Deliveries Assigned (ምንም የተመደበ ስራ የለም)
+                      </h4>
+                      <p className="mt-1 text-xs text-zinc-400 max-w-sm mx-auto">
+                        This courier has no active deliveries on hand. You can assign unassigned orders to them from the Dispatch Board.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInspectingDriverTasks(null);
+                          setActiveDeliverySubTab("TASKS");
+                        }}
+                        className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-cyan-500/20 px-3.5 py-1.5 text-xs font-semibold text-cyan-300 border border-cyan-500/30 hover:bg-cyan-500/30 transition-colors cursor-pointer"
+                      >
+                        <ArrowRight className="h-3.5 w-3.5" />
+                        <span>Go to Dispatch Board & Assign Tasks</span>
+                      </button>
+                    </div>
+                  );
+                }
+
+                return (
+                  <>
+                    <div className="flex items-center justify-between text-xs text-zinc-400 px-1">
+                      <span>Total Active Tasks: <strong className="text-white">{driverOrders.length}</strong></span>
+                      <span className="text-[11px] text-zinc-500">Click actions to advance fulfillment or reassign courier</span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {driverOrders.map((order) => (
+                        <div
+                          key={order.id}
+                          className="rounded-xl border border-white/10 bg-[#1e293b]/50 p-3.5 transition-colors hover:border-cyan-500/30 space-y-2.5"
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono font-bold text-white text-xs">
+                                  #{order.orderNumber}
+                                </span>
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-[10px] font-semibold border ${
+                                    order.status === "DELIVERED"
+                                      ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                      : order.status === "IN_TRANSIT"
+                                      ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                                      : "bg-blue-500/15 border-blue-500/30 text-blue-300"
+                                  }`}
+                                >
+                                  {order.status.replace(/_/g, " ")}
+                                </span>
+                                <span className="text-[10px] text-zinc-500">
+                                  {new Date(order.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              </div>
+                              <p className="mt-1 text-xs font-medium text-zinc-200">
+                                Customer: <span className="text-white font-semibold">{order.customerName}</span> ({order.customerPhone})
+                              </p>
+                              <p className="text-[11px] text-zinc-400 flex items-center gap-1 mt-0.5">
+                                <MapPin className="h-3 w-3 text-cyan-400 shrink-0" />
+                                <span>{order.deliveryAddress}</span>
+                              </p>
+                            </div>
+
+                            <div className="text-right shrink-0">
+                              <p className="font-mono font-bold text-emerald-400 text-sm">
+                                ETB {order.amount.toLocaleString()}
+                              </p>
+                              <span className="text-[10px] font-mono text-zinc-400 uppercase">
+                                {order.paymentStatus}
+                              </span>
+                            </div>
+                          </div>
+
+                          {/* Items brief */}
+                          {order.items && order.items.length > 0 && (
+                            <div className="rounded-lg bg-black/30 border border-white/5 px-2.5 py-1.5 text-[11px] text-zinc-300">
+                              <span className="text-zinc-500 text-[10px] uppercase font-bold mr-1.5">Cargo:</span>
+                              {order.items.map((it, idx) => (
+                                <span key={idx} className="mr-2">
+                                  {it.productTitle || it.title} {it.quantity ? `(x${it.quantity})` : ""}
+                                  {idx < (order.items?.length || 0) - 1 ? "," : ""}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Action Buttons */}
+                          <div className="flex items-center justify-between pt-1 border-t border-white/5 text-xs">
+                            <div className="flex items-center gap-1.5">
+                              {order.status !== "DELIVERED" && (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateDeliveryOrderStatus(
+                                      order.id,
+                                      order.status === "READY_FOR_PICKUP" ? "IN_TRANSIT" : "DELIVERED"
+                                    )
+                                  }
+                                  className="inline-flex items-center gap-1 rounded-lg bg-emerald-500/20 px-2.5 py-1 text-xs font-semibold text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/30 transition-colors cursor-pointer"
+                                >
+                                  <Check className="h-3 w-3" />
+                                  <span>
+                                    {order.status === "READY_FOR_PICKUP"
+                                      ? "Mark In Transit (በማጓጓዝ ላይ)"
+                                      : "Mark Delivered (ደርሷል)"}
+                                  </span>
+                                </button>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const targetOrd = order;
+                                  setInspectingDriverTasks(null);
+                                  setSelectedRiderForAssignment(inspectingDriverTasks.id);
+                                  setOrderToAssign(targetOrd);
+                                }}
+                                className="inline-flex items-center gap-1 rounded-lg bg-indigo-500/20 px-2.5 py-1 text-xs font-semibold text-indigo-300 border border-indigo-500/30 hover:bg-indigo-500/30 transition-colors cursor-pointer"
+                              >
+                                <RotateCcw className="h-3 w-3" />
+                                <span>Reassign (ለሌላ ቀይር)</span>
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleUnassignDriver(order.id)}
+                                className="inline-flex items-center gap-1 rounded-lg bg-rose-500/15 px-2 py-1 text-xs font-medium text-rose-300 border border-rose-500/25 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                              >
+                                <X className="h-3 w-3" />
+                                <span>Unassign</span>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Footer */}
+            <div className="mt-4 flex items-center justify-end border-t border-white/10 pt-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => setInspectingDriverTasks(null)}
+                className="rounded-lg bg-white/10 px-4 py-1.5 text-xs font-semibold text-white hover:bg-white/15 cursor-pointer"
+              >
+                Close (ዝጋ)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: ASSIGN / REASSIGN DRIVER TO ORDER (ለታዘዘው እቃ አሽከርካሪ መድብ) */}
+      {orderToAssign && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="app-modal-window relative w-full max-w-xl rounded-2xl border border-indigo-500/30 bg-[#0f172a] p-5 shadow-2xl max-h-[90vh] flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Assign Delivery Courier (አሽከርካሪ መድብ)
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Order <span className="font-mono font-bold text-cyan-300">#{orderToAssign.orderNumber}</span> · Total ETB {orderToAssign.amount.toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setOrderToAssign(null);
+                  setSelectedRiderForAssignment("");
+                }}
+                className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Order Target Info */}
+            <div className="mt-3.5 rounded-xl border border-white/10 bg-white/[0.02] p-3 text-xs space-y-1.5 shrink-0">
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-400">Customer:</span>
+                <span className="font-semibold text-white">
+                  {orderToAssign.customerName} ({orderToAssign.customerPhone})
+                </span>
+              </div>
+              <div className="flex justify-between items-start gap-4">
+                <span className="text-zinc-400 shrink-0">Destination:</span>
+                <span className="text-right text-zinc-200">{orderToAssign.deliveryAddress}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-zinc-400">Current Assignee:</span>
+                <span className={orderToAssign.assignedDriver ? "text-cyan-300 font-semibold" : "text-amber-400 font-medium"}>
+                  {orderToAssign.assignedDriver
+                    ? `${orderToAssign.assignedDriver.name} (${orderToAssign.assignedDriver.plateNumber})`
+                    : "Unassigned (አልተመደበም)"}
+                </span>
+              </div>
+            </div>
+
+            {/* Status Selection */}
+            <div className="mt-3 shrink-0">
+              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
+                Set Delivery Status upon Assignment:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignmentNewStatus("IN_TRANSIT")}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all cursor-pointer ${
+                    assignmentNewStatus === "IN_TRANSIT"
+                      ? "border-amber-500 bg-amber-500/15 text-amber-300"
+                      : "border-white/10 bg-black/40 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Bike className="h-3.5 w-3.5" />
+                  <span>IN_TRANSIT (በማጓጓዝ ላይ)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignmentNewStatus("READY_FOR_PICKUP")}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all cursor-pointer ${
+                    assignmentNewStatus === "READY_FOR_PICKUP"
+                      ? "border-cyan-500 bg-cyan-500/15 text-cyan-300"
+                      : "border-white/10 bg-black/40 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Package className="h-3.5 w-3.5" />
+                  <span>READY_FOR_PICKUP (ለመጫን ዝግጁ)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Search Courier in Modal */}
+            <div className="mt-3 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                <input
+                  type="text"
+                  value={driverSearchInModal}
+                  onChange={(e) => setDriverSearchInModal(e.target.value)}
+                  placeholder="Search fleet by name, vehicle, plate, or zone..."
+                  className="w-full rounded-xl border border-white/10 bg-black/40 pl-9 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Drivers List */}
+            <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
+              <p className="text-[11px] text-zinc-400 font-medium px-1">
+                Select Courier to Dispatch ({riders.length} available):
+              </p>
+              {riders
+                .filter((r) => {
+                  if (!driverSearchInModal.trim()) return true;
+                  const q = driverSearchInModal.toLowerCase();
+                  return (
+                    r.name.toLowerCase().includes(q) ||
+                    r.phone.toLowerCase().includes(q) ||
+                    r.plateNumber.toLowerCase().includes(q) ||
+                    r.vehicleType.toLowerCase().includes(q) ||
+                    r.zone.toLowerCase().includes(q)
+                  );
+                })
+                .map((rider) => {
+                  const tasks = getRiderTasks(rider.id);
+                  const isSelected = selectedRiderForAssignment === rider.id;
+                  const isCurrentCarrier = orderToAssign.carrierId === rider.id || orderToAssign.assignedDriver?.id === rider.id;
+
+                  return (
+                    <div
+                      key={rider.id}
+                      onClick={() => setSelectedRiderForAssignment(rider.id)}
+                      className={`flex items-center justify-between rounded-xl border p-2.5 transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-indigo-500 bg-indigo-500/15 ring-1 ring-indigo-500/50"
+                          : "border-white/10 bg-black/30 hover:border-white/20 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                            isSelected
+                              ? "bg-indigo-500 text-white"
+                              : "bg-white/10 text-zinc-300"
+                          }`}
+                        >
+                          <Bike className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-xs text-white truncate">
+                              {rider.name}
+                            </span>
+                            {isCurrentCarrier && (
+                              <span className="rounded bg-cyan-500/20 px-1.5 py-0.2 text-[9px] font-bold text-cyan-300 border border-cyan-500/30">
+                                Current Assignee
+                              </span>
+                            )}
+                            <span
+                              className={`rounded-full px-1.5 py-0.2 text-[9px] font-medium border ${
+                                rider.status === "ON_DUTY"
+                                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                  : rider.status === "IN_TRANSIT"
+                                  ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                                  : "bg-zinc-500/15 border-zinc-500/30 text-zinc-400"
+                              }`}
+                            >
+                              {rider.status.replace("_", " ")}
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-zinc-400 truncate">
+                            <span className="font-mono font-bold text-indigo-300">{rider.plateNumber}</span> ({rider.vehicleType}) · {rider.zone}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0 ml-2">
+                        <span className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold border ${
+                          tasks.length === 0
+                            ? "bg-emerald-500/10 border-emerald-500/25 text-emerald-300"
+                            : tasks.length <= 2
+                            ? "bg-cyan-500/10 border-cyan-500/25 text-cyan-300"
+                            : "bg-amber-500/10 border-amber-500/25 text-amber-300"
+                        }`}>
+                          <Package className="h-2.5 w-2.5" />
+                          <span>{tasks.length} active tasks</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setOrderToAssign(null);
+                  setSelectedRiderForAssignment("");
+                }}
+                className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedRiderForAssignment || isAssigningDriver}
+                onClick={() => handleAssignDriverToOrder(orderToAssign.id, selectedRiderForAssignment)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-500/25 hover:brightness-110 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAssigningDriver ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Assigning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Confirm & Assign Driver (አሽከርካሪ መድብ)</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}

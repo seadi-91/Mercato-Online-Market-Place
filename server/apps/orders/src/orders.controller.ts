@@ -141,6 +141,19 @@ export class OrdersController {
     return this.ordersService.deleteOrderAdmin(payload.id);
   }
 
+  @MessagePattern('assign_order_carrier')
+  assignOrderCarrier(
+    @Payload()
+    payload: {
+      orderId: string;
+      carrierId?: string;
+      assignedDriver?: any;
+      newStatus?: any;
+    },
+  ) {
+    return this.ordersService.assignOrderCarrier(payload);
+  }
+
   @MessagePattern('update_order_payment_status')
   updateOrderPaymentStatus(
     @Payload() payload: { orderId: string; paymentStatus: any },

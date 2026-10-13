@@ -19,9 +19,17 @@ import {
   CreditCard,
   Copy,
   Check,
+  Bike,
+  RotateCcw,
+  RefreshCw,
+  Search,
+  X,
 } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/services/api/client";
 import { fetchAllProducts } from "@/lib/api/catalog";
+import { adminDeliveryService } from "@/features/admin/services/admin.service";
+import { INITIAL_DEMO_RIDERS, type DeliveryRider } from "../../components/admin-delivery";
 
 interface AdminOrderDetailItem {
   id: string;
@@ -78,6 +86,16 @@ interface AdminOrderDetail {
   createdAt: string;
   customerId: string;
   sellerId: string;
+  carrierId?: string;
+  assignedDriver?: {
+    id?: string;
+    name?: string;
+    phone?: string;
+    plateNumber?: string;
+    vehicleType?: string;
+    zone?: string;
+    status?: string;
+  } | null;
   txRef?: string;
   payment?: {
     id?: string;
@@ -99,6 +117,7 @@ interface AdminOrderDetail {
     subCity?: string;
     specificLocation?: string;
     phone?: string;
+    assignedDriver?: any;
   };
   customer?: {
     id: string;
@@ -128,11 +147,127 @@ export default function AdminOrderDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [copiedTx, setCopiedTx] = useState(false);
 
+  // Delivery Courier Assignment State
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [selectedDriverId, setSelectedDriverId] = useState("");
+  const [assignmentStatus, setAssignmentStatus] = useState("IN_TRANSIT");
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [driverSearch, setDriverSearch] = useState("");
+  const [fleet, setFleet] = useState<DeliveryRider[]>([]);
+
+  // Load available couriers
+  useEffect(() => {
+    adminDeliveryService
+      .getDeliveryStaff({ limit: 100 })
+      .then((res) => {
+        const rawList = res?.data || [];
+        if (rawList.length > 0) {
+          const mapped: DeliveryRider[] = rawList.map((item: any, idx: number) => ({
+            id: item.userId || item.id || `rd-${idx + 1}`,
+            name: item.fullName || "Delivery Courier",
+            phone: item.alternatePhone || item.phoneNumber || "N/A",
+            email: item.email || "",
+            nationalId: item.nationalIdNumber || `ID-ETH-${700000 + idx}`,
+            zone: item.marketZone || item.subCity || item.city || "Addis Ababa",
+            vehicleType: item.vehicleType || "Motorcycle",
+            vehicleModel: item.specificLocation || item.vehicleModel || "Fleet Vehicle",
+            plateNumber: (item.plateNumber || `AA 3-B${90000 + idx}`).toUpperCase(),
+            drivingLicenseNumber: item.drivingLicenseNumber || `DL-AA-${80000 + idx}`,
+            activeOrdersCount: 0,
+            completionRate: "99.2%",
+            status: item.isAvailable ?? true ? "ON_DUTY" : "OFFLINE",
+            kycStatus: "APPROVED",
+            isVerified: true,
+            isActive: item.isActive ?? true,
+            registeredDate: item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : "2026-09-01",
+          }));
+          setFleet(mapped);
+        } else {
+          setFleet([]);
+        }
+      })
+      .catch((err) => {
+        console.warn("Failed to load delivery staff from database:", err);
+        setFleet([]);
+      });
+  }, []);
+
   const handleCopyTx = (txRef?: string) => {
     if (!txRef) return;
     navigator.clipboard.writeText(txRef);
     setCopiedTx(true);
     setTimeout(() => setCopiedTx(false), 2000);
+  };
+
+  const handleAssignDriver = async (riderId: string) => {
+    if (!order) return;
+    const rider = fleet.find((r) => r.id === riderId);
+    if (!rider) return;
+
+    setIsAssigning(true);
+    try {
+      const assignedDriverData = {
+        id: rider.id,
+        name: rider.name,
+        phone: rider.phone,
+        vehicleType: rider.vehicleType,
+        plateNumber: rider.plateNumber,
+        zone: rider.zone,
+        status: rider.status,
+      };
+
+      await adminDeliveryService.assignOrderDriver(order.id, {
+        carrierId: rider.id,
+        assignedDriver: assignedDriverData,
+        newStatus: assignmentStatus || "IN_TRANSIT",
+      });
+
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              carrierId: rider.id,
+              assignedDriver: assignedDriverData,
+              status: assignmentStatus || "IN_TRANSIT",
+            }
+          : prev
+      );
+
+      toast.success(`Assigned to ${rider.name}!`, {
+        description: `Shipment dispatched to ${rider.vehicleType} (${rider.plateNumber}).`,
+      });
+      setShowAssignModal(false);
+    } catch (err: any) {
+      toast.error("Assignment failed", { description: err?.message });
+    } finally {
+      setIsAssigning(false);
+    }
+  };
+
+  const handleUnassignDriver = async () => {
+    if (!order) return;
+    try {
+      await adminDeliveryService.assignOrderDriver(order.id, {
+        carrierId: null,
+        assignedDriver: null,
+        newStatus: "READY_FOR_PICKUP",
+      });
+
+      setOrder((prev) =>
+        prev
+          ? {
+              ...prev,
+              carrierId: undefined,
+              assignedDriver: null,
+              status: "READY_FOR_PICKUP",
+            }
+          : prev
+      );
+
+      toast.success("Driver unassigned from order");
+    } catch (err: any) {
+      toast.error("Failed to unassign driver", { description: err?.message });
+    }
   };
 
   useEffect(() => {
@@ -210,6 +345,9 @@ export default function AdminOrderDetailPage() {
           };
         });
 
+        const rawDriver = found.assignedDriver || found.deliveryAddress?.assignedDriver || null;
+        const carrierId = found.carrierId || rawDriver?.id || undefined;
+
         const normalized: AdminOrderDetail = {
           id: found.id,
           orderNumber: found.orderNumber,
@@ -221,6 +359,8 @@ export default function AdminOrderDetailPage() {
           createdAt: found.createdAt,
           customerId,
           sellerId,
+          carrierId,
+          assignedDriver: rawDriver,
           txRef: found.txRef || paymentData?.transactionReference,
           payment: paymentData || null,
           deliveryAddress: found.deliveryAddress,
@@ -362,7 +502,7 @@ export default function AdminOrderDetailPage() {
             </div>
           </div>
 
-          <div className="mt-6 grid gap-6 xl:grid-cols-3">
+          <div className="mt-6 grid gap-6 md:grid-cols-2 xl:grid-cols-4">
             <div className="rounded-2xl border border-white/10 bg-white/[0.02] p-4 xl:col-span-1">
               <div className="flex items-center gap-2">
                 <User className="h-4 w-4 text-indigo-400" />
@@ -423,6 +563,98 @@ export default function AdminOrderDetailPage() {
                 <p>{order.deliveryAddress?.city || "City not provided"}</p>
                 <p>{order.deliveryAddress?.subCity || "Subcity not provided"}</p>
                 <p>{order.deliveryAddress?.specificLocation || "Specific location not provided"}</p>
+              </div>
+            </div>
+
+            {/* Courier & Task Assignment Card */}
+            <div className="rounded-2xl border border-indigo-500/30 bg-indigo-500/[0.04] p-4 xl:col-span-1 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bike className="h-4 w-4 text-cyan-400" />
+                    <h2 className="text-sm font-semibold text-white">Assigned Courier</h2>
+                  </div>
+                  {order.assignedDriver || order.carrierId ? (
+                    <span className="rounded-full bg-indigo-500/20 px-2 py-0.5 text-[10px] font-semibold text-indigo-300 border border-indigo-500/30">
+                      Assigned
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] font-semibold text-amber-300 border border-amber-500/30">
+                      Unassigned
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-4 space-y-2 text-sm text-zinc-300">
+                  {order.assignedDriver || order.carrierId ? (
+                    <>
+                      <div>
+                        <p className="text-[10px] uppercase tracking-[0.16em] text-zinc-500">Driver Name</p>
+                        <p className="mt-0.5 font-semibold text-white">
+                          {order.assignedDriver?.name || "Assigned Driver"}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Phone className="h-3.5 w-3.5 text-zinc-400" />
+                        <span className="font-mono">{order.assignedDriver?.phone || "N/A"}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Truck className="h-3.5 w-3.5 text-indigo-400" />
+                        <span className="truncate">
+                          {order.assignedDriver?.vehicleType || "Fleet"} · <strong className="font-mono text-white">{order.assignedDriver?.plateNumber || order.carrierId}</strong>
+                        </span>
+                      </div>
+                      {order.assignedDriver?.zone && (
+                        <div className="flex items-center gap-2 text-xs text-cyan-300">
+                          <MapPin className="h-3.5 w-3.5 text-cyan-400" />
+                          <span className="truncate">{order.assignedDriver.zone}</span>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="py-2 text-center text-xs text-amber-300">
+                      <p className="font-medium">No courier assigned yet</p>
+                      <p className="text-[11px] text-zinc-400 mt-1">
+                        Dispatch this order to a delivery staff member.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4 pt-3 border-t border-white/10 flex items-center gap-2">
+                {order.assignedDriver || order.carrierId ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSelectedDriverId(order.carrierId || order.assignedDriver?.id || "");
+                        setShowAssignModal(true);
+                      }}
+                      className="flex-1 rounded-xl bg-indigo-600/30 border border-indigo-500/40 py-1.5 text-xs font-semibold text-indigo-200 hover:bg-indigo-600/40 text-center cursor-pointer"
+                    >
+                      Change Driver
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUnassignDriver}
+                      className="rounded-xl bg-rose-500/15 border border-rose-500/30 px-3 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/25 cursor-pointer"
+                    >
+                      Unassign
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDriverId("");
+                      setShowAssignModal(true);
+                    }}
+                    className="w-full rounded-xl bg-gradient-to-r from-indigo-500 to-cyan-600 py-2 text-xs font-bold text-white shadow-md shadow-indigo-500/25 hover:brightness-110 cursor-pointer"
+                  >
+                    + Assign Delivery Courier
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -579,6 +811,199 @@ export default function AdminOrderDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ASSIGN COURIER MODAL */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-150">
+          <div className="relative w-full max-w-xl rounded-2xl border border-indigo-500/30 bg-[#0f172a] p-5 shadow-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-white/10 shrink-0">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/30">
+                  <Truck className="h-5 w-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white">
+                    Assign Delivery Courier (አሽከርካሪ መድብ)
+                  </h3>
+                  <p className="text-xs text-zinc-400">
+                    Order <span className="font-mono font-bold text-cyan-300">#{order.orderNumber}</span> · ETB {Number(order.totalAmount || 0).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedDriverId("");
+                }}
+                className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white cursor-pointer"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Status Selection */}
+            <div className="mt-3 shrink-0">
+              <label className="block text-[11px] font-medium text-zinc-300 mb-1">
+                Set Delivery Status upon Assignment:
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setAssignmentStatus("IN_TRANSIT")}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all cursor-pointer ${
+                    assignmentStatus === "IN_TRANSIT"
+                      ? "border-amber-500 bg-amber-500/15 text-amber-300"
+                      : "border-white/10 bg-black/40 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Bike className="h-3.5 w-3.5" />
+                  <span>IN_TRANSIT (በማጓጓዝ ላይ)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAssignmentStatus("READY_FOR_PICKUP")}
+                  className={`flex items-center justify-center gap-1.5 rounded-lg border py-2 text-xs font-semibold transition-all cursor-pointer ${
+                    assignmentStatus === "READY_FOR_PICKUP"
+                      ? "border-cyan-500 bg-cyan-500/15 text-cyan-300"
+                      : "border-white/10 bg-black/40 text-zinc-400 hover:text-white"
+                  }`}
+                >
+                  <Package className="h-3.5 w-3.5" />
+                  <span>READY_FOR_PICKUP (ለመጫን ዝግጁ)</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Search Courier */}
+            <div className="mt-3 shrink-0">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-400" />
+                <input
+                  type="text"
+                  value={driverSearch}
+                  onChange={(e) => setDriverSearch(e.target.value)}
+                  placeholder="Search fleet by name, vehicle, plate, or zone..."
+                  className="w-full rounded-xl border border-white/10 bg-black/40 pl-9 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-indigo-500"
+                />
+              </div>
+            </div>
+
+            {/* Drivers List */}
+            <div className="mt-3 flex-1 overflow-y-auto space-y-2 pr-1">
+              <p className="text-[11px] text-zinc-400 font-medium px-1">
+                Select Courier to Dispatch ({fleet.length} in fleet):
+              </p>
+              {fleet
+                .filter((r) => {
+                  if (!driverSearch.trim()) return true;
+                  const q = driverSearch.toLowerCase();
+                  return (
+                    r.name.toLowerCase().includes(q) ||
+                    r.phone.toLowerCase().includes(q) ||
+                    r.plateNumber.toLowerCase().includes(q) ||
+                    r.vehicleType.toLowerCase().includes(q) ||
+                    r.zone.toLowerCase().includes(q)
+                  );
+                })
+                .map((rider) => {
+                  const isSelected = selectedDriverId === rider.id;
+                  const isCurrentCarrier =
+                    order.carrierId === rider.id ||
+                    order.assignedDriver?.id === rider.id;
+
+                  return (
+                    <div
+                      key={rider.id}
+                      onClick={() => setSelectedDriverId(rider.id)}
+                      className={`flex items-center justify-between rounded-xl border p-2.5 transition-all cursor-pointer ${
+                        isSelected
+                          ? "border-indigo-500 bg-indigo-500/15 ring-1 ring-indigo-500/50"
+                          : "border-white/10 bg-black/30 hover:border-white/20 hover:bg-white/[0.02]"
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+                            isSelected
+                              ? "bg-indigo-500 text-white"
+                              : "bg-white/10 text-zinc-300"
+                          }`}
+                        >
+                          <Bike className="h-4 w-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-semibold text-xs text-white truncate">
+                              {rider.name}
+                            </span>
+                            {isCurrentCarrier && (
+                              <span className="rounded bg-cyan-500/20 px-1.5 py-0.2 text-[9px] font-bold text-cyan-300 border border-cyan-500/30">
+                                Current Assignee
+                              </span>
+                            )}
+                            <span
+                              className={`rounded-full px-1.5 py-0.2 text-[9px] font-medium border ${
+                                rider.status === "ON_DUTY"
+                                  ? "bg-emerald-500/15 border-emerald-500/30 text-emerald-300"
+                                  : rider.status === "IN_TRANSIT"
+                                  ? "bg-amber-500/15 border-amber-500/30 text-amber-300"
+                                  : "bg-zinc-500/15 border-zinc-500/30 text-zinc-400"
+                              }`}
+                            >
+                              {rider.status.replace("_", " ")}
+                            </span>
+                          </div>
+                          <p className="text-[10.5px] text-zinc-400 truncate">
+                            <span className="font-mono font-bold text-indigo-300">{rider.plateNumber}</span> ({rider.vehicleType}) · {rider.zone}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="text-right shrink-0 ml-2">
+                        <span className="text-[11px] font-mono text-zinc-400">
+                          {rider.phone}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Action Buttons */}
+            <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAssignModal(false);
+                  setSelectedDriverId("");
+                }}
+                className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!selectedDriverId || isAssigning}
+                onClick={() => handleAssignDriver(selectedDriverId)}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-500/25 hover:brightness-110 active:scale-[0.99] cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isAssigning ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>Assigning...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3.5 w-3.5" />
+                    <span>Confirm & Assign Driver (አሽከርካሪ መድብ)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

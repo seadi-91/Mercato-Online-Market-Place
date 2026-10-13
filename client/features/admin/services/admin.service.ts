@@ -285,6 +285,71 @@ export const adminDeliveryService = {
   ): Promise<any> => {
     return api.patch(`${BASE}/delivery/${userId}`, dto);
   },
+
+  getDriverOrders: async (
+    deliveryStaffId: string,
+    params: { page?: number; limit?: number; status?: string } = {}
+  ): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> => {
+    try {
+      const qs = new URLSearchParams();
+      if (params.page) qs.set('page', String(params.page));
+      if (params.limit) qs.set('limit', String(params.limit));
+      if (params.status && params.status !== 'ALL') qs.set('status', params.status);
+      const query = qs.toString();
+      return await api.get(`${BASE}/delivery/${deliveryStaffId}/orders${query ? `?${query}` : ''}`);
+    } catch {
+      // Fallback to Next.js API orders
+      const fb = await fetch(`/api/orders`);
+      if (fb.ok) {
+        const json = await fb.json();
+        const allOrders: any[] = json.orders || [];
+        const filtered = allOrders.filter(
+          (o) =>
+            o.carrierId === deliveryStaffId ||
+            o.deliveryAddress?.assignedDriver?.id === deliveryStaffId ||
+            o.deliveryAddress?.assignedDriver?.userId === deliveryStaffId
+        );
+        return {
+          data: filtered,
+          total: filtered.length,
+          page: 1,
+          limit: 50,
+          totalPages: 1,
+        };
+      }
+      return { data: [], total: 0, page: 1, limit: 20, totalPages: 0 };
+    }
+  },
+
+  assignOrderDriver: async (
+    orderId: string,
+    payload: {
+      carrierId?: string | null;
+      assignedDriver?: any;
+      newStatus?: string;
+    }
+  ): Promise<any> => {
+    try {
+      return await api.patch(`${BASE}/orders/${orderId}/assign`, payload);
+    } catch {
+      // Fallback to Next.js API
+      const res = await fetch('/api/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          carrierId: payload.carrierId,
+          assignedDriver: payload.assignedDriver,
+          newStatus: payload.newStatus,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to assign driver to order');
+      }
+      return await res.json();
+    }
+  },
 };
 
 export interface PendingPayoutItem {
@@ -370,6 +435,47 @@ export const adminDisputesService = {
     bankAccountHolderName: string;
   }): Promise<any> => {
     return api.post(`${BASE}/payments/release-payout`, dto);
+  },
+};
+
+export interface AssignedDriverInfo {
+  id: string;
+  name: string;
+  phone?: string;
+  vehicleType?: string;
+  vehicleModel?: string;
+  plateNumber?: string;
+  zone?: string;
+  status?: string;
+}
+
+export const adminOrderService = {
+  assignDriverToOrder: async (
+    orderId: string,
+    driver: AssignedDriverInfo | null,
+    newStatus?: string,
+  ): Promise<any> => {
+    const payload = {
+      orderId,
+      carrierId: driver ? driver.id : null,
+      assignedDriver: driver,
+      ...(newStatus ? { newStatus } : {}),
+    };
+
+    try {
+      return await api.patch(`${BASE}/orders/${orderId}/assign`, payload);
+    } catch (apiErr) {
+      console.warn("API gateway /admin/orders assign fallback to /api/orders:", apiErr);
+      const res = await fetch('/api/orders', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        throw new Error('Failed to assign driver in backend database');
+      }
+      return await res.json();
+    }
   },
 };
 
