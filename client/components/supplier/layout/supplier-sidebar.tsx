@@ -31,6 +31,7 @@ import {
   ExternalLink,
   ShoppingBag,
   PackageCheck,
+  GitBranch,
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -117,8 +118,8 @@ export function SupplierSidebar() {
       items: [
         { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
         { id: "products", label: "Products", icon: Package },
-        { id: "inventory", label: "Inventory", icon: Boxes },
-        { id: "pricing", label: "Wholesale Pricing", icon: DollarSign },
+        { id: "inventory", label: "Manage Inventory", icon: Boxes },
+        { id: "pricing", label: "Set MOQ & Wholesale Pricing", icon: DollarSign },
       ],
     },
     {
@@ -140,13 +141,13 @@ export function SupplierSidebar() {
         },
         {
           id: "rfqs",
-          label: "RFQs",
+          label: "Receive RFQs",
           icon: FileQuestion,
           badge: unreadRFQs,
           badgeColor: "bg-emerald-100 text-emerald-800",
         },
-        { id: "quotations", label: "Quotations", icon: FileText },
-        { id: "negotiations", label: "Negotiations", icon: MessagesSquare },
+        { id: "quotations", label: "Send Quotations", icon: FileText },
+        { id: "negotiations", label: "Negotiate Price", icon: MessagesSquare },
         {
           id: "orders",
           label: "Orders",
@@ -154,20 +155,21 @@ export function SupplierSidebar() {
           badge: pendingOrders,
           badgeColor: "bg-amber-100 text-amber-800",
         },
-        { id: "customers", label: "Customers (CRM)", icon: Users },
+        { id: "customers", label: "Customers & Buyers (CRM)", icon: Users },
       ],
     },
     {
       groupTitle: "Logistics & Fulfillment",
       items: [
-        { id: "warehouse", label: "Warehouse", icon: Warehouse },
-        { id: "shipments", label: "Shipments", icon: Truck },
+        { id: "warehouse", label: "Warehouses & Depots", icon: Warehouse },
+        { id: "branches", label: "Branch Management (Hubs)", icon: GitBranch },
+        { id: "shipments", label: "Prepare Shipments", icon: Truck },
       ],
     },
     {
       groupTitle: "Finance & Sales",
       items: [
-        { id: "invoices", label: "Invoices", icon: Receipt },
+        { id: "invoices", label: "Create Invoices", icon: Receipt },
         { id: "payments", label: "Payments", icon: CreditCard },
         { id: "promotions", label: "Promotions", icon: Tag },
       ],
@@ -196,8 +198,8 @@ export function SupplierSidebar() {
     {
       groupTitle: "Business Management",
       items: [
-        { id: "team", label: "Staff & Fleet (Drivers)", icon: Users, badge: staffList.length },
-        { id: "profile", label: "Business Profile", icon: Building2 },
+        { id: "team", label: "Staff & Team (Create Staff)", icon: Users, badge: staffList.length },
+        { id: "profile", label: "Company Profile & Verification", icon: Building2 },
         { id: "settings", label: "Settings", icon: Settings },
       ],
     },

@@ -294,6 +294,46 @@ export function removeStoredDeletedSourcingOrderId(id: string): void {
   }
 }
 
+export function doesOrderBelongToSupplier(
+  ord: SourcingOrder | any,
+  targetUserId?: string | null,
+  targetEmail?: string | null,
+  targetPhone?: string | null,
+  targetBusinessName?: string | null
+): boolean {
+  if (!ord) return false;
+  if (!targetUserId && !targetEmail && !targetPhone && !targetBusinessName) {
+    return false;
+  }
+
+  const ordBuyerId = ord.buyerId || ord.customerId;
+  const ordBuyerEmail = ord.buyerEmail;
+  const ordBuyerPhone = ord.buyerPhone;
+  const ordBuyerName = ord.buyerName;
+
+  // 1. Direct ID match
+  if (targetUserId && ordBuyerId && ordBuyerId === targetUserId) {
+    return true;
+  }
+
+  // 2. Direct Email match
+  if (targetEmail && ordBuyerEmail && ordBuyerEmail.toLowerCase() === targetEmail.toLowerCase()) {
+    return true;
+  }
+
+  // 3. Direct Phone match
+  if (targetPhone && ordBuyerPhone && (ordBuyerPhone === targetPhone || ordBuyerPhone.includes(targetPhone.slice(-8)))) {
+    return true;
+  }
+
+  // 4. Direct Business Name match
+  if (targetBusinessName && ordBuyerName && ordBuyerName.toLowerCase() === targetBusinessName.toLowerCase()) {
+    return true;
+  }
+
+  return false;
+}
+
 export function getStoredSourcingOrders(): SourcingOrder[] {
   if (typeof window === "undefined") return [];
   try {
@@ -304,12 +344,21 @@ export function getStoredSourcingOrders(): SourcingOrder[] {
     if (raw !== null) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        const hasMock = parsed.some((o: any) => o.id === "src-ord-01" || o.orderNumber === "PO-ETH-2026-8831");
-        if (hasMock) {
-          localStorage.removeItem(key);
-          return [];
+        const user = useAuthStore.getState().user;
+        const targetUserId = user?.id || (user as any)?.userId;
+        const targetEmail = user?.email;
+        const targetPhone = user?.phoneNumber;
+        const targetName = (user as any)?.shopName || user?.name;
+
+        // Strictly purge any orders that don't belong to this supplier
+        const valid = parsed.filter((ord: any) =>
+          doesOrderBelongToSupplier(ord, targetUserId, targetEmail, targetPhone, targetName)
+        );
+
+        if (valid.length !== parsed.length) {
+          localStorage.setItem(key, JSON.stringify(valid));
         }
-        return parsed;
+        return valid;
       }
     }
   } catch (err) {
@@ -367,7 +416,7 @@ export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
     status = "pending_payment";
   }
 
-  const cleanOrderNum = dbOrder.orderNumber?.startsWith("PO-")
+  const cleanOrderNum = dbOrder.orderNumber?.startsWith("PO-") || dbOrder.orderNumber?.startsWith("MX-")
     ? dbOrder.orderNumber
     : dbOrder.orderNumber
       ? `PO-${dbOrder.orderNumber}`
@@ -418,7 +467,7 @@ export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
         : String(deliveryAddr),
     deliveryEstimateDays: 2,
     poReference: dbOrder.txRef || cleanOrderNum,
-    paymentMethod: "chapa",
+    paymentMethod: dbOrder.paymentMethod || "chapa",
     paymentReference: dbOrder.txRef,
     chapaTransactionId: dbOrder.txRef,
     escrowStatus:
@@ -432,9 +481,17 @@ export function mapDbOrderToSourcingOrder(dbOrder: any): SourcingOrder {
       .toUpperCase()}`,
     driverName: "Ato Dawit Mengistu (MercatoX Logistics)",
     driverPhone: "+251 91 233 8819",
-    vehiclePlate: "Plate 3-AA-99102",
     createdAt: dbOrder.createdAt || new Date().toISOString(),
     handoverOtp: "8492",
+    buyerId:
+      (deliveryAddr.buyerId && deliveryAddr.buyerId !== "609563b9-3c51-4b25-80c2-a3b238ee929f")
+        ? deliveryAddr.buyerId
+        : (dbOrder.customerId && dbOrder.customerId !== "609563b9-3c51-4b25-80c2-a3b238ee929f")
+          ? dbOrder.customerId
+          : deliveryAddr.buyerId || dbOrder.customerId || deliveryAddr.customerId,
+    buyerEmail: deliveryAddr.buyerEmail || deliveryAddr.email,
+    buyerPhone: deliveryAddr.buyerPhone || deliveryAddr.phone,
+    buyerName: deliveryAddr.buyerName || deliveryAddr.recipientName || deliveryAddr.fullName,
   };
 }
 
@@ -751,7 +808,7 @@ interface SupplierState {
     paymentMethod: "chapa" | "telebirr" | "cbe_birr" | "bank_transfer" | "escrow_wallet",
     paymentRef: string,
     slipUrl?: string
-  ) => void;
+  ) => Promise<void>;
   confirmSourcingDelivery: (orderId: string, otp: string) => void;
   deleteSourcingOrder: (orderId: string) => void;
   restoreSourcingOrder: (order: SourcingOrder) => void;
@@ -1111,18 +1168,22 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
 
   addProduct: async (productData, categoryId) => {
     try {
-      let finalCatId = categoryId;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let finalCatId = categoryId && uuidRegex.test(categoryId) ? categoryId : undefined;
+
       if (!finalCatId) {
         try {
           const categories = await sellerService.getCategories(false);
+          const targetName = (productData.category || "").toLowerCase();
           const matched = categories.find(
             (c) =>
-              c.name.toLowerCase() === productData.category.toLowerCase() ||
-              c.slug.toLowerCase().includes(productData.category.toLowerCase().slice(0, 5))
+              c.name.toLowerCase() === targetName ||
+              c.slug.toLowerCase().includes(targetName.slice(0, 5)) ||
+              (categoryId && c.name.toLowerCase() === categoryId.toLowerCase())
           );
-          if (matched) {
+          if (matched && uuidRegex.test(matched.id)) {
             finalCatId = matched.id;
-          } else if (categories.length > 0) {
+          } else if (categories.length > 0 && uuidRegex.test(categories[0].id)) {
             finalCatId = categories[0].id;
           }
         } catch {
@@ -1130,8 +1191,9 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         }
       }
 
-      if (!finalCatId) {
-        finalCatId = "7900db4e-8aa5-4a14-8c3e-42be76cafd5f";
+      // Safe fallback to Agricultural Commodities category in PostgreSQL
+      if (!finalCatId || !uuidRegex.test(finalCatId)) {
+        finalCatId = "9214d348-5336-4da8-aeb4-46a7dc86e9c6";
       }
 
       const input = mapB2BToCreateInput(productData, finalCatId);
@@ -1147,17 +1209,20 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       toast.success(`Product "${productData.name}" created successfully!`);
       return b2bProduct;
     } catch (err: any) {
-      console.error("[SupplierStore] Error creating product on backend:", err);
+      console.warn("[SupplierStore] Error creating product on backend:", err);
       const message =
         err?.response?.data?.message || err?.message || "Failed to save product on database";
       toast.error(Array.isArray(message) ? message.join(", ") : message);
-      throw err;
+      return null;
     }
   },
 
   updateProduct: async (id, updated, categoryId) => {
     try {
-      const input = mapB2BToUpdateInput(updated, categoryId);
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const validCatId = categoryId && uuidRegex.test(categoryId) ? categoryId : undefined;
+
+      const input = mapB2BToUpdateInput(updated, validCatId);
       const saved = await sellerService.updateProduct(id, input);
       const b2bProduct = mapBackendProductToB2B(saved);
 
@@ -1169,11 +1234,11 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       toast.success(`Product "${b2bProduct.name}" updated successfully!`);
       return b2bProduct;
     } catch (err: any) {
-      console.error("[SupplierStore] Error updating product:", err);
+      console.warn("[SupplierStore] Error updating product:", err);
       const message =
         err?.response?.data?.message || err?.message || "Failed to update product in database";
       toast.error(Array.isArray(message) ? message.join(", ") : message);
-      throw err;
+      return null;
     }
   },
 
@@ -2478,14 +2543,44 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   fetchSourcingOrders: async () => {
     set({ isLoadingSourcingOrders: true });
     try {
-      const res = await fetch("/api/orders");
+      const authUser = useAuthStore.getState().user;
+      const profile = get().profile;
+      const targetUserId = authUser?.id || (authUser as any)?.userId || profile?.id;
+      const targetEmail = authUser?.email || profile?.email;
+      const targetPhone = authUser?.phoneNumber || (authUser as any)?.phone || profile?.phone;
+      const targetBusinessName = profile?.businessName || authUser?.name || authUser?.shopName;
+
+      if (!targetUserId && !targetEmail && !targetPhone) {
+        set({ sourcingOrders: [], isLoadingSourcingOrders: false });
+        return [];
+      }
+
+      const queryParams = new URLSearchParams();
+      if (targetUserId) {
+        queryParams.set("customerId", targetUserId);
+      }
+      if (targetEmail) {
+        queryParams.set("email", targetEmail);
+      }
+      if (targetPhone) {
+        queryParams.set("phone", targetPhone);
+      }
+
+      const res = await fetch(`/api/orders?${queryParams.toString()}`);
       const data = await res.json();
       let dbOrders: SourcingOrder[] = [];
       if (data.success && Array.isArray(data.orders)) {
-        dbOrders = data.orders.map(mapDbOrderToSourcingOrder);
+        dbOrders = data.orders
+          .map(mapDbOrderToSourcingOrder)
+          .filter((ord: SourcingOrder) =>
+            doesOrderBelongToSupplier(ord, targetUserId, targetEmail, targetPhone, targetBusinessName)
+          );
       }
 
-      const currentLocal = getStoredSourcingOrders();
+      // Filter local orders so other users' cached orders are completely eliminated
+      const currentLocal = getStoredSourcingOrders().filter((ord) =>
+        doesOrderBelongToSupplier(ord, targetUserId, targetEmail, targetPhone, targetBusinessName)
+      );
       const deletedIds = new Set(getStoredDeletedSourcingOrderIds());
       const idMap = new Map<string, SourcingOrder>();
       const orderNumToId = new Map<string, string>();
@@ -2520,7 +2615,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       const uniqueList: SourcingOrder[] = [];
       const seenIds = new Set<string>();
       for (const o of Array.from(idMap.values())) {
-        if (o && o.id && !seenIds.has(o.id)) {
+        if (o && o.id && !seenIds.has(o.id) && doesOrderBelongToSupplier(o, targetUserId, targetEmail, targetPhone, targetBusinessName)) {
           seenIds.add(o.id);
           uniqueList.push(o);
         }
@@ -2533,7 +2628,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     } catch (err) {
       console.error("[SupplierStore] Error fetching sourcing orders from DB:", err);
       set({ isLoadingSourcingOrders: false });
-      return get().sourcingOrders;
+      return [];
     }
   },
 
@@ -2542,11 +2637,21 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     const orderNumber = `PO-ETH-2026-${Math.floor(1000 + Math.random() * 9000)}`;
     const now = new Date().toISOString();
     const handoverOtp = String(Math.floor(1000 + Math.random() * 9000));
+    const authUser = useAuthStore.getState().user;
+    const profile = get().profile;
+    const targetUserId = authUser?.id || (authUser as any)?.userId || profile?.id;
+    const targetEmail = authUser?.email || profile?.email;
+    const targetPhone = authUser?.phoneNumber || (authUser as any)?.phone || profile?.phone;
+    const targetName = profile?.businessName || authUser?.name || authUser?.shopName;
 
     const newOrder: SourcingOrder = {
       ...orderPayload,
       id: orderId,
       orderNumber,
+      buyerId: targetUserId,
+      buyerEmail: targetEmail,
+      buyerPhone: targetPhone,
+      buyerName: targetName,
       status: "pending_payment",
       escrowStatus: "awaiting_deposit",
       createdAt: now,
@@ -2559,15 +2664,17 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
 
     // Asynchronously save to PostgreSQL Database (mercatox_order_db)
     try {
-      const authUser = useAuthStore.getState().user;
       fetch("/api/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          customerId: authUser?.id || "609563b9-3c51-4b25-80c2-a3b238ee929f",
+          orderNumber: newOrder.orderNumber,
+          customerId: targetUserId || "609563b9-3c51-4b25-80c2-a3b238ee929f",
           sellerId: newOrder.supplierId || "59972f9f-49ec-4592-9113-ba70a0aa3a52",
           txRef: newOrder.paymentReference || `MX-CHAPA-${newOrder.orderNumber}`,
           paymentMethod: newOrder.paymentMethod || "CHAPA",
+          status: "PENDING",
+          paymentStatus: "UNPAID",
           items: [
             {
               id: newOrder.productId,
@@ -2577,9 +2684,15 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
               unitPrice: newOrder.unitPrice,
               quantity: newOrder.quantity,
               totalPrice: newOrder.subtotal,
+              unitOfMeasure: newOrder.unit || "PIECE",
+              image: newOrder.productImage,
             },
           ],
           deliveryAddress: {
+            buyerId: targetUserId,
+            buyerEmail: targetEmail,
+            buyerPhone: targetPhone,
+            buyerName: targetName,
             warehouseId: newOrder.destinationWarehouseId,
             warehouseName: newOrder.destinationWarehouseName,
             address: newOrder.deliveryAddress,
@@ -2601,20 +2714,31 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     return newOrder;
   },
 
-  paySourcingOrder: (orderId, paymentMethod, paymentRef, slipUrl) => {
+  paySourcingOrder: async (orderId, paymentMethod, paymentRef, slipUrl) => {
     const now = new Date().toISOString();
     let updatedOrder: SourcingOrder | null = null;
+    const authUser = useAuthStore.getState().user;
+    const profile = get().profile;
+    const targetUserId = authUser?.id || (authUser as any)?.userId || profile?.id;
+    const targetEmail = authUser?.email || profile?.email;
+    const targetPhone = authUser?.phoneNumber || (authUser as any)?.phone || profile?.phone;
+    const targetName = profile?.businessName || authUser?.name || authUser?.shopName;
+
     const updated = get().sourcingOrders.map((ord) => {
       if (ord.id !== orderId) return ord;
       updatedOrder = {
         ...ord,
         status: "escrow_locked" as const,
         escrowStatus: "funds_locked" as const,
-        paymentMethod,
+        paymentMethod: paymentMethod as any,
         paymentReference: paymentRef,
         chapaTransactionId: paymentRef,
         bankDepositSlipUrl: slipUrl,
         paymentDate: now,
+        buyerId: ord.buyerId || targetUserId,
+        buyerEmail: ord.buyerEmail || targetEmail,
+        buyerPhone: ord.buyerPhone || targetPhone,
+        buyerName: ord.buyerName || targetName,
       };
       return updatedOrder;
     });
@@ -2622,19 +2746,26 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
     saveStoredSourcingOrders(updated);
     set({ sourcingOrders: updated });
 
-    // Asynchronously update order in PostgreSQL database & payment service
+    // Synchronously / reliably save to PostgreSQL Database (mercatox_order_db) & payment service
     try {
       const target = updatedOrder || get().sourcingOrders.find((o) => o.id === orderId);
       if (target) {
-        const authUser = useAuthStore.getState().user;
-        fetch("/api/orders", {
+        const orderBuyerId = target.buyerId || targetUserId;
+        const orderBuyerEmail = target.buyerEmail || targetEmail;
+        const orderBuyerPhone = target.buyerPhone || targetPhone;
+        const orderBuyerName = target.buyerName || targetName;
+
+        const res = await fetch("/api/orders", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            customerId: authUser?.id || "609563b9-3c51-4b25-80c2-a3b238ee929f",
+            orderNumber: target.orderNumber,
+            customerId: orderBuyerId || "609563b9-3c51-4b25-80c2-a3b238ee929f",
             sellerId: target.supplierId || "59972f9f-49ec-4592-9113-ba70a0aa3a52",
             txRef: paymentRef,
             paymentMethod: paymentMethod.toUpperCase(),
+            status: "CONFIRMED",
+            paymentStatus: "PAID",
             items: [
               {
                 id: target.productId,
@@ -2644,9 +2775,15 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
                 unitPrice: target.unitPrice,
                 quantity: target.quantity,
                 totalPrice: target.subtotal,
+                unitOfMeasure: target.unit || "PIECE",
+                image: target.productImage,
               },
             ],
             deliveryAddress: {
+              buyerId: orderBuyerId,
+              buyerEmail: orderBuyerEmail,
+              buyerPhone: orderBuyerPhone,
+              buyerName: orderBuyerName,
               warehouseId: target.destinationWarehouseId,
               warehouseName: target.destinationWarehouseName,
               address: target.deliveryAddress,
@@ -2657,12 +2794,19 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
             totalAmount: target.totalETB,
             notes: `Paid Sourcing Order #${target.orderNumber}`,
           }),
-        }).catch((dbErr) => {
-          console.warn("[SupplierStore] Asynchronous DB payment sync notice:", dbErr);
         });
+        const resData = await res.json();
+        console.log("[SupplierStore] Sourcing order successfully persisted to database:", target.orderNumber, resData);
       }
     } catch (e) {
       console.warn("[SupplierStore] Payment sync to DB call failed:", e);
+    }
+
+    // Refresh orders from DB to ensure state is synchronized and displays on My Orders
+    try {
+      await get().fetchSourcingOrders();
+    } catch (fetchErr) {
+      console.warn("[SupplierStore] Post-payment sourcing orders refresh:", fetchErr);
     }
 
     toast.success(`Payment verified! ETB escrow funds locked safely with MercatoX Protection.`);

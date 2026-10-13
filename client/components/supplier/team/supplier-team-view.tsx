@@ -475,7 +475,7 @@ export function SupplierTeamView() {
                   : "border border-transparent text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              All Regional Hubs (3)
+              All Regional Hubs ({warehouses.length})
             </button>
 
             {warehouses.map((wh) => (

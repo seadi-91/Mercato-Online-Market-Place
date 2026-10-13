@@ -89,9 +89,7 @@ export function SupplierCreateProductView() {
   const [moq, setMoq] = useState<number>(500);
   const [unit, setUnit] = useState("KG");
   const [tierPricing, setTierPricing] = useState<TierPrice[]>([
-    { id: "t-1", minQty: 500, maxQty: 1999, unitPrice: 480, discountPercentage: 0 },
-    { id: "t-2", minQty: 2000, maxQty: 4999, unitPrice: 455, discountPercentage: 5.2 },
-    { id: "t-3", minQty: 5000, maxQty: null, unitPrice: 425, discountPercentage: 11.45 },
+    { id: "t-1", minQty: 500, maxQty: null, unitPrice: 480, discountPercentage: 0 },
   ]);
 
   // Step 3: Inventory & Warehouse
@@ -201,6 +199,16 @@ export function SupplierCreateProductView() {
       setUnit(editingProduct.unit || "KG");
       if (editingProduct.tierPricing && editingProduct.tierPricing.length > 0) {
         setTierPricing(editingProduct.tierPricing);
+      } else {
+        setTierPricing([
+          {
+            id: "t-1",
+            minQty: editingProduct.moq || 1,
+            maxQty: null,
+            unitPrice: editingProduct.basePrice || 0,
+            discountPercentage: 0,
+          },
+        ]);
       }
       setInitialStock(editingProduct.stock || 0);
       if (editingProduct.warehouseLocation) {
@@ -361,10 +369,26 @@ export function SupplierCreateProductView() {
 
   // Sample Presets for Fast Demo Filling
   const fillSampleCommodity = (type: "coffee" | "teff" | "sesame" | "cement") => {
+    const syncCategory = (catName: string) => {
+      setCategory(catName);
+      if (dbCategories.length > 0) {
+        const matched = dbCategories.find(
+          (c) =>
+            c.name.toLowerCase() === catName.toLowerCase() ||
+            c.slug.toLowerCase().includes(catName.toLowerCase().slice(0, 5))
+        );
+        if (matched) {
+          setSelectedCategoryId(matched.id);
+        }
+      }
+    };
+
+    const randomSuffix = Math.floor(100 + Math.random() * 900);
+
     if (type === "coffee") {
       setName("Yirgacheffe Grade 1 Speciality Washed Arabica Coffee");
-      setSku("ETH-COF-YRG-001");
-      setCategory("Agricultural Commodities");
+      setSku(`ETH-COF-YRG-${randomSuffix}`);
+      syncCategory("Agricultural Commodities");
       setSubcategory("Specialty Coffee");
       setBrand("Abyssinia Premium Exporters");
       setOrigin("Yirgacheffe, Gedeo Zone, SNNPR");
@@ -374,12 +398,15 @@ export function SupplierCreateProductView() {
       setBasePrice(480);
       setMoq(500);
       setUnit("KG");
+      setTierPricing([
+        { id: "t-1", minQty: 500, maxQty: null, unitPrice: 480, discountPercentage: 0 },
+      ]);
       setInitialStock(15000);
       setGrade("Grade 1 Export (SCA 88+)");
     } else if (type === "teff") {
       setName("Magna White Teff Super Premium Cleaned Grain");
-      setSku("ETH-GRN-TEF-102");
-      setCategory("Grains, Cereals & Teff");
+      setSku(`ETH-GRN-TEF-${randomSuffix}`);
+      syncCategory("Grains, Cereals & Teff");
       setSubcategory("White Teff");
       setBrand("Ada'a Agro Producers");
       setOrigin("Bishoftu / Ada'a Woreda, Oromia");
@@ -389,12 +416,15 @@ export function SupplierCreateProductView() {
       setBasePrice(125);
       setMoq(1000);
       setUnit("KG");
+      setTierPricing([
+        { id: "t-1", minQty: 1000, maxQty: null, unitPrice: 125, discountPercentage: 0 },
+      ]);
       setInitialStock(45000);
       setGrade("ECX Grade A Super Clean");
     } else if (type === "sesame") {
       setName("Humera Grade A Whitish Sesame Seeds");
-      setSku("ETH-OIL-SES-301");
-      setCategory("Oilseeds & Pulses");
+      setSku(`ETH-OIL-SES-${randomSuffix}`);
+      syncCategory("Oilseeds & Pulses");
       setSubcategory("Sesame Seeds");
       setBrand("Tigray Agro Alliance");
       setOrigin("Humera, Tigray Region");
@@ -404,12 +434,15 @@ export function SupplierCreateProductView() {
       setBasePrice(210);
       setMoq(2000);
       setUnit("KG");
+      setTierPricing([
+        { id: "t-1", minQty: 2000, maxQty: null, unitPrice: 210, discountPercentage: 0 },
+      ]);
       setInitialStock(30000);
       setGrade("Grade A Humera Export Standard");
     } else {
       setName("Muger Ordinary Portland Cement 42.5R");
-      setSku("ETH-CON-CMT-505");
-      setCategory("Construction & Industrial Materials");
+      setSku(`ETH-CON-CMT-${randomSuffix}`);
+      syncCategory("Construction & Industrial Materials");
       setSubcategory("Portland Cement");
       setBrand("Muger Cement Enterprise");
       setOrigin("Muger, Oromia, Ethiopia");
@@ -419,6 +452,9 @@ export function SupplierCreateProductView() {
       setBasePrice(850);
       setMoq(200);
       setUnit("Bags (50kg)");
+      setTierPricing([
+        { id: "t-1", minQty: 200, maxQty: null, unitPrice: 850, discountPercentage: 0 },
+      ]);
       setInitialStock(5000);
       setGrade("ES 1177-1 Strength 42.5R");
     }
@@ -427,23 +463,74 @@ export function SupplierCreateProductView() {
 
   // Tier helpers
   const handleAddTier = () => {
-    const lastTier = tierPricing[tierPricing.length - 1];
-    const newMin = lastTier ? (lastTier.maxQty ? lastTier.maxQty + 1 : 10000) : 1000;
-    setTierPricing([
-      ...tierPricing,
-      {
-        id: `t-${Date.now()}`,
-        minQty: newMin,
-        maxQty: null,
-        unitPrice: Math.round(basePrice * 0.9),
-        discountPercentage: 10,
-      },
-    ]);
+    setTierPricing((prev) => {
+      if (prev.length === 0) {
+        return [
+          {
+            id: `t-${Date.now()}`,
+            minQty: moq || 1,
+            maxQty: null,
+            unitPrice: basePrice || 0,
+            discountPercentage: 0,
+          },
+        ];
+      }
+
+      const updated = [...prev];
+      const lastTier = updated[updated.length - 1];
+      const lastIndex = updated.length - 1;
+
+      let newMin: number;
+      if (lastTier.maxQty && lastTier.maxQty >= lastTier.minQty) {
+        newMin = lastTier.maxQty + 1;
+      } else {
+        // Automatically suggest a logical ceiling for the previous tier
+        const step =
+          lastTier.minQty >= 2000
+            ? 2000
+            : lastTier.minQty >= 500
+            ? 1000
+            : Math.max(50, Math.round(lastTier.minQty * 1.5));
+        const suggestedMax = lastTier.minQty + step - 1;
+        updated[lastIndex] = {
+          ...lastTier,
+          maxQty: suggestedMax,
+        };
+        newMin = suggestedMax + 1;
+      }
+
+      const prevPrice = lastTier.unitPrice || basePrice || 100;
+      const discountedPrice = Math.max(1, Math.round(prevPrice * 0.95));
+      const discountPct =
+        basePrice > 0 && discountedPrice < basePrice
+          ? Number(((1 - discountedPrice / basePrice) * 100).toFixed(1))
+          : 5;
+
+      return [
+        ...updated,
+        {
+          id: `t-${Date.now()}`,
+          minQty: newMin,
+          maxQty: null,
+          unitPrice: discountedPrice,
+          discountPercentage: discountPct,
+        },
+      ];
+    });
+    toast.success("New volume pricing tier added!");
   };
 
   const handleRemoveTier = (id: string) => {
     if (tierPricing.length <= 1) return;
-    setTierPricing(tierPricing.filter((t) => t.id !== id));
+    setTierPricing((prev) => {
+      const filtered = prev.filter((t) => t.id !== id);
+      // If only 1 tier remains and had a maxQty, reset its ceiling to null (no limit)
+      if (filtered.length === 1 && filtered[0].maxQty !== null) {
+        return [{ ...filtered[0], maxQty: null }];
+      }
+      return filtered;
+    });
+    toast.info("Volume tier removed.");
   };
 
   // Next / Previous step validations
@@ -502,8 +589,9 @@ export function SupplierCreateProductView() {
 
     setIsSubmitting(true);
     try {
+      let savedProduct = null;
       if (editingProduct) {
-        await updateProduct(
+        savedProduct = await updateProduct(
           editingProduct.id,
           {
             name,
@@ -531,7 +619,7 @@ export function SupplierCreateProductView() {
           selectedCategoryId || undefined
         );
       } else {
-        await addProduct(
+        savedProduct = await addProduct(
           {
             name,
             sku,
@@ -559,10 +647,13 @@ export function SupplierCreateProductView() {
           selectedCategoryId || undefined
         );
       }
-      setEditingProduct(null);
-      setSubView("default");
+
+      if (savedProduct) {
+        setEditingProduct(null);
+        setSubView("default");
+      }
     } catch (err: any) {
-      console.error("[SupplierCreateProduct] Save failed:", err);
+      console.warn("[SupplierCreateProduct] Save failed:", err);
     } finally {
       setIsSubmitting(false);
     }
@@ -954,7 +1045,23 @@ export function SupplierCreateProductView() {
                       type="number"
                       min={1}
                       value={basePrice}
-                      onChange={(e) => setBasePrice(Number(e.target.value))}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        setBasePrice(val);
+                        setTierPricing((prev) => {
+                          if (prev.length === 1) {
+                            return [{ ...prev[0], unitPrice: val, discountPercentage: 0 }];
+                          }
+                          return prev.map((t, idx) => {
+                            if (idx === 0) return { ...t, unitPrice: val, discountPercentage: 0 };
+                            const discount =
+                              val > 0 && t.unitPrice < val
+                                ? Number(((1 - t.unitPrice / val) * 100).toFixed(1))
+                                : t.discountPercentage;
+                            return { ...t, discountPercentage: discount };
+                          });
+                        });
+                      }}
                       className="w-full rounded-lg border border-white/10 bg-white/[0.04] pl-10 pr-2 py-2 text-xs text-white font-mono font-bold focus:border-indigo-500 focus:outline-hidden"
                       required
                     />
@@ -969,7 +1076,16 @@ export function SupplierCreateProductView() {
                     type="number"
                     min={1}
                     value={moq}
-                    onChange={(e) => setMoq(Number(e.target.value))}
+                    onChange={(e) => {
+                      const val = Number(e.target.value);
+                      setMoq(val);
+                      setTierPricing((prev) => {
+                        if (prev.length === 1) {
+                          return [{ ...prev[0], minQty: val }];
+                        }
+                        return prev;
+                      });
+                    }}
                     className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white font-mono font-bold focus:border-indigo-500 focus:outline-hidden"
                     required
                   />
@@ -994,101 +1110,149 @@ export function SupplierCreateProductView() {
               </div>
 
               {/* Volume Tiers */}
-              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-white">Wholesale Volume Tiers</span>
+              <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 sm:p-4 space-y-3">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2.5">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs sm:text-sm font-bold text-white">Wholesale Volume Tiers</span>
+                      <span className="text-[10px] font-semibold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
+                        {tierPricing.length} {tierPricing.length === 1 ? "Tier (Default)" : "Tiers"}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-zinc-400 mt-0.5">
+                      Base MOQ tier is active by default. Use <span className="text-indigo-400 font-medium">+ Add Tier</span> to incentivize large wholesale buyers with bulk discount rates.
+                    </p>
+                  </div>
+
                   <button
                     type="button"
                     onClick={handleAddTier}
-                    className="inline-flex items-center gap-1 rounded border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[11px] font-semibold text-indigo-300 hover:bg-indigo-500/20 cursor-pointer"
+                    className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-semibold text-indigo-200 hover:bg-indigo-500/25 hover:border-indigo-500/60 transition-all cursor-pointer shadow-xs active:scale-95"
                   >
-                    <Plus className="h-3 w-3" />
+                    <Plus className="h-3.5 w-3.5 text-indigo-400" />
                     <span>Add Tier</span>
                   </button>
                 </div>
 
+                {/* Tier Rows */}
                 <div className="space-y-2">
                   {tierPricing.map((tier, idx) => (
                     <div
                       key={tier.id}
-                      className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 rounded-lg border border-white/5 bg-white/[0.02] p-2 text-xs"
+                      className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 rounded-lg border border-white/5 bg-white/[0.03] p-2.5 sm:p-3 text-xs hover:border-white/10 transition-colors"
                     >
-                      <div className="flex items-center justify-between sm:justify-start gap-1.5">
-                        <span className="font-mono text-indigo-400 font-bold text-[10px] bg-indigo-500/10 px-1.5 py-0.5 rounded">
+                      <div className="flex items-center justify-between sm:justify-start gap-2 shrink-0">
+                        <span className="font-mono text-indigo-400 font-bold text-[10px] bg-indigo-500/10 px-2 py-0.5 rounded border border-indigo-500/20">
                           #{idx + 1}
                         </span>
+                        {idx === 0 && (
+                          <span className="text-[9px] text-zinc-400 font-medium px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/5">
+                            Default Tier
+                          </span>
+                        )}
                         {tierPricing.length > 1 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveTier(tier.id)}
-                            className="sm:hidden p-1 text-zinc-500 hover:text-rose-400"
+                            className="sm:hidden p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                            title="Remove tier"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
 
                       <div className="grid grid-cols-2 gap-2 flex-1">
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-zinc-400">Min:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold text-zinc-400 shrink-0">Min ({unit}):</span>
                           <input
                             type="number"
+                            min={1}
                             value={tier.minQty}
                             onChange={(e) => {
                               const updated = [...tierPricing];
                               updated[idx].minQty = Number(e.target.value);
                               setTierPricing(updated);
                             }}
-                            className="w-full rounded border border-white/10 bg-white/[0.04] px-1.5 py-1 text-xs text-white font-mono"
+                            className="w-full rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-white font-mono focus:border-indigo-500 focus:outline-hidden"
                           />
                         </div>
-                        <div className="flex items-center gap-1">
-                          <span className="text-[10px] text-zinc-400">Max:</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold text-zinc-400 shrink-0">Max ({unit}):</span>
                           <input
                             type="number"
-                            value={tier.maxQty || ""}
-                            placeholder="No limit"
+                            min={tier.minQty}
+                            value={tier.maxQty ?? ""}
+                            placeholder="No limit (∞)"
                             onChange={(e) => {
                               const updated = [...tierPricing];
                               updated[idx].maxQty = e.target.value ? Number(e.target.value) : null;
                               setTierPricing(updated);
                             }}
-                            className="w-full rounded border border-white/10 bg-white/[0.04] px-1.5 py-1 text-xs text-white font-mono placeholder-zinc-600"
+                            className="w-full rounded border border-white/10 bg-white/[0.04] px-2 py-1 text-xs text-white font-mono placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden"
                           />
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between sm:justify-end gap-1.5 shrink-0 pt-1 sm:pt-0">
-                        <span className="text-[10px] text-zinc-400">Price:</span>
-                        <div className="relative">
-                          <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[9px] text-zinc-500 font-mono">
-                            ETB
-                          </span>
-                          <input
-                            type="number"
-                            value={tier.unitPrice}
-                            onChange={(e) => {
-                              const updated = [...tierPricing];
-                              updated[idx].unitPrice = Number(e.target.value);
-                              setTierPricing(updated);
-                            }}
-                            className="w-24 rounded border border-white/10 bg-white/[0.04] pl-8 pr-1.5 py-1 text-xs text-white font-mono font-bold"
-                          />
+                      <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-semibold text-zinc-400">Price:</span>
+                          <div className="relative">
+                            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] text-zinc-500 font-mono font-bold">
+                              ETB
+                            </span>
+                            <input
+                              type="number"
+                              min={1}
+                              value={tier.unitPrice}
+                              onChange={(e) => {
+                                const val = Number(e.target.value);
+                                const updated = [...tierPricing];
+                                const discount =
+                                  basePrice > 0 && val < basePrice
+                                    ? Number(((1 - val / basePrice) * 100).toFixed(1))
+                                    : 0;
+                                updated[idx].unitPrice = val;
+                                updated[idx].discountPercentage = discount;
+                                setTierPricing(updated);
+                              }}
+                              className="w-24 rounded border border-white/10 bg-white/[0.04] pl-9 pr-2 py-1 text-xs text-white font-mono font-bold focus:border-indigo-500 focus:outline-hidden"
+                            />
+                          </div>
                         </div>
+
+                        {tier.discountPercentage && tier.discountPercentage > 0 ? (
+                          <span className="text-[10px] font-mono font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1.5 py-0.5 rounded shrink-0">
+                            -{tier.discountPercentage}%
+                          </span>
+                        ) : null}
 
                         {tierPricing.length > 1 && (
                           <button
                             type="button"
                             onClick={() => handleRemoveTier(tier.id)}
-                            className="hidden sm:inline-flex p-1 text-zinc-500 hover:text-rose-400 cursor-pointer"
+                            className="hidden sm:inline-flex p-1.5 rounded text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 cursor-pointer transition-colors"
+                            title="Remove tier"
                           >
-                            <Trash2 className="h-3 w-3" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </button>
                         )}
                       </div>
                     </div>
                   ))}
                 </div>
+
+                {/* Prominent "+ Add Volume Tier" button directly below the list */}
+                <button
+                  type="button"
+                  onClick={handleAddTier}
+                  className="w-full py-2.5 px-3 rounded-lg border border-dashed border-indigo-500/30 bg-indigo-500/[0.03] hover:bg-indigo-500/10 hover:border-indigo-500/50 text-indigo-300 text-xs font-semibold flex items-center justify-center gap-2 transition-all cursor-pointer group active:scale-[0.99]"
+                >
+                  <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center group-hover:bg-indigo-500/30 transition-colors">
+                    <Plus className="h-3.5 w-3.5 text-indigo-300 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <span>+ Add Volume Tier (#{tierPricing.length + 1})</span>
+                </button>
               </div>
             </div>
           )}

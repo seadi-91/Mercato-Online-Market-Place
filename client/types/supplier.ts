@@ -11,6 +11,7 @@ export type SupplierTab =
   | "orders"
   | "customers"
   | "warehouse"
+  | "branches"
   | "shipments"
   | "invoices"
   | "payments"
@@ -653,6 +654,7 @@ export interface VerificationDocument {
 }
 
 export interface SupplierBusinessProfile {
+  id?: string;
   businessName: string;
   legalEntity: string;
   tinNumber: string;
@@ -866,5 +868,9 @@ export interface SourcingOrder {
   vehiclePlate?: string;
   createdAt: string;
   handoverOtp?: string;
+  buyerId?: string;
+  buyerEmail?: string;
+  buyerPhone?: string;
+  buyerName?: string;
 }
 

@@ -82,6 +82,12 @@ export async function fetchCustomerOrders(
       const data = await dbRes.json();
       if (data.success && Array.isArray(data.orders)) {
         for (const dbOrd of data.orders) {
+          if (customerId) {
+            const matchesCustomer =
+              dbOrd.customerId === customerId ||
+              (dbOrd.deliveryAddress && JSON.stringify(dbOrd.deliveryAddress).includes(customerId));
+            if (!matchesCustomer) continue;
+          }
           mergedOrders.push(dbOrd);
         }
       }

@@ -3,6 +3,7 @@ import {
   ConflictException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -28,6 +29,8 @@ import {
 
 @Injectable()
 export class CatalogService {
+  private readonly logger = new Logger(CatalogService.name);
+
   constructor(
     @InjectRepository(Product)
     private readonly productRepository: Repository<Product>,
@@ -42,80 +45,116 @@ export class CatalogService {
   ) { }
 
   async createProduct(sellerId: string, dto: CreateProductDto): Promise<Product> {
-    const existingSku = await this.productRepository.findOne({
-      where: { sku: dto.sku },
-    });
-    if (existingSku) {
-      throw new RpcException(
-        new ConflictException('Product with this SKU already exists'),
-      );
-    }
-
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const defaultSellerId = 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3';
-    const effectiveSellerId = uuidRegex.test(sellerId) ? sellerId : defaultSellerId;
-
-    let category: Category | null = null;
-    if (dto.categoryId && uuidRegex.test(dto.categoryId)) {
-      category = await this.categoryRepository.findOne({
-        where: { id: dto.categoryId },
+    try {
+      const existingSku = await this.productRepository.findOne({
+        where: { sku: dto.sku },
+        withDeleted: true,
       });
-    }
-    if (!category && dto.categoryId) {
-      category = await this.categoryRepository.findOne({
-        where: { slug: dto.categoryId },
-      });
-    }
-    if (!category) {
-      const allCats = await this.categoryRepository.find();
-      if (allCats.length > 0) {
-        category = allCats[0];
+      if (existingSku) {
+        throw new RpcException(
+          new ConflictException(`Product with SKU "${dto.sku}" already exists`),
+        );
       }
-    }
 
-    if (!category) {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      const defaultSellerId = 'fb3a29e6-1d93-4621-ba45-1e6e59f72dc3';
+      const effectiveSellerId = uuidRegex.test(sellerId) ? sellerId : defaultSellerId;
+
+      let category: Category | null = null;
+      if (dto.categoryId && uuidRegex.test(dto.categoryId)) {
+        category = await this.categoryRepository.findOne({
+          where: { id: dto.categoryId },
+        });
+      }
+      if (!category && dto.categoryId) {
+        category = await this.categoryRepository.findOne({
+          where: { slug: dto.categoryId },
+        });
+      }
+      if (!category) {
+        const allCats = await this.categoryRepository.find();
+        if (allCats.length > 0) {
+          category = allCats[0];
+        }
+      }
+
+      if (!category) {
+        throw new RpcException(
+          new NotFoundException('Category not found'),
+        );
+      }
+
+      const product = this.productRepository.create({
+        sellerId: effectiveSellerId,
+        title: dto.title,
+        description: dto.description,
+        sku: dto.sku,
+        categoryId: category.id,
+        retailPrice: dto.retailPrice,
+        wholesalePrice: dto.wholesalePrice,
+        minOrderQuantity: dto.minOrderQuantity,
+        unit: dto.unit,
+        stockQuantity: dto.stockQuantity,
+        lowStockThreshold: dto.lowStockThreshold ?? 10,
+        images: dto.images ?? [],
+        isAvailable: dto.stockQuantity > 0,
+        isActive: true,
+        brand: dto.brand,
+        origin: dto.origin,
+        grade: dto.grade,
+        warehouseLocation: dto.warehouseLocation,
+        branchId: dto.branchId,
+        branchName: dto.branchName,
+        status: dto.status ?? 'published',
+        certifications: dto.certifications ?? [],
+        leadTimeDays: dto.leadTimeDays ?? 3,
+      });
+
+      // 1. Save product entity first
+      const savedProduct = await this.productRepository.save(product);
+
+      // 2. Explicitly persist tiered pricing with the newly generated productId
+      if (dto.tieredPricing && dto.tieredPricing.length > 0) {
+        const validTiers = dto.tieredPricing.filter(
+          (item) => item && Number(item.minQuantity) > 0 && Number(item.discountedPricePerUnit) > 0,
+        );
+        if (validTiers.length > 0) {
+          const tierEntities = validTiers.map((item) =>
+            this.tieredPricingRepository.create({
+              productId: savedProduct.id,
+              product: savedProduct,
+              minQuantity: Math.round(Number(item.minQuantity)),
+              maxQuantity: item.maxQuantity != null && Number(item.maxQuantity) > 0 ? Math.round(Number(item.maxQuantity)) : null,
+              discountedPricePerUnit: Number(item.discountedPricePerUnit),
+            }),
+          );
+          savedProduct.tieredPricing = await this.tieredPricingRepository.save(tierEntities);
+        } else {
+          savedProduct.tieredPricing = [];
+        }
+      } else {
+        savedProduct.tieredPricing = [];
+      }
+
+      return savedProduct;
+    } catch (error: any) {
+      if (error instanceof RpcException) {
+        throw error;
+      }
+      if (
+        error?.code === '23505' ||
+        error?.message?.includes('duplicate key') ||
+        error?.message?.includes('UNIQUE')
+      ) {
+        throw new RpcException(
+          new ConflictException(`Product with SKU "${dto.sku}" already exists. Please choose a different SKU.`),
+        );
+      }
+      this.logger.error(`Error creating product: ${error?.message || error}`, error?.stack);
       throw new RpcException(
-        new NotFoundException('Category not found'),
+        new BadRequestException(error?.message || 'Failed to create product'),
       );
     }
-
-    const product = this.productRepository.create({
-      sellerId: effectiveSellerId,
-      title: dto.title,
-      description: dto.description,
-      sku: dto.sku,
-      categoryId: category.id,
-      retailPrice: dto.retailPrice,
-      wholesalePrice: dto.wholesalePrice,
-      minOrderQuantity: dto.minOrderQuantity,
-      unit: dto.unit,
-      stockQuantity: dto.stockQuantity,
-      lowStockThreshold: dto.lowStockThreshold ?? 10,
-      images: dto.images ?? [],
-      isAvailable: dto.stockQuantity > 0,
-      isActive: true,
-      brand: dto.brand,
-      origin: dto.origin,
-      grade: dto.grade,
-      warehouseLocation: dto.warehouseLocation,
-      branchId: dto.branchId,
-      branchName: dto.branchName,
-      status: dto.status ?? 'published',
-      certifications: dto.certifications ?? [],
-      leadTimeDays: dto.leadTimeDays ?? 3,
-    });
-
-    if (dto.tieredPricing && dto.tieredPricing.length > 0) {
-      product.tieredPricing = dto.tieredPricing.map((item) =>
-        this.tieredPricingRepository.create({
-          minQuantity: item.minQuantity,
-          maxQuantity: item.maxQuantity,
-          discountedPricePerUnit: item.discountedPricePerUnit,
-        }),
-      );
-    }
-
-    return this.productRepository.save(product);
   }
 
   async updateProduct(

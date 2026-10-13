@@ -45,6 +45,7 @@ import { SupplierVerificationView } from "../verification/supplier-verification-
 import { SupplierRegistrationView } from "../registration/supplier-registration-view";
 import { SupplierNotificationsView } from "../notifications/supplier-notifications-view";
 import { SupplierTeamView } from "../team/supplier-team-view";
+import { SupplierBranchesView } from "../branches/supplier-branches-view";
 
 import { useSupplierStore } from "@/store/supplier-store";
 import { SupplierTab } from "@/types/supplier";
@@ -59,6 +60,11 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
     fetchStaff,
     hydrateStore,
     fetchProfile,
+    fetchProducts,
+    fetchOrders,
+    fetchRFQs,
+    fetchQuotations,
+    fetchNegotiations,
     createSourcingOrder,
     paySourcingOrder,
     fetchSourcingOrders,
@@ -72,8 +78,24 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
     fetchProfile();
     fetchWarehouses();
     fetchStaff();
+    fetchProducts();
+    fetchOrders();
+    fetchRFQs();
+    fetchQuotations();
+    fetchNegotiations();
     fetchSourcingOrders();
-  }, [hydrateStore, fetchProfile, fetchWarehouses, fetchStaff, fetchSourcingOrders]);
+  }, [
+    hydrateStore,
+    fetchProfile,
+    fetchWarehouses,
+    fetchStaff,
+    fetchProducts,
+    fetchOrders,
+    fetchRFQs,
+    fetchQuotations,
+    fetchNegotiations,
+    fetchSourcingOrders,
+  ]);
 
   React.useEffect(() => {
     if (initialTab) {
@@ -91,65 +113,72 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
 
       if (paymentStatus === "success") {
         const txRef = searchParams.get("tx_ref") || `CHAPA-TXN-${Date.now()}`;
-        try {
-          const pendingRaw = localStorage.getItem("mercatox_pending_sourcing_order");
-          if (pendingRaw) {
-            const pendingOrder = JSON.parse(pendingRaw);
-            const createdOrder = createSourcingOrder(pendingOrder);
-            paySourcingOrder(createdOrder.id, "chapa", txRef);
-            localStorage.removeItem("mercatox_pending_sourcing_order");
+        const finalize = async () => {
+          try {
+            const pendingRaw = localStorage.getItem("mercatox_pending_sourcing_order");
+            if (pendingRaw) {
+              const pendingOrder = JSON.parse(pendingRaw);
+              const createdOrder = createSourcingOrder(pendingOrder);
+              await paySourcingOrder(createdOrder.id, "chapa", txRef);
+              await fetchSourcingOrders();
+              localStorage.removeItem("mercatox_pending_sourcing_order");
 
-            setPaymentSuccessModalData({
-              orderNumber: createdOrder.orderNumber,
-              transactionNumber: txRef,
-              totalAmount: createdOrder.totalETB,
-              productName: createdOrder.productName,
-              productImage: createdOrder.productImage,
-              quantity: createdOrder.quantity,
-              unit: createdOrder.unit,
-              unitPrice: createdOrder.unitPrice,
-              paymentMethod: "chapa",
-              handoverOtp: createdOrder.handoverOtp,
-              destinationWarehouseName: createdOrder.destinationWarehouseName,
-              deliveryAddress: createdOrder.deliveryAddress,
-              trackingNumber: createdOrder.trackingNumber,
-              supplierName: createdOrder.supplierName,
-              deliveryEstimateDays: createdOrder.deliveryEstimateDays,
-            });
+              setPaymentSuccessModalData({
+                orderNumber: createdOrder.orderNumber,
+                transactionNumber: txRef,
+                totalAmount: createdOrder.totalETB,
+                productName: createdOrder.productName,
+                productImage: createdOrder.productImage,
+                quantity: createdOrder.quantity,
+                unit: createdOrder.unit,
+                unitPrice: createdOrder.unitPrice,
+                paymentMethod: "chapa",
+                handoverOtp: createdOrder.handoverOtp,
+                destinationWarehouseName: createdOrder.destinationWarehouseName,
+                deliveryAddress: createdOrder.deliveryAddress,
+                trackingNumber: createdOrder.trackingNumber,
+                supplierName: createdOrder.supplierName,
+                deliveryEstimateDays: createdOrder.deliveryEstimateDays,
+              });
 
-            toast.success("Chapa Payment Successful!", {
-              description: `Purchase Order #${createdOrder.orderNumber} is confirmed and ETB funds are secured in Escrow.`,
-              duration: 7000,
-            });
-          } else {
-            const tempOrderNum = `PO-ETH-2026-${Math.floor(1000 + Math.random() * 9000)}`;
-            setPaymentSuccessModalData({
-              orderNumber: tempOrderNum,
-              transactionNumber: txRef,
-              totalAmount: 184500,
-              productName: "Verified Sourcing Purchase",
-              quantity: 10,
-              unit: "Unit",
-              paymentMethod: "chapa",
-              handoverOtp: "8492",
-              destinationWarehouseName: "Addis Ababa Central Logistics Hub",
-            });
+              toast.success("Chapa Payment Successful!", {
+                description: `Purchase Order #${createdOrder.orderNumber} is confirmed and ETB funds are secured in Escrow.`,
+                duration: 7000,
+              });
+            } else {
+              const tempOrderNum = `PO-ETH-2026-${Math.floor(1000 + Math.random() * 9000)}`;
+              setPaymentSuccessModalData({
+                orderNumber: tempOrderNum,
+                transactionNumber: txRef,
+                totalAmount: 184500,
+                productName: "Verified Sourcing Purchase",
+                quantity: 10,
+                unit: "Unit",
+                paymentMethod: "chapa",
+                handoverOtp: "8492",
+                destinationWarehouseName: "Addis Ababa Central Logistics Hub",
+              });
 
-            toast.success("Chapa Payment Successful!", {
-              description: "Your B2B Escrow funds are secured and purchase order has been placed.",
-              duration: 6000,
-            });
+              toast.success("Chapa Payment Successful!", {
+                description: "Your B2B Escrow funds are secured and purchase order has been placed.",
+                duration: 6000,
+              });
+              await fetchSourcingOrders();
+            }
+          } catch (e) {
+            console.error("Error finalizing pending sourcing order:", e);
           }
-        } catch (e) {
-          console.error("Error finalizing pending sourcing order:", e);
-        }
 
-        // Clean up query parameters without page reload
-        const newUrl = window.location.pathname + "?tab=my-orders";
-        window.history.replaceState({}, document.title, newUrl);
+          // Clean up query parameters without page reload
+          const newUrl = window.location.pathname + "?tab=my-orders";
+          window.history.replaceState({}, document.title, newUrl);
+          setActiveTab("my-orders");
+        };
+
+        finalize();
       }
     }
-  }, [initialTab, setActiveTab, createSourcingOrder, paySourcingOrder]);
+  }, [initialTab, setActiveTab, createSourcingOrder, paySourcingOrder, fetchSourcingOrders]);
 
   const renderActiveView = () => {
     if (subView === "create-product") {
@@ -187,6 +216,8 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
         return <SupplierCustomersView />;
       case "warehouse":
         return <SupplierWarehouseView />;
+      case "branches":
+        return <SupplierBranchesView />;
       case "shipments":
         return <SupplierShipmentsView />;
       case "invoices":

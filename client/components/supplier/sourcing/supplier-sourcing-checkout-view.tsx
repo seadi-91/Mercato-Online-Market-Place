@@ -66,6 +66,8 @@ export function SupplierSourcingCheckoutView({
     profile,
     createSourcingOrder,
     paySourcingOrder,
+    fetchSourcingOrders,
+    setActiveTab,
     fetchSourcingProductById,
     fetchWarehouses,
   } = useSupplierStore();
@@ -289,9 +291,10 @@ export function SupplierSourcingCheckoutView({
       vehiclePlate: shippingModel === "self_pickup" ? pickupTruckPlate : "Plate 3-AA-99102",
     };
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const created = createSourcingOrder(pendingOrderPayload);
-      paySourcingOrder(created.id, paymentChannel, generatedTxn);
+      await paySourcingOrder(created.id, paymentChannel, generatedTxn);
+      await fetchSourcingOrders();
       setIsProcessingChapa(false);
       setCompletedOrder(created);
 
@@ -410,7 +413,8 @@ export function SupplierSourcingCheckoutView({
           // Direct verified sandbox completion -> create order & open success modal immediately
           const generatedTxn = res.txRef || `CHAPA-TXN-2026-${Math.floor(100000 + Math.random() * 900000)}`;
           const created = createSourcingOrder(pendingOrderPayload);
-          paySourcingOrder(created.id, "chapa", generatedTxn);
+          await paySourcingOrder(created.id, "chapa", generatedTxn);
+          await fetchSourcingOrders();
           setIsProcessingChapa(false);
           setCompletedOrder(created);
           try {
@@ -447,7 +451,8 @@ export function SupplierSourcingCheckoutView({
         // Fallback to direct escrow payment if external API is unreachable
         const generatedTxn = `CHAPA-TXN-2026-${Math.floor(100000 + Math.random() * 900000)}`;
         const created = createSourcingOrder(pendingOrderPayload);
-        paySourcingOrder(created.id, "chapa", generatedTxn);
+        await paySourcingOrder(created.id, "chapa", generatedTxn);
+        await fetchSourcingOrders();
         setIsProcessingChapa(false);
         setCompletedOrder(created);
         try {
@@ -477,7 +482,8 @@ export function SupplierSourcingCheckoutView({
       // Graceful fallback to authorized Escrow order
       const generatedTxn = `CHAPA-TXN-2026-${Math.floor(100000 + Math.random() * 900000)}`;
       const created = createSourcingOrder(pendingOrderPayload);
-      paySourcingOrder(created.id, "chapa", generatedTxn);
+      await paySourcingOrder(created.id, "chapa", generatedTxn);
+      await fetchSourcingOrders();
       setIsProcessingChapa(false);
       setCompletedOrder(created);
 
@@ -1246,6 +1252,7 @@ export function SupplierSourcingCheckoutView({
             <button
               type="button"
               onClick={() => {
+                setActiveTab("my-orders");
                 if (onOrderCompleted && completedOrder) {
                   onOrderCompleted(completedOrder);
                 } else {
@@ -1264,9 +1271,18 @@ export function SupplierSourcingCheckoutView({
       <SupplierPaymentSuccessModal
         isOpen={!!paymentSuccessModalData}
         data={paymentSuccessModalData}
-        onClose={() => setPaymentSuccessModalData(null)}
+        onClose={() => {
+          setPaymentSuccessModalData(null);
+          setActiveTab("my-orders");
+          if (onOrderCompleted && completedOrder) {
+            onOrderCompleted(completedOrder);
+          } else {
+            onBack();
+          }
+        }}
         onOk={() => {
           setPaymentSuccessModalData(null);
+          setActiveTab("my-orders");
           if (onOrderCompleted && completedOrder) {
             onOrderCompleted(completedOrder);
           } else {

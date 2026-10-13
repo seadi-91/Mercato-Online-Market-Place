@@ -113,6 +113,10 @@ export async function POST(req: Request) {
     }));
 
     const deliveryAddressObj = {
+      buyerId: customerId || resolvedCustomerId,
+      buyerEmail: email || validEmail,
+      buyerPhone: phoneNumber || cleanPhone,
+      buyerName: trimmedName || "Customer",
       recipientName: trimmedName || "Customer",
       recipientPhone: cleanPhone,
       city: "Addis Ababa",
@@ -148,7 +152,7 @@ export async function POST(req: Request) {
             "txRef",
             "createdAt",
             "updatedAt"
-          ) VALUES ($1, $2, $3, $4, 'CONFIRMED', 'PENDING', $5, $6, $7, $8, $9, $10, NOW(), NOW())
+          ) VALUES ($1, $2, $3, $4, 'CONFIRMED', 'UNPAID', $5, $6, $7, $8, $9, $10, NOW(), NOW())
           `,
           [
             orderId,

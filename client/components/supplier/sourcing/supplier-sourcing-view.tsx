@@ -66,6 +66,8 @@ export function SupplierSourcingView() {
     sourcingNegotiations,
     sourcingOrders,
     confirmSourcingDelivery,
+    setActiveTab,
+    fetchSourcingOrders,
   } = useSupplierStore();
 
   // Fetch real products from backend database on mount
@@ -222,7 +224,9 @@ export function SupplierSourcingView() {
         onOrderCompleted={(order) => {
           setCheckoutData(null);
           setSelectedProductForDetail(null);
+          setActiveTab("my-orders");
           setActiveSubTab("orders");
+          fetchSourcingOrders();
         }}
       />
     );

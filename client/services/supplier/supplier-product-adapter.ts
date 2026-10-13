@@ -120,13 +120,19 @@ export function mapB2BToCreateInput(
 ): CreateProductInput {
   const backendUnit = mapWholesaleUnitToProductUnit(b2b.unit);
 
-  const tieredPricing = Array.isArray(b2b.tierPricing) && b2b.tierPricing.length > 0
-    ? b2b.tierPricing.map((tp) => ({
-        minQuantity: Number(tp.minQty),
-        maxQuantity: tp.maxQty ? Number(tp.maxQty) : undefined,
+  let tieredPricing: CreateProductInput["tieredPricing"] = undefined;
+  if (Array.isArray(b2b.tierPricing) && b2b.tierPricing.length > 0) {
+    const validTiers = b2b.tierPricing
+      .filter((tp) => tp && Number(tp.minQty) > 0 && Number(tp.unitPrice) > 0)
+      .map((tp) => ({
+        minQuantity: Math.round(Number(tp.minQty)),
+        maxQuantity: tp.maxQty && Number(tp.maxQty) > 0 ? Math.round(Number(tp.maxQty)) : undefined,
         discountedPricePerUnit: Number(tp.unitPrice),
-      }))
-    : undefined;
+      }));
+    if (validTiers.length > 0) {
+      tieredPricing = validTiers;
+    }
+  }
 
   return {
     title: b2b.name,
@@ -192,11 +198,14 @@ export function mapB2BToUpdateInput(
   if (b2b.leadTimeDays !== undefined) update.leadTimeDays = b2b.leadTimeDays;
 
   if (b2b.tierPricing !== undefined) {
-    update.tieredPricing = b2b.tierPricing.map((tp) => ({
-      minQuantity: Number(tp.minQty),
-      maxQuantity: tp.maxQty ? Number(tp.maxQty) : undefined,
-      discountedPricePerUnit: Number(tp.unitPrice),
-    }));
+    const validTiers = b2b.tierPricing
+      .filter((tp) => tp && Number(tp.minQty) > 0 && Number(tp.unitPrice) > 0)
+      .map((tp) => ({
+        minQuantity: Math.round(Number(tp.minQty)),
+        maxQuantity: tp.maxQty && Number(tp.maxQty) > 0 ? Math.round(Number(tp.maxQty)) : undefined,
+        discountedPricePerUnit: Number(tp.unitPrice),
+      }));
+    update.tieredPricing = validTiers;
   }
 
   return update;

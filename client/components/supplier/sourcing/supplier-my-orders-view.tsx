@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { SourcingOrder, SourcingOrderStatus } from "@/types/supplier";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useAuthStore } from "@/store/auth-store";
 import { SupplierOrderDetailView } from "./supplier-order-detail-view";
 import { toast } from "sonner";
 import { getAccurateProductImage } from "@/lib/utils/product-image";
@@ -55,6 +56,7 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
     setActiveTab,
     profile,
   } = useSupplierStore();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     fetchSourcingOrders();
@@ -86,9 +88,42 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
     setTimeout(() => setCopiedText(null), 2000);
   };
 
+  // Strict supplier order isolation: only display orders placed by THIS supplier
+  const supplierScopedOrders = useMemo(() => {
+    const targetUserId = user?.id || profile?.id;
+    const targetEmail = user?.email || profile?.email;
+    const targetPhone = user?.phoneNumber || profile?.phone;
+    const targetName = profile?.businessName || user?.name || user?.shopName;
+
+    if (!targetUserId && !targetEmail && !targetPhone && !targetName) {
+      return [];
+    }
+
+    return sourcingOrders.filter((order) => {
+      // 1. Direct buyerId match
+      if (order.buyerId && targetUserId && order.buyerId === targetUserId) {
+        return true;
+      }
+      // 2. Direct buyerEmail match
+      if (order.buyerEmail && targetEmail && order.buyerEmail.toLowerCase() === targetEmail.toLowerCase()) {
+        return true;
+      }
+      // 3. Direct buyerPhone match
+      if (order.buyerPhone && targetPhone && (order.buyerPhone === targetPhone || order.buyerPhone.includes(targetPhone.slice(-8)))) {
+        return true;
+      }
+      // 4. Direct buyerName match
+      if (order.buyerName && targetName && order.buyerName.toLowerCase() === targetName.toLowerCase()) {
+        return true;
+      }
+      // Under NO circumstances return true if none of the above matched!
+      return false;
+    });
+  }, [sourcingOrders, user, profile]);
+
   // Filtered Orders
   const filteredOrders = useMemo(() => {
-    return sourcingOrders.filter((order) => {
+    return supplierScopedOrders.filter((order) => {
       const matchSearch =
         order.orderNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
         order.productName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -108,23 +143,23 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
 
       return matchSearch && matchStatus;
     });
-  }, [sourcingOrders, searchQuery, statusFilter]);
+  }, [supplierScopedOrders, searchQuery, statusFilter]);
 
   // Metric Computations
   const metrics = useMemo(() => {
-    const totalSpend = sourcingOrders.reduce((acc, o) => acc + (o.totalETB || 0), 0);
-    const activeOrders = sourcingOrders.filter(
+    const totalSpend = supplierScopedOrders.reduce((acc, o) => acc + (o.totalETB || 0), 0);
+    const activeOrders = supplierScopedOrders.filter(
       (o) =>
         o.status === "in_transit" ||
         o.status === "dispatched" ||
         o.status === "escrow_locked" ||
         o.status === "delivered_to_hub"
     ).length;
-    const awaitingOtp = sourcingOrders.filter((o) => o.status === "delivered_to_hub").length;
-    const completed = sourcingOrders.filter((o) => o.status === "inspected_completed").length;
+    const awaitingOtp = supplierScopedOrders.filter((o) => o.status === "delivered_to_hub").length;
+    const completed = supplierScopedOrders.filter((o) => o.status === "inspected_completed").length;
 
     return { totalSpend, activeOrders, awaitingOtp, completed };
-  }, [sourcingOrders]);
+  }, [supplierScopedOrders]);
 
   // Handle OTP Confirmation
   const handleVerifyOtp = (e: React.FormEvent) => {

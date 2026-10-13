@@ -64,6 +64,8 @@ export function SupplierSourcingCheckoutModal({
     profile,
     createSourcingOrder,
     paySourcingOrder,
+    fetchSourcingOrders,
+    setActiveTab,
     fetchSourcingProductById,
     fetchWarehouses,
   } = useSupplierStore();
@@ -342,7 +344,8 @@ export function SupplierSourcingCheckoutModal({
           // Direct verified sandbox completion -> create order & open success modal immediately
           const generatedTxn = res.txRef || `CHAPA-TXN-2026-${Math.floor(100000 + Math.random() * 900000)}`;
           const created = createSourcingOrder(pendingOrderPayload);
-          paySourcingOrder(created.id, "chapa", generatedTxn);
+          await paySourcingOrder(created.id, "chapa", generatedTxn);
+          await fetchSourcingOrders();
           setIsProcessingChapa(false);
           setCompletedOrder(created);
           try {
@@ -379,7 +382,8 @@ export function SupplierSourcingCheckoutModal({
         // Fallback to direct escrow payment if external API is unreachable
         const generatedTxn = `CHAPA-TXN-2026-${Math.floor(100000 + Math.random() * 900000)}`;
         const created = createSourcingOrder(pendingOrderPayload);
-        paySourcingOrder(created.id, "chapa", generatedTxn);
+        await paySourcingOrder(created.id, "chapa", generatedTxn);
+        await fetchSourcingOrders();
         setIsProcessingChapa(false);
         setCompletedOrder(created);
         try {
@@ -408,7 +412,8 @@ export function SupplierSourcingCheckoutModal({
     } catch (err: any) {
       const generatedTxn = `CHAPA-TXN-2026-${Math.floor(100000 + Math.random() * 900000)}`;
       const created = createSourcingOrder(pendingOrderPayload);
-      paySourcingOrder(created.id, "chapa", generatedTxn);
+      await paySourcingOrder(created.id, "chapa", generatedTxn);
+      await fetchSourcingOrders();
       setIsProcessingChapa(false);
       setCompletedOrder(created);
 
@@ -908,7 +913,10 @@ export function SupplierSourcingCheckoutModal({
 
                 <button
                   type="button"
-                  onClick={onClose}
+                  onClick={() => {
+                    setActiveTab("my-orders");
+                    onClose();
+                  }}
                   className="px-6 py-3 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-black transition-all shadow-lg shadow-emerald-600/30 hover:scale-[1.02]"
                 >
                   Go to My Procurement Orders
@@ -923,9 +931,17 @@ export function SupplierSourcingCheckoutModal({
       <SupplierPaymentSuccessModal
         isOpen={!!paymentSuccessModalData}
         data={paymentSuccessModalData}
-        onClose={() => setPaymentSuccessModalData(null)}
+        onClose={() => {
+          setPaymentSuccessModalData(null);
+          setActiveTab("my-orders");
+          onClose();
+          if (onOrderCompleted && completedOrder) {
+            onOrderCompleted(completedOrder);
+          }
+        }}
         onOk={() => {
           setPaymentSuccessModalData(null);
+          setActiveTab("my-orders");
           onClose();
           if (onOrderCompleted && completedOrder) {
             onOrderCompleted(completedOrder);

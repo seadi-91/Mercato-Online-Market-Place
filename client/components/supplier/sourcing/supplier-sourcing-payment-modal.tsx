@@ -31,7 +31,7 @@ interface Props {
 type ChapaChannel = "telebirr" | "cbe_birr" | "awash_birr" | "card";
 
 export function SupplierSourcingPaymentModal({ order, onClose, onPaymentSuccess }: Props) {
-  const { paySourcingOrder, profile, setActiveTab } = useSupplierStore();
+  const { paySourcingOrder, fetchSourcingOrders, profile, setActiveTab } = useSupplierStore();
   const [copiedTxn, setCopiedTxn] = useState(false);
   const [copiedOrder, setCopiedOrder] = useState(false);
 
@@ -57,12 +57,13 @@ export function SupplierSourcingPaymentModal({ order, onClose, onPaymentSuccess 
     setIsProcessing(true);
 
     // Simulate Chapa gateway authorization & escrow lock
-    setTimeout(() => {
-      paySourcingOrder(
+    setTimeout(async () => {
+      await paySourcingOrder(
         order.id,
         "chapa",
         chapaTxnRef
       );
+      await fetchSourcingOrders();
 
       setIsProcessing(false);
       setIsSuccess(true);

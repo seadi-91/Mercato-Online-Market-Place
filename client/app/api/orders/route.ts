@@ -58,15 +58,37 @@ export async function GET(req: Request) {
     const conditions: string[] = [];
     const values: any[] = [];
 
+    const email = searchParams.get("email");
+    const phone = searchParams.get("phone");
+    const orderNumber = searchParams.get("orderNumber");
+
     if (txRef) {
       values.push(txRef);
       conditions.push(`o."txRef" = $${values.length}`);
-    } else if (customerId && isValidUuid(customerId)) {
-      values.push(customerId);
-      conditions.push(`o."customerId" = $${values.length}`);
-    } else if (sellerId && isValidUuid(sellerId)) {
-      values.push(sellerId);
-      conditions.push(`(o."sellerId" = $${values.length} OR o."deliveryAddress"::text LIKE '%${sellerId}%')`);
+    } else if (orderNumber) {
+      values.push(orderNumber);
+      conditions.push(`o."orderNumber" = $${values.length}`);
+    } else if (customerId) {
+      if (isValidUuid(customerId)) {
+        values.push(customerId);
+        conditions.push(`(o."customerId" = $${values.length} OR o."deliveryAddress"::text LIKE '%${customerId}%')`);
+      } else {
+        conditions.push(`o."deliveryAddress"::text LIKE '%${customerId}%'`);
+      }
+    } else if (sellerId) {
+      if (isValidUuid(sellerId)) {
+        values.push(sellerId);
+        conditions.push(`(o."sellerId" = $${values.length} OR o."deliveryAddress"::text LIKE '%${sellerId}%')`);
+      } else {
+        conditions.push(`o."deliveryAddress"::text LIKE '%${sellerId}%'`);
+      }
+    }
+
+    if (email) {
+      conditions.push(`o."deliveryAddress"::text ILIKE '%${email}%'`);
+    }
+    if (phone) {
+      conditions.push(`o."deliveryAddress"::text LIKE '%${phone}%'`);
     }
 
     if (conditions.length > 0) {
@@ -147,6 +169,22 @@ export async function GET(req: Request) {
   }
 }
 
+function sanitizeOrderStatus(status?: string): string {
+  const s = String(status || "").toUpperCase();
+  if (["PENDING", "CONFIRMED", "PROCESSING", "READY_FOR_PICKUP", "IN_TRANSIT", "DELIVERED", "CANCELLED"].includes(s)) {
+    return s;
+  }
+  return "CONFIRMED";
+}
+
+function sanitizePaymentStatus(status?: string): string {
+  const s = String(status || "").toUpperCase();
+  if (s === "PENDING" || s === "UNPAID") return "UNPAID";
+  if (s === "PAID" || s === "SUCCESS" || s === "COMPLETED") return "PAID";
+  if (s === "REFUNDED") return "REFUNDED";
+  return "PAID";
+}
+
 export async function POST(req: Request) {
   const pool = getOrderDbPool();
   const client = await pool.connect();
@@ -156,6 +194,7 @@ export async function POST(req: Request) {
     const {
       customerId,
       sellerId,
+      orderNumber: requestedOrderNumber,
       txRef,
       items = [],
       deliveryAddress = {},
@@ -163,7 +202,25 @@ export async function POST(req: Request) {
       subtotalAmount,
       totalAmount,
       notes = "",
+      status = "CONFIRMED",
+      paymentStatus = "PAID",
     } = body;
+
+    const firstItemSeller = items.find((it: any) => isValidUuid(it.sellerId))?.sellerId;
+    const resolvedSellerId = isValidUuid(sellerId)
+      ? sellerId
+      : (firstItemSeller || DEFAULT_SELLER_ID);
+
+    const resolvedCustomerId = isValidUuid(customerId)
+      ? customerId
+      : (deliveryAddress && isValidUuid(deliveryAddress.buyerId)
+          ? deliveryAddress.buyerId
+          : (deliveryAddress && isValidUuid(deliveryAddress.customerId)
+              ? deliveryAddress.customerId
+              : DEFAULT_CUSTOMER_ID));
+
+    const finalStatus = sanitizeOrderStatus(status);
+    const finalPaymentStatus = sanitizePaymentStatus(paymentStatus);
 
     const itemsSnapshot = items.map((it: any) => ({
       id: it.id,
@@ -181,69 +238,79 @@ export async function POST(req: Request) {
 
     const augmentedDeliveryAddress = {
       ...(typeof deliveryAddress === "object" ? deliveryAddress : {}),
+      buyerId: deliveryAddress?.buyerId || (isValidUuid(customerId) ? customerId : undefined) || resolvedCustomerId,
+      buyerEmail: deliveryAddress?.buyerEmail || deliveryAddress?.email,
+      buyerPhone: deliveryAddress?.buyerPhone || deliveryAddress?.phone,
+      buyerName: deliveryAddress?.buyerName || deliveryAddress?.recipientName || deliveryAddress?.fullName,
       itemsSnapshot,
     };
 
-    // Check if order with this txRef was already recorded
-    if (txRef) {
-      const existing = await client.query(
-        'SELECT id, "orderNumber", "totalAmount", "customerId", "sellerId" FROM orders WHERE "txRef" = $1 LIMIT 1',
-        [txRef]
-      );
+    // Check if order with this txRef or orderNumber was already recorded
+    if (txRef || requestedOrderNumber) {
+      let existingQuery = 'SELECT id, "orderNumber", "totalAmount", "customerId", "sellerId" FROM orders WHERE ';
+      const exVals: any[] = [];
+      const exConds: string[] = [];
+      if (txRef) {
+        exVals.push(txRef);
+        exConds.push(`"txRef" = $${exVals.length}`);
+      }
+      if (requestedOrderNumber) {
+        exVals.push(requestedOrderNumber);
+        exConds.push(`"orderNumber" = $${exVals.length}`);
+      }
+      existingQuery += exConds.join(' OR ') + ' LIMIT 1';
+
+      const existing = await client.query(existingQuery, exVals);
       if (existing.rows.length > 0) {
         const exOrder = existing.rows[0];
 
-        // Update existing order status to CONFIRMED and paymentStatus to PAID
+        // Update existing order status and paymentStatus
         await client.query(
-          `UPDATE orders SET "paymentStatus" = 'PAID', status = 'CONFIRMED', "deliveryAddress" = $2, "updatedAt" = NOW() WHERE id = $1`,
-          [exOrder.id, JSON.stringify(augmentedDeliveryAddress)]
+          `UPDATE orders SET "paymentStatus" = $2, status = $3, "deliveryAddress" = $4, "updatedAt" = NOW() WHERE id = $1`,
+          [exOrder.id, finalPaymentStatus, finalStatus, JSON.stringify(augmentedDeliveryAddress)]
         );
 
         // Ensure payment is also recorded in mercatox_payment_db
-        try {
-          await recordPaymentInDatabase({
-            transactionReference: txRef,
-            orderId: exOrder.id,
-            customerId: exOrder.customerId,
-            sellerId: exOrder.sellerId,
-            amount: Number(exOrder.totalAmount),
-            currency: "ETB",
-            provider: body.paymentMethod || "CHAPA",
-            status: "COMPLETED",
-            providerReference: txRef,
-            escrowStatus: "HELD",
-            metadata: {
-              orderNumber: exOrder.orderNumber,
-              deliveryAddress: augmentedDeliveryAddress,
-              itemsCount: items.length,
-              items: itemsSnapshot,
+        if (finalPaymentStatus === "PAID") {
+          try {
+            await recordPaymentInDatabase({
+              transactionReference: txRef || `MX-CHAPA-${exOrder.orderNumber}`,
+              orderId: exOrder.id,
+              customerId: exOrder.customerId,
+              sellerId: exOrder.sellerId,
+              amount: Number(exOrder.totalAmount),
+              currency: "ETB",
+              provider: body.paymentMethod || "CHAPA",
               status: "COMPLETED",
-              syncedAt: new Date().toISOString(),
-            },
-          });
-        } catch (paySyncErr) {
-          console.warn("[Orders API] Failed to sync payment to mercatox_payment_db for existing order:", paySyncErr);
+              providerReference: txRef || `MX-CHAPA-${exOrder.orderNumber}`,
+              escrowStatus: "HELD",
+              metadata: {
+                orderNumber: exOrder.orderNumber,
+                deliveryAddress: augmentedDeliveryAddress,
+                itemsCount: items.length,
+                items: itemsSnapshot,
+                status: "COMPLETED",
+                syncedAt: new Date().toISOString(),
+              },
+            });
+          } catch (paySyncErr) {
+            console.warn("[Orders API] Failed to sync payment to mercatox_payment_db for existing order:", paySyncErr);
+          }
         }
 
         return NextResponse.json({
           success: true,
-          message: "Order payment confirmed in database",
+          message: "Order updated in database",
           orderId: exOrder.id,
           orderNumber: exOrder.orderNumber,
+          status: finalStatus,
+          paymentStatus: finalPaymentStatus,
         });
       }
     }
 
-    const orderId = crypto.randomUUID();
-    const resolvedCustomerId = isValidUuid(customerId)
-      ? customerId
-      : DEFAULT_CUSTOMER_ID;
-    const firstItemSeller = items.find((it: any) => isValidUuid(it.sellerId))?.sellerId;
-    const resolvedSellerId = isValidUuid(sellerId)
-      ? sellerId
-      : (firstItemSeller || DEFAULT_SELLER_ID);
-
-    const orderNumber = `MX-${new Date().getFullYear()}-${Math.floor(
+    const orderId = (body.id && isValidUuid(body.id)) ? body.id : crypto.randomUUID();
+    const finalOrderNumber = requestedOrderNumber || `MX-${new Date().getFullYear()}-${Math.floor(
       100000 + Math.random() * 900000
     )}`;
 
@@ -255,7 +322,7 @@ export async function POST(req: Request) {
       );
     const calcDeliveryFee = Number(deliveryFee) || 0;
     const calcTotal = totalAmount || calcSubtotal + calcDeliveryFee;
-    const effectiveTxRef = txRef || `MX-CHAPA-${orderNumber}`;
+    const effectiveTxRef = txRef || `MX-CHAPA-${finalOrderNumber}`;
 
     await client.query("BEGIN");
 
@@ -277,13 +344,15 @@ export async function POST(req: Request) {
         "txRef",
         "createdAt",
         "updatedAt"
-      ) VALUES ($1, $2, $3, $4, 'CONFIRMED', 'PAID', $5, $6, $7, $8, $9, $10, NOW(), NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
     `,
       [
         orderId,
-        orderNumber,
+        finalOrderNumber,
         resolvedCustomerId,
         resolvedSellerId,
+        finalStatus,
+        finalPaymentStatus,
         calcSubtotal,
         calcDeliveryFee,
         calcTotal,
@@ -304,6 +373,26 @@ export async function POST(req: Request) {
       const itemQty = Number(it.quantity || 1);
       const itemTotalPrice = itemUnitPrice * itemQty;
 
+      let unitOfMeasure = 'PIECE';
+      const rawUnit = String(it.unitOfMeasure || it.unit || '').toUpperCase();
+      if (['PIECE', 'CARTON', 'DOZEN', 'KUNTAL', 'ROLL', 'KG', 'METRIC_TON', 'BAG', 'QUINTAL'].includes(rawUnit)) {
+        unitOfMeasure = rawUnit;
+      } else if (rawUnit.includes('KG')) {
+        unitOfMeasure = 'KG';
+      } else if (rawUnit.includes('TON')) {
+        unitOfMeasure = 'METRIC_TON';
+      } else if (rawUnit.includes('BAG')) {
+        unitOfMeasure = 'BAG';
+      } else if (rawUnit.includes('QUINTAL') || rawUnit.includes('KUNTAL')) {
+        unitOfMeasure = 'QUINTAL';
+      } else if (rawUnit.includes('CARTON')) {
+        unitOfMeasure = 'CARTON';
+      } else if (rawUnit.includes('DOZEN')) {
+        unitOfMeasure = 'DOZEN';
+      } else if (rawUnit.includes('ROLL')) {
+        unitOfMeasure = 'ROLL';
+      }
+
       await client.query(
         `
         INSERT INTO order_items (
@@ -317,13 +406,14 @@ export async function POST(req: Request) {
           "totalPrice",
           "createdAt",
           "updatedAt"
-        ) VALUES ($1, $2, $3, $4, 'PIECE', $5, $6, $7, NOW(), NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       `,
         [
           itemId,
           orderId,
           itemProductId,
           itemTitle,
+          unitOfMeasure,
           itemUnitPrice,
           itemQty,
           itemTotalPrice,
@@ -334,7 +424,7 @@ export async function POST(req: Request) {
     await client.query("COMMIT");
 
     console.log("[Orders API POST] Persisted order in PostgreSQL database:", orderId, {
-      orderNumber,
+      orderNumber: finalOrderNumber,
       customerId: resolvedCustomerId,
       txRef: effectiveTxRef,
       totalAmount: calcTotal,
@@ -356,7 +446,7 @@ export async function POST(req: Request) {
         providerReference: effectiveTxRef,
         escrowStatus: "HELD",
         metadata: {
-          orderNumber,
+          orderNumber: finalOrderNumber,
           deliveryAddress,
           notes,
           itemCount: items.length,
@@ -385,7 +475,7 @@ export async function POST(req: Request) {
       success: true,
       order: {
         id: orderId,
-        orderNumber,
+        orderNumber: finalOrderNumber,
         customerId: resolvedCustomerId,
         txRef: effectiveTxRef,
         totalAmount: calcTotal,
