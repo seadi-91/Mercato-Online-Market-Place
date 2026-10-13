@@ -64,5 +64,10 @@ export const ENDPOINTS = {
   ADMIN_VERIFY_MERCHANT: (id: string) => `/admin/merchants/${id}/verify`,
   ADMIN_VERIFY_DELIVERY: (id: string) => `/admin/delivery/${id}/verify`,
   ADMIN_ANALYTICS_OVERVIEW: "/admin/analytics/overview",
+  ADMIN_PENDING_PAYOUTS: "/admin/payments/pending-payouts",
+  ADMIN_RELEASE_PAYOUT: "/admin/payments/release-payout",
+  ADMIN_REFUND_PAYMENT: "/admin/payments/refund",
+  ADMIN_DISPUTES: "/admin/disputes",
+  ADMIN_ORDERS: "/admin/orders",
 } as const;
 

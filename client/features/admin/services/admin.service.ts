@@ -190,4 +190,188 @@ export const adminNotificationService = {
   },
 };
 
+export interface DeliveryStaffItem {
+  id: string;
+  userId: string;
+  fullName: string;
+  email: string;
+  phone: string;
+  role: 'DELIVERY';
+  vehicleType?: string;
+  plateNumber?: string;
+  drivingLicenseNumber?: string;
+  marketZone?: string;
+  nationalIdNumber?: string;
+  isAvailable?: boolean;
+  isVerifiedDelivery: boolean;
+  deliveryKycStatus: 'NONE' | 'PENDING' | 'APPROVED' | 'VERIFIED' | 'REJECTED';
+  deliveryRejectionReason?: string;
+  isActive: boolean;
+  city?: string;
+  subCity?: string;
+  specificLocation?: string;
+  ownerIdUrl?: string;
+  createdAt: string;
+}
+
+export const adminDeliveryService = {
+  getDeliveryStaff: (params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    isActive?: boolean | string;
+    kycStatus?: string;
+  } = {}): Promise<{ data: any[]; total: number; page: number; limit: number; totalPages: number }> => {
+    const qs = new URLSearchParams();
+    qs.set('role', 'DELIVERY');
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.search) qs.set('search', params.search);
+    if (params.isActive !== undefined && params.isActive !== 'ALL') qs.set('isActive', String(params.isActive));
+    return api.get(`${BASE}/users?${qs.toString()}`);
+  },
+
+  verifyDelivery: (userId: string, isVerified: boolean, rejectionReason?: string): Promise<any> => {
+    return api.patch(`${BASE}/delivery/${userId}/verify`, { isVerified, rejectionReason });
+  },
+
+  setUserStatus: (userId: string, isActive: boolean, reason?: string): Promise<any> => {
+    return api.patch(`${BASE}/users/${userId}/status`, { isActive, reason });
+  },
+
+  deleteUser: (userId: string): Promise<any> => {
+    return api.delete(`${BASE}/users/${userId}`);
+  },
+
+  deleteDeliveryStaff: (userId: string): Promise<any> => {
+    return api.delete(`${BASE}/delivery/${userId}`);
+  },
+
+  getUserDetails: (userId: string): Promise<any> => {
+    return api.get(`${BASE}/users/${userId}/details`);
+  },
+
+  createDeliveryStaff: (dto: {
+    fullName: string;
+    email?: string;
+    phoneNumber?: string;
+    password?: string;
+    vehicleType?: string;
+    vehicleModel?: string;
+    plateNumber?: string;
+    drivingLicenseNumber?: string;
+    nationalIdNumber?: string;
+    marketZone?: string;
+    city?: string;
+    subCity?: string;
+  }): Promise<any> => {
+    return api.post(`${BASE}/delivery`, dto);
+  },
+
+  updateDeliveryStaff: (
+    userId: string,
+    dto: {
+      fullName?: string;
+      email?: string;
+      phoneNumber?: string;
+      vehicleType?: string;
+      vehicleModel?: string;
+      plateNumber?: string;
+      drivingLicenseNumber?: string;
+      nationalIdNumber?: string;
+      marketZone?: string;
+      isActive?: boolean;
+    },
+  ): Promise<any> => {
+    return api.patch(`${BASE}/delivery/${userId}`, dto);
+  },
+};
+
+export interface PendingPayoutItem {
+  id: string;
+  sellerId: string;
+  orderId: string;
+  paymentId: string;
+  amount: number;
+  platformFee: number;
+  netPayoutAmount: number;
+  bankName: string;
+  bankAccountNumber: string;
+  bankAccountHolderName: string;
+  status: 'PENDING' | 'PROCESSED' | 'FAILED';
+  createdAt: string;
+  processedAt?: string;
+  orderNumber?: string;
+  sellerName?: string;
+  shopName?: string;
+}
+
+export const adminEscrowService = {
+  getPendingPayouts: (page = 1, limit = 50): Promise<{ data: PendingPayoutItem[]; total: number; page: number; limit: number; totalPages: number }> => {
+    return api.get(`${BASE}/payments/pending-payouts?page=${page}&limit=${limit}`);
+  },
+
+  releasePayout: (dto: {
+    paymentId: string;
+    sellerId: string;
+    bankName: string;
+    bankAccountNumber: string;
+    bankAccountHolderName: string;
+  }): Promise<any> => {
+    return api.post(`${BASE}/payments/release-payout`, dto);
+  },
+
+  refundPayment: (orderId: string, reason?: string): Promise<any> => {
+    return api.post(`${BASE}/payments/refund`, { orderId, reason });
+  },
+
+  updateOrderStatus: (orderId: string, newStatus: string, reason?: string): Promise<any> => {
+    return api.patch(`/orders/${orderId}/status`, { newStatus, cancelReason: reason });
+  },
+};
+
+export interface DisputeItem {
+  id: string;
+  orderId?: string;
+  orderNumber: string;
+  customerName: string;
+  customerPhone?: string;
+  deliveryAddress?: string;
+  merchantStore?: string;
+  merchantId?: string;
+  paymentId?: string;
+  amount: number;
+  reason: string;
+  openedDate: string;
+  paymentStatus?: string;
+  escrowStatus?: string;
+  status: 'OPEN' | 'RESOLVED_REFUND' | 'RESOLVED_RELEASED';
+  items?: Array<{ id?: string; title?: string; name?: string; quantity?: number; unitPrice?: number; price?: number }>;
+}
+
+export const adminDisputesService = {
+  getDisputes: (params: { page?: number; limit?: number; status?: string } = {}): Promise<{ data: any[]; total: number }> => {
+    const qs = new URLSearchParams();
+    if (params.page) qs.set('page', String(params.page));
+    if (params.limit) qs.set('limit', String(params.limit));
+    if (params.status) qs.set('status', params.status);
+    return api.get(`${BASE}/disputes?${qs.toString()}`);
+  },
+
+  refundDispute: (orderId: string, reason?: string): Promise<any> => {
+    return api.post(`${BASE}/payments/refund`, { orderId, reason });
+  },
+
+  releaseDispute: (dto: {
+    paymentId: string;
+    sellerId: string;
+    bankName: string;
+    bankAccountNumber: string;
+    bankAccountHolderName: string;
+  }): Promise<any> => {
+    return api.post(`${BASE}/payments/release-payout`, dto);
+  },
+};
+
+
 

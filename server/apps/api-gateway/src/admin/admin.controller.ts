@@ -8,6 +8,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -27,6 +28,7 @@ import {
   FilterOrdersDto,
   FilterUsersDto,
   ModerateUserDto,
+  ProcessPayoutDto,
   Roles,
   RolesGuard,
   UpdateStaffDto,
@@ -447,6 +449,250 @@ export class AdminController {
     return profile;
   }
 
+  @Post('delivery')
+  async createDeliveryStaff(
+    @CurrentUser('id') adminId: string,
+    @Body()
+    dto: {
+      fullName: string;
+      email?: string;
+      phoneNumber?: string;
+      password?: string;
+      vehicleType?: string;
+      vehicleModel?: string;
+      plateNumber?: string;
+      drivingLicenseNumber?: string;
+      nationalIdNumber?: string;
+      marketZone?: string;
+      city?: string;
+      subCity?: string;
+    },
+    @Req() req: Request,
+  ) {
+    const rawPhone = dto.phoneNumber || `0911${Math.floor(100000 + Math.random() * 900000)}`;
+    const password = dto.password || 'MercatoX@123';
+    const email = dto.email ? dto.email.toLowerCase().trim() : `driver.${Date.now()}@mercatox.et`;
+
+    // 1. Create User in Auth service with role DELIVERY and default password
+    const authResult = await firstValueFrom(
+      this.authClient.send('register', {
+        phoneNumber: rawPhone,
+        email,
+        password,
+        fullName: dto.fullName,
+        role: UserRole.DELIVERY,
+        marketZone: dto.marketZone,
+        nationalIdNumber: dto.nationalIdNumber,
+        city: dto.city || 'Addis Ababa',
+        subCity: dto.subCity,
+      }),
+    );
+
+    const userId = authResult?.user?.id || authResult?.id;
+
+    if (!userId) {
+      throw new Error('Failed to create driver account in authentication service');
+    }
+
+    // 2. Submit delivery KYC / Vehicle attributes in Users service
+    await firstValueFrom(
+      this.usersClient.send('submit_delivery_kyc', {
+        userId,
+        dto: {
+          vehicleType: dto.vehicleType || 'Motorcycle',
+          plateNumber: (dto.plateNumber || 'AA 3-B00000').toUpperCase(),
+          drivingLicenseNumber: dto.drivingLicenseNumber || 'DL-AA-VERIFIED',
+          isAvailable: true,
+        },
+      }),
+    ).catch((err) => console.warn('submit_delivery_kyc error:', err));
+
+    // 3. Automatically approve delivery KYC by admin
+    const profile = await firstValueFrom(
+      this.usersClient.send('verify_delivery', {
+        userId,
+        isVerified: true,
+      }),
+    ).catch(() => null);
+
+    // 4. Update additional profile details (market zone, vehicle model, alternate phone)
+    await firstValueFrom(
+      this.usersClient.send('update_profile', {
+        userId,
+        dto: {
+          alternatePhone: rawPhone,
+          marketZone: dto.marketZone,
+          city: dto.city || 'Addis Ababa',
+          subCity: dto.subCity,
+          specificLocation: dto.vehicleModel,
+        },
+      }),
+    ).catch(() => null);
+
+    // 5. Audit log
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.USER_APPROVED,
+        targetEntity: 'Profile',
+        targetId: userId,
+        details: {
+          role: UserRole.DELIVERY,
+          fullName: dto.fullName,
+          email,
+          plateNumber: dto.plateNumber,
+          vehicleType: dto.vehicleType,
+          vehicleModel: dto.vehicleModel,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return {
+      ...(profile || {}),
+      userId,
+      fullName: dto.fullName,
+      email,
+      phoneNumber: rawPhone,
+      alternatePhone: rawPhone,
+      role: UserRole.DELIVERY,
+      vehicleType: dto.vehicleType || 'Motorcycle',
+      plateNumber: dto.plateNumber,
+      drivingLicenseNumber: dto.drivingLicenseNumber,
+      nationalIdNumber: dto.nationalIdNumber,
+      marketZone: dto.marketZone,
+      vehicleModel: dto.vehicleModel,
+      isAvailable: true,
+      isVerifiedDelivery: true,
+      deliveryKycStatus: 'APPROVED',
+      isActive: true,
+      defaultPassword: password,
+      createdAt: new Date().toISOString(),
+    };
+  }
+
+  @Patch('delivery/:userId')
+  @Put('delivery/:userId')
+  async updateDeliveryStaff(
+    @Param('userId') userId: string,
+    @CurrentUser('id') adminId: string,
+    @Body()
+    dto: {
+      fullName?: string;
+      email?: string;
+      phoneNumber?: string;
+      vehicleType?: string;
+      vehicleModel?: string;
+      plateNumber?: string;
+      drivingLicenseNumber?: string;
+      nationalIdNumber?: string;
+      marketZone?: string;
+      isActive?: boolean;
+    },
+    @Req() req: Request,
+  ) {
+    // 1. Update Profile in Users Service
+    const profile = await firstValueFrom(
+      this.usersClient.send('update_profile', {
+        userId,
+        dto: {
+          fullName: dto.fullName,
+          alternatePhone: dto.phoneNumber,
+          marketZone: dto.marketZone,
+          specificLocation: dto.vehicleModel,
+        },
+      }),
+    ).catch(() => null);
+
+    // 2. Update Delivery KYC / Vehicle attributes in Users Service
+    if (dto.vehicleType || dto.plateNumber || dto.drivingLicenseNumber) {
+      await firstValueFrom(
+        this.usersClient.send('submit_delivery_kyc', {
+          userId,
+          dto: {
+            vehicleType: dto.vehicleType,
+            plateNumber: dto.plateNumber ? dto.plateNumber.toUpperCase() : undefined,
+            drivingLicenseNumber: dto.drivingLicenseNumber,
+          },
+        }),
+      ).catch(() => null);
+    }
+
+    // 3. Update active status if provided
+    if (dto.isActive !== undefined) {
+      await Promise.all([
+        firstValueFrom(
+          this.authClient.send('set_user_active_status', {
+            userId,
+            isActive: dto.isActive,
+          }),
+        ).catch(() => null),
+        firstValueFrom(
+          this.usersClient.send('set_user_status', {
+            userId,
+            isActive: dto.isActive,
+          }),
+        ).catch(() => null),
+      ]);
+    }
+
+    // 4. Create Audit Log
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.PROFILE_UPDATED,
+        targetEntity: 'Profile',
+        targetId: userId,
+        details: {
+          role: UserRole.DELIVERY,
+          changes: dto,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return {
+      ...(profile || {}),
+      userId,
+      ...dto,
+    };
+  }
+
+  @Delete('delivery/:userId')
+  async deleteDeliveryStaff(
+    @Param('userId') userId: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
+    await Promise.all([
+      firstValueFrom(this.authClient.send('delete_user', { userId })).catch(() => null),
+      firstValueFrom(this.usersClient.send('delete_user_profile', { userId })).catch(() => null),
+    ]);
+
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.USER_DELETED,
+        targetEntity: 'DeliveryRider',
+        targetId: userId,
+        details: { deletedBy: adminId, role: UserRole.DELIVERY },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return {
+      success: true,
+      userId,
+      deletedBy: adminId,
+    };
+  }
+
   @Get('suppliers')
   getSuppliers(@Query() query: any) {
     return this.usersClient.send('get_admin_suppliers', {
@@ -595,6 +841,72 @@ export class AdminController {
   @Delete('payments/:id')
   deletePayment(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.paymentsClient.send('delete_payment_admin', { id });
+  }
+
+  @Post('payments/release-payout')
+  async releasePayout(
+    @CurrentUser('id') adminId: string,
+    @Body() dto: ProcessPayoutDto,
+    @Req() req: Request,
+  ) {
+    const result = await firstValueFrom(
+      this.paymentsClient.send('release_escrow_payout', dto),
+    );
+
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.PAYOUT_RELEASED,
+        targetEntity: 'Payout',
+        targetId: dto.paymentId,
+        details: { sellerId: dto.sellerId, paymentId: dto.paymentId },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return result;
+  }
+
+  @Post('payments/refund')
+  async refundPayment(
+    @CurrentUser('id') adminId: string,
+    @Body() dto: { orderId: string; reason?: string },
+    @Req() req: Request,
+  ) {
+    const result = await firstValueFrom(
+      this.paymentsClient.send('refund_payment', dto),
+    );
+
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.REFUND_ISSUED,
+        targetEntity: 'Payment',
+        targetId: dto.orderId,
+        details: { refundReason: dto.reason },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return result;
+  }
+
+  @Get('disputes')
+  async getDisputes(@Query() query: any) {
+    const status = query.status === 'ALL' ? undefined : (query.status || 'CANCELLED');
+    const ordersRes = await firstValueFrom(
+      this.ordersClient.send('get_all_orders_admin', {
+        status,
+        page: query.page ? parseInt(query.page, 10) : 1,
+        limit: query.limit ? parseInt(query.limit, 10) : 50,
+      }),
+    ).catch(() => ({ data: [], total: 0 }));
+
+    return ordersRes;
   }
 
   // ── Platform Settings Management ──────────────────────────────────────────
