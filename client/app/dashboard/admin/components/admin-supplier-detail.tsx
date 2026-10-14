@@ -111,13 +111,21 @@ export function AdminSupplierDetail({
     try {
       setLoading(true);
       const [detailsData, staffData] = await Promise.all([
-        adminSupplierService.getSupplierDetails(supplierId),
-        adminSupplierService.getSupplierStaff(supplierId),
+        adminSupplierService.getSupplierDetails(supplierId).catch((e) => {
+          console.warn("Supplier details error:", e?.message);
+          return null;
+        }),
+        adminSupplierService.getSupplierStaff(supplierId).catch((e) => {
+          console.warn("Supplier staff error:", e?.message);
+          return [];
+        }),
       ]);
-      setProfile(detailsData);
+      if (detailsData) {
+        setProfile(detailsData);
+      }
       setStaffList(staffData || []);
     } catch (err: any) {
-      console.error("Failed to load supplier details:", err);
+      console.warn("Failed to load supplier details:", err?.message || err);
       toast.error("Failed to load supplier profile from database");
     } finally {
       setLoading(false);

@@ -18,6 +18,10 @@ export class CreateProfileDto {
   @IsOptional()
   phoneNumber?: string;
 
+  @IsString()
+  @IsOptional()
+  alternatePhone?: string;
+
   @IsEmail()
   @IsOptional()
   email?: string;

@@ -31,6 +31,7 @@ interface AdminUserDetail {
   role?: string;
   fullName?: string;
   email?: string | null;
+  phoneNumber?: string | null;
   alternatePhone?: string | null;
   shopName?: string | null;
   marketZone?: string | null;
@@ -151,13 +152,23 @@ export default function AdminUserDetailPage() {
         const details = await api.get<AdminUserDetail>(
           `/admin/users/${encodeURIComponent(userId)}/details`,
         );
-        if (isCurrent) setUser(details);
-      } catch (loadError) {
-        console.error("Failed to load admin user details:", loadError);
         if (isCurrent) {
-          setError("Could not load this user's information from the backend.");
+          if ((details as any)?.error && !details.fullName) {
+            setError((details as any).error);
+          } else {
+            setUser(details);
+          }
+        }
+      } catch (loadError: any) {
+        console.warn("Admin user details unavailable:", loadError?.message || loadError);
+        if (isCurrent) {
+          const status = loadError?.response?.status;
+          const msg = status === 404
+            ? "User not found in system."
+            : "Could not load this user's information from the backend.";
+          setError(msg);
           toast.error("User details unavailable", {
-            description: "The backend could not return the requested user.",
+            description: msg,
           });
         }
       } finally {
@@ -282,7 +293,7 @@ export default function AdminUserDetailPage() {
             <Phone className="h-4 w-4 shrink-0 text-indigo-300" />
             <div className="min-w-0">
               <p className="text-[10px] uppercase tracking-wider text-zinc-500">Phone</p>
-              <p className="break-words text-sm text-zinc-200">{user.alternatePhone || "Not provided"}</p>
+              <p className="break-words text-sm text-zinc-200">{user.phoneNumber || user.alternatePhone || "Not provided"}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">

@@ -59,7 +59,7 @@ export class UsersController {
   }
 
   @Get('profile/:userId')
-  getPublicProfile(@Param('userId', new ParseUUIDPipe()) userId: string) {
+  getPublicProfile(@Param('userId') userId: string) {
     return this.usersClient.send('get_profile', { userId });
   }
 
@@ -91,7 +91,7 @@ export class UsersController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER)
+  @Roles(UserRole.SELLER, UserRole.SUPPLIER)
   @Post('merchant/kyc')
   async submitMerchantKyc(
     @CurrentUser('id') userId: string,

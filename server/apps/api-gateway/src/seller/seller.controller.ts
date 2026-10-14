@@ -46,7 +46,7 @@ import {
 
 @Controller('seller')
 @UseGuards(AuthGuard, RolesGuard)
-@Roles(UserRole.SELLER)
+@Roles(UserRole.SELLER, UserRole.SUPPLIER)
 export class SellerController {
   constructor(
     @Inject('CATALOG_SERVICE') private readonly catalogClient: ClientProxy,

@@ -54,7 +54,7 @@ export class OrdersController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER)
+  @Roles(UserRole.SELLER, UserRole.SUPPLIER)
   @Get('seller-orders')
   getSellerOrders(
     @CurrentUser('id') sellerId: string,
@@ -67,10 +67,10 @@ export class OrdersController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.CUSTOMER)
+  @Roles(UserRole.CUSTOMER, UserRole.SELLER, UserRole.SUPPLIER)
   @Post(':id/cancel')
   cancelOrder(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id') id: string,
     @CurrentUser('id') customerId: string,
     @Body('reason') reason?: string,
   ) {
@@ -82,10 +82,10 @@ export class OrdersController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER, UserRole.ADMIN, UserRole.DELIVERY)
+  @Roles(UserRole.SELLER, UserRole.SUPPLIER, UserRole.ADMIN, UserRole.DELIVERY)
   @Patch(':id/status')
   updateOrderStatus(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id') id: string,
     @CurrentUser('id') actorId: string,
     @CurrentUser('role') actorRole: UserRole,
     @Body() dto: UpdateOrderStatusDto,

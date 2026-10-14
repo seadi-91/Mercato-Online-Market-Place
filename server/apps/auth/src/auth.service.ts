@@ -103,6 +103,7 @@ export class AuthService {
     console.log('[AuthService] register forwarding to create_profile dto:', JSON.stringify(dto));
 
     const isSupplier = Boolean(
+      role === UserRole.SUPPLIER ||
       (dto.role as any) === 'SUPPLIER' ||
       (dto.businessType && dto.businessType.toLowerCase().includes('supplier'))
     );
@@ -113,6 +114,7 @@ export class AuthService {
         role: savedUser.role,
         fullName: dto.fullName,
         phoneNumber: savedUser.phoneNumber,
+        alternatePhone: (dto as any).alternatePhone || savedUser.phoneNumber,
         email: savedUser.email,
         shopName: dto.shopName,
         marketZone: dto.marketZone,
@@ -131,7 +133,7 @@ export class AuthService {
       }),
     ).catch(() => null);
 
-    if (isSupplier || role === UserRole.SELLER) {
+    if (isSupplier || role === UserRole.SELLER || role === UserRole.SUPPLIER) {
       firstValueFrom(
         this.usersClient.send('create_audit_log', {
           actorId: savedUser.id,
@@ -142,8 +144,13 @@ export class AuthService {
           details: {
             shopName: dto.shopName,
             fullName: dto.fullName,
+            phoneNumber: savedUser.phoneNumber,
+            email: savedUser.email,
             tradeLicenseNumber: dto.tradeLicenseNumber,
             tinNumber: dto.tinNumber,
+            marketZone: dto.marketZone,
+            businessType: dto.businessType,
+            specificLocation: dto.specificLocation,
             isSupplier,
             action: 'NEW_SUPPLIER_REGISTRATION_SUBMITTED',
           },
@@ -168,7 +175,7 @@ export class AuthService {
         phoneNumber: savedUser.phoneNumber,
         email: savedUser.email,
         fullName: dto.fullName,
-        role: isSupplier ? 'SUPPLIER' : savedUser.role,
+        role: savedUser.role,
         actualRole: savedUser.role,
         businessType: dto.businessType,
         shopName: dto.shopName,
@@ -326,33 +333,23 @@ export class AuthService {
       user.role === UserRole.CUSTOMER ||
       profileData?.merchantKycStatus === KycStatus.REJECTED;
 
-    const isSupplierApplicant = Boolean(
-      (user.role as any) === 'SUPPLIER' ||
-      user.role === UserRole.SELLER ||
+    const isSupplier = Boolean(
+      user.role === UserRole.SUPPLIER ||
+      (profileData?.role as any) === UserRole.SUPPLIER ||
       (profileData?.businessType && profileData.businessType.toLowerCase().includes('supplier')) ||
       (user.email &&
         (user.email.toLowerCase().includes('suplayer') ||
           user.email.toLowerCase().includes('supplier')))
     );
 
-    const isSupplierApproved =
-      !isCustomerOrRejected &&
-      isSupplierApplicant &&
-      (profileData?.merchantKycStatus === KycStatus.APPROVED || profileData?.isVerifiedMerchant === true);
-
-    const isSupplierPending =
-      !isCustomerOrRejected &&
-      isSupplierApplicant &&
-      profileData?.merchantKycStatus === KycStatus.PENDING;
-
     let returnedRole: string = user.role;
     if (isCustomerOrRejected) {
       returnedRole = UserRole.CUSTOMER;
-    } else if (isSupplierApproved || isSupplierPending) {
-      returnedRole = 'SUPPLIER';
+    } else if (isSupplier) {
+      returnedRole = UserRole.SUPPLIER;
+    } else if (user.role === UserRole.SELLER) {
+      returnedRole = UserRole.SELLER;
     }
-
-    const isSupplier = !isCustomerOrRejected && Boolean(isSupplierApproved || isSupplierPending);
 
     return {
       ...tokens,
@@ -571,6 +568,9 @@ export class AuthService {
   }
 
   async getUserById(userId: string) {
+    if (!userId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId)) {
+      return null;
+    }
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) return null;
     return {

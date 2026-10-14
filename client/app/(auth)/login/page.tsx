@@ -293,27 +293,19 @@ export default function LoginPage() {
         // Converted to customer or regular customer -> Never supplier, always redirect to home "/"
         effectiveRole = "CUSTOMER";
         isSupplierUser = false;
+      } else if (
+        returnedRole === "SUPPLIER" ||
+        isBranchManager ||
+        data?.user?.isSupplier === true ||
+        (data?.user?.businessType && data.user.businessType.toLowerCase().includes("supplier"))
+      ) {
+        effectiveRole = "SUPPLIER";
+        isSupplierUser = true;
+      } else if (returnedRole === "SELLER") {
+        effectiveRole = "SELLER";
+        isSupplierUser = false;
       } else {
-        // Check for approved or pending supplier
-        const isSupplierApproved =
-          (returnedRole === "SUPPLIER" || data?.user?.isSupplier === true || returnedRole === "SELLER") &&
-          isVerifiedMerchant;
-
-        const isSupplierPending =
-          merchantKycStatus === "PENDING" ||
-          (!isVerifiedMerchant && (returnedRole === "SUPPLIER" || data?.user?.isSupplier === true));
-
-        if (isSupplierApproved || isBranchManager) {
-          effectiveRole = "SUPPLIER";
-          isSupplierUser = true;
-        } else if (isSupplierPending) {
-          effectiveRole = "SUPPLIER";
-          isSupplierUser = true;
-        } else if (returnedRole === "SELLER") {
-          effectiveRole = "SELLER";
-        } else {
-          effectiveRole = "CUSTOMER";
-        }
+        effectiveRole = "CUSTOMER";
       }
 
       const userData = {

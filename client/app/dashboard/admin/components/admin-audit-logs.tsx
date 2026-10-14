@@ -73,6 +73,7 @@ const ROLE_OPTIONS = [
   { label: "All Roles", value: "" },
   { label: "Admin", value: UserRole.ADMIN },
   { label: "Seller", value: UserRole.SELLER },
+  { label: "Supplier", value: UserRole.SUPPLIER },
   { label: "Customer", value: UserRole.CUSTOMER },
   { label: "Delivery", value: UserRole.DELIVERY },
 ];

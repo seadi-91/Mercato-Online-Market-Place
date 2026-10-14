@@ -30,7 +30,10 @@ export class Profile {
   @Column({ type: 'varchar', length: 255, nullable: true })
   email: string;
 
-  @Column({ type: 'varchar', length: 20, nullable: true })
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  phoneNumber: string;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
   alternatePhone: string;
 
   @Column({ type: 'varchar', length: 255, nullable: true })

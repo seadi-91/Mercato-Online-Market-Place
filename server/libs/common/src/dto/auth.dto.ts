@@ -12,6 +12,7 @@ import { UserRole } from '../enums/role.enum';
 export const ALLOWED_REGISTRATION_ROLES = [
   UserRole.CUSTOMER,
   UserRole.SELLER,
+  UserRole.SUPPLIER,
   UserRole.DELIVERY,
 ] as const;
 
@@ -24,6 +25,10 @@ export class RegisterDto {
   phoneNumber: string;
 
   @IsString()
+  @IsOptional()
+  alternatePhone?: string;
+
+  @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters long' })
   @MaxLength(128, { message: 'Password cannot exceed 128 characters' })
   password: string;
@@ -34,7 +39,7 @@ export class RegisterDto {
   fullName: string;
 
   @IsIn(ALLOWED_REGISTRATION_ROLES, {
-    message: 'Role must be one of: CUSTOMER, SELLER, DELIVERY',
+    message: 'Role must be one of: CUSTOMER, SELLER, SUPPLIER, DELIVERY',
   })
   @IsOptional()
   role?: UserRole;

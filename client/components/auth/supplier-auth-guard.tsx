@@ -53,9 +53,7 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
 
   const isSupplierRole =
     user?.role === "SUPPLIER" ||
-    user?.role === "SELLER" ||
     (user as any)?.role === "supplier" ||
-    (user as any)?.role === "seller" ||
     user?.role === "ADMIN" ||
     Boolean((user as any)?.isSupplier);
 
@@ -68,8 +66,8 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          phoneNumber: "seller@gmail.com",
-          password: "seller123",
+          phoneNumber: "suplayer@gmail.com",
+          password: "12345678",
         }),
       });
 
@@ -79,8 +77,8 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
         const userData = {
           id: data?.user?.id || "fb3a29e6-1d93-4621-ba45-1e6e59f72dc3",
           name: data?.user?.fullName || "Abyssinia Agro Supply",
-          email: data?.user?.email || "seller@gmail.com",
-          phoneNumber: data?.user?.phoneNumber || "+251900000002",
+          email: data?.user?.email || "suplayer@gmail.com",
+          phoneNumber: data?.user?.phoneNumber || "+251911987654",
           role: "SUPPLIER" as const,
           isVerified: true,
           shopName: data?.user?.shopName || "Abyssinia Agri-Commodities PLC",
@@ -117,6 +115,7 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
   // ⚠️ Logged in with different role (e.g. Customer)
   if (hasValidSession && !isSupplierRole) {
     const roleRedirectMap: Record<string, string> = {
+      SELLER: "/dashboard/seller",
       CUSTOMER: "/marketplace",
       DELIVERY: "/dashboard/driver",
       DRIVER: "/dashboard/driver",

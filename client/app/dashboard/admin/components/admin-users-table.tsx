@@ -22,10 +22,11 @@ import { api } from "@/services/api/client";
 
 export interface AdminUserData {
   id: string;
+  userId?: string;
   name: string;
   email: string;
   phone: string;
-  role: "SELLER" | "DELIVERY" | "CUSTOMER";
+  role: "SELLER" | "DELIVERY" | "CUSTOMER" | "SUPPLIER" | "ADMIN";
   businessName?: string;
   kycStatus: "VERIFIED" | "PENDING" | "REJECTED";
   isActive: boolean;
@@ -38,7 +39,7 @@ export interface AdminUserData {
 }
 
 const mapKycStatus = (role: string, profile: any): AdminUserData["kycStatus"] => {
-  if (role === "SELLER") {
+  if (role === "SELLER" || role === "SUPPLIER") {
     const status = profile?.merchantKycStatus ?? profile?.merchantKycStatus ?? "NONE";
     if (status === "APPROVED" || status === "VERIFIED") return "VERIFIED";
     if (status === "REJECTED") return "REJECTED";
@@ -62,6 +63,7 @@ const normalizeUsers = (list: any[]): AdminUserData[] =>
 
     return {
       id: profile?.userId || profile?.id || "unknown-user",
+      userId: profile?.userId || profile?.id,
       name: profile?.fullName || "Unknown User",
       email: profile?.email || "",
       phone: profile?.alternatePhone || profile?.phoneNumber || "",
@@ -363,7 +365,7 @@ export function AdminUsersTable() {
                                 type="button"
                                 onClick={() => {
                                   setOpenMenuId(null);
-                                  router.push(`/dashboard/admin/users/${encodeURIComponent(user.id)}`);
+                                  router.push(`/dashboard/admin/users/${encodeURIComponent(user.userId || user.id)}`);
                                 }}
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 transition-colors cursor-pointer"
                               >

@@ -97,7 +97,7 @@ export class AdminController {
         shopName: sup.shopName || sup.fullName,
         fullName: sup.fullName,
         email: sup.email,
-        phone: sup.alternatePhone,
+        phone: sup.phoneNumber || sup.alternatePhone,
         tradeLicense: sup.tradeLicenseNumber,
         tin: sup.tinNumber,
         marketZone: sup.marketZone,
@@ -170,20 +170,44 @@ export class AdminController {
   }
 
   @Get('users/:userId/details')
-  async getUserDetails(@Param('userId', new ParseUUIDPipe()) userId: string) {
-    const [profile, authUser] = await Promise.all([
+  async getUserDetails(@Param('userId') userId: string) {
+    let [profile, authUser] = await Promise.all([
       firstValueFrom(this.usersClient.send('get_profile', { userId })).catch(() => null),
       firstValueFrom(this.authClient.send('get_user_by_id', { userId })).catch(() => null),
     ]);
+
+    if (profile && !authUser && profile.userId) {
+      authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId: profile.userId }),
+      ).catch(() => null);
+    }
+
+    if (authUser && !profile && authUser.id) {
+      profile = await firstValueFrom(
+        this.usersClient.send('get_profile', { userId: authUser.id }),
+      ).catch(() => null);
+    }
 
     if (!profile && !authUser) {
       return {
         userId,
         error: 'User not found',
+        fullName: 'Unknown User',
+        role: UserRole.CUSTOMER,
+        isActive: false,
+        stats: {
+          postedProducts: 0,
+          totalOrders: 0,
+          recentProducts: [],
+          recentOrders: [],
+        },
+        auditLogs: [],
+        documents: [],
       };
     }
 
     const effectiveRole = profile?.role || authUser?.role || UserRole.SELLER;
+    const effectiveUserId = profile?.userId || authUser?.id || userId;
 
     const stats: Record<string, any> = {
       postedProducts: 0,
@@ -192,17 +216,17 @@ export class AdminController {
       recentOrders: [],
     };
 
-    if (effectiveRole === UserRole.SELLER) {
+    if (effectiveRole === UserRole.SELLER || effectiveRole === UserRole.SUPPLIER) {
       const [products, orders] = await Promise.all([
         firstValueFrom(
           this.catalogClient.send('get_seller_products', {
-            sellerId: userId,
+            sellerId: effectiveUserId,
             dto: { page: 1, limit: 6 },
           }),
         ).catch(() => null),
         firstValueFrom(
           this.ordersClient.send('get_seller_orders', {
-            sellerId: userId,
+            sellerId: effectiveUserId,
             dto: { page: 1, limit: 6 },
           }),
         ).catch(() => null),
@@ -215,7 +239,7 @@ export class AdminController {
     } else if (effectiveRole === UserRole.CUSTOMER) {
       const orders = await firstValueFrom(
         this.ordersClient.send('get_customer_orders', {
-          customerId: userId,
+          customerId: effectiveUserId,
           dto: { page: 1, limit: 6 },
         }),
       ).catch(() => null);
@@ -224,7 +248,7 @@ export class AdminController {
     } else if (effectiveRole === UserRole.DELIVERY) {
       const orders = await firstValueFrom(
         this.ordersClient.send('get_delivery_staff_orders', {
-          deliveryStaffId: userId,
+          deliveryStaffId: effectiveUserId,
           dto: { page: 1, limit: 6 },
         }),
       ).catch(() => null);
@@ -234,7 +258,7 @@ export class AdminController {
 
     const auditLogs = await firstValueFrom(
       this.usersClient.send('get_audit_logs', {
-        targetId: userId,
+        targetId: effectiveUserId,
         page: 1,
         limit: 8,
       }),
@@ -272,8 +296,8 @@ export class AdminController {
     return {
       ...(profile || {}),
       userId,
-      phoneNumber: profile?.alternatePhone || authUser?.phoneNumber || undefined,
-      alternatePhone: profile?.alternatePhone || authUser?.phoneNumber || undefined,
+      phoneNumber: profile?.phoneNumber || profile?.alternatePhone || authUser?.phoneNumber || undefined,
+      alternatePhone: profile?.alternatePhone || profile?.phoneNumber || authUser?.phoneNumber || undefined,
       email: profile?.email || authUser?.email || undefined,
       accountRole: authUser?.role || profile?.role || UserRole.SELLER,
       accountCreatedAt: authUser?.createdAt || profile?.createdAt,
@@ -288,15 +312,26 @@ export class AdminController {
     };
   }
 
+  @Get('users/:userId')
+  getUser(@Param('userId') userId: string) {
+    return this.getUserDetails(userId);
+  }
+
   @Delete('users/:userId')
   async deleteUser(
-    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Param('userId') userId: string,
     @CurrentUser('id') adminId: string,
     @Req() req: Request,
   ) {
+    const profile = await firstValueFrom(
+      this.usersClient.send('get_profile', { userId }),
+    ).catch(() => null);
+    const resolvedAuthUserId = profile?.userId || userId;
+    const resolvedProfileId = profile?.id || userId;
+
     await Promise.all([
-      firstValueFrom(this.authClient.send('delete_user', { userId })),
-      firstValueFrom(this.usersClient.send('delete_user_profile', { userId })),
+      firstValueFrom(this.authClient.send('delete_user', { userId: resolvedAuthUserId })).catch(() => null),
+      firstValueFrom(this.usersClient.send('delete_user_profile', { userId: resolvedProfileId })).catch(() => null),
     ]);
 
     await firstValueFrom(
@@ -310,7 +345,7 @@ export class AdminController {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       }),
-    );
+    ).catch(() => null);
 
     return {
       success: true,
@@ -322,24 +357,30 @@ export class AdminController {
 
   @Patch('users/:userId/status')
   async moderateUser(
-    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Param('userId') userId: string,
     @CurrentUser('id') adminId: string,
     @Body() dto: ModerateUserDto,
     @Req() req: Request,
   ) {
+    const profile = await firstValueFrom(
+      this.usersClient.send('get_profile', { userId }),
+    ).catch(() => null);
+    const resolvedAuthUserId = profile?.userId || userId;
+    const resolvedProfileId = profile?.id || userId;
+
     await Promise.all([
       firstValueFrom(
         this.authClient.send('set_user_active_status', {
-          userId,
+          userId: resolvedAuthUserId,
           isActive: dto.isActive,
         }),
-      ),
+      ).catch(() => null),
       firstValueFrom(
         this.usersClient.send('set_user_status', {
-          userId,
+          userId: resolvedProfileId,
           isActive: dto.isActive,
         }),
-      ),
+      ).catch(() => null),
     ]);
 
     await firstValueFrom(
@@ -355,7 +396,7 @@ export class AdminController {
         ipAddress: req.ip,
         userAgent: req.headers['user-agent'],
       }),
-    );
+    ).catch(() => null);
 
     return {
       success: true,
@@ -367,7 +408,7 @@ export class AdminController {
 
   @Patch('merchants/:userId/verify')
   async verifyMerchant(
-    @Param('userId', new ParseUUIDPipe()) userId: string,
+    @Param('userId') userId: string,
     @CurrentUser('id') adminId: string,
     @Body() dto: VerifyKycWithReasonDto,
     @Req() req: Request,
@@ -381,12 +422,21 @@ export class AdminController {
     );
 
     // Sync role and status to Auth service:
-    // If approved -> SELLER, isActive = true
+    // If approved -> SUPPLIER if supplier profile, else SELLER, isActive = true
     // If rejected -> CUSTOMER, isActive = true (so they can log in as a normal customer)
+    const isSupplier = Boolean(
+      profile?.role === UserRole.SUPPLIER ||
+      (profile?.businessType && profile.businessType.toLowerCase().includes('supplier'))
+    );
+    const targetRole = !dto.isVerified
+      ? UserRole.CUSTOMER
+      : (isSupplier ? UserRole.SUPPLIER : UserRole.SELLER);
+
+    const resolvedAuthUserId = profile?.userId || userId;
     await firstValueFrom(
       this.authClient.send('set_user_role_and_status', {
-        userId,
-        role: dto.isVerified ? UserRole.SELLER : UserRole.CUSTOMER,
+        userId: resolvedAuthUserId,
+        role: targetRole,
         isActive: true,
       }),
     ).catch((err) => console.error('Failed to sync user role in auth service:', err));
@@ -401,7 +451,7 @@ export class AdminController {
         targetEntity: 'Profile',
         targetId: userId,
         details: {
-          role: UserRole.SELLER,
+          role: targetRole,
           isVerified: dto.isVerified,
           rejectionReason: dto.rejectionReason,
         },

@@ -39,6 +39,7 @@ export class UsersService implements OnModuleInit {
   async onModuleInit() {
     try {
       await this.profileRepository.query(`
+        ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "phoneNumber" varchar(50);
         ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "nationalIdNumber" varchar(100);
         ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "businessLicenseUrl" varchar(500);
         ALTER TABLE profiles ADD COLUMN IF NOT EXISTS "tinCertificateUrl" varchar(500);
@@ -55,11 +56,19 @@ export class UsersService implements OnModuleInit {
       where: { userId: dto.userId },
     });
 
+    const phoneToSave = dto.phoneNumber || (dto as any).alternatePhone || null;
+
     if (existingProfile) {
+      if ((!existingProfile.phoneNumber || !existingProfile.alternatePhone) && phoneToSave) {
+        existingProfile.phoneNumber = existingProfile.phoneNumber || phoneToSave;
+        existingProfile.alternatePhone = existingProfile.alternatePhone || phoneToSave;
+        await this.profileRepository.save(existingProfile).catch(() => null);
+      }
       return existingProfile;
     }
 
     const isSupplier = Boolean(
+      dto.role === UserRole.SUPPLIER ||
       (dto.role as any) === 'SUPPLIER' ||
       (dto.businessType && dto.businessType.toLowerCase().includes('supplier')) ||
       (dto as any).isSupplier
@@ -75,6 +84,8 @@ export class UsersService implements OnModuleInit {
       role: dto.role,
       fullName: dto.fullName,
       email: dto.email,
+      phoneNumber: phoneToSave,
+      alternatePhone: phoneToSave,
       shopName: dto.shopName,
       marketZone: dto.marketZone,
       tradeLicenseNumber: dto.tradeLicenseNumber,
@@ -96,6 +107,7 @@ export class UsersService implements OnModuleInit {
     const savedProfile = await this.profileRepository.save(profile);
 
     if (
+      phoneToSave ||
       dto.businessLicenseUrl ||
       dto.tinCertificateUrl ||
       dto.commercialRegistrationUrl ||
@@ -105,14 +117,18 @@ export class UsersService implements OnModuleInit {
     ) {
       await this.profileRepository.query(
         `UPDATE profiles 
-         SET "businessLicenseUrl" = COALESCE($1, "businessLicenseUrl"),
-             "tinCertificateUrl" = COALESCE($2, "tinCertificateUrl"),
-             "commercialRegistrationUrl" = COALESCE($3, "commercialRegistrationUrl"),
-             "ownerIdUrl" = COALESCE($4, "ownerIdUrl"),
-             "businessType" = COALESCE($5, "businessType"),
-             "nationalIdNumber" = COALESCE($6, "nationalIdNumber")
-         WHERE id = $7`,
+         SET "phoneNumber" = COALESCE($1, "phoneNumber"),
+             "alternatePhone" = COALESCE($2, "alternatePhone"),
+             "businessLicenseUrl" = COALESCE($3, "businessLicenseUrl"),
+             "tinCertificateUrl" = COALESCE($4, "tinCertificateUrl"),
+             "commercialRegistrationUrl" = COALESCE($5, "commercialRegistrationUrl"),
+             "ownerIdUrl" = COALESCE($6, "ownerIdUrl"),
+             "businessType" = COALESCE($7, "businessType"),
+             "nationalIdNumber" = COALESCE($8, "nationalIdNumber")
+         WHERE id = $9`,
         [
+          phoneToSave,
+          phoneToSave,
           dto.businessLicenseUrl || null,
           dto.tinCertificateUrl || null,
           dto.commercialRegistrationUrl || null,
@@ -128,9 +144,16 @@ export class UsersService implements OnModuleInit {
   }
 
   async getProfileByUserId(userId: string): Promise<Profile> {
-    const profile = await this.profileRepository.findOne({
-      where: { userId },
-    });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+    let profile: Profile | null = null;
+    if (isUuid) {
+      profile = await this.profileRepository.findOne({
+        where: [
+          { userId },
+          { id: userId },
+        ],
+      });
+    }
 
     if (!profile) {
       throw new RpcException(new NotFoundException('Profile not found'));
@@ -138,10 +161,12 @@ export class UsersService implements OnModuleInit {
 
     try {
       const rows = await this.profileRepository.query(
-        `SELECT "businessLicenseUrl", "tinCertificateUrl", "commercialRegistrationUrl", "ownerIdUrl", "businessType" FROM profiles WHERE id = $1`,
+        `SELECT "phoneNumber", "alternatePhone", "businessLicenseUrl", "tinCertificateUrl", "commercialRegistrationUrl", "ownerIdUrl", "businessType" FROM profiles WHERE id = $1`,
         [profile.id],
       );
       if (rows && rows[0]) {
+        profile.phoneNumber = rows[0].phoneNumber ?? profile.phoneNumber ?? profile.alternatePhone;
+        profile.alternatePhone = rows[0].alternatePhone ?? profile.alternatePhone ?? profile.phoneNumber;
         profile.businessLicenseUrl = rows[0].businessLicenseUrl ?? profile.businessLicenseUrl;
         profile.tinCertificateUrl = rows[0].tinCertificateUrl ?? profile.tinCertificateUrl;
         profile.commercialRegistrationUrl = rows[0].commercialRegistrationUrl ?? profile.commercialRegistrationUrl;
@@ -233,7 +258,11 @@ export class UsersService implements OnModuleInit {
       : rejectionReason || 'KYC documentation rejected by administrator';
 
     if (isVerified) {
-      profile.role = UserRole.SELLER;
+      const isSupplier = Boolean(
+        profile.role === UserRole.SUPPLIER ||
+        (profile.businessType && profile.businessType.toLowerCase().includes('supplier'))
+      );
+      profile.role = isSupplier ? UserRole.SUPPLIER : UserRole.SELLER;
       profile.isActive = true;
     } else {
       // When rejected, convert account type to CUSTOMER so they login as regular customer
@@ -268,7 +297,14 @@ export class UsersService implements OnModuleInit {
   }
 
   async deleteProfile(userId: string): Promise<{ success: boolean; userId: string }> {
-    const profile = await this.profileRepository.findOne({ where: { userId } });
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+    if (!isUuid) return { success: false, userId };
+    const profile = await this.profileRepository.findOne({
+      where: [
+        { userId },
+        { id: userId },
+      ],
+    });
     if (!profile) {
       throw new RpcException(new NotFoundException('Profile not found'));
     }
@@ -304,14 +340,20 @@ export class UsersService implements OnModuleInit {
     if (query.search) {
       const sanitized = query.search.replace(/[%_\\]/g, '\\$&').trim();
       qb.andWhere(
-        '(profile.fullName ILIKE :search OR profile.email ILIKE :search OR profile.shopName ILIKE :search OR profile.tradeLicenseNumber ILIKE :search OR profile.alternatePhone ILIKE :search)',
+        '(profile.fullName ILIKE :search OR profile.email ILIKE :search OR profile.shopName ILIKE :search OR profile.tradeLicenseNumber ILIKE :search OR profile.alternatePhone ILIKE :search OR profile.phoneNumber ILIKE :search)',
         { search: `%${sanitized}%` },
       );
     }
 
     qb.orderBy('profile.createdAt', 'DESC').skip(skip).take(limit);
 
-    const [data, total] = await qb.getManyAndCount();
+    const [rawUsers, total] = await qb.getManyAndCount();
+
+    const data = rawUsers.map((u) => ({
+      ...u,
+      phoneNumber: u.phoneNumber || u.alternatePhone,
+      alternatePhone: u.alternatePhone || u.phoneNumber,
+    }));
 
     return {
       data,
@@ -336,9 +378,10 @@ export class UsersService implements OnModuleInit {
     const qb = this.profileRepository
       .createQueryBuilder('profile')
       .where(
-        '(profile.role = :role OR profile.businessType ILIKE :suppTerm OR profile.merchantKycStatus IN (:...kycStatuses))',
+        '(profile.role = :supplierRole OR profile.role = :sellerRole OR profile.businessType ILIKE :suppTerm OR profile.merchantKycStatus IN (:...kycStatuses))',
         {
-          role: UserRole.SELLER,
+          supplierRole: UserRole.SUPPLIER,
+          sellerRole: UserRole.SELLER,
           suppTerm: '%supplier%',
           kycStatuses: [KycStatus.PENDING, KycStatus.APPROVED, KycStatus.REJECTED],
         },
@@ -397,6 +440,8 @@ export class UsersService implements OnModuleInit {
 
     const data = sellers.map((s) => ({
       ...s,
+      phoneNumber: s.phoneNumber || s.alternatePhone,
+      alternatePhone: s.alternatePhone || s.phoneNumber,
       staffStats: staffBySeller[s.userId] || {
         totalStaff: 0,
         managersCount: 0,

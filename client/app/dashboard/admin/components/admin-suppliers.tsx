@@ -689,10 +689,10 @@ export function AdminSuppliers() {
                             <Mail className={`h-3 w-3 ${textMuted} shrink-0`} />
                             <span className="truncate max-w-[160px]">{supplier.email || "—"}</span>
                           </div>
-                          {supplier.alternatePhone && (
+                          {(supplier.alternatePhone || supplier.phoneNumber) && (
                             <div className={`text-[11px] ${textMuted} flex items-center gap-1`}>
                               <Phone className={`h-3 w-3 ${textMuted} shrink-0`} />
-                              <span>{supplier.alternatePhone}</span>
+                              <span>{supplier.phoneNumber || supplier.alternatePhone}</span>
                             </div>
                           )}
                           {supplier.tinNumber && (
@@ -899,6 +899,12 @@ export function AdminSuppliers() {
                     <Mail className={`h-3.5 w-3.5 ${textMuted} shrink-0`} />
                     <span className="truncate max-w-[200px]">{inspectingSupplier.email || "—"}</span>
                   </span>
+                  {(inspectingSupplier.alternatePhone || inspectingSupplier.phoneNumber) && (
+                    <span className="flex items-center gap-1">
+                      <Phone className={`h-3.5 w-3.5 ${textMuted} shrink-0`} />
+                      <span>{inspectingSupplier.phoneNumber || inspectingSupplier.alternatePhone}</span>
+                    </span>
+                  )}
                 </p>
               </div>
 

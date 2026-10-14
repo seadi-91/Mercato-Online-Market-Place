@@ -90,6 +90,7 @@ export interface SupplierItem {
   userId: string;
   fullName: string;
   email: string;
+  phoneNumber?: string;
   alternatePhone?: string;
   shopName: string;
   businessType?: string;

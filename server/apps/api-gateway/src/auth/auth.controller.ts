@@ -53,6 +53,7 @@ export class AuthController {
   async register(@Body() dto: RegisterDto, @Req() req: Request) {
     const payload = {
       ...dto,
+      alternatePhone: req.body?.alternatePhone || dto.alternatePhone || dto.phoneNumber,
       ...(req.body?.businessLicenseUrl ? { businessLicenseUrl: req.body.businessLicenseUrl } : {}),
       ...(req.body?.tinCertificateUrl ? { tinCertificateUrl: req.body.tinCertificateUrl } : {}),
       ...(req.body?.commercialRegistrationUrl ? { commercialRegistrationUrl: req.body.commercialRegistrationUrl } : {}),
@@ -64,8 +65,7 @@ export class AuthController {
     );
 
     // Fire-and-forget audit log
-    const actorRole = ((result.user as any).actualRole ||
-      (result.user.role === 'SUPPLIER' ? UserRole.SELLER : result.user.role)) as UserRole;
+    const actorRole = ((result.user as any).actualRole || result.user.role) as UserRole;
 
     this.auditLog(
       {
@@ -95,8 +95,7 @@ export class AuthController {
         this.authClient.send('login', dto),
       );
 
-      const actorRole = ((result.user as any).actualRole ||
-        (result.user.role === 'SUPPLIER' ? UserRole.SELLER : result.user.role)) as UserRole;
+      const actorRole = ((result.user as any).actualRole || result.user.role) as UserRole;
 
       this.auditLog(
         {

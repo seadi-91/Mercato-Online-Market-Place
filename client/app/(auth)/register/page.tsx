@@ -965,9 +965,10 @@ function RegisterPageContent() {
 
     const payload = {
       phoneNumber: fullPhoneNumber,
+      alternatePhone: fullPhoneNumber,
       fullName: fullName.trim(),
       password,
-      role: selectedRole === "SUPPLIER" ? "SELLER" : selectedRole,
+      role: selectedRole,
       ...(email.trim() ? { email: email.trim() } : {}),
       ...(selectedRole === "SELLER"
         ? {

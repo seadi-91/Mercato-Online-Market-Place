@@ -54,7 +54,7 @@ export class CatalogController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER)
+  @Roles(UserRole.SELLER, UserRole.SUPPLIER)
   @Post('products')
   createProduct(
     @CurrentUser('id') sellerId: string,
@@ -64,10 +64,10 @@ export class CatalogController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER)
+  @Roles(UserRole.SELLER, UserRole.SUPPLIER)
   @Patch('products/:id')
   updateProduct(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id') id: string,
     @CurrentUser('id') sellerId: string,
     @Body() dto: UpdateProductDto,
   ) {
@@ -75,20 +75,20 @@ export class CatalogController {
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER)
+  @Roles(UserRole.SELLER, UserRole.SUPPLIER)
   @Delete('products/:id')
   deleteProduct(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id') id: string,
     @CurrentUser('id') sellerId: string,
   ) {
     return this.catalogClient.send('delete_product', { id, sellerId });
   }
 
   @UseGuards(AuthGuard, RolesGuard)
-  @Roles(UserRole.SELLER, UserRole.ADMIN)
+  @Roles(UserRole.SELLER, UserRole.SUPPLIER, UserRole.ADMIN)
   @Patch('products/:id/stock')
   updateStock(
-    @Param('id', new ParseUUIDPipe()) id: string,
+    @Param('id') id: string,
     @CurrentUser('id') sellerId: string,
     @CurrentUser('role') role: UserRole,
     @Body() dto: UpdateStockDto,

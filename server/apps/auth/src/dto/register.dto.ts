@@ -26,7 +26,7 @@ export class RegisterDto {
   fullName: string;
 
   @IsIn(ALLOWED_REGISTRATION_ROLES, {
-    message: 'Role must be one of: CUSTOMER, SELLER, DELIVERY',
+    message: 'Role must be one of: CUSTOMER, SELLER, SUPPLIER, DELIVERY',
   })
   @IsOptional()
   role?: UserRole;
