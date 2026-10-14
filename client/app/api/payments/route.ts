@@ -54,60 +54,155 @@ export async function GET(req: Request) {
     const result = await pool.query(query, values);
     const paymentRows = result.rows;
 
-    // Decorate with order info from mercatox_order_db if available
+    // Decorate with order info or subscription info
     try {
       const orderIds = paymentRows
         .map((p) => p.orderId)
-        .filter((id) => Boolean(id) && typeof id === "string");
+        .filter((id) => Boolean(id) && typeof id === "string" && !id.startsWith("sub_"));
+
+      let orderMap = new Map<string, any>();
+      let orderItemsMap = new Map<string, any[]>();
 
       if (orderIds.length > 0) {
-        const orderPool = getOrderDbPool();
-        const ordRes = await orderPool.query(
-          `SELECT id, "orderNumber", "deliveryAddress", "customerId", status, "totalAmount", notes FROM orders WHERE id = ANY($1)`,
-          [orderIds]
-        );
-        const orderMap = new Map<string, any>(ordRes.rows.map((o) => [o.id, o]));
+        try {
+          const orderPool = getOrderDbPool();
+          const ordRes = await orderPool.query(
+            `SELECT id, "orderNumber", "deliveryAddress", "customerId", status, "paymentStatus", "subtotalAmount", "deliveryFee", "totalAmount", notes, "createdAt" FROM orders WHERE id = ANY($1)`,
+            [orderIds]
+          );
+          orderMap = new Map<string, any>(ordRes.rows.map((o) => [o.id, o]));
 
-        const decorated = paymentRows.map((payment) => {
-          const ord = orderMap.get(payment.orderId);
-          const meta = payment.metadata || {};
-          const delivery = ord?.deliveryAddress || meta.deliveryAddress || {};
+          const itemsRes = await orderPool.query(
+            `SELECT id, "orderId", "productId", "productTitle", "unitPrice", quantity, "totalPrice" FROM order_items WHERE "orderId" = ANY($1)`,
+            [orderIds]
+          ).catch(() => ({ rows: [] }));
+
+          if (itemsRes?.rows?.length > 0) {
+            for (const it of itemsRes.rows) {
+              const existing = orderItemsMap.get(it.orderId) || [];
+              existing.push({
+                id: it.id,
+                productId: it.productId,
+                title: it.productTitle,
+                name: it.productTitle,
+                quantity: Number(it.quantity || 1),
+                unitPrice: Number(it.unitPrice || 0),
+                totalPrice: Number(it.totalPrice || 0),
+              });
+              orderItemsMap.set(it.orderId, existing);
+            }
+          }
+        } catch (dbErr) {
+          console.warn("[Payments API] DB order fetch error:", dbErr);
+        }
+      }
+
+      const decorated = paymentRows.map((payment) => {
+        const meta = payment.metadata || {};
+        const isSubscription = Boolean(
+          meta.isSubscription ||
+          meta.planId ||
+          meta.subscriberId ||
+          payment.orderId?.startsWith("sub_") ||
+          payment.transactionReference?.startsWith("TXN-SUB") ||
+          payment.transactionReference?.startsWith("CHAPA-SUB")
+        );
+
+        if (isSubscription) {
+          const planTitle = meta.planName || meta.planId || "Merchant Privilege Plan";
+          const period = meta.billingPeriod || "monthly";
+          const subItems = Array.isArray(meta.items) && meta.items.length > 0
+            ? meta.items
+            : [
+                {
+                  id: meta.planId || "plan",
+                  title: `Subscription: ${planTitle}`,
+                  name: `Privilege Plan: ${planTitle} (${period})`,
+                  quantity: 1,
+                  unitPrice: Number(payment.amount || meta.price || 0),
+                },
+              ];
 
           return {
             ...payment,
+            isSubscription: true,
+            orderId: undefined,
             orderNumber:
+              payment.orderNumber ||
               meta.orderNumber ||
-              ord?.orderNumber ||
-              (payment.orderId ? `MX-${payment.orderId.slice(0, 8).toUpperCase()}` : "N/A"),
+              `SUB-${(meta.planId || "TIER").toUpperCase().slice(0, 10)}`,
             customerName:
+              meta.userName ||
               meta.fullName ||
               meta.depositorName ||
-              meta.customerName ||
-              delivery.recipientName ||
-              "Customer",
+              "Subscribed Merchant",
             customerPhone:
+              meta.paymentPhone ||
               meta.phoneNumber ||
-              meta.payerPhone ||
-              delivery.phone ||
-              delivery.recipientPhone ||
+              meta.phone ||
               "—",
-            customerEmail: meta.email || delivery.email || "",
-            deliveryAddress: [delivery.specificLocation, delivery.subCity, delivery.city]
-              .filter(Boolean)
-              .join(", ") || "Addis Ababa",
-            itemsCount:
-              meta.itemCount ||
-              meta.itemsCount ||
-              (Array.isArray(meta.items) ? meta.items.length : 0),
+            customerEmail: meta.userEmail || meta.email || "",
+            deliveryAddress: `Merchant Subscription • ${meta.userRole || "SELLER"} Account`,
+            itemsSummary: `Tier: ${planTitle} (${period})`,
+            itemsCount: 1,
+            items: subItems,
+            metadata: {
+              ...meta,
+              isSubscription: true,
+              subscriberId: meta.subscriberId || payment.id,
+              userId: meta.userId || payment.customerId,
+              planName: planTitle,
+              billingPeriod: period,
+            },
           };
-        });
+        }
 
-        return NextResponse.json({
-          success: true,
-          payments: decorated,
-          total: decorated.length,
-        });
-      }
+        const ord = orderMap.get(payment.orderId);
+        const delivery = ord?.deliveryAddress || meta.deliveryAddress || {};
+        const rawItems = orderItemsMap.get(payment.orderId) || (Array.isArray(meta.items) ? meta.items : []);
+        const itemsList = rawItems.map((i: any) => ({
+          id: i.id || i.productId,
+          title: i.title || i.name || i.productTitle || "Product Item",
+          name: i.title || i.name || i.productTitle || "Product Item",
+          quantity: Number(i.quantity || 1),
+          unitPrice: Number(i.unitPrice || i.price || 0),
+          totalPrice: Number(i.totalPrice || (Number(i.unitPrice || 0) * Number(i.quantity || 1))),
+        }));
+
+        return {
+          ...payment,
+          isSubscription: false,
+          orderNumber:
+            meta.orderNumber ||
+            ord?.orderNumber ||
+            (payment.orderId ? `MX-${payment.orderId.slice(0, 8).toUpperCase()}` : "N/A"),
+          customerName:
+            meta.fullName ||
+            meta.depositorName ||
+            meta.customerName ||
+            delivery.recipientName ||
+            "Customer",
+          customerPhone:
+            meta.phoneNumber ||
+            meta.payerPhone ||
+            delivery.phone ||
+            delivery.recipientPhone ||
+            "—",
+          customerEmail: meta.email || delivery.email || "",
+          deliveryAddress: [delivery.specificLocation, delivery.subCity, delivery.city]
+            .filter(Boolean)
+            .join(", ") || "Addis Ababa",
+          itemsCount: itemsList.length || meta.itemCount || meta.itemsCount || 1,
+          items: itemsList,
+          orderDetails: ord || null,
+        };
+      });
+
+      return NextResponse.json({
+        success: true,
+        payments: decorated,
+        total: decorated.length,
+      });
     } catch (decorateErr) {
       console.warn("[Payments API] Could not decorate with order details:", decorateErr);
     }

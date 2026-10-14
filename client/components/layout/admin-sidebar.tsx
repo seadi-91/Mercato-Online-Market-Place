@@ -108,7 +108,7 @@ export function AdminSidebar() {
         },
         {
           id: "slips",
-          label: "Bank Slips Review",
+          label: "Payments & Slips Audit",
           icon: Receipt,
           badge: pendingSlipsCount,
           badgeColor: "bg-amber-500/25 text-amber-300 border-amber-500/40",

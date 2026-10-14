@@ -397,8 +397,38 @@ export const useSubscriptionStore = create<SubscriptionStoreState>()(
 
           set((state) => ({
             mySubscription: record!,
-            subscribers: [record!, ...state.subscribers],
+            subscribers: [record!, ...state.subscribers.filter((s) => s.id !== record!.id)],
           }));
+
+          // Also record payment in local payment database (/api/payments)
+          fetch("/api/payments", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              transactionReference: record.transactionReference,
+              amount: Number(record.price || 0),
+              currency: record.currency || "ETB",
+              provider: record.paymentMethod || "CHAPA",
+              status: record.paymentStatus === "PAID" ? "COMPLETED" : "PENDING",
+              escrowStatus: record.paymentStatus === "PAID" ? "RELEASED" : "HELD",
+              paymentReceiptUrl: record.paymentSlipUrl,
+              metadata: {
+                isSubscription: true,
+                subscriberId: record.id,
+                userId: record.userId,
+                userName: record.userName,
+                userEmail: record.userEmail,
+                userRole: record.userRole,
+                planId: record.planId,
+                planName: record.planName,
+                billingPeriod: record.billingPeriod,
+                paymentPhone: record.paymentPhone,
+                bankName: record.bankName,
+                startDate: record.startDate,
+                endDate: record.endDate,
+              },
+            }),
+          }).catch(() => null);
 
           const isBankSlipPending = record.paymentStatus === "PENDING";
           const message = isBankSlipPending

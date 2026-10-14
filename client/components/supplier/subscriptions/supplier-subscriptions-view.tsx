@@ -21,6 +21,8 @@ import {
   Clock,
   PhoneCall,
   GitBranch,
+  RefreshCw,
+  Calendar,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { SubscriptionPlan, UserSubscriptionRecord } from "@/types/subscription";
@@ -28,6 +30,7 @@ import { useSubscriptionStore } from "@/store/subscription-store";
 import { useAuthStore } from "@/store/auth-store";
 import { SubscriptionPaymentModal } from "@/components/subscription/subscription-payment-modal";
 import { toast } from "sonner";
+import { sellerService } from "@/services/seller/seller.service";
 
 export function SupplierSubscriptionsView() {
   const { user } = useAuthStore();
@@ -46,9 +49,25 @@ export function SupplierSubscriptionsView() {
     "monthly"
   );
 
+  const [listedProductsCount, setListedProductsCount] = useState<number>(0);
+  const [loadingProducts, setLoadingProducts] = useState<boolean>(true);
+
   useEffect(() => {
     fetchPlans("SUPPLIER");
     fetchMySubscription();
+
+    // Fetch supplier's product count
+    sellerService
+      .getProducts({ limit: 1 })
+      .then((res: any) => {
+        const total =
+          res?.total ?? (Array.isArray(res?.data) ? res.data.length : 0);
+        setListedProductsCount(total);
+      })
+      .catch(() => {
+        setListedProductsCount(0);
+      })
+      .finally(() => setLoadingProducts(false));
 
     // Handle return from Chapa checkout with payment_status=success
     if (typeof window !== "undefined") {
@@ -115,16 +134,28 @@ export function SupplierSubscriptionsView() {
     supplierPlans.find((p) => p.id === activePlanId) || supplierPlans[0];
   const activeTierRank = getTierRank(activePlanId);
 
+  // Quota & remaining product calculations
+  const rawMax = currentPlan?.maxProducts ?? 30;
+  const isUnlimited = typeof rawMax === "number" ? rawMax >= 999999 : rawMax === "unlimited";
+  const maxAllowedProducts = isUnlimited ? Infinity : Number(rawMax);
+  const remainingProducts = isUnlimited
+    ? "Unlimited"
+    : Math.max(0, maxAllowedProducts - listedProductsCount);
+  const quotaPercent = isUnlimited
+    ? 0
+    : Math.min(100, Math.round((listedProductsCount / maxAllowedProducts) * 100));
+
+  // When subscribed ("meche subscribe endaderegew")
+  const subDateRaw = mySubscription?.startDate || mySubscription?.createdAt;
+  const formattedSubDate = subDateRaw
+    ? new Date(subDateRaw).toLocaleString("en-US", {
+        dateStyle: "medium",
+        timeStyle: "short",
+      })
+    : null;
+
+  // Unblock re-subscribing: suppliers have the right to re-subscribe, renew, or switch anytime
   const handleOpenPayment = (plan: SubscriptionPlan) => {
-    if (isPaidActive && plan.id === activePlanId) {
-      toast.info(`You are currently on the ${plan.name} tier.`);
-      return;
-    }
-    const targetRank = getTierRank(plan.id);
-    if (isPaidActive && targetRank < activeTierRank) {
-      toast.info(`Your active ${currentPlan.name} already includes all privileges of ${plan.name}.`);
-      return;
-    }
     setSelectedPlanForPayment(plan);
   };
 
@@ -133,7 +164,7 @@ export function SupplierSubscriptionsView() {
       {/* Page Header */}
       <PageHeader
         title="Wholesale Subscriptions & Enterprise Tiers"
-        subtitle="Manage your enterprise wholesale depot licenses, RFQ quotation priority, and escrow settlement commission discounts."
+        subtitle="Manage your enterprise wholesale depot licenses, RFQ quotation priority, and escrow settlement commission discounts. Re-subscribe or renew at any time."
         breadcrumbs={[
           { label: "Supplier Console" },
           { label: "Finance & Sales" },
@@ -168,7 +199,7 @@ export function SupplierSubscriptionsView() {
           </div>
 
           {/* Status summary box */}
-          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-md shrink-0 min-w-[260px]">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-md shrink-0 min-w-[280px]">
             <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
               Membership License
             </div>
@@ -182,30 +213,92 @@ export function SupplierSubscriptionsView() {
                 }`}
               >
                 {mySubscription?.paymentStatus === "PENDING"
-                  ? "Pending Slip Verification"
+                  ? "Pending Verification"
                   : "Verified & Active"}
               </span>
             </div>
-            <div className="mt-2 flex items-center justify-between text-xs text-zinc-300">
-              <span>Billing Cycle:</span>
-              <span className="capitalize font-medium text-white">
-                {mySubscription?.billingPeriod || "Monthly"}
-              </span>
-            </div>
-            {mySubscription?.endDate && (
-              <div className="mt-2 flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-white/10">
-                <span>Next Renewal:</span>
-                <span className="font-medium text-zinc-200">
-                  {new Date(mySubscription.endDate).toLocaleDateString()}
+
+            {/* When Subscribed ("meche subscribe endaderegew") */}
+            <div className="mt-2.5 pt-2 border-t border-white/10 space-y-1.5 text-xs">
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-400">Subscribed On:</span>
+                <span className="font-mono text-zinc-200 font-medium">
+                  {formattedSubDate || "Default Standard License"}
                 </span>
               </div>
-            )}
+              <div className="flex items-center justify-between text-[11px]">
+                <span className="text-zinc-400">Billing Cycle:</span>
+                <span className="capitalize font-medium text-white">
+                  {mySubscription?.billingPeriod || "Monthly"}
+                </span>
+              </div>
+              {mySubscription?.endDate && (
+                <div className="flex items-center justify-between text-[11px]">
+                  <span className="text-zinc-400">Next Renewal:</span>
+                  <span className="font-medium text-zinc-200">
+                    {new Date(mySubscription.endDate).toLocaleDateString()}
+                  </span>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Operational Capacity Highlights */}
+      {/* Operational Capacity & Inventory Quota Highlights */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Remaining Product Listings Card ("snt product list endekerew") */}
+        <div className="rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/40 via-[#0c1222]/90 to-slate-900/80 p-4 shadow-sm backdrop-blur-sm">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="rounded-lg bg-cyan-500/20 p-2 text-cyan-400">
+                <Layers className="h-5 w-5" />
+              </div>
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-cyan-300">
+                  Wholesale Item Quota
+                </div>
+                <div className="text-lg font-extrabold text-white mt-0.5">
+                  {isUnlimited ? (
+                    <span className="text-emerald-400">Unlimited Catalog</span>
+                  ) : (
+                    <span>{remainingProducts} Remaining</span>
+                  )}
+                </div>
+              </div>
+            </div>
+            <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-mono text-zinc-300 font-semibold">
+              {isUnlimited ? "Unlimited" : `${listedProductsCount}/${maxAllowedProducts} Used`}
+            </span>
+          </div>
+
+          {!isUnlimited ? (
+            <div className="mt-3">
+              <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    Number(remainingProducts) === 0
+                      ? "bg-rose-500"
+                      : Number(remainingProducts) <= 5
+                      ? "bg-amber-400"
+                      : "bg-gradient-to-r from-cyan-400 to-emerald-400"
+                  }`}
+                  style={{ width: `${quotaPercent}%` }}
+                />
+              </div>
+              <p className="mt-1 text-[10px] text-zinc-400">
+                {Number(remainingProducts) === 0
+                  ? "Catalog limit reached (0 remaining). Re-subscribe or upgrade tier to add items!"
+                  : `You have ${remainingProducts} more wholesale product slots available.`}
+              </p>
+            </div>
+          ) : (
+            <p className="mt-2 text-[10px] text-zinc-400">
+              {listedProductsCount} items listed • Unlimited catalog capacity.
+            </p>
+          )}
+        </div>
+
         <div className="rounded-xl border border-white/[0.08] bg-[#0c1222]/80 p-4 shadow-sm backdrop-blur-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-lg bg-indigo-500/20 p-2.5 text-indigo-400">
@@ -219,24 +312,6 @@ export function SupplierSubscriptionsView() {
                   : currentPlan?.id === "supplier-gold"
                   ? "Up to 10 Depots"
                   : "Up to 2 Depots"}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-white/[0.08] bg-[#0c1222]/80 p-4 shadow-sm backdrop-blur-sm">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-cyan-500/20 p-2.5 text-cyan-400">
-              <FileQuestion className="h-5 w-5" />
-            </div>
-            <div>
-              <div className="text-xs text-zinc-400">RFQ Quotations</div>
-              <div className="text-lg font-bold text-white">
-                {currentPlan?.id === "supplier-mega"
-                  ? "Direct Tender Access"
-                  : currentPlan?.id === "supplier-gold"
-                  ? "Priority Bidding"
-                  : "Standard Receiving"}
               </div>
             </div>
           </div>
@@ -404,51 +479,38 @@ export function SupplierSubscriptionsView() {
                 </div>
               </div>
 
-              {/* Action Button */}
+              {/* Action Buttons: NEVER disabled - suppliers have the right to re-subscribe/renew anytime */}
               <div className="mt-8 pt-4">
                 {isCurrent ? (
                   <button
-                    disabled
-                    className="w-full rounded-xl border border-emerald-500/50 bg-emerald-500/15 px-4 py-2.5 text-xs font-bold text-emerald-300 flex items-center justify-center gap-2 cursor-not-allowed opacity-90 shadow-sm"
+                    type="button"
+                    onClick={() => handleOpenPayment(plan)}
+                    className="w-full rounded-xl border border-emerald-500/70 bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-200 px-4 py-2.5 text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer hover:border-emerald-400 shadow-emerald-950/40"
                   >
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                    <span>Currently Active (Subscribed)</span>
-                  </button>
-                ) : isIncludedOrLower ? (
-                  <button
-                    disabled
-                    className="w-full rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-xs font-semibold text-zinc-500 flex items-center justify-center gap-2 cursor-not-allowed opacity-60"
-                  >
-                    <CheckCircle2 className="h-3.5 w-3.5 text-zinc-500" />
-                    <span>Included in {currentPlan.name}</span>
+                    <RefreshCw className="h-3.5 w-3.5 text-emerald-400" />
+                    <span>Re-subscribe / Renew {plan.name}</span>
                   </button>
                 ) : isHigherTier ? (
                   <button
+                    type="button"
                     onClick={() => handleOpenPayment(plan)}
                     className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 text-white px-4 py-2.5 text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer shadow-indigo-900/30"
                   >
                     <span>Upgrade to {plan.name}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </button>
-                ) : isStarterFree ? (
-                  <button
-                    disabled
-                    className="w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-xs font-semibold text-zinc-400 flex items-center justify-center gap-2 cursor-default"
-                  >
-                    <CheckCircle2 className="h-4 w-4 text-zinc-400" />
-                    <span>Current Free Tier</span>
-                  </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={() => handleOpenPayment(plan)}
                     className={`w-full rounded-xl px-4 py-2.5 text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer ${
                       plan.isPopular
                         ? "bg-indigo-600 hover:bg-indigo-500 text-white shadow-indigo-600/30"
-                        : "bg-white/10 hover:bg-white/20 text-white"
+                        : "bg-white/10 hover:bg-white/20 text-white border border-white/10"
                     }`}
                   >
-                    <span>Upgrade Tier</span>
-                    <ArrowRight className="h-3.5 w-3.5" />
+                    <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                    <span>Switch to {plan.name}</span>
                   </button>
                 )}
               </div>

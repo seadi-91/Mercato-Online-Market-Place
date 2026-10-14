@@ -63,7 +63,14 @@ export async function GET(req: Request) {
     const phone = searchParams.get("phone");
     const orderNumber = searchParams.get("orderNumber");
 
-    if (txRef) {
+    const orderId = searchParams.get("id") || searchParams.get("orderId");
+
+    if (orderId) {
+      if (isValidUuid(orderId)) {
+        values.push(orderId);
+        conditions.push(`o.id = $${values.length}`);
+      }
+    } else if (txRef) {
       values.push(txRef);
       conditions.push(`o."txRef" = $${values.length}`);
     } else if (orderNumber) {

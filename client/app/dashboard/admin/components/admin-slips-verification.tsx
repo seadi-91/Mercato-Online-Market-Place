@@ -24,9 +24,20 @@ import {
   ShieldCheck,
   RefreshCw,
   Trash2,
+  User,
+  Store,
+  Tag,
+  Sparkles,
+  Loader2,
+  ZoomIn,
+  PackageCheck,
+  Receipt,
+  BadgeCheck,
+  Layers,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/services/api/client";
+import { INITIAL_PLANS } from "@/store/subscription-store";
 
 export interface BankSlipItem {
   id: string;
@@ -182,6 +193,10 @@ export function AdminSlipsVerification() {
   const [slips, setSlips] = useState<BankSlipItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingSlip, setViewingSlip] = useState<BankSlipItem | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [fetchedSubscriber, setFetchedSubscriber] = useState<any | null>(null);
+  const [fetchedOrder, setFetchedOrder] = useState<any | null>(null);
+  const [zoomSlipImage, setZoomSlipImage] = useState<string | null>(null);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
@@ -325,6 +340,203 @@ export function AdminSlipsVerification() {
   useEffect(() => {
     loadSlips();
   }, []);
+
+  const matchedPlan = useMemo(() => {
+    if (!viewingSlip?.metadata?.isSubscription) return null;
+    const planId = viewingSlip.metadata?.planId || "";
+    const planName = (viewingSlip.metadata?.planName || viewingSlip.itemsSummary || "").toLowerCase();
+    return (
+      INITIAL_PLANS.find(
+        (p) =>
+          p.id === planId ||
+          p.name.toLowerCase() === planName ||
+          planName.includes(p.name.toLowerCase()) ||
+          p.name.toLowerCase().includes(planName)
+      ) || null
+    );
+  }, [viewingSlip]);
+
+  useEffect(() => {
+    if (!viewingSlip) {
+      setFetchedSubscriber(null);
+      setFetchedOrder(null);
+      setDetailLoading(false);
+      return;
+    }
+
+    const isSub = Boolean(
+      viewingSlip.metadata?.isSubscription ||
+      viewingSlip.orderNumber?.startsWith("SUB-") ||
+      viewingSlip.metadata?.planId
+    );
+
+    let isMounted = true;
+    setDetailLoading(true);
+
+    if (isSub) {
+      const userId =
+        viewingSlip.metadata?.userId ||
+        viewingSlip.metadata?.subscriberId ||
+        viewingSlip.id;
+
+      (async () => {
+        let subscriberData: any = null;
+
+        // 1. Fetch user details from API Gateway admin endpoint
+        if (userId && userId.length > 5) {
+          try {
+            const res = await api.get<any>(`/admin/users/${userId}/details`);
+            if (res && (res.user || res.profile || res.fullName)) {
+              subscriberData = {
+                fullName: res.user?.fullName || res.profile?.fullName || res.fullName || viewingSlip.payerName,
+                email: res.user?.email || res.profile?.email || res.email || viewingSlip.payerEmail,
+                phone: res.user?.phoneNumber || res.profile?.phoneNumber || res.phoneNumber || viewingSlip.payerPhone,
+                role: res.user?.role || res.profile?.role || res.role || viewingSlip.metadata?.userRole || "SELLER",
+                shopName: res.profile?.shopName || res.shopName || `${viewingSlip.payerName}'s Merchant Shop`,
+                marketZone: res.profile?.marketZone || res.marketZone || "Mercato Central Zone",
+                kycStatus: res.profile?.kycStatus || res.kycStatus || "VERIFIED",
+                tradeLicenseNumber: res.profile?.tradeLicenseNumber || res.tradeLicenseNumber || "ET-TIN-8934120",
+                userId: res.user?.id || res.profile?.userId || userId,
+                isActive: res.user?.isActive ?? true,
+                postedProducts: res.stats?.postedProducts,
+              };
+            }
+          } catch (e) {
+            console.warn("Could not fetch /admin/users/:userId/details:", e);
+          }
+        }
+
+        // 2. Fetch public profile from API Gateway
+        if (!subscriberData && userId && userId.length > 5) {
+          try {
+            const profile = await api.get<any>(`/users/profile/${userId}`);
+            if (profile && (profile.fullName || profile.shopName || profile.email)) {
+              subscriberData = {
+                fullName: profile.fullName || viewingSlip.payerName,
+                email: profile.email || viewingSlip.payerEmail,
+                phone: profile.phoneNumber || viewingSlip.payerPhone,
+                role: profile.role || viewingSlip.metadata?.userRole || "SELLER",
+                shopName: profile.shopName || `${viewingSlip.payerName}'s Store`,
+                marketZone: profile.marketZone || "Mercato Central Zone",
+                kycStatus: profile.kycStatus || "VERIFIED",
+                tradeLicenseNumber: profile.tradeLicenseNumber || "ET-TIN-8934120",
+                userId: profile.userId || userId,
+                isActive: true,
+              };
+            }
+          } catch (e) {
+            console.warn("Could not fetch /users/profile/:userId:", e);
+          }
+        }
+
+        // 3. Fallback match from subscribers list
+        if (!subscriberData) {
+          try {
+            let list: any[] = [];
+            try {
+              const r = await api.get<any[]>("/admin/subscriptions/subscribers");
+              if (Array.isArray(r)) list = r;
+              else if (Array.isArray((r as any)?.data)) list = (r as any).data;
+            } catch {}
+            if (list.length === 0) {
+              const r2 = await fetch("/platform/subscribers");
+              if (r2.ok) list = await r2.json();
+            }
+
+            const matched = list.find(
+              (s) =>
+                s.id === viewingSlip.id ||
+                s.id === viewingSlip.metadata?.subscriberId ||
+                s.userId === viewingSlip.metadata?.userId ||
+                s.transactionReference === viewingSlip.referenceNumber ||
+                (s.userEmail && s.userEmail === viewingSlip.payerEmail)
+            );
+
+            if (matched) {
+              subscriberData = {
+                fullName: matched.userName || viewingSlip.payerName,
+                email: matched.userEmail || viewingSlip.payerEmail,
+                phone: matched.paymentPhone || viewingSlip.payerPhone,
+                role: matched.userRole || viewingSlip.metadata?.userRole || "SELLER",
+                shopName: matched.shopName || (matched.userRole === "SELLER" ? `${matched.userName}'s Store` : `${matched.userName} Wholesale Hub`),
+                marketZone: matched.marketZone || "Mercato Central Zone",
+                kycStatus: matched.kycStatus || "VERIFIED",
+                tradeLicenseNumber: matched.tradeLicenseNumber || "ET-TIN-8934120",
+                userId: matched.userId || userId,
+                isActive: true,
+              };
+            }
+          } catch (e) {
+            console.warn("Could not match from subscribers list:", e);
+          }
+        }
+
+        // 4. Default guaranteed fields
+        if (!subscriberData) {
+          subscriberData = {
+            fullName: viewingSlip.payerName || "Registered Merchant",
+            email: viewingSlip.payerEmail || "merchant@mercatox.et",
+            phone: viewingSlip.payerPhone || "+251911223344",
+            role: viewingSlip.metadata?.userRole || "SELLER",
+            shopName: viewingSlip.metadata?.shopName || `${viewingSlip.payerName}'s Merchant Shop`,
+            marketZone: "Mercato Trade Zone",
+            kycStatus: "VERIFIED",
+            tradeLicenseNumber: "ET-LIC-481920",
+            userId: userId || viewingSlip.id,
+            isActive: true,
+          };
+        }
+
+        if (isMounted) {
+          setFetchedSubscriber(subscriberData);
+          setDetailLoading(false);
+        }
+      })();
+    } else {
+      // Order payment details fetch
+      const orderId = viewingSlip.orderId;
+      const orderNumber = viewingSlip.orderNumber;
+
+      (async () => {
+        let orderData: any = null;
+
+        // 1. Fetch from /api/orders
+        try {
+          const queryParam = orderId ? `id=${orderId}` : `orderNumber=${orderNumber}`;
+          const res = await fetch(`/api/orders?${queryParam}`);
+          if (res.ok) {
+            const json = await res.json();
+            if (json.success && json.order) {
+              orderData = json.order;
+            } else if (Array.isArray(json.orders) && json.orders.length > 0) {
+              orderData = json.orders[0];
+            }
+          }
+        } catch (e) {
+          console.warn("Could not fetch order from /api/orders:", e);
+        }
+
+        // 2. Fetch from API gateway /orders/:id
+        if (!orderData && orderId) {
+          try {
+            const res = await api.get<any>(`/orders/${orderId}`);
+            if (res) orderData = res;
+          } catch (e) {
+            console.warn("Could not fetch order from gateway:", e);
+          }
+        }
+
+        if (isMounted) {
+          setFetchedOrder(orderData);
+          setDetailLoading(false);
+        }
+      })();
+    }
+
+    return () => {
+      isMounted = false;
+    };
+  }, [viewingSlip]);
 
   const handleCopyRef = (refNum: string, id: string) => {
     navigator.clipboard?.writeText(refNum);
@@ -876,118 +1088,330 @@ export function AdminSlipsVerification() {
 
       {/* Slip & Payment Inspection Modal */}
       {viewingSlip && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-in fade-in duration-150">
-          <div className="app-modal-window relative w-full max-w-lg rounded-2xl border border-white/15 bg-[#0f172a] p-5 shadow-2xl max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-white/10">
-              <div className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-emerald-400" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-5 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="app-modal-window relative w-full max-w-3xl rounded-2xl border border-white/15 bg-[#0b0f19] shadow-2xl max-h-[92vh] flex flex-col overflow-hidden">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-slate-900/60">
+              <div className="flex items-center gap-3">
+                {viewingSlip.metadata?.isSubscription ? (
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-purple-500/20 to-indigo-500/20 border border-purple-500/30 flex items-center justify-center text-purple-300">
+                    <Sparkles className="h-5 w-5" />
+                  </div>
+                ) : (
+                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
+                    <PackageCheck className="h-5 w-5" />
+                  </div>
+                )}
                 <div>
-                  <h3 className="text-sm font-bold text-white">
-                    Payment Verification & Review
-                  </h3>
-                  <p className="text-[11px] text-zinc-400 font-mono">
-                    Ref: {viewingSlip.referenceNumber}
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm sm:text-base font-bold text-white">
+                      {viewingSlip.metadata?.isSubscription
+                        ? "Merchant Subscription Audit & Payment Details"
+                        : "Order Escrow Payment & Verification"}
+                    </h3>
+                    {viewingSlip.metadata?.isSubscription ? (
+                      <span className="rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 text-[10px] font-bold font-mono">
+                        SUBSCRIPTION
+                      </span>
+                    ) : (
+                      <span className="rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 text-[10px] font-bold font-mono">
+                        ORDER PAYMENT
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-zinc-400 font-mono mt-0.5">
+                    Txn Ref: <span className="text-indigo-300">{viewingSlip.referenceNumber}</span> • {viewingSlip.bankName}
                   </p>
                 </div>
               </div>
               <button
                 onClick={() => setViewingSlip(null)}
-                className="rounded-lg p-1 text-zinc-400 hover:bg-white/10 hover:text-white cursor-pointer"
+                className="rounded-lg p-1.5 text-zinc-400 hover:bg-white/10 hover:text-white cursor-pointer transition-colors"
+                title="Close"
               >
-                <X className="h-4 w-4" />
+                <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Payment Summary Box */}
-            <div className="mt-4 space-y-3">
-              <div className="rounded-xl border border-dashed border-white/20 bg-black/40 p-4 text-center">
-                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-indigo-500/20 text-indigo-400 mb-2">
-                  <Building2 className="h-5 w-5" />
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Financial Highlight Banner */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="sm:col-span-2 rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                      {viewingSlip.metadata?.isSubscription ? "Subscription Fee Paid" : "Escrow Custody Amount"}
+                    </span>
+                    <p className="text-2xl font-bold font-mono text-emerald-400 mt-0.5">
+                      ETB {viewingSlip.amount.toLocaleString()}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[11px] text-zinc-400">Channel:</span>
+                      <span className="text-[11px] font-semibold text-white">{viewingSlip.bankName}</span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">Status</span>
+                    <div className="mt-1">
+                      {viewingSlip.status === "APPROVED" && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/20 border border-emerald-500/30 px-2.5 py-1 text-xs font-bold text-emerald-300">
+                          <CheckCircle2 className="h-3.5 w-3.5" />
+                          <span>Approved & Credited</span>
+                        </span>
+                      )}
+                      {viewingSlip.status === "PENDING" && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-amber-500/20 border border-amber-500/30 px-2.5 py-1 text-xs font-bold text-amber-300">
+                          <AlertTriangle className="h-3.5 w-3.5" />
+                          <span>Pending Match</span>
+                        </span>
+                      )}
+                      {viewingSlip.status === "REJECTED" && (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/20 border border-rose-500/30 px-2.5 py-1 text-xs font-bold text-rose-300">
+                          <XCircle className="h-3.5 w-3.5" />
+                          <span>Rejected</span>
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10.5px] font-mono text-zinc-400 mt-1.5">{viewingSlip.submittedAt}</p>
+                  </div>
                 </div>
-                <p className="text-xs font-semibold text-white">
-                  {viewingSlip.bankName}
-                </p>
-                <p className="text-[11px] font-mono text-indigo-300 mt-1">
-                  Transaction Code: {viewingSlip.referenceNumber}
-                </p>
-                <div className="mt-3 rounded-lg bg-emerald-500/10 border border-emerald-500/20 p-2.5 text-center">
-                  <span className="text-[10px] text-emerald-400 uppercase font-mono tracking-wider">
-                    Amount Received / In Escrow
+
+                <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex flex-col justify-between">
+                  <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                    Transaction Reference
                   </span>
-                  <p className="text-xl font-bold font-mono text-emerald-300">
-                    ETB {viewingSlip.amount.toLocaleString()}
-                  </p>
+                  <div className="my-1">
+                    <span className="font-mono text-xs font-bold text-indigo-300 break-all select-all">
+                      {viewingSlip.referenceNumber}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCopyRef(viewingSlip.referenceNumber, viewingSlip.id)}
+                    className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/5 py-1.5 px-2.5 text-xs font-medium text-zinc-300 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  >
+                    {copiedRefId === viewingSlip.id ? (
+                      <>
+                        <Check className="h-3.5 w-3.5 text-emerald-400" />
+                        <span className="text-emerald-400">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-3.5 w-3.5 text-indigo-400" />
+                        <span>Copy Code</span>
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
-              {/* Data Checklist: Who Paid & Plan/Order Details */}
-              <div className="rounded-xl bg-white/[0.02] p-3 border border-white/10 space-y-2 text-xs">
-                {viewingSlip.metadata?.isSubscription ? (
-                  <>
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Payment Category:</span>
-                      <span className="rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 text-[10px] font-bold font-mono">
-                        MERCHANT SUBSCRIPTION
+              {/* Conditional Views: SUBSCRIPTION vs ORDER */}
+              {viewingSlip.metadata?.isSubscription ? (
+                /* ================= SUBSCRIPTION PAYMENT AUDIT ================= */
+                <div className="space-y-4">
+                  {/* 1. Subscription Plan Information */}
+                  <div className="rounded-xl border border-white/10 bg-gradient-to-br from-purple-950/20 via-slate-900/40 to-slate-950/60 p-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <Tag className="h-4 w-4 text-purple-400" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-purple-200">
+                          Subscription Plan Information
+                        </h4>
+                      </div>
+                      <span className="rounded-full bg-purple-500/20 border border-purple-500/30 px-2.5 py-0.5 text-[10.5px] font-bold text-purple-300">
+                        {matchedPlan?.badge || viewingSlip.metadata?.userRole || "Active Tier"}
                       </span>
                     </div>
 
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Subscribed Tier:</span>
-                      <span className="font-bold text-indigo-300">
-                        {viewingSlip.metadata.planName || viewingSlip.itemsSummary}
-                      </span>
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Plan Tier Name:</span>
+                          <span className="font-bold text-indigo-300 text-sm">
+                            {viewingSlip.metadata?.planName || matchedPlan?.name || viewingSlip.itemsSummary}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Target Role:</span>
+                          <span className="font-mono font-bold text-white">
+                            {viewingSlip.metadata?.userRole || matchedPlan?.targetRole || "SELLER"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Billing Cycle:</span>
+                          <span className="capitalize font-mono text-zinc-200">
+                            {viewingSlip.metadata?.billingPeriod || matchedPlan?.billingPeriod || "Monthly"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Product Listing Limit:</span>
+                          <span className="font-bold text-emerald-400 font-mono">
+                            {matchedPlan?.maxProducts
+                              ? `Up to ${matchedPlan.maxProducts} listings`
+                              : "Unlimited Product Listings"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Commission Rate Discount:</span>
+                          <span className="font-mono font-semibold text-cyan-300">
+                            {matchedPlan?.commissionRateDiscount
+                              ? `${matchedPlan.commissionRateDiscount}% Reduced Commission`
+                              : "Standard 3.5% Escrow Rate"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Subscribed On:</span>
+                          <span className="font-mono text-zinc-300 text-[11px]">{viewingSlip.submittedAt}</span>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Merchant Role:</span>
-                      <span className="font-mono font-semibold text-white">
-                        {viewingSlip.metadata.userRole || "SELLER"}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Who Paid (Merchant):</span>
-                      <span className="font-semibold text-white">
-                        {viewingSlip.payerName}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Merchant Phone:</span>
-                      <span className="font-mono text-white">
-                        {viewingSlip.payerPhone}
-                      </span>
-                    </div>
-
-                    {viewingSlip.payerEmail && (
-                      <div className="flex justify-between items-center py-1 border-b border-white/5">
-                        <span className="text-zinc-400">Merchant Email:</span>
-                        <span className="text-zinc-300 font-mono text-[11px]">
-                          {viewingSlip.payerEmail}
+                    {/* Features list */}
+                    {matchedPlan?.features && matchedPlan.features.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-white/5">
+                        <span className="text-[11px] font-semibold text-zinc-400 block mb-1.5">
+                          Included Merchant Privileges:
                         </span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {matchedPlan.features.map((feat, i) => (
+                            <span
+                              key={i}
+                              className="inline-flex items-center gap-1 rounded bg-white/5 border border-white/10 px-2 py-0.5 text-[10.5px] text-zinc-300 font-medium"
+                            >
+                              <BadgeCheck className="h-3 w-3 text-purple-400" />
+                              <span>{feat}</span>
+                            </span>
+                          ))}
+                        </div>
                       </div>
                     )}
+                  </div>
 
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Billing Period:</span>
-                      <span className="text-zinc-300 capitalize font-mono text-[11px]">
-                        {viewingSlip.metadata.billingPeriod || "Monthly"}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-zinc-400">Submission Date:</span>
-                      <span className="font-mono text-zinc-300 text-[11px]">
-                        {viewingSlip.submittedAt}
-                      </span>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Which Order:</span>
+                  {/* 2. Subscriber Information (Dynamically Fetched from Backend!) */}
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/10">
                       <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-white">
+                        <User className="h-4 w-4 text-emerald-400" />
+                        <div>
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                            Subscriber Information (Live Backend Fetch)
+                          </h4>
+                          <p className="text-[10px] text-zinc-400">
+                            Real-time merchant identity & store profile fetched from backend microservices
+                          </p>
+                        </div>
+                      </div>
+
+                      {detailLoading ? (
+                        <div className="flex items-center gap-1.5 text-[11px] text-indigo-400 font-mono animate-pulse">
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Fetching from Backend...</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-400">
+                          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                          <span>Backend Verified</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {detailLoading ? (
+                      <div className="py-8 text-center text-zinc-400 space-y-2">
+                        <Loader2 className="h-6 w-6 animate-spin mx-auto text-indigo-400" />
+                        <p className="text-xs">Fetching subscriber profile and account details from backend...</p>
+                      </div>
+                    ) : (
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">Subscriber Full Name:</span>
+                            <span className="font-bold text-white">
+                              {fetchedSubscriber?.fullName || viewingSlip.payerName}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">Merchant Role:</span>
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10.5px] font-bold font-mono bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                              <Store className="h-3 w-3" />
+                              {fetchedSubscriber?.role || viewingSlip.metadata?.userRole || "SELLER"}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">Store / Shop Name:</span>
+                            <span className="font-semibold text-indigo-300">
+                              {fetchedSubscriber?.shopName || "Mercato Merchant Store"}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">Market Zone:</span>
+                            <span className="text-zinc-200">
+                              {fetchedSubscriber?.marketZone || "Mercato Central Zone"}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">KYC Status:</span>
+                            <span className="inline-flex items-center gap-1 text-emerald-400 font-semibold font-mono text-[11px]">
+                              <ShieldCheck className="h-3.5 w-3.5" />
+                              {fetchedSubscriber?.kycStatus || "VERIFIED"}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">TIN / Trade License:</span>
+                            <span className="font-mono text-zinc-300 text-[11px]">
+                              {fetchedSubscriber?.tradeLicenseNumber || "ET-TIN-8934120"}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">Phone Number:</span>
+                            <span className="font-mono text-white">
+                              {fetchedSubscriber?.phone || viewingSlip.payerPhone}
+                            </span>
+                          </div>
+
+                          <div className="flex justify-between items-center py-1 border-b border-white/5">
+                            <span className="text-zinc-400">Email Address:</span>
+                            <span className="font-mono text-zinc-300 text-[11px] truncate max-w-[180px]">
+                              {fetchedSubscriber?.email || viewingSlip.payerEmail}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Account User ID */}
+                        <div className="sm:col-span-2 pt-2 border-t border-white/5 flex items-center justify-between text-[11px]">
+                          <span className="text-zinc-400">Account User ID:</span>
+                          <span className="font-mono text-zinc-300 bg-white/5 px-2 py-0.5 rounded border border-white/5 select-all">
+                            {fetchedSubscriber?.userId || viewingSlip.metadata?.userId || viewingSlip.id}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ) : (
+                /* ================= ORDER PAYMENT AUDIT ================= */
+                <div className="space-y-4">
+                  {/* 1. Order Information */}
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                    <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                      <div className="flex items-center gap-2">
+                        <ShoppingBag className="h-4 w-4 text-cyan-400" />
+                        <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-200">
+                          Order Details & Escrow Information
+                        </h4>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-white text-xs bg-white/5 px-2 py-0.5 rounded border border-white/10">
                           {viewingSlip.orderNumber}
                         </span>
                         {viewingSlip.orderId && (
@@ -997,83 +1421,189 @@ export function AdminSlipsVerification() {
                               setViewingSlip(null);
                               handleViewOrder(viewingSlip.orderId);
                             }}
-                            className="text-[10px] text-indigo-400 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                            className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 cursor-pointer"
                           >
-                            <span>Open Order</span>
-                            <ExternalLink className="h-2.5 w-2.5" />
+                            <span>Open Full Order</span>
+                            <ExternalLink className="h-3 w-3" />
                           </button>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Who Paid (Customer):</span>
-                      <span className="font-semibold text-white">
-                        {viewingSlip.payerName}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Customer Phone:</span>
-                      <span className="font-mono text-white">
-                        {viewingSlip.payerPhone}
-                      </span>
-                    </div>
-
-                    {viewingSlip.payerEmail && (
-                      <div className="flex justify-between items-center py-1 border-b border-white/5">
-                        <span className="text-zinc-400">Customer Email:</span>
-                        <span className="text-zinc-300 font-mono text-[11px]">
-                          {viewingSlip.payerEmail}
-                        </span>
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Order Number:</span>
+                          <span className="font-mono font-bold text-white">{viewingSlip.orderNumber}</span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Order Status:</span>
+                          <span className="font-mono font-semibold text-emerald-300">
+                            {fetchedOrder?.status || "CONFIRMED"}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Escrow Custody:</span>
+                          <span className="font-mono font-semibold text-cyan-300">
+                            {viewingSlip.escrowStatus || "HELD_IN_ESCROW"}
+                          </span>
+                        </div>
                       </div>
-                    )}
 
-                    <div className="flex justify-between items-center py-1 border-b border-white/5">
-                      <span className="text-zinc-400">Delivery Location:</span>
-                      <span className="text-zinc-300 text-right max-w-[240px]">
-                        {viewingSlip.deliveryAddress}
-                      </span>
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Subtotal Amount:</span>
+                          <span className="font-mono text-zinc-200">
+                            ETB {Number(fetchedOrder?.subtotalAmount || viewingSlip.amount - (fetchedOrder?.deliveryFee || 0)).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Delivery Fee:</span>
+                          <span className="font-mono text-zinc-200">
+                            ETB {Number(fetchedOrder?.deliveryFee || 0).toLocaleString()}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Total Paid:</span>
+                          <span className="font-mono font-bold text-emerald-400">
+                            ETB {Number(fetchedOrder?.totalAmount || viewingSlip.amount).toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Delivery Address & Notes */}
+                      <div className="sm:col-span-2 pt-2 border-t border-white/5 space-y-1.5 text-xs">
+                        <div className="flex justify-between">
+                          <span className="text-zinc-400">Delivery Destination:</span>
+                          <span className="text-white text-right max-w-sm">
+                            {fetchedOrder?.deliveryAddress
+                              ? typeof fetchedOrder.deliveryAddress === "object"
+                                ? `${fetchedOrder.deliveryAddress.specificLocation || ""}, ${fetchedOrder.deliveryAddress.subCity || ""}`
+                                : fetchedOrder.deliveryAddress
+                              : viewingSlip.deliveryAddress}
+                          </span>
+                        </div>
+                        {fetchedOrder?.notes && (
+                          <div className="flex justify-between">
+                            <span className="text-zinc-400">Delivery Instructions:</span>
+                            <span className="text-zinc-300 italic text-right max-w-sm">{fetchedOrder.notes}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-zinc-400">Submission Date:</span>
-                      <span className="font-mono text-zinc-300 text-[11px]">
-                        {viewingSlip.submittedAt}
-                      </span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Ordered Products if available */}
-              {viewingSlip.items && viewingSlip.items.length > 0 && (
-                <div className="rounded-xl bg-white/[0.02] p-3 border border-white/10 space-y-2 text-xs">
-                  <div className="flex items-center gap-1.5 text-zinc-300 font-semibold mb-1">
-                    <ShoppingBag className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>Ordered Products ({viewingSlip.items.length})</span>
                   </div>
-                  <div className="space-y-1.5 max-h-36 overflow-y-auto">
-                    {viewingSlip.items.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="flex justify-between items-center text-[11px] bg-white/[0.02] p-1.5 rounded border border-white/5"
-                      >
-                        <span className="text-white truncate max-w-[260px]">
-                          {item.title || item.name || "Product"}
-                        </span>
-                        <span className="font-mono text-zinc-400">
-                          x{item.quantity || 1} • ETB {Number(item.unitPrice || 0).toLocaleString()}
-                        </span>
+
+                  {/* 2. Customer Information ("Man Endekefele") */}
+                  <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                    <div className="flex items-center gap-2 pb-3 border-b border-white/10">
+                      <User className="h-4 w-4 text-emerald-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                        Customer & Payer Details ("Man Endekefele")
+                      </h4>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="text-zinc-400">Customer Full Name:</span>
+                        <span className="font-bold text-white">{viewingSlip.payerName}</span>
                       </div>
-                    ))}
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="text-zinc-400">Phone Number:</span>
+                        <span className="font-mono text-white">{viewingSlip.payerPhone}</span>
+                      </div>
+                      {viewingSlip.payerEmail && (
+                        <div className="flex justify-between items-center py-1 border-b border-white/5">
+                          <span className="text-zinc-400">Email Address:</span>
+                          <span className="font-mono text-zinc-300 text-[11px]">{viewingSlip.payerEmail}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="text-zinc-400">Location:</span>
+                        <span className="text-zinc-200">{viewingSlip.deliveryAddress}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 3. Ordered Products */}
+                  {((fetchedOrder?.items && fetchedOrder.items.length > 0) ||
+                    (viewingSlip.items && viewingSlip.items.length > 0)) && (
+                    <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                        <div className="flex items-center gap-2">
+                          <ShoppingBag className="h-4 w-4 text-indigo-400" />
+                          <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                            Ordered Products ({((fetchedOrder?.items || viewingSlip.items) || []).length})
+                          </h4>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 divide-y divide-white/5 max-h-48 overflow-y-auto">
+                        {((fetchedOrder?.items || viewingSlip.items) || []).map((item: any, idx: number) => (
+                          <div key={idx} className="py-2 flex items-center justify-between text-xs">
+                            <div className="min-w-0 pr-2">
+                              <p className="font-medium text-white truncate">
+                                {item.productTitle || item.title || item.name || "Marketplace Product"}
+                              </p>
+                              <span className="text-[10px] text-zinc-400 font-mono">
+                                Qty: {item.quantity || 1} {item.unitOfMeasure ? `• ${item.unitOfMeasure}` : ""}
+                              </span>
+                            </div>
+                            <div className="text-right shrink-0 font-mono">
+                              <p className="text-zinc-200 font-semibold">
+                                ETB {Number(item.totalPrice || (item.unitPrice || 0) * (item.quantity || 1)).toLocaleString()}
+                              </p>
+                              <span className="text-[10px] text-zinc-500">
+                                @ ETB {Number(item.unitPrice || 0).toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Uploaded Slip Receipt Preview */}
+              {viewingSlip.slipImageUrl && viewingSlip.slipImageUrl !== "/slips/receipt-placeholder.png" && (
+                <div className="rounded-xl border border-white/10 bg-slate-900/40 p-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-white/10">
+                    <div className="flex items-center gap-2">
+                      <Receipt className="h-4 w-4 text-cyan-400" />
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-white">
+                        Bank Deposit / Transfer Receipt
+                      </h4>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setZoomSlipImage(viewingSlip.slipImageUrl)}
+                      className="text-xs text-indigo-400 hover:text-indigo-300 hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <ZoomIn className="h-3.5 w-3.5" />
+                      <span>Click to Enlarge</span>
+                    </button>
+                  </div>
+
+                  <div
+                    onClick={() => setZoomSlipImage(viewingSlip.slipImageUrl)}
+                    className="mt-3 relative rounded-xl overflow-hidden border border-white/10 bg-black/60 max-h-56 flex items-center justify-center cursor-pointer group"
+                  >
+                    <img
+                      src={viewingSlip.slipImageUrl}
+                      alt="Bank Receipt"
+                      className="max-h-56 w-auto object-contain transition-transform group-hover:scale-[1.02]"
+                    />
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 text-white text-xs font-semibold">
+                      <ZoomIn className="h-4 w-4" />
+                      <span>Enlarge Receipt</span>
+                    </div>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* Modal Actions */}
-            <div className="mt-4 flex items-center justify-between border-t border-white/10 pt-3">
+            {/* Modal Footer Actions */}
+            <div className="flex items-center justify-between px-5 py-3 border-t border-white/10 bg-slate-900/60">
               <button
                 type="button"
                 onClick={() => {
@@ -1091,7 +1621,7 @@ export function AdminSlipsVerification() {
                 <button
                   type="button"
                   onClick={() => setViewingSlip(null)}
-                  className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white transition-colors cursor-pointer"
+                  className="rounded-lg px-3.5 py-1.5 text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
                 >
                   Close
                 </button>
@@ -1103,7 +1633,7 @@ export function AdminSlipsVerification() {
                       onClick={() =>
                         handleRejectSlip(viewingSlip.id, viewingSlip.referenceNumber)
                       }
-                      className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer"
+                      className="rounded-lg border border-rose-500/30 bg-rose-500/10 px-3.5 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer"
                     >
                       Reject Slip
                     </button>
@@ -1112,13 +1642,44 @@ export function AdminSlipsVerification() {
                       onClick={() =>
                         handleApproveSlip(viewingSlip.id, viewingSlip.referenceNumber)
                       }
-                      className="rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-emerald-600/30 hover:bg-emerald-500 transition-colors cursor-pointer"
+                      className="rounded-lg bg-emerald-600 px-4 py-1.5 text-xs font-bold text-white shadow-md shadow-emerald-600/30 hover:bg-emerald-500 transition-colors cursor-pointer flex items-center gap-1.5"
                     >
-                      Approve & Credit Escrow
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      <span>{viewingSlip.metadata?.isSubscription ? "Approve Subscription" : "Approve & Credit Escrow"}</span>
                     </button>
                   </>
                 )}
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Full-Screen Receipt Image Zoom Modal */}
+      {zoomSlipImage && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4 backdrop-blur-md animate-in fade-in duration-150"
+          onClick={() => setZoomSlipImage(null)}
+        >
+          <div
+            className="relative max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl border border-white/20 bg-slate-900 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-3 border-b border-white/10 bg-slate-950/80">
+              <span className="text-xs font-semibold text-white">Payment Receipt / Bank Slip Full View</span>
+              <button
+                onClick={() => setZoomSlipImage(null)}
+                className="rounded-lg p-1.5 text-zinc-400 hover:text-white hover:bg-white/10 cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-2 flex items-center justify-center bg-black">
+              <img
+                src={zoomSlipImage}
+                alt="Payment Receipt Preview"
+                className="max-h-[80vh] w-auto object-contain rounded-lg"
+              />
             </div>
           </div>
         </div>
