@@ -13,6 +13,7 @@ import {
   AlertCircle,
   X,
   ShieldAlert,
+  Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -33,10 +34,45 @@ export default function LoginPage() {
   const [identifierError, setIdentifierError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [blockedAccountError, setBlockedAccountError] = useState<string | null>(null);
+  const [lockoutCooldown, setLockoutCooldown] = useState<number | null>(null);
+  const [lockoutTargetEnd, setLockoutTargetEnd] = useState<number | null>(null);
+  const [attemptWarning, setAttemptWarning] = useState<string | null>(null);
+  const [lockoutInfo, setLockoutInfo] = useState<{
+    round: number;
+    maxRounds: number;
+    duration: number;
+    isBlocked: boolean;
+  } | null>(null);
 
   React.useEffect(() => {
     useSupplierStore.getState().hydrateStore();
   }, []);
+
+  React.useEffect(() => {
+    if (!lockoutTargetEnd) return;
+
+    const tick = () => {
+      const now = Date.now();
+      const remaining = Math.max(0, Math.ceil((lockoutTargetEnd - now) / 1000));
+      setLockoutCooldown(remaining);
+
+      if (remaining <= 0) {
+        setLockoutTargetEnd(null);
+        setLockoutCooldown(null);
+        if (blockedAccountError || lockoutInfo?.isBlocked) {
+          toast.error(
+            "Security cooldown ended. This account remains permanently blocked. Please contact an administrator to unblock."
+          );
+        } else {
+          toast.success("Security cooldown completed. Attempts reset. You may now attempt to sign in.");
+        }
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 250);
+    return () => clearInterval(interval);
+  }, [lockoutTargetEnd, blockedAccountError, lockoutInfo]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.getModifierState && e.getModifierState("CapsLock")) {
@@ -250,17 +286,71 @@ export default function LoginPage() {
             : data.message
           : "Invalid credentials. Please verify your phone/email and password.";
 
-        if (
-          errorMsg.toLowerCase().includes("block") ||
-          errorMsg.toLowerCase().includes("limit") ||
-          errorMsg.toLowerCase().includes("report")
-        ) {
+        const isPermanentlyBlocked =
+          data?.isBlocked === true ||
+          data?.accountStatus === "BLOCKED" ||
+          errorMsg.toLowerCase().includes("permanently blocked") ||
+          errorMsg.toLowerCase().includes("exceeded the allowed login") ||
+          errorMsg.toLowerCase().includes("security lockout cycles limit");
+
+        const isActivelyLocked =
+          data?.isLocked === true ||
+          data?.accountStatus === "LOCKED" ||
+          Boolean(Number(data?.remainingSeconds) > 0) ||
+          (!errorMsg.toLowerCase().includes("warning") &&
+            (errorMsg.toLowerCase().includes("account temporarily locked") ||
+              errorMsg.toLowerCase().includes("cooldown active") ||
+              errorMsg.toLowerCase().includes("final cooldown")));
+
+        let seconds = 0;
+        if (isActivelyLocked || isPermanentlyBlocked) {
+          seconds = Number(data?.remainingSeconds) || 0;
+          if (!seconds && typeof errorMsg === "string" && !errorMsg.toLowerCase().includes("warning")) {
+            const match = errorMsg.match(/(?:wait|locked for|cooldown:?\s*)\s*(\d+)\s*(?:seconds?|second\(s\)|s\b)/i);
+            if (match && match[1]) {
+              seconds = parseInt(match[1], 10);
+            }
+          }
+        }
+
+        const currentRound = Number(data?.lockoutRounds) || 1;
+        const maxRounds = Number(data?.maxLockoutRounds) || 3;
+        const duration = Number(data?.lockoutDurationSeconds) || seconds || 30;
+
+        setLockoutInfo({
+          round: currentRound,
+          maxRounds,
+          duration,
+          isBlocked: isPermanentlyBlocked,
+        });
+
+        if (seconds > 0) {
+          // Live countdown active: set target end timestamp so countdown ticks down every second
+          setLockoutCooldown(seconds);
+          setLockoutTargetEnd(Date.now() + seconds * 1000);
+          setAttemptWarning(null);
+        } else {
+          setLockoutCooldown(null);
+          setLockoutTargetEnd(null);
+        }
+
+        if (isPermanentlyBlocked) {
           setBlockedAccountError(
             errorMsg ||
-              "Your account has been blocked because you exceeded the allowed login attempt limit. Please submit a system report to the administrator."
+              "Your account has been permanently blocked because you exceeded the security lockout limit. Please contact an administrator to unblock your account."
           );
+          setAttemptWarning(null);
         } else {
           setBlockedAccountError(null);
+          // Show attempt count warning before 30-second cooldown triggers!
+          if (data?.failedAttempts && data?.maxAttempts) {
+            const cycleText = data?.lockoutRounds ? `Cycle ${data.lockoutRounds}/${data.maxLockoutRounds || 3} · ` : "";
+            setAttemptWarning(
+              `${cycleText}Attempt ${data.failedAttempts} of ${data.maxAttempts} used (${data.remainingAttempts ?? (data.maxAttempts - data.failedAttempts)} try remaining before 30s cooldown)`
+            );
+          } else if (seconds <= 0) {
+            setAttemptWarning(errorMsg);
+          }
         }
 
         toast.error(errorMsg);
@@ -332,12 +422,12 @@ export default function LoginPage() {
       login(userData, data?.accessToken);
 
       if (isRejected) {
-        toast.info("Account Type: Customer (ደንበኛ)", {
+        toast.info("Account Type: Customer", {
           description: "Your wholesale application was not approved. You are signed in as a Customer to browse and shop.",
           duration: 7000,
         });
       } else if (effectiveRole === "SUPPLIER" && !isVerifiedMerchant) {
-        toast.info("Account Under Review · እባክዎ በትዕግስት ይጠብቁ", {
+        toast.info("Account Under Review · Please Wait", {
           description: "Your wholesale supplier application is currently under review by administrators. Please wait for approval.",
           duration: 7000,
         });
@@ -524,50 +614,6 @@ export default function LoginPage() {
         </div>
       </div>
 
-      {/* Blocked Account Red Alert */}
-      {blockedAccountError && (
-        <div className="mb-4 rounded-xl border-2 border-rose-500 bg-rose-500/10 p-4 text-rose-300 shadow-xl shadow-rose-950/40 animate-in fade-in slide-in-from-top-2 duration-200">
-          <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-rose-500/20 p-2 text-rose-400 shrink-0">
-              <ShieldAlert className="h-5 w-5" />
-            </div>
-            <div className="space-y-1.5 flex-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-black uppercase tracking-wider text-rose-400">
-                  Account Blocked
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-bold border border-rose-500/30">
-                  SECURITY LOCKOUT
-                </span>
-              </div>
-              <p className="text-xs font-semibold leading-relaxed text-rose-200">
-                {blockedAccountError}
-              </p>
-              <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-rose-500/20">
-                <a
-                  href={`mailto:support@mercatox.et?subject=Account%20Blocked%20Report%20-%20${encodeURIComponent(
-                    identifier || "User"
-                  )}&body=Hello%20Administrator,%0A%0AMy%20account%20(${encodeURIComponent(
-                    identifier || ""
-                  )})%20has%20been%20blocked%20due%20to%20exceeding%20the%20allowed%20login%20attempt%20limit.%20Please%20review%20and%20unblock%20my%20account.%0A%0AThank%20you.`}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 px-3 py-1.5 text-[11px] font-bold text-white shadow transition-all cursor-pointer"
-                >
-                  <span>Submit System Report</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setBlockedAccountError(null)}
-                  className="text-[11px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
-                >
-                  Dismiss
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Clean Login Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Phone or Email Identifier */}
@@ -590,6 +636,7 @@ export default function LoginPage() {
               onChange={(e) => {
                 setIdentifier(e.target.value);
                 if (identifierError) setIdentifierError("");
+                if (attemptWarning) setAttemptWarning(null);
               }}
               placeholder="e.g. 0911 22 33 44 or user@company.com"
               className={`w-full rounded-xl border bg-black/40 py-2.5 pl-9 pr-8 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 ${identifierError
@@ -643,6 +690,7 @@ export default function LoginPage() {
               onChange={(e) => {
                 setPassword(e.target.value);
                 if (passwordError) setPasswordError("");
+                if (attemptWarning) setAttemptWarning(null);
               }}
               onKeyDown={handleKeyDown}
               onKeyUp={handleKeyDown}
@@ -699,13 +747,27 @@ export default function LoginPage() {
         {/* Submit */}
         <button
           type="submit"
-          disabled={isLoading}
+          disabled={
+            isLoading ||
+            (lockoutCooldown !== null && lockoutCooldown > 0) ||
+            Boolean(blockedAccountError && (!lockoutCooldown || lockoutCooldown <= 0))
+          }
           className="group relative flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-500 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none cursor-pointer"
         >
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin text-white" />
               <span>Authenticating...</span>
+            </>
+          ) : lockoutCooldown !== null && lockoutCooldown > 0 ? (
+            <>
+              <Clock className="h-4 w-4 animate-spin text-amber-300" style={{ animationDuration: "2s" }} />
+              <span className="font-bold">Cooldown Active ({lockoutCooldown}s remaining)</span>
+            </>
+          ) : blockedAccountError ? (
+            <>
+              <ShieldAlert className="h-4 w-4 text-rose-300" />
+              <span>Account Blocked · Contact Admin</span>
             </>
           ) : (
             <>
@@ -714,6 +776,53 @@ export default function LoginPage() {
             </>
           )}
         </button>
+        {/* Security Status - Positioned directly below Sign In button (no card container, no system report) */}
+
+        {/* 1. Attempt Count Warning (Before cooldown triggers) */}
+        {attemptWarning && !lockoutCooldown && !blockedAccountError && (
+          <div className="pt-2 text-center text-[11px] text-amber-400 flex items-center justify-center gap-1.5 animate-in fade-in duration-150">
+            <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-400" />
+            <span>{attemptWarning}</span>
+          </div>
+        )}
+
+        {/* 2. Live Cooldown Countdown (Prominently visible ticker without card frame) */}
+        {lockoutCooldown !== null && lockoutCooldown > 0 && (
+          <div className="pt-3 text-center space-y-1.5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-center gap-2 text-amber-400 font-mono text-base font-bold tracking-tight">
+              <Clock className="h-5 w-5 animate-spin text-amber-400 shrink-0" style={{ animationDuration: "2s" }} />
+              <span>
+                Cooldown Active: <span className="text-amber-300 font-black text-lg tabular-nums">{lockoutCooldown}s</span> remaining
+              </span>
+            </div>
+            {lockoutInfo?.round && (
+              <div className="text-[11px] font-semibold text-zinc-400">
+                Security Cycle {lockoutInfo.round} of {lockoutInfo.maxRounds} (3 attempts per cycle)
+              </div>
+            )}
+            <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
+              {blockedAccountError || lockoutInfo?.isBlocked
+                ? "Maximum security lockout cycles reached (3 cycles). Account is permanently blocked. Please contact an administrator."
+                : `3 failed attempts used in Cycle ${lockoutInfo?.round || 1}. Please wait ${lockoutCooldown} second(s) for the next cycle.`}
+            </p>
+          </div>
+        )}
+
+        {/* 3. Account Blocked Notice (Informs user account is blocked without card or system report button) */}
+        {blockedAccountError && (!lockoutCooldown || lockoutCooldown <= 0) && (
+          <div className="pt-2.5 text-center space-y-1.5 animate-in fade-in duration-200">
+            <div className="flex items-center justify-center gap-1.5 text-rose-400 text-sm font-bold">
+              <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0" />
+              <span>Account Permanently Blocked</span>
+            </div>
+            <p className="text-[11.5px] text-zinc-300 max-w-sm mx-auto leading-relaxed">
+              {blockedAccountError}
+            </p>
+            <p className="text-[11px] text-zinc-400 font-medium">
+              Please contact an administrator to unblock your account.
+            </p>
+          </div>
+        )}
       </form>
 
       {/* Divider */}

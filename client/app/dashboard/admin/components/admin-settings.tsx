@@ -26,6 +26,7 @@ import {
   Image as ImageIcon,
   Check,
   Shield,
+  ShieldAlert,
   Layers,
   UploadCloud,
   ExternalLink,
@@ -1217,8 +1218,8 @@ export function AdminSettings() {
                   </form>
                 </div>
 
-                {/* Sub-Card C: 2FA, Session & Account Lockout */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {/* Sub-Card C: 2FA & Session Timeout */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/5">
                     <div>
                       <p className="text-[11px] font-medium text-white">
@@ -1259,34 +1260,94 @@ export function AdminSettings() {
                       <span className="text-[10px] text-zinc-400">m</span>
                     </div>
                   </div>
+                </div>
 
-                  <div className="p-2 rounded-lg bg-rose-500/[0.03] border border-rose-500/20 flex items-center justify-between">
-                    <div>
-                      <p className="text-[11px] font-medium text-rose-300">
-                        Max Login Attempts
-                      </p>
-                      <p className="text-[9px] text-zinc-400">
-                        Lockout threshold
+                {/* Sub-Card D: Brute-Force & Security Lockout Controls */}
+                <div className="rounded-xl border border-rose-500/25 bg-rose-500/[0.03] p-3 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-rose-300 flex items-center gap-1.5">
+                      <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
+                      Brute-Force Defense & Security Lockout Policy
+                    </span>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                      DEFENSE
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-zinc-400 leading-tight">
+                    Configure thresholds for consecutive failed login attempts, temporary countdown lockout cooldowns, and permanent block rounds.
+                  </p>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                    {/* Failed Attempts Threshold */}
+                    <div className="p-2 rounded-lg bg-black/40 border border-white/10 space-y-1">
+                      <label className="block text-[10px] font-medium text-zinc-300">
+                        Failed Attempts Limit
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="1"
+                          max="20"
+                          value={settings.maxLoginAttempts || "3"}
+                          onChange={(e) =>
+                            updateSetting("maxLoginAttempts", e.target.value)
+                          }
+                          className="w-full rounded border border-white/15 bg-black/60 py-1 px-2 text-xs font-mono text-center text-white outline-none focus:border-rose-500"
+                        />
+                        <span className="text-[10px] text-zinc-400">tries</span>
+                      </div>
+                      <p className="text-[9px] text-zinc-500 leading-none">
+                        Triggers temporary cooldown
                       </p>
                     </div>
-                    <div className="flex items-center gap-1">
-                      <input
-                        type="number"
-                        min="1"
-                        max="20"
-                        value={settings.maxLoginAttempts || "5"}
-                        onChange={(e) =>
-                          updateSetting("maxLoginAttempts", e.target.value)
-                        }
-                        className="w-14 rounded border border-rose-500/30 bg-black/40 py-0.5 px-1.5 text-xs font-mono text-center text-white outline-none focus:border-rose-500"
-                      />
-                      <span className="text-[10px] text-zinc-400">tries</span>
+
+                    {/* Cooldown Duration */}
+                    <div className="p-2 rounded-lg bg-black/40 border border-white/10 space-y-1">
+                      <label className="block text-[10px] font-medium text-amber-300">
+                        Cooldown Countdown
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="5"
+                          max="3600"
+                          value={settings.lockoutDurationSeconds || "30"}
+                          onChange={(e) =>
+                            updateSetting("lockoutDurationSeconds", e.target.value)
+                          }
+                          className="w-full rounded border border-amber-500/30 bg-black/60 py-1 px-2 text-xs font-mono text-center text-amber-200 outline-none focus:border-amber-500"
+                        />
+                        <span className="text-[10px] text-zinc-400">sec</span>
+                      </div>
+                      <p className="text-[9px] text-zinc-500 leading-none">
+                        Temporary inactive duration
+                      </p>
+                    </div>
+
+                    {/* Max Lockout Cycles */}
+                    <div className="p-2 rounded-lg bg-black/40 border border-white/10 space-y-1">
+                      <label className="block text-[10px] font-medium text-rose-300">
+                        Max Lockout Cycles
+                      </label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          min="1"
+                          max="10"
+                          value={settings.maxLockoutRounds || "3"}
+                          onChange={(e) =>
+                            updateSetting("maxLockoutRounds", e.target.value)
+                          }
+                          className="w-full rounded border border-rose-500/30 bg-black/60 py-1 px-2 text-xs font-mono text-center text-rose-200 outline-none focus:border-rose-500"
+                        />
+                        <span className="text-[10px] text-zinc-400">rounds</span>
+                      </div>
+                      <p className="text-[9px] text-zinc-500 leading-none">
+                        Permanently blocks user on 3rd
+                      </p>
                     </div>
                   </div>
                 </div>
-                <p className="text-[10px] text-zinc-400">
-                  * When consecutive failed login attempts reach this limit, the account will be automatically blocked.
-                </p>
               </div>
             )}
 

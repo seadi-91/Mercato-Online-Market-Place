@@ -45,6 +45,8 @@ export interface PlatformSettings {
   require2FA: boolean;
   sessionTimeoutMinutes: string;
   maxLoginAttempts?: string;
+  lockoutDurationSeconds?: string;
+  maxLockoutRounds?: string;
 }
 
 export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
@@ -68,7 +70,9 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   facebookPage: "https://facebook.com/mercatox.ethiopia",
   commissionRate: "3.50",
   escrowHoldHours: "48",
-  maxLoginAttempts: "5",
+  maxLoginAttempts: "3",
+  lockoutDurationSeconds: "30",
+  maxLockoutRounds: "3",
   telebirrWebhook: true,
   telebirrShortCode: "892100",
   cbeBirrWebhook: true,

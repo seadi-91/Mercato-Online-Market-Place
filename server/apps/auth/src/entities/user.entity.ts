@@ -40,6 +40,15 @@ export class User {
   @Column({ type: 'boolean', default: true })
   isActive: boolean;
 
+  @Column({ type: 'int', default: 0 })
+  failedLoginAttempts: number;
+
+  @Column({ type: 'int', default: 0 })
+  lockoutRounds: number;
+
+  @Column({ type: 'timestamp with time zone', nullable: true })
+  lockedUntil: Date | null;
+
   @Column({ type: 'varchar', length: 255, nullable: true, select: false })
   refreshTokenHash: string;
 

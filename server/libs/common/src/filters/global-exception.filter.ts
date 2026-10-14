@@ -21,12 +21,17 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     let message: any = 'Internal server error';
     let error = 'Internal Server Error';
 
+    let extraData: Record<string, any> = {};
+
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const res = exception.getResponse();
       if (typeof res === 'object' && res !== null) {
         message = (res as any).message || exception.message;
         error = (res as any).error || exception.name;
+        extraData = { ...(res as any) };
+        delete extraData.message;
+        delete extraData.error;
       } else {
         message = res;
         error = exception.name;
@@ -40,8 +45,18 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const errObj = exception as any;
       status = errObj.statusCode || errObj.status || HttpStatus.BAD_REQUEST;
       const res = errObj.response || errObj;
-      message = res.message || errObj.message || 'Request failed';
-      error = res.error || errObj.error || 'Error';
+      if (typeof res === 'object' && res !== null) {
+        message = res.message || errObj.message || 'Request failed';
+        error = res.error || errObj.error || 'Error';
+        extraData = { ...res };
+        delete extraData.message;
+        delete extraData.error;
+        delete extraData.statusCode;
+        delete extraData.status;
+      } else {
+        message = res.message || errObj.message || 'Request failed';
+        error = res.error || errObj.error || 'Error';
+      }
     } else if (exception instanceof Error) {
       this.logger.error(
         `Unhandled Exception: ${exception.message}`,
@@ -72,6 +87,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         error,
         timestamp: new Date().toISOString(),
         path: request?.url,
+        ...extraData,
       });
     }
   }

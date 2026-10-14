@@ -16,6 +16,8 @@ import {
   X,
   FileText,
   Trash2,
+  Clock,
+  RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { api } from "@/services/api/client";
@@ -30,6 +32,11 @@ export interface AdminUserData {
   businessName?: string;
   kycStatus: "VERIFIED" | "PENDING" | "REJECTED";
   isActive: boolean;
+  isBlocked?: boolean;
+  isLocked?: boolean;
+  remainingSeconds?: number;
+  failedAttempts?: number;
+  lockoutRounds?: number;
   dateJoined: string;
   documents?: {
     type: string;
@@ -60,6 +67,8 @@ const normalizeUsers = (list: any[]): AdminUserData[] =>
   list.map((profile) => {
     const role = (profile?.role || "CUSTOMER").toUpperCase();
     const safeRole = role === "DRIVER" ? "DELIVERY" : role;
+    const isBlocked = profile?.isBlocked ?? (profile?.isActive === false);
+    const isLocked = Boolean(profile?.isLocked);
 
     return {
       id: profile?.userId || profile?.id || "unknown-user",
@@ -70,7 +79,12 @@ const normalizeUsers = (list: any[]): AdminUserData[] =>
       role: safeRole as AdminUserData["role"],
       businessName: profile?.shopName || undefined,
       kycStatus: mapKycStatus(safeRole, profile),
-      isActive: profile?.isActive ?? true,
+      isActive: profile?.isActive ?? !isBlocked,
+      isBlocked,
+      isLocked,
+      remainingSeconds: Number(profile?.remainingSeconds || 0),
+      failedAttempts: Number(profile?.failedAttempts || 0),
+      lockoutRounds: Number(profile?.lockoutRounds || 0),
       dateJoined: profile?.createdAt ? new Date(profile.createdAt).toISOString().slice(0, 10) : "N/A",
       documents: [],
     };
@@ -90,6 +104,28 @@ export function AdminUsersTable() {
   const [userToDelete, setUserToDelete] = useState<AdminUserData | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Live countdown ticker for temporarily locked users
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setUsers((prev) => {
+        let changed = false;
+        const updated = prev.map((u) => {
+          if (u.isLocked && u.remainingSeconds && u.remainingSeconds > 1) {
+            changed = true;
+            return { ...u, remainingSeconds: u.remainingSeconds - 1 };
+          }
+          if (u.isLocked && u.remainingSeconds === 1) {
+            changed = true;
+            return { ...u, isLocked: false, remainingSeconds: 0 };
+          }
+          return u;
+        });
+        return changed ? updated : prev;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
   useEffect(() => {
     const loadUsers = async () => {
       try {
@@ -98,7 +134,8 @@ export function AdminUsersTable() {
         params.set("page", "1");
         params.set("limit", "100");
         if (selectedRole !== "ALL") params.set("role", selectedRole);
-        if (selectedStatus !== "ALL") params.set("isActive", selectedStatus === "ACTIVE" ? "true" : "false");
+        if (selectedStatus === "ACTIVE") params.set("isActive", "true");
+        if (selectedStatus === "BLOCKED") params.set("isActive", "false");
         if (searchQuery.trim()) params.set("search", searchQuery.trim());
         if (selectedKyc !== "ALL") params.set("kycStatus", selectedKyc);
 
@@ -127,33 +164,77 @@ export function AdminUsersTable() {
         (u.businessName && u.businessName.toLowerCase().includes(searchQuery.toLowerCase()));
 
       const matchesRole = selectedRole === "ALL" || u.role === selectedRole;
-      const matchesStatus = selectedStatus === "ALL" || (selectedStatus === "ACTIVE" ? u.isActive : !u.isActive);
+      const matchesStatus =
+        selectedStatus === "ALL" ||
+        (selectedStatus === "ACTIVE" && u.isActive && !u.isLocked) ||
+        (selectedStatus === "BLOCKED" && (!u.isActive || u.isBlocked)) ||
+        (selectedStatus === "LOCKED" && u.isLocked);
       const matchesKyc = selectedKyc === "ALL" || u.kycStatus === selectedKyc;
 
       return matchesSearch && matchesRole && matchesStatus && matchesKyc;
     });
   }, [users, searchQuery, selectedRole, selectedStatus, selectedKyc]);
 
-  const handleToggleUserActive = async (userId: string) => {
+  const handleToggleUserActive = async (userId: string, targetActive?: boolean) => {
     const target = users.find((u) => u.id === userId);
     if (!target) return;
 
     try {
-      const nextActive = !target.isActive;
+      const nextActive = targetActive !== undefined ? targetActive : !target.isActive;
       const result = await api.patch<{ success: boolean; isActive: boolean }>(`/admin/users/${userId}/status`, {
         isActive: nextActive,
       });
 
+      const effectiveActive = result.isActive ?? nextActive;
+
       setUsers((prev) =>
         prev.map((u) =>
-          u.id === userId ? { ...u, isActive: result.isActive ?? nextActive } : u,
+          u.id === userId
+            ? {
+                ...u,
+                isActive: effectiveActive,
+                isBlocked: !effectiveActive,
+                isLocked: effectiveActive ? false : u.isLocked,
+                remainingSeconds: effectiveActive ? 0 : u.remainingSeconds,
+              }
+            : u,
         ),
       );
-      toast.success(`User ${target.name} is now ${nextActive ? "activated" : "suspended"}`);
+      toast.success(`User ${target.name} is now ${effectiveActive ? "Active" : "Blocked"}`);
     } catch (error) {
-      console.error("Failed to change user active status:", error);
+      console.error("Failed to change user status:", error);
       toast.error("Status update failed", {
-        description: "Unable to change the user active state.",
+        description: "Unable to update the user account status.",
+      });
+    }
+  };
+
+  const handleResetLockout = async (userId: string) => {
+    const target = users.find((u) => u.id === userId);
+    if (!target) return;
+
+    try {
+      await api.post(`/admin/users/${userId}/reset-lockout`, {});
+      setUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? {
+                ...u,
+                isActive: true,
+                isBlocked: false,
+                isLocked: false,
+                remainingSeconds: 0,
+                failedAttempts: 0,
+                lockoutRounds: 0,
+              }
+            : u,
+        ),
+      );
+      toast.success(`Security lockout and failed attempts reset for ${target.name}. Account is now Active.`);
+    } catch (error) {
+      console.error("Failed to reset lockout:", error);
+      toast.error("Reset failed", {
+        description: "Unable to reset user lockout on the backend.",
       });
     }
   };
@@ -220,7 +301,8 @@ export function AdminUsersTable() {
             >
               <option value="ALL">All Status</option>
               <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="BLOCKED">Blocked</option>
+              <option value="LOCKED">Locked (Cooldown)</option>
             </select>
           </label>
 
@@ -244,7 +326,7 @@ export function AdminUsersTable() {
         <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
           <span className="flex items-center gap-1.5 text-[10.5px]">
             <span>←</span>
-            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>Swipe to scroll horizontally</span>
             <span>→</span>
           </span>
           <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredUsers.length} Users</span>
@@ -335,13 +417,25 @@ export function AdminUsersTable() {
                     </td>
 
                     <td className="py-2.5 px-3">
-                      <button
-                        onClick={() => handleToggleUserActive(user.id)}
-                        className={`inline-flex items-center gap-1.5 text-[11px] font-medium transition-colors cursor-pointer ${user.isActive ? "text-emerald-400 hover:text-emerald-300" : "text-rose-400 hover:text-rose-300"}`}
-                      >
-                        <span className={`h-1.5 w-1.5 rounded-full ${user.isActive ? "bg-emerald-400" : "bg-rose-400"}`} />
-                        {user.isActive ? "Active" : "Inactive"}
-                      </button>
+                      {!user.isActive || user.isBlocked ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] font-semibold">
+                          <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
+                          <span>Blocked</span>
+                        </span>
+                      ) : user.isLocked ? (
+                        <span
+                          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-300 text-[11px] font-semibold"
+                          title={`Temporary security lockout cooldown: ${user.remainingSeconds || 0}s remaining`}
+                        >
+                          <Clock className="h-3 w-3 text-amber-400 animate-spin" style={{ animationDuration: '3s' }} />
+                          <span>Locked ({user.remainingSeconds || 0}s)</span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-semibold">
+                          <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                          <span>Active</span>
+                        </span>
+                      )}
                     </td>
 
                     <td className="py-2.5 px-3 text-[11px] font-mono text-zinc-400">{user.dateJoined}</td>
@@ -370,28 +464,46 @@ export function AdminUsersTable() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/15 transition-colors cursor-pointer"
                               >
                                 <FileText className="h-3.5 w-3.5" />
-                                <span>View</span>
+                                <span>View Details</span>
                               </button>
+
+                              {!user.isActive || user.isBlocked ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    handleToggleUserActive(user.id, true);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/15 transition-colors cursor-pointer"
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Activate / Unblock</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    handleToggleUserActive(user.id, false);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  <span>Block Account</span>
+                                </button>
+                              )}
 
                               <button
                                 type="button"
                                 onClick={() => {
                                   setOpenMenuId(null);
-                                  handleToggleUserActive(user.id);
+                                  handleResetLockout(user.id);
                                 }}
-                                className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors cursor-pointer ${user.isActive ? "text-rose-300 hover:bg-rose-500/15" : "text-emerald-300 hover:bg-emerald-500/15"}`}
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/15 transition-colors cursor-pointer"
+                                title="Reset security failed login counter and unlock account"
                               >
-                                {user.isActive ? (
-                                  <>
-                                    <XCircle className="h-3.5 w-3.5" />
-                                    <span>Suspend</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <CheckCircle2 className="h-3.5 w-3.5" />
-                                    <span>Activate</span>
-                                  </>
-                                )}
+                                <RotateCcw className="h-3.5 w-3.5" />
+                                <span>Reset Security Lockout</span>
                               </button>
 
                               <button
@@ -400,10 +512,10 @@ export function AdminUsersTable() {
                                   setOpenMenuId(null);
                                   setUserToDelete(user);
                                 }}
-                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-300 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                                className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
-                                <span>Delete</span>
+                                <span>Delete User</span>
                               </button>
                             </div>
                           </>

@@ -165,8 +165,45 @@ export class AdminController {
   }
 
   @Get('users')
-  getUsers(@Query() query: FilterUsersDto) {
-    return this.usersClient.send('list_users', query);
+  async getUsers(@Query() query: FilterUsersDto) {
+    const result: any = await firstValueFrom(
+      this.usersClient.send('list_users', query),
+    );
+
+    if (!result?.data || !Array.isArray(result.data)) {
+      return result;
+    }
+
+    const userIds = result.data.map((u: any) => u.userId || u.id);
+    const secInfo: Record<string, any> = await firstValueFrom(
+      this.authClient.send('get_users_security_info', { userIds }),
+    ).catch(() => ({}));
+
+    result.data = result.data.map((u: any) => {
+      const id = u.userId || u.id;
+      const sec = secInfo?.[id];
+      const now = Date.now();
+      const lockedUntilTs = sec?.lockedUntil
+        ? new Date(sec.lockedUntil).getTime()
+        : 0;
+      const isLocked = Boolean(lockedUntilTs && lockedUntilTs > now);
+      const remainingSeconds = isLocked
+        ? Math.ceil((lockedUntilTs - now) / 1000)
+        : 0;
+      const isBlocked = sec?.isActive === false || u.isActive === false;
+
+      return {
+        ...u,
+        isActive: !isBlocked,
+        isBlocked,
+        isLocked,
+        remainingSeconds,
+        failedAttempts: sec?.failedLoginAttempts ?? 0,
+        lockoutRounds: sec?.lockoutRounds ?? 0,
+      };
+    });
+
+    return result;
   }
 
   @Get('users/:userId/details')
@@ -403,6 +440,56 @@ export class AdminController {
       userId,
       isActive: dto.isActive,
       reason: dto.reason,
+    };
+  }
+
+  @Post('users/:userId/reset-lockout')
+  async resetUserLockout(
+    @Param('userId') userId: string,
+    @CurrentUser('id') adminId: string,
+    @Req() req: Request,
+  ) {
+    const profile = await firstValueFrom(
+      this.usersClient.send('get_profile', { userId }),
+    ).catch(() => null);
+    const resolvedAuthUserId = profile?.userId || userId;
+    const resolvedProfileId = profile?.id || userId;
+
+    await Promise.all([
+      firstValueFrom(
+        this.authClient.send('reset_user_lockout', {
+          userId: resolvedAuthUserId,
+        }),
+      ).catch(() => null),
+      firstValueFrom(
+        this.usersClient.send('set_user_status', {
+          userId: resolvedProfileId,
+          isActive: true,
+        }),
+      ).catch(() => null),
+    ]);
+
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.USER_ACTIVATED,
+        targetEntity: 'User',
+        targetId: userId,
+        details: { action: 'SECURITY_LOCKOUT_RESET', unblockedBy: adminId },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return {
+      success: true,
+      userId,
+      isActive: true,
+      isLocked: false,
+      failedAttempts: 0,
+      lockoutRounds: 0,
+      message: 'User security lockout and failed attempts successfully reset',
     };
   }
 
@@ -1015,7 +1102,9 @@ export class AdminController {
       facebookPage: 'https://facebook.com/mercatox.ethiopia',
       commissionRate: '3.50',
       escrowHoldHours: '48',
-      maxLoginAttempts: '5',
+      maxLoginAttempts: '3',
+      lockoutDurationSeconds: '30',
+      maxLockoutRounds: '3',
       telebirrWebhook: true,
       telebirrShortCode: '892100',
       cbeBirrWebhook: true,

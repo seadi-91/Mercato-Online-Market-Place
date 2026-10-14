@@ -64,4 +64,14 @@ export class AuthController {
   getUserById(@Payload() payload: { userId: string }) {
     return this.authService.getUserById(payload.userId);
   }
+
+  @MessagePattern('reset_user_lockout')
+  resetUserLockout(@Payload() payload: { userId: string }) {
+    return this.authService.resetUserLockout(payload.userId);
+  }
+
+  @MessagePattern('get_users_security_info')
+  getUsersSecurityInfo(@Payload() payload: { userIds: string[] }) {
+    return this.authService.getUsersSecurityInfo(payload.userIds);
+  }
 }

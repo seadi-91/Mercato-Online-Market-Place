@@ -33,23 +33,34 @@ export class AuthService {
     private readonly usersClient: ClientProxy,
   ) { }
 
-  private readonly failedLoginAttemptsMap = new Map<string, number>();
-
-  private getMaxLoginAttempts(): number {
+  private getPlatformSecuritySettings(): {
+    maxLoginAttempts: number;
+    lockoutDurationSeconds: number;
+    maxLockoutRounds: number;
+  } {
     try {
       const filePath = path.resolve(process.cwd(), 'platform-settings.json');
       if (fs.existsSync(filePath)) {
         const raw = fs.readFileSync(filePath, 'utf-8');
         const parsed = JSON.parse(raw);
-        if (parsed.maxLoginAttempts) {
-          const num = parseInt(parsed.maxLoginAttempts, 10);
-          if (!isNaN(num) && num > 0) return num;
-        }
+        const maxAttempts = parseInt(parsed.maxLoginAttempts, 10);
+        const lockoutSeconds = parseInt(parsed.lockoutDurationSeconds, 10);
+        const maxRounds = parseInt(parsed.maxLockoutRounds, 10);
+
+        return {
+          maxLoginAttempts: !isNaN(maxAttempts) && maxAttempts > 0 ? maxAttempts : 3,
+          lockoutDurationSeconds: !isNaN(lockoutSeconds) && lockoutSeconds > 0 ? lockoutSeconds : 30,
+          maxLockoutRounds: !isNaN(maxRounds) && maxRounds > 0 ? maxRounds : 3,
+        };
       }
     } catch {
       // fallback
     }
-    return 5;
+    return {
+      maxLoginAttempts: 3,
+      lockoutDurationSeconds: 30,
+      maxLockoutRounds: 3,
+    };
   }
 
   private normalizePhoneNumber(phone: string): string {
@@ -261,23 +272,104 @@ export class AuthService {
       );
     }
 
+    const { maxLoginAttempts, lockoutDurationSeconds, maxLockoutRounds } =
+      this.getPlatformSecuritySettings();
+
     if (!user.isActive) {
+      const now = Date.now();
+      const lockedUntilTs = user.lockedUntil ? new Date(user.lockedUntil).getTime() : 0;
+      const remainingSeconds = lockedUntilTs && lockedUntilTs > now
+        ? Math.ceil((lockedUntilTs - now) / 1000)
+        : 0;
+
+      if (remainingSeconds > 0) {
+        throw new RpcException(
+          new UnauthorizedException({
+            message: `Account blocked due to exceeding security lockout cycles (${maxLockoutRounds} rounds). Final cooldown: ${remainingSeconds} second(s) remaining. Please contact an administrator.`,
+            isBlocked: true,
+            isLocked: true,
+            remainingSeconds,
+            lockoutRounds: user.lockoutRounds || maxLockoutRounds,
+            maxLockoutRounds,
+            accountStatus: 'BLOCKED',
+          }),
+        );
+      }
+
       throw new RpcException(
-        new UnauthorizedException(
-          'Your account has been blocked because you exceeded the allowed login attempt limit. Please submit a system report to the administrator.',
-        ),
+        new UnauthorizedException({
+          message:
+            `Your account has been permanently blocked because you repeated security lockouts ${maxLockoutRounds} times. Please contact an administrator to unblock your account.`,
+          isBlocked: true,
+          isLocked: false,
+          remainingSeconds: 0,
+          lockoutRounds: user.lockoutRounds || maxLockoutRounds,
+          maxLockoutRounds,
+          accountStatus: 'BLOCKED',
+        }),
       );
+    }
+
+    const now = Date.now();
+    const lockedUntilTs = user.lockedUntil ? new Date(user.lockedUntil).getTime() : 0;
+    if (lockedUntilTs && lockedUntilTs > now) {
+      const remainingSeconds = Math.ceil((lockedUntilTs - now) / 1000);
+      throw new RpcException(
+        new UnauthorizedException({
+          message: `Account temporarily locked due to multiple failed login attempts. Please wait ${remainingSeconds} second(s) before trying again.`,
+          isLocked: true,
+          remainingSeconds,
+          lockoutRounds: user.lockoutRounds || 0,
+          maxLockoutRounds,
+          accountStatus: 'LOCKED',
+        }),
+      );
+    }
+
+    // Cooldown window has elapsed, reset temporary lockout timestamp
+    if (user.lockedUntil && lockedUntilTs <= now) {
+      user.lockedUntil = null;
+      user.failedLoginAttempts = 0;
+      await this.userRepository.save(user);
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
     if (!isPasswordValid) {
-      const maxAttempts = this.getMaxLoginAttempts();
-      const currentAttempts = (this.failedLoginAttemptsMap.get(user.id) || 0) + 1;
-      this.failedLoginAttemptsMap.set(user.id, currentAttempts);
+      const currentAttempts = (user.failedLoginAttempts || 0) + 1;
 
-      if (currentAttempts >= maxAttempts) {
-        // Block user account upon reaching lockout threshold
-        await this.userRepository.update(user.id, { isActive: false });
+      if (currentAttempts < maxLoginAttempts) {
+        user.failedLoginAttempts = currentAttempts;
+        await this.userRepository.save(user);
+        const remaining = maxLoginAttempts - currentAttempts;
+        const currentCycle = (user.lockoutRounds || 0) + 1;
+
+        throw new RpcException(
+          new UnauthorizedException({
+            message: `Invalid credentials. Warning: Attempt ${currentAttempts} of ${maxLoginAttempts} failed (Security Cycle ${currentCycle}/${maxLockoutRounds}). Account will be locked for ${lockoutDurationSeconds}s after ${remaining} more attempt(s).`,
+            failedAttempts: currentAttempts,
+            maxAttempts: maxLoginAttempts,
+            remainingAttempts: remaining,
+            lockoutRounds: currentCycle,
+            maxLockoutRounds,
+            accountStatus: 'ACTIVE',
+          }),
+        );
+      }
+
+      // Reached max login attempts in this cycle!
+      const currentRounds = (user.lockoutRounds || 0) + 1;
+      user.failedLoginAttempts = 0;
+
+      if (currentRounds >= maxLockoutRounds) {
+        // User repeated the lockout cycle for maxLockoutRounds times (e.g. 3 times)!
+        // Account is now permanently BLOCKED, with 30s final cooldown
+        const lockExpiry = new Date(Date.now() + lockoutDurationSeconds * 1000);
+        user.isActive = false;
+        user.lockoutRounds = currentRounds;
+        user.lockedUntil = lockExpiry;
+        user.refreshTokenHash = null;
+        await this.userRepository.save(user);
+
         await firstValueFrom(
           this.usersClient.send('set_user_status', {
             userId: user.id,
@@ -285,24 +377,44 @@ export class AuthService {
           }),
         ).catch(() => null);
 
-        this.failedLoginAttemptsMap.delete(user.id);
         throw new RpcException(
-          new UnauthorizedException(
-            `Your account has been blocked because you exceeded the ${maxAttempts} login attempt limit. Please submit a system report to the administrator.`,
-          ),
+          new UnauthorizedException({
+            message: `Your account has been permanently blocked because you completed all ${maxLockoutRounds} security lockout cycles (3 failed attempts per cycle). Final ${lockoutDurationSeconds}s cooldown active. Please contact an administrator.`,
+            isBlocked: true,
+            isLocked: true,
+            remainingSeconds: lockoutDurationSeconds,
+            lockoutRounds: currentRounds,
+            maxLockoutRounds,
+            accountStatus: 'BLOCKED',
+          }),
         );
       }
 
-      const remaining = maxAttempts - currentAttempts;
+      // Temporary lockout cooldown
+      const lockExpiry = new Date(Date.now() + lockoutDurationSeconds * 1000);
+      user.lockoutRounds = currentRounds;
+      user.lockedUntil = lockExpiry;
+      await this.userRepository.save(user);
+
       throw new RpcException(
-        new UnauthorizedException(
-          `Invalid credentials. Warning: ${currentAttempts}/${maxAttempts} failed attempts. Account will be blocked after ${remaining} more incorrect attempt(s).`,
-        ),
+        new UnauthorizedException({
+          message: `Too many failed login attempts (3 of 3). Account temporarily locked for ${lockoutDurationSeconds} seconds (Cycle ${currentRounds}/${maxLockoutRounds}). Please wait before trying again.`,
+          isLocked: true,
+          remainingSeconds: lockoutDurationSeconds,
+          lockoutRounds: currentRounds,
+          maxLockoutRounds,
+          accountStatus: 'LOCKED',
+        }),
       );
     }
 
-    // Reset failed login counter on success
-    this.failedLoginAttemptsMap.delete(user.id);
+    // Reset security failed login counter and lockout on successful login
+    if (user.failedLoginAttempts > 0 || user.lockoutRounds > 0 || user.lockedUntil) {
+      user.failedLoginAttempts = 0;
+      user.lockoutRounds = 0;
+      user.lockedUntil = null;
+      await this.userRepository.save(user);
+    }
 
     const tokens = await this.generateTokens(
       user.id,
@@ -470,10 +582,72 @@ export class AuthService {
     user.isActive = isActive;
     if (!isActive) {
       user.refreshTokenHash = null;
+    } else {
+      // Activating/unblocking clears all failed attempts and security lockouts
+      user.failedLoginAttempts = 0;
+      user.lockoutRounds = 0;
+      user.lockedUntil = null;
     }
 
     await this.userRepository.save(user);
     return { success: true, userId, isActive };
+  }
+
+  async resetUserLockout(userId: string) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) {
+      throw new RpcException(new NotFoundException('User not found'));
+    }
+
+    user.isActive = true;
+    user.failedLoginAttempts = 0;
+    user.lockoutRounds = 0;
+    user.lockedUntil = null;
+
+    await this.userRepository.save(user);
+    return {
+      success: true,
+      userId,
+      isActive: true,
+      isLocked: false,
+      failedAttempts: 0,
+      lockoutRounds: 0,
+    };
+  }
+
+  async getUsersSecurityInfo(userIds: string[]) {
+    if (!userIds || userIds.length === 0) return {};
+    const users = await this.userRepository
+      .createQueryBuilder('user')
+      .select([
+        'user.id',
+        'user.isActive',
+        'user.failedLoginAttempts',
+        'user.lockoutRounds',
+        'user.lockedUntil',
+      ])
+      .where('user.id IN (:...userIds)', { userIds })
+      .getMany();
+
+    const map: Record<string, any> = {};
+    const now = Date.now();
+    for (const u of users) {
+      const lockedUntilTs = u.lockedUntil ? new Date(u.lockedUntil).getTime() : 0;
+      const isLocked = Boolean(lockedUntilTs && lockedUntilTs > now);
+      const remainingSeconds = isLocked ? Math.ceil((lockedUntilTs - now) / 1000) : 0;
+
+      map[u.id] = {
+        userId: u.id,
+        isActive: u.isActive,
+        isBlocked: !u.isActive,
+        failedLoginAttempts: u.failedLoginAttempts || 0,
+        lockoutRounds: u.lockoutRounds || 0,
+        lockedUntil: u.lockedUntil,
+        isLocked,
+        remainingSeconds,
+      };
+    }
+    return map;
   }
 
   async setUserRoleAndStatus(payload: { userId: string; role?: UserRole; isActive?: boolean }) {
