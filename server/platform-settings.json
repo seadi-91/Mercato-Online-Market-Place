@@ -30,6 +30,8 @@
   "maintenanceMode": false,
   "require2FA": true,
   "sessionTimeoutMinutes": "60",
+  "cardIssuanceFee": "2000",
+  "minCardLoadAmount": "500",
   "maxWithdrawalLimit": "500000",
   "minPayoutThreshold": "1000"
 }

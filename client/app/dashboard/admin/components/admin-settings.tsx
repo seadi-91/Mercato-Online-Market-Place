@@ -76,6 +76,7 @@ type SettingsSidebarTab =
   | "admin-security"
   | "escrow"
   | "gateways"
+  | "card"
   | "kyc";
 
 const SIDEBAR_ITEMS = [
@@ -126,6 +127,14 @@ const SIDEBAR_ITEMS = [
     icon: CreditCard,
     color: "text-emerald-400",
     badge: "PAYMENTS",
+  },
+  {
+    id: "card" as SettingsSidebarTab,
+    label: "MercatoX Card",
+    sub: "Issuance price & limits",
+    icon: CreditCard,
+    color: "text-cyan-400",
+    badge: "PRICING",
   },
   {
     id: "kyc" as SettingsSidebarTab,
@@ -1420,6 +1429,120 @@ export function AdminSettings() {
                         HRS
                       </span>
                     </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* SECTION 4B: MercatoX Digital Card Pricing Configuration */}
+            {(activeTab === "all" || activeTab === "card" || activeTab === "escrow") && (
+              <div className="space-y-3.5 pt-2 border-t border-white/5">
+                {(activeTab === "all" || activeTab === "escrow") && (
+                  <div className="flex items-center justify-between pb-1 border-b border-white/5">
+                    <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-300">
+                      <CreditCard className="h-3.5 w-3.5 text-cyan-400" />
+                      <span>MercatoX Digital Card Pricing & Issuance Controls</span>
+                    </div>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                      ADMIN PRICING
+                    </span>
+                  </div>
+                )}
+
+                <div className="rounded-xl border border-cyan-500/30 bg-cyan-500/[0.03] p-3.5 space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
+                        <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
+                        Admin-Enforced Card Purchase Price
+                      </h4>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">
+                        Define the official fixed price customers must pay via Chapa to issue their digital MercatoX Card. Customers purchase the card at this exact admin-specified rate.
+                      </p>
+                    </div>
+                    <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 px-2 py-1 rounded-lg border border-cyan-500/40 shrink-0">
+                      ETB {settings.cardIssuanceFee || "150"}.00
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                    {/* 1. Base Card Issuance Fee */}
+                    <div className="p-3 rounded-xl bg-black/40 border border-cyan-500/20 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-semibold text-cyan-300">
+                          Digital Card Issuance Price (ETB)
+                        </label>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-200">
+                          BASE PRICE
+                        </span>
+                      </div>
+                      <p className="text-[9.5px] text-zinc-400 leading-tight">
+                        Fixed issuance fee charged to customer when ordering an official MercatoX digital card.
+                      </p>
+                      <div className="relative mt-1">
+                        <input
+                          type="number"
+                          min="0"
+                          step="10"
+                          value={settings.cardIssuanceFee || "150"}
+                          onChange={(e) =>
+                            updateSetting("cardIssuanceFee", e.target.value)
+                          }
+                          placeholder="150"
+                          className="w-full rounded-lg border border-cyan-500/40 bg-black/60 py-1.5 pl-3 pr-12 text-xs font-mono font-bold text-white outline-none focus:border-cyan-400"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-cyan-400 font-mono">
+                          ETB
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* 2. Minimum Deposit Balance */}
+                    <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-semibold text-zinc-200">
+                          Recommended Default Balance (ETB)
+                        </label>
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-zinc-300">
+                          LOAD BALANCE
+                        </span>
+                      </div>
+                      <p className="text-[9.5px] text-zinc-400 leading-tight">
+                        Default starting load balance preset on the card purchase interface.
+                      </p>
+                      <div className="relative mt-1">
+                        <input
+                          type="number"
+                          min="0"
+                          step="50"
+                          value={settings.minCardLoadAmount || "500"}
+                          onChange={(e) =>
+                            updateSetting("minCardLoadAmount", e.target.value)
+                          }
+                          placeholder="500"
+                          className="w-full rounded-lg border border-white/15 bg-black/60 py-1.5 pl-3 pr-12 text-xs font-mono font-bold text-white outline-none focus:border-indigo-400"
+                        />
+                        <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-indigo-400 font-mono">
+                          ETB
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Customer Checkout Cost Breakdown Preview */}
+                  <div className="rounded-lg border border-white/10 bg-white/[0.02] p-2.5 flex flex-wrap items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2">
+                      <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-zinc-300 text-[11px]">
+                        Customer Chapa Checkout Total:
+                      </span>
+                      <span className="font-mono text-cyan-300 font-bold text-xs">
+                        ETB {(Number(settings.cardIssuanceFee || 150) + Number(settings.minCardLoadAmount || 500)).toLocaleString()}.00
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-zinc-400 font-mono">
+                      (Fee: ETB {settings.cardIssuanceFee || 150} + Balance: ETB {settings.minCardLoadAmount || 500})
+                    </span>
                   </div>
                 </div>
               </div>

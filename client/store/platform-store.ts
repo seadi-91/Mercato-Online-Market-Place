@@ -29,6 +29,10 @@ export interface PlatformSettings {
   maxWithdrawalLimit?: string;
   minPayoutThreshold?: string;
 
+  // MercatoX Digital Card
+  cardIssuanceFee?: string;
+  minCardLoadAmount?: string;
+
   // Gateways
   telebirrWebhook: boolean;
   telebirrShortCode: string;
@@ -83,6 +87,8 @@ export const DEFAULT_PLATFORM_SETTINGS: PlatformSettings = {
   maintenanceMode: false,
   require2FA: true,
   sessionTimeoutMinutes: "60",
+  cardIssuanceFee: "150",
+  minCardLoadAmount: "500",
 };
 
 interface PlatformStoreState {

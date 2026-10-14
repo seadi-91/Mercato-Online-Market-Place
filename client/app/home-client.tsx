@@ -22,6 +22,7 @@ import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { ProductCard } from "@/components/products/product-card";
 import { ProductDetailModal } from "@/components/modals/product-detail-modal";
+import { MercatoXCardPromo } from "@/components/home/mercatox-card-promo";
 import type { Product, CategoryItem } from "@/constants/mock-data";
 
 interface HomeProductSection {
@@ -405,6 +406,9 @@ export function HomePageClient({
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
       />
+
+      {/* MercatoX Loyalty & Cashback Card Promo Section */}
+      <MercatoXCardPromo />
 
       {/* Footer */}
       <CustomerFooter />

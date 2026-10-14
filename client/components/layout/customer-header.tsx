@@ -32,6 +32,7 @@ import {
   Wheat,
   Home,
   Layers,
+  CreditCard,
 } from "lucide-react";
 import { useAuthStore, useCartStore, usePlatformStore } from "@/store";
 import { useThemeStore, ThemeMode } from "@/store/theme-store";
@@ -444,6 +445,23 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                     >
                       <Package className="h-3.5 w-3.5 text-emerald-500" />
                       <span>My Orders</span>
+                    </Link>
+
+                    <Link
+                      href="/card"
+                      onClick={() => setProfileDropdownOpen(false)}
+                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
+                        theme === "light"
+                          ? isHomePage && !isScrolled
+                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
+                            : "text-black hover:bg-slate-100 hover:text-black"
+                          : theme === "dark"
+                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
+                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
+                      }`}
+                    >
+                      <CreditCard className="h-3.5 w-3.5 text-indigo-400" />
+                      <span>My Card</span>
                     </Link>
 
                     <Link
@@ -1076,6 +1094,19 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
                   >
                     <Package className="h-3.5 w-3.5 text-emerald-400" />
                     <span>My Orders</span>
+                  </Link>
+                  <Link
+                    href="/card"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs transition-colors ${theme === "light"
+                      ? "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                      : theme === "dark"
+                        ? "border-zinc-800/80 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                        : "border-blue-500/20 bg-blue-950/40 text-blue-200 hover:bg-blue-900/40 hover:text-white"
+                      }`}
+                  >
+                    <CreditCard className="h-3.5 w-3.5 text-indigo-400" />
+                    <span>My Card</span>
                   </Link>
                   <Link
                     href="/settings"

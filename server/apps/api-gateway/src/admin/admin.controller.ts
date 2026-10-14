@@ -1115,6 +1115,8 @@ export class AdminController {
       maintenanceMode: false,
       require2FA: true,
       sessionTimeoutMinutes: '60',
+      cardIssuanceFee: '150',
+      minCardLoadAmount: '500',
     };
 
     try {

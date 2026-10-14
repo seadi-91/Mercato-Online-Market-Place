@@ -6,6 +6,7 @@ import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Payment } from './entities/payment.entity';
 import { Payout } from './entities/payout.entity';
+import { MercatoXCard } from './entities/card.entity';
 
 @Module({
   imports: [
@@ -22,11 +23,11 @@ import { Payout } from './entities/payout.entity';
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('PAYMENTS_DB_NAME'),
-        entities: [Payment, Payout],
+        entities: [Payment, Payout, MercatoXCard],
         synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
       }),
     }),
-    TypeOrmModule.forFeature([Payment, Payout]),
+    TypeOrmModule.forFeature([Payment, Payout, MercatoXCard]),
     ClientsModule.registerAsync([
       {
         name: 'ORDERS_SERVICE',
