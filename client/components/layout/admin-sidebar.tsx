@@ -19,6 +19,7 @@ import {
   Shield,
   LogOut,
   X,
+  Sparkles,
 } from "lucide-react";
 import { useAdminUIStore, AdminTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -111,6 +112,11 @@ export function AdminSidebar() {
           icon: Receipt,
           badge: pendingSlipsCount,
           badgeColor: "bg-amber-500/25 text-amber-300 border-amber-500/40",
+        },
+        {
+          id: "subscriptions",
+          label: "Subscriptions & Plans",
+          icon: Sparkles,
         },
       ],
     },

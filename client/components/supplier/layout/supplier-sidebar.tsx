@@ -32,6 +32,7 @@ import {
   ShoppingBag,
   PackageCheck,
   GitBranch,
+  Sparkles,
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -171,6 +172,7 @@ export function SupplierSidebar() {
       items: [
         { id: "invoices", label: "Create Invoices", icon: Receipt },
         { id: "payments", label: "Payments", icon: CreditCard },
+        { id: "subscriptions", label: "Subscriptions & Tiers", icon: Sparkles },
         { id: "promotions", label: "Promotions", icon: Tag },
       ],
     },

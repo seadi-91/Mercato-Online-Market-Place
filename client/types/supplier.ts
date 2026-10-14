@@ -21,6 +21,7 @@ export type SupplierTab =
   | "analytics"
   | "profile"
   | "settings"
+  | "subscriptions"
   | "verification"
   | "onboarding"
   | "notifications"

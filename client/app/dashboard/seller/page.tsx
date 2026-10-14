@@ -9,6 +9,7 @@ import { SellerOrders } from "./components/seller-orders";
 import { SellerPayouts } from "./components/seller-payouts";
 import { SellerReviews } from "./components/seller-reviews";
 import { SellerSettings } from "./components/seller-settings";
+import { SellerSubscriptions } from "./components/seller-subscriptions";
 
 export default function SellerDashboardPage() {
   const { activeTab } = useSellerUIStore();
@@ -47,6 +48,7 @@ export default function SellerDashboardPage() {
       {activeTab === "orders" && <SellerOrders />}
       {activeTab === "payouts" && <SellerPayouts />}
       {activeTab === "reviews" && <SellerReviews />}
+      {activeTab === "subscriptions" && <SellerSubscriptions />}
       {activeTab === "settings" && <SellerSettings />}
     </div>
   );

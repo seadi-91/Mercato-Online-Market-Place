@@ -112,6 +112,7 @@ export function AdminTopbar() {
     delivery: "Delivery Fleet & Logistics",
     disputes: "Disputes & Escrow Arbitration",
     audit: "Security Audit Logs",
+    subscriptions: "Subscriptions & Plans",
     settings: "Platform Governance & Settings",
   };
 

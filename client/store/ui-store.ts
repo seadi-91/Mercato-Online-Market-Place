@@ -11,6 +11,7 @@ export type AdminTab =
   | "delivery"
   | "disputes"
   | "audit"
+  | "subscriptions"
   | "settings";
 
 interface AdminUIState {
@@ -77,6 +78,7 @@ export type SellerTab =
   | "orders"
   | "payouts"
   | "reviews"
+  | "subscriptions"
   | "settings";
 
 interface SellerUIState {

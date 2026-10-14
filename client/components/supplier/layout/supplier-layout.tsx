@@ -46,6 +46,7 @@ import { SupplierRegistrationView } from "../registration/supplier-registration-
 import { SupplierNotificationsView } from "../notifications/supplier-notifications-view";
 import { SupplierTeamView } from "../team/supplier-team-view";
 import { SupplierBranchesView } from "../branches/supplier-branches-view";
+import { SupplierSubscriptionsView } from "../subscriptions/supplier-subscriptions-view";
 
 import { useSupplierStore } from "@/store/supplier-store";
 import { SupplierTab } from "@/types/supplier";
@@ -236,6 +237,8 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
         return <SupplierProfileView />;
       case "settings":
         return <SupplierSettingsView />;
+      case "subscriptions":
+        return <SupplierSubscriptionsView />;
       case "notifications":
         return <SupplierNotificationsView />;
       case "team":

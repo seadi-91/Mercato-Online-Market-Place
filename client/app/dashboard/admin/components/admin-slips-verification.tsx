@@ -73,6 +73,10 @@ const normalizeSlipDate = (value?: string | Date) => {
 };
 
 const adaptBackendSlip = (payment: any): BankSlipItem => {
+  if (payment?.metadata?.isSubscription) {
+    return payment as BankSlipItem;
+  }
+
   const metadata = payment?.metadata ?? {};
 
   // Who paid ("man endekefele")
@@ -223,6 +227,90 @@ export function AdminSlipsVerification() {
         console.warn("Could not fetch /admin/payments/pending-slips:", apiErr);
       }
 
+      // 3. Fetch from subscription records (Subscribers & Plans)
+      try {
+        let subsData: any[] = [];
+        try {
+          const subRes = await api.get<any[]>("/admin/subscriptions/subscribers");
+          if (Array.isArray(subRes)) subsData = subRes;
+          else if (Array.isArray((subRes as any)?.data)) subsData = (subRes as any).data;
+        } catch {
+          const fallbackRes = await fetch("http://localhost:3000/platform/subscribers");
+          if (fallbackRes.ok) {
+            subsData = await fallbackRes.json();
+          }
+        }
+
+        if (Array.isArray(subsData)) {
+          for (const sub of subsData) {
+            const rawMethod = (sub.paymentMethod || "CHAPA").toUpperCase();
+            let bankName = "Chapa Gateway (Subscription)";
+            if (rawMethod.includes("TELEBIRR")) bankName = "Telebirr SuperApp (Subscription)";
+            else if (rawMethod.includes("CBE_BIRR")) bankName = "CBE Birr (Subscription)";
+            else if (rawMethod.includes("BANK") || sub.bankName) {
+              bankName = sub.bankName || "Commercial Bank of Ethiopia (CBE)";
+            }
+
+            const isPaid = sub.paymentStatus === "PAID";
+            const isRejected = sub.paymentStatus === "REJECTED";
+
+            const subItem: BankSlipItem = {
+              id: sub.id,
+              orderId: undefined,
+              orderNumber: `SUB-${(sub.planId || "TIER").toUpperCase().slice(0, 10)}`,
+              bankName,
+              provider: sub.paymentMethod || "CHAPA",
+              referenceNumber: sub.transactionReference || `TXN-${sub.id}`,
+              payerName: sub.userName || "Merchant",
+              payerPhone: sub.paymentPhone || "—",
+              payerEmail: sub.userEmail || "",
+              deliveryAddress: `Merchant Subscription • ${sub.userRole || "SELLER"} Account`,
+              itemsSummary: `Tier: ${sub.planName} (${sub.billingPeriod || "monthly"})`,
+              itemsCount: 1,
+              items: [
+                {
+                  id: sub.planId,
+                  title: `Subscription: ${sub.planName}`,
+                  name: `Privilege Plan: ${sub.planName} (${sub.billingPeriod || "monthly"})`,
+                  quantity: 1,
+                  unitPrice: sub.price || 0,
+                },
+              ],
+              amount: Number(sub.price || 0),
+              currency: sub.currency || "ETB",
+              submittedAt: normalizeSlipDate(sub.createdAt),
+              status: isPaid ? "APPROVED" : isRejected ? "REJECTED" : "PENDING",
+              escrowStatus: isPaid ? "ESCROW_SETTLED" : isRejected ? "REJECTED" : "HELD",
+              slipImageUrl: sub.paymentSlipUrl || "/slips/receipt-placeholder.png",
+              metadata: {
+                isSubscription: true,
+                subscriberId: sub.id,
+                planId: sub.planId,
+                planName: sub.planName,
+                userRole: sub.userRole,
+                userId: sub.userId,
+                billingPeriod: sub.billingPeriod,
+                paymentMethod: sub.paymentMethod,
+                bankName: sub.bankName,
+              },
+            };
+
+            if (
+              !paymentsList.some(
+                (p) =>
+                  p.id === subItem.id ||
+                  (p.transactionReference &&
+                    p.transactionReference === subItem.referenceNumber)
+              )
+            ) {
+              paymentsList.push(subItem);
+            }
+          }
+        }
+      } catch (subErr) {
+        console.warn("Could not load subscription payments:", subErr);
+      }
+
       const normalized = paymentsList.map(adaptBackendSlip);
       setSlips(normalized);
     } catch (error) {
@@ -247,7 +335,30 @@ export function AdminSlipsVerification() {
 
   const handleApproveSlip = async (id: string, refNum: string) => {
     try {
-      // 1. Try microservice endpoint
+      const targetSlip = slips.find((s) => s.id === id);
+
+      if (targetSlip?.metadata?.isSubscription) {
+        const subId = targetSlip.metadata.subscriberId || targetSlip.id;
+        try {
+          await api.patch(`/admin/subscriptions/subscribers/${subId}/status`, { status: "PAID" });
+        } catch {
+          await fetch(`http://localhost:3000/platform/subscribers/${subId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "PAID" }),
+          });
+        }
+        setSlips((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, status: "APPROVED", escrowStatus: "ESCROW_SETTLED" } : s))
+        );
+        toast.success(`Subscription Payment ${refNum} Verified & Approved`, {
+          description: `Merchant ${targetSlip.payerName} tier is now active.`,
+        });
+        setViewingSlip(null);
+        return;
+      }
+
+      // Order slip approval
       try {
         await api.patch("/payments/admin/verify-slip", {
           paymentId: id,
@@ -282,6 +393,27 @@ export function AdminSlipsVerification() {
 
   const handleRejectSlip = async (id: string, refNum: string) => {
     try {
+      const targetSlip = slips.find((s) => s.id === id);
+
+      if (targetSlip?.metadata?.isSubscription) {
+        const subId = targetSlip.metadata.subscriberId || targetSlip.id;
+        try {
+          await api.patch(`/admin/subscriptions/subscribers/${subId}/status`, { status: "REJECTED" });
+        } catch {
+          await fetch(`http://localhost:3000/platform/subscribers/${subId}/status`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: "REJECTED" }),
+          });
+        }
+        setSlips((prev) =>
+          prev.map((s) => (s.id === id ? { ...s, status: "REJECTED", escrowStatus: "REJECTED" } : s))
+        );
+        toast.error(`Subscription Payment ${refNum} Rejected`);
+        setViewingSlip(null);
+        return;
+      }
+
       try {
         await api.patch("/payments/admin/verify-slip", {
           paymentId: id,
@@ -325,6 +457,22 @@ export function AdminSlipsVerification() {
     if (!slipToDelete) return;
     setIsDeleting(true);
     try {
+      if (slipToDelete.metadata?.isSubscription) {
+        const subId = slipToDelete.metadata.subscriberId || slipToDelete.id;
+        try {
+          await api.delete(`/admin/subscriptions/subscribers/${subId}`);
+        } catch {
+          await fetch(`http://localhost:3000/platform/subscribers/${subId}`, { method: "DELETE" });
+        }
+        setSlips((prev) => prev.filter((s) => s.id !== slipToDelete.id));
+        if (viewingSlip?.id === slipToDelete.id) {
+          setViewingSlip(null);
+        }
+        toast.success(`Subscription record for ${slipToDelete.payerName} deleted permanently`);
+        setSlipToDelete(null);
+        return;
+      }
+
       // 1. Delete from local /api/payments (mercatox_payment_db)
       const res = await fetch(`/api/payments?id=${encodeURIComponent(slipToDelete.id)}`, {
         method: "DELETE",
@@ -368,7 +516,9 @@ export function AdminSlipsVerification() {
         item.payerPhone.toLowerCase().includes(q) ||
         item.payerEmail.toLowerCase().includes(q) ||
         item.referenceNumber.toLowerCase().includes(q) ||
-        item.bankName.toLowerCase().includes(q);
+        item.bankName.toLowerCase().includes(q) ||
+        (item.metadata?.planName && item.metadata.planName.toLowerCase().includes(q)) ||
+        (item.metadata?.userRole && item.metadata.userRole.toLowerCase().includes(q));
 
       let matchesStatus = true;
       if (statusFilter === "PENDING") {
@@ -380,6 +530,8 @@ export function AdminSlipsVerification() {
           item.provider === "BANK_TRANSFER" ||
           item.bankName.toLowerCase().includes("bank") ||
           item.bankName.toLowerCase().includes("cbe");
+      } else if (statusFilter === "SUBSCRIPTIONS") {
+        matchesStatus = Boolean(item.metadata?.isSubscription);
       }
 
       return matchesSearch && matchesStatus;
@@ -388,6 +540,7 @@ export function AdminSlipsVerification() {
 
   const pendingCount = slips.filter((s) => s.status === "PENDING").length;
   const approvedCount = slips.filter((s) => s.status === "APPROVED").length;
+  const subCount = slips.filter((s) => s.metadata?.isSubscription).length;
 
   return (
     <div className="space-y-3">
@@ -400,7 +553,7 @@ export function AdminSlipsVerification() {
               Customer Payment & Bank Slip Verification Console
             </h4>
             <p className="text-[10px] text-zinc-400">
-              Verify customer payments, CBE/Awash bank transfer slips, and escrow transactions.
+              Verify customer payments, CBE/Awash bank transfer slips, and merchant subscriptions.
             </p>
           </div>
         </div>
@@ -428,7 +581,7 @@ export function AdminSlipsVerification() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search customer, order #, phone, ref code..."
+            placeholder="Search merchant, customer, order #, phone, ref..."
             className="w-full h-8 rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500"
           />
         </div>
@@ -439,6 +592,7 @@ export function AdminSlipsVerification() {
             { id: "PENDING", label: `Pending (${pendingCount})` },
             { id: "APPROVED", label: `Approved (${approvedCount})` },
             { id: "BANK_TRANSFER", label: "Bank Slips" },
+            { id: "SUBSCRIPTIONS", label: `Subscriptions (${subCount})` },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -499,24 +653,47 @@ export function AdminSlipsVerification() {
                     key={slip.id}
                     className="hover:bg-white/[0.02] transition-colors"
                   >
-                    {/* Linked Order */}
+                    {/* Linked Order or Subscription Plan */}
                     <td className="py-2.5 px-3">
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => handleViewOrder(slip.orderId)}
-                          className="font-mono font-bold text-white hover:text-indigo-400 transition-colors flex items-center gap-1 cursor-pointer"
-                          title="View order details"
-                        >
-                          <span>{slip.orderNumber}</span>
-                          <ExternalLink className="h-3 w-3 text-indigo-400" />
-                        </button>
-                      </div>
+                      {slip.metadata?.isSubscription ? (
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-1.5">
+                            <span className="rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 text-[9px] font-bold font-mono">
+                              SUBSCRIPTION
+                            </span>
+                            <span className="font-mono font-bold text-white text-[11px]">
+                              {slip.orderNumber}
+                            </span>
+                          </div>
+                          <span className="text-[10.5px] font-medium text-indigo-300 truncate max-w-[180px]">
+                            {slip.metadata.planName || slip.itemsSummary}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleViewOrder(slip.orderId)}
+                            className="font-mono font-bold text-white hover:text-indigo-400 transition-colors flex items-center gap-1 cursor-pointer"
+                            title="View order details"
+                          >
+                            <span>{slip.orderNumber}</span>
+                            <ExternalLink className="h-3 w-3 text-indigo-400" />
+                          </button>
+                        </div>
+                      )}
                     </td>
 
-                    {/* Customer / Depositor ("man endekefele") */}
+                    {/* Customer / Merchant ("man endekefele") */}
                     <td className="py-2.5 px-3">
-                      <p className="text-zinc-200 font-semibold">{slip.payerName}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-zinc-200 font-semibold">{slip.payerName}</p>
+                        {slip.metadata?.isSubscription && (
+                          <span className="rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.2 text-[9px] font-bold font-mono">
+                            {slip.metadata.userRole || "MERCHANT"}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-1 text-[10px] text-zinc-400 font-mono mt-0.5">
                         <Phone className="h-2.5 w-2.5 text-zinc-500" />
                         <span>{slip.payerPhone}</span>
@@ -743,66 +920,130 @@ export function AdminSlipsVerification() {
                 </div>
               </div>
 
-              {/* Data Checklist: Who Paid & Which Order */}
+              {/* Data Checklist: Who Paid & Plan/Order Details */}
               <div className="rounded-xl bg-white/[0.02] p-3 border border-white/10 space-y-2 text-xs">
-                <div className="flex justify-between items-center py-1 border-b border-white/5">
-                  <span className="text-zinc-400">Which Order:</span>
-                  <div className="flex items-center gap-2">
-                    <span className="font-mono font-bold text-white">
-                      {viewingSlip.orderNumber}
-                    </span>
-                    {viewingSlip.orderId && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setViewingSlip(null);
-                          handleViewOrder(viewingSlip.orderId);
-                        }}
-                        className="text-[10px] text-indigo-400 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
-                      >
-                        <span>Open Order</span>
-                        <ExternalLink className="h-2.5 w-2.5" />
-                      </button>
+                {viewingSlip.metadata?.isSubscription ? (
+                  <>
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Payment Category:</span>
+                      <span className="rounded bg-purple-500/20 text-purple-300 border border-purple-500/30 px-2 py-0.5 text-[10px] font-bold font-mono">
+                        MERCHANT SUBSCRIPTION
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Subscribed Tier:</span>
+                      <span className="font-bold text-indigo-300">
+                        {viewingSlip.metadata.planName || viewingSlip.itemsSummary}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Merchant Role:</span>
+                      <span className="font-mono font-semibold text-white">
+                        {viewingSlip.metadata.userRole || "SELLER"}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Who Paid (Merchant):</span>
+                      <span className="font-semibold text-white">
+                        {viewingSlip.payerName}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Merchant Phone:</span>
+                      <span className="font-mono text-white">
+                        {viewingSlip.payerPhone}
+                      </span>
+                    </div>
+
+                    {viewingSlip.payerEmail && (
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="text-zinc-400">Merchant Email:</span>
+                        <span className="text-zinc-300 font-mono text-[11px]">
+                          {viewingSlip.payerEmail}
+                        </span>
+                      </div>
                     )}
-                  </div>
-                </div>
 
-                <div className="flex justify-between items-center py-1 border-b border-white/5">
-                  <span className="text-zinc-400">Who Paid (Customer):</span>
-                  <span className="font-semibold text-white">
-                    {viewingSlip.payerName}
-                  </span>
-                </div>
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Billing Period:</span>
+                      <span className="text-zinc-300 capitalize font-mono text-[11px]">
+                        {viewingSlip.metadata.billingPeriod || "Monthly"}
+                      </span>
+                    </div>
 
-                <div className="flex justify-between items-center py-1 border-b border-white/5">
-                  <span className="text-zinc-400">Customer Phone:</span>
-                  <span className="font-mono text-white">
-                    {viewingSlip.payerPhone}
-                  </span>
-                </div>
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-zinc-400">Submission Date:</span>
+                      <span className="font-mono text-zinc-300 text-[11px]">
+                        {viewingSlip.submittedAt}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Which Order:</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-white">
+                          {viewingSlip.orderNumber}
+                        </span>
+                        {viewingSlip.orderId && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setViewingSlip(null);
+                              handleViewOrder(viewingSlip.orderId);
+                            }}
+                            className="text-[10px] text-indigo-400 hover:underline inline-flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>Open Order</span>
+                            <ExternalLink className="h-2.5 w-2.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                {viewingSlip.payerEmail && (
-                  <div className="flex justify-between items-center py-1 border-b border-white/5">
-                    <span className="text-zinc-400">Customer Email:</span>
-                    <span className="text-zinc-300 font-mono text-[11px]">
-                      {viewingSlip.payerEmail}
-                    </span>
-                  </div>
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Who Paid (Customer):</span>
+                      <span className="font-semibold text-white">
+                        {viewingSlip.payerName}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Customer Phone:</span>
+                      <span className="font-mono text-white">
+                        {viewingSlip.payerPhone}
+                      </span>
+                    </div>
+
+                    {viewingSlip.payerEmail && (
+                      <div className="flex justify-between items-center py-1 border-b border-white/5">
+                        <span className="text-zinc-400">Customer Email:</span>
+                        <span className="text-zinc-300 font-mono text-[11px]">
+                          {viewingSlip.payerEmail}
+                        </span>
+                      </div>
+                    )}
+
+                    <div className="flex justify-between items-center py-1 border-b border-white/5">
+                      <span className="text-zinc-400">Delivery Location:</span>
+                      <span className="text-zinc-300 text-right max-w-[240px]">
+                        {viewingSlip.deliveryAddress}
+                      </span>
+                    </div>
+
+                    <div className="flex justify-between items-center py-1">
+                      <span className="text-zinc-400">Submission Date:</span>
+                      <span className="font-mono text-zinc-300 text-[11px]">
+                        {viewingSlip.submittedAt}
+                      </span>
+                    </div>
+                  </>
                 )}
-
-                <div className="flex justify-between items-center py-1 border-b border-white/5">
-                  <span className="text-zinc-400">Delivery Location:</span>
-                  <span className="text-zinc-300 text-right max-w-[240px]">
-                    {viewingSlip.deliveryAddress}
-                  </span>
-                </div>
-
-                <div className="flex justify-between items-center py-1">
-                  <span className="text-zinc-400">Submission Date:</span>
-                  <span className="font-mono text-zinc-300 text-[11px]">
-                    {viewingSlip.submittedAt}
-                  </span>
-                </div>
               </div>
 
               {/* Ordered Products if available */}

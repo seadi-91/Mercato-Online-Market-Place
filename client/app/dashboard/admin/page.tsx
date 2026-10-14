@@ -13,6 +13,7 @@ import { AdminDelivery } from "./components/admin-delivery";
 import { AdminDisputes } from "./components/admin-disputes";
 import { AdminAuditLogs } from "./components/admin-audit-logs";
 import { AdminSettings } from "./components/admin-settings";
+import { AdminSubscriptions } from "./components/admin-subscriptions";
 
 export default function AdminDashboardPage() {
   const { activeTab, setActiveTab } = useAdminUIStore();
@@ -40,6 +41,8 @@ export default function AdminDashboardPage() {
       {activeTab === "disputes" && <AdminDisputes />}
 
       {activeTab === "audit" && <AdminAuditLogs />}
+
+      {activeTab === "subscriptions" && <AdminSubscriptions />}
 
       {activeTab === "settings" && <AdminSettings />}
     </div>

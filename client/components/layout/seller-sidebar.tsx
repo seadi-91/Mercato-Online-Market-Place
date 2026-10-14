@@ -16,6 +16,7 @@ import {
   X,
   BadgeCheck,
   PlusCircle,
+  Sparkles,
 } from "lucide-react";
 import { useSellerUIStore, SellerTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -105,6 +106,11 @@ export function SellerSidebar() {
     {
       title: "Reputation & Profile",
       items: [
+        {
+          id: "subscriptions",
+          label: "Store Subscription",
+          icon: Sparkles,
+        },
         {
           id: "reviews",
           label: "Buyer Reviews",

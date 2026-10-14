@@ -14,6 +14,7 @@ import { PlatformSettingsController } from './admin/platform-settings.controller
 import { SellerController } from './seller/seller.controller';
 import { CustomerController } from './customer/customer.controller';
 import { DeliveryController } from './delivery/delivery.controller';
+import { SubscriptionsController } from './subscription/subscriptions.controller';
 import {
   AuthGuard,
   CloudinaryModule,
@@ -114,6 +115,7 @@ import {
     SellerController,
     CustomerController,
     DeliveryController,
+    SubscriptionsController,
   ],
   providers: [
     AuthGuard,

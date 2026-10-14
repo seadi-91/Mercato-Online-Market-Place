@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   Menu,
@@ -14,10 +14,12 @@ import {
   Package,
   ShoppingCart,
   CheckCircle2,
+  Crown,
 } from "lucide-react";
 import { useSellerUIStore, SellerTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
 import { usePlatformStore } from "@/store/platform-store";
+import { useSubscriptionStore } from "@/store/subscription-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { toast } from "sonner";
 
@@ -25,6 +27,7 @@ export function SellerTopbar() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const { settings } = usePlatformStore();
+  const { mySubscription, fetchMySubscription } = useSubscriptionStore();
   const {
     activeTab,
     setActiveTab,
@@ -33,6 +36,10 @@ export function SellerTopbar() {
     lowStockCount,
     availablePayout,
   } = useSellerUIStore();
+
+  useEffect(() => {
+    fetchMySubscription();
+  }, [fetchMySubscription]);
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -47,6 +54,7 @@ export function SellerTopbar() {
     orders: "Orders & Courier Dispatch",
     payouts: "Escrow & Payout Center",
     reviews: "Buyer Reviews & Ratings",
+    subscriptions: "Store Subscription & Tiers",
     settings: "Store Profile & Settings",
   };
 
@@ -129,6 +137,18 @@ export function SellerTopbar() {
               <span className="hidden sm:inline">ETB {availablePayout.toLocaleString()}</span>
             </span>
           </div>
+
+          {/* Active Subscription Tier Badge */}
+          {mySubscription && mySubscription.paymentStatus === "PAID" && (
+            <div
+              onClick={() => setActiveTab("subscriptions")}
+              title={`Active Merchant Plan: ${mySubscription.planName}`}
+              className="hidden sm:flex items-center gap-1.5 rounded-lg border border-purple-500/30 bg-purple-500/[0.08] px-2 sm:px-2.5 py-1 text-[10px] sm:text-[10.5px] hover:bg-purple-500/[0.14] transition-colors cursor-pointer text-purple-300 font-semibold"
+            >
+              <Crown className="h-3 w-3 text-amber-400 shrink-0" />
+              <span className="truncate max-w-[120px]">{mySubscription.planName}</span>
+            </div>
+          )}
 
           {/* Appearance / Theme Toggle */}
           <div className="hidden sm:block">
