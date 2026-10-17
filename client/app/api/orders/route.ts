@@ -14,6 +14,34 @@ function isValidUuid(id?: string | null): boolean {
   );
 }
 
+async function triggerOrderEmailNotifications(payload: any) {
+  try {
+    const apiGatewayUrl =
+      process.env.INTERNAL_API_GATEWAY_URL ||
+      process.env.API_GATEWAY_URL ||
+      process.env.NEXT_PUBLIC_API_URL ||
+      "http://localhost:3001";
+
+    fetch(`${apiGatewayUrl}/orders/notify-new-order`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(async (res) => {
+        if (res.ok) {
+          console.log(`[Orders API] Dispatched order notifications for ${payload.orderNumber || payload.id}`);
+        } else {
+          console.warn(`[Orders API] Gateway responded with ${res.status} to notify-new-order`);
+        }
+      })
+      .catch((err) => {
+        console.warn(`[Orders API] Could not dispatch order notifications:`, err.message || err);
+      });
+  } catch (err: any) {
+    console.warn(`[Orders API] Error initiating order notification request:`, err.message || err);
+  }
+}
+
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -308,6 +336,23 @@ export async function POST(req: Request) {
           }
         }
 
+        // Trigger order email notifications (Customer, Admin, and Each Seller)
+        triggerOrderEmailNotifications({
+          id: exOrder.id,
+          orderNumber: exOrder.orderNumber,
+          customerId: exOrder.customerId,
+          sellerId: exOrder.sellerId,
+          subtotalAmount: Number(exOrder.subtotalAmount || exOrder.totalAmount),
+          deliveryFee: Number(exOrder.deliveryFee || 0),
+          totalAmount: Number(exOrder.totalAmount),
+          deliveryAddress: augmentedDeliveryAddress,
+          paymentMethod: body.paymentMethod || "Chapa Escrow (Telebirr / CBE / Card)",
+          paymentStatus: finalPaymentStatus,
+          notes: body.notes || "",
+          items: itemsSnapshot,
+          createdAt: new Date().toISOString(),
+        });
+
         return NextResponse.json({
           success: true,
           message: "Order updated in database",
@@ -480,6 +525,23 @@ export async function POST(req: Request) {
         payDbErr
       );
     }
+
+    // Trigger order email notifications (Customer, Admin, and Each Seller)
+    triggerOrderEmailNotifications({
+      id: orderId,
+      orderNumber: finalOrderNumber,
+      customerId: resolvedCustomerId,
+      sellerId: resolvedSellerId,
+      subtotalAmount: calcSubtotal,
+      deliveryFee: calcDeliveryFee,
+      totalAmount: calcTotal,
+      deliveryAddress: augmentedDeliveryAddress,
+      paymentMethod: body.paymentMethod || "Chapa Escrow (Telebirr / CBE / Card)",
+      paymentStatus: finalPaymentStatus,
+      notes,
+      items: itemsSnapshot,
+      createdAt: new Date().toISOString(),
+    });
 
     return NextResponse.json({
       success: true,

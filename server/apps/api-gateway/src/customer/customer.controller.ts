@@ -119,6 +119,18 @@ export class CustomerController {
       req,
     );
 
+    // Trigger order email notifications (Customer, Admin, Sellers)
+    fetch('http://localhost:3001/orders/notify-new-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...order,
+        deliveryAddress: dto.deliveryAddress,
+        notes: dto.notes,
+        items: order.items || dto.items,
+      }),
+    }).catch((err) => console.warn('[CustomerController] Notification dispatch error:', err));
+
     return order;
   }
 

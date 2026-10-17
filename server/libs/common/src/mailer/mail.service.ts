@@ -50,6 +50,82 @@ export interface AccountDeletedEmailParams {
   role?: string;
 }
 
+export interface OrderItemEmailInfo {
+  productTitle: string;
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  unitOfMeasure?: string;
+  sellerId?: string;
+  sellerName?: string;
+  image?: string;
+}
+
+export interface CustomerOrderEmailParams {
+  toEmail: string;
+  customerName: string;
+  orderNumber: string;
+  orderDate?: string | Date;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  deliveryAddress: {
+    recipientName?: string;
+    phone?: string;
+    city?: string;
+    subCity?: string;
+    specificLocation?: string;
+    notes?: string;
+  };
+  items: OrderItemEmailInfo[];
+  subtotal: number;
+  deliveryFee: number;
+  totalAmount: number;
+}
+
+export interface AdminNewOrderEmailParams {
+  adminEmail?: string;
+  orderNumber: string;
+  orderId?: string;
+  orderDate?: string | Date;
+  customerName: string;
+  customerPhone: string;
+  customerEmail?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  deliveryAddress: {
+    recipientName?: string;
+    phone?: string;
+    city?: string;
+    subCity?: string;
+    specificLocation?: string;
+    notes?: string;
+  };
+  items: OrderItemEmailInfo[];
+  subtotal: number;
+  deliveryFee: number;
+  totalAmount: number;
+}
+
+export interface SellerOrderEmailParams {
+  toEmail: string;
+  sellerName: string;
+  shopName?: string;
+  orderNumber: string;
+  orderId?: string;
+  orderDate?: string | Date;
+  buyerName: string;
+  buyerPhone: string;
+  buyerEmail?: string;
+  deliveryCity?: string;
+  deliverySubCity?: string;
+  deliveryLocation?: string;
+  paymentMethod?: string;
+  paymentStatus?: string;
+  sellerItems: OrderItemEmailInfo[];
+  sellerSubtotal: number;
+  isSupplier?: boolean;
+}
+
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
@@ -726,4 +802,567 @@ export class MailService {
       return false;
     }
   }
+
+  // ─────────────────────────────────────────────────────────────
+  // Helper: Currency Formatter
+  // ─────────────────────────────────────────────────────────────
+  private formatEtb(amount: number): string {
+    return (
+      Number(amount || 0).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) + ' ETB'
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 7. Customer Order Placed & Confirmed Email
+  // ─────────────────────────────────────────────────────────────
+  async sendCustomerOrderPlacedEmail(params: CustomerOrderEmailParams): Promise<boolean> {
+    if (!this.transporter) this.initTransporter();
+    if (!this.transporter) return false;
+
+    const fromAddress = this.getFromAddress();
+    const subject = `🛍️ የትዕዛዝ ማረጋገጫ | Order #${params.orderNumber} Confirmed (${this.formatEtb(params.totalAmount)})`;
+
+    const itemRowsHtml = params.items
+      .map(
+        (it) => `
+        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+          <td style="padding: 12px 10px; font-size: 13px; color: #ffffff; font-weight: 600;">
+            ${it.productTitle}
+            ${it.unitOfMeasure ? `<span style="display: block; font-size: 11px; color: #94a3b8; font-weight: 400;">Unit: ${it.unitOfMeasure}</span>` : ''}
+          </td>
+          <td style="padding: 12px 10px; font-size: 13px; color: #cbd5e1; text-align: center; font-weight: 700;">
+            ${it.quantity}
+          </td>
+          <td style="padding: 12px 10px; font-size: 13px; color: #cbd5e1; text-align: right;">
+            ${this.formatEtb(it.unitPrice)}
+          </td>
+          <td style="padding: 12px 10px; font-size: 13px; color: #34d399; text-align: right; font-weight: 700;">
+            ${this.formatEtb(it.totalPrice)}
+          </td>
+        </tr>`,
+      )
+      .join('');
+
+    const formattedDate = params.orderDate
+      ? new Date(params.orderDate).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+      : new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0b0f19; padding: 35px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 600px; background-color: #111827; border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);">
+          <!-- Top Accent Bar -->
+          <tr><td style="height: 4px; background: linear-gradient(90deg, #10b981, #06b6d4, #6366f1);"></td></tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 28px 30px 10px 30px; text-align: center;">
+              <div style="display: inline-block; padding: 6px 14px; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #34d399; margin-bottom: 12px;">
+                ✅ Order Placed &amp; Confirmed | ትዕዛዝዎ ተረጋግጧል
+              </div>
+              <h1 style="margin: 8px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">
+                የትዕዛዝ ማረጋገጫ ማሳወቂያ
+              </h1>
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">
+                Order #${params.orderNumber} &bull; ${formattedDate}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Greeting & Main Message -->
+          <tr>
+            <td style="padding: 16px 30px 10px 30px;">
+              <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 0 12px 12px 0; padding: 14px 18px; margin-bottom: 16px;">
+                <p style="margin: 0 0 6px 0; font-size: 15px; color: #ffffff; font-weight: 700;">
+                  ውድ ${params.customerName}፣ እናመሰግናለን!
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+                  የትዕዛዝ ቁጥር <strong style="color: #34d399;">#${params.orderNumber}</strong> በተሳካ ሁኔታ ተመዝግቧል። የገዟቸው ዕቃዎች ዝርዝር፣ የተከፈለበት መንገድ እና የማድረሻ አድራሻ ከዚህ በታች ተዘርዝረዋል፦
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Items Table -->
+          <tr>
+            <td style="padding: 0 30px 15px 30px;">
+              <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                የታዘዙ ዕቃዎች ዝርዝር (Ordered Items)
+              </div>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden;">
+                <thead>
+                  <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">ምርት (Product)</th>
+                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">ብዛት (Qty)</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ዋጋ (Price)</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ድምር (Total)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemRowsHtml}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Cost Calculation & Payment Method -->
+          <tr>
+            <td style="padding: 0 30px 15px 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 14px 16px;">
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">የዕቃዎች ድምር (Items Subtotal):</td>
+                  <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 600; padding: 4px 0;">${this.formatEtb(params.subtotal)}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">የማጓጓዣ ክፍያ (Delivery Fee):</td>
+                  <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 600; padding: 4px 0;">${this.formatEtb(params.deliveryFee)}</td>
+                </tr>
+                <tr style="border-top: 1px dashed rgba(255, 255, 255, 0.15);">
+                  <td style="font-size: 15px; color: #ffffff; font-weight: 800; padding: 10px 0 4px 0;">አጠቃላይ ድምር (Grand Total):</td>
+                  <td style="font-size: 16px; color: #34d399; text-align: right; font-weight: 800; padding: 10px 0 4px 0;">${this.formatEtb(params.totalAmount)}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; color: #94a3b8; padding: 6px 0 0 0;">የክፍያ ዘዴ (Payment Method):</td>
+                  <td style="font-size: 12px; color: #60a5fa; text-align: right; font-weight: 700; padding: 6px 0 0 0;">
+                    💳 ${params.paymentMethod || 'Chapa Escrow (Telebirr / CBE / Card)'}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; color: #94a3b8; padding: 3px 0 0 0;">የክፍያ ሁኔታ (Payment Status):</td>
+                  <td style="font-size: 12px; color: #34d399; text-align: right; font-weight: 700; padding: 3px 0 0 0;">
+                    ${params.paymentStatus === 'PAID' ? '✅ በስኬት ተከፍሏል (Paid / Escrow Secured)' : '⏳ በዋስትና የተያዘ (Escrow Protected)'}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Delivery Address Box -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                የማድረሻ አድራሻ (Delivery Information)
+              </div>
+              <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
+                <div><strong style="color: #ffffff;">ተቀባይ:</strong> ${params.deliveryAddress?.recipientName || params.customerName}</div>
+                <div><strong style="color: #ffffff;">ስልክ:</strong> ${params.deliveryAddress?.phone || 'Not provided'}</div>
+                <div><strong style="color: #ffffff;">ቦታ:</strong> ${[params.deliveryAddress?.city, params.deliveryAddress?.subCity, params.deliveryAddress?.specificLocation].filter(Boolean).join(', ')}</div>
+                ${params.deliveryAddress?.notes ? `<div><strong style="color: #ffffff;">ማስታወሻ:</strong> ${params.deliveryAddress.notes}</div>` : ''}
+              </div>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          <tr>
+            <td style="text-align: center; padding: 0 30px 30px 30px;">
+              <a href="http://localhost:3000/orders" style="display: inline-block; background: linear-gradient(90deg, #10b981, #059669); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+                ትዕዛዜን እይ (Track My Order) &rarr;
+              </a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #0a0e17; padding: 18px 30px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
+              <p style="margin: 0 0 4px 0; font-size: 12px; color: #94a3b8;">
+                ጥያቄ ካለዎት የ MercatoX የድጋፍ ቡድንን በ <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a> ማነጋገር ይችላሉ።
+              </p>
+              <p style="margin: 0; font-size: 11px; color: #64748b;">MercatoX Marketplace &bull; Addis Ababa, Ethiopia</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      const info = await this.transporter.sendMail({
+        from: fromAddress,
+        to: params.toEmail,
+        subject,
+        text: `Hello ${params.customerName},\n\nYour order #${params.orderNumber} has been placed successfully!\nTotal: ${this.formatEtb(params.totalAmount)}\nPayment Method: ${params.paymentMethod || 'Chapa'}\n\nTrack order: http://localhost:3000/orders\nMercatoX Team`,
+        html: htmlContent,
+      });
+      this.logger.log(`Customer order confirmation email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send customer order confirmation to ${params.toEmail}:`, err);
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 8. Admin New Order Notification Email
+  // ─────────────────────────────────────────────────────────────
+  async sendAdminNewOrderNotificationEmail(params: AdminNewOrderEmailParams): Promise<boolean> {
+    if (!this.transporter) this.initTransporter();
+    if (!this.transporter) return false;
+
+    const fromAddress = this.getFromAddress();
+    const adminRecipient = params.adminEmail || this.configService.get<string>('MAIL_USER') || 'muradsada8@gmail.com';
+    const subject = `📦 አዲስ ትዕዛዝ ገብቷል | New Order #${params.orderNumber} Placed (${this.formatEtb(params.totalAmount)})`;
+
+    const itemRowsHtml = params.items
+      .map(
+        (it) => `
+        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+          <td style="padding: 10px; font-size: 12px; color: #ffffff; font-weight: 600;">
+            ${it.productTitle}
+            ${it.sellerName ? `<span style="display: block; font-size: 11px; color: #f59e0b; font-weight: 600;">🏪 Seller: ${it.sellerName}</span>` : ''}
+          </td>
+          <td style="padding: 10px; font-size: 12px; color: #cbd5e1; text-align: center; font-weight: 700;">
+            ${it.quantity}
+          </td>
+          <td style="padding: 10px; font-size: 12px; color: #cbd5e1; text-align: right;">
+            ${this.formatEtb(it.unitPrice)}
+          </td>
+          <td style="padding: 10px; font-size: 12px; color: #38bdf8; text-align: right; font-weight: 700;">
+            ${this.formatEtb(it.totalPrice)}
+          </td>
+        </tr>`,
+      )
+      .join('');
+
+    const formattedDate = params.orderDate
+      ? new Date(params.orderDate).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+      : new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0b0f19; padding: 35px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 620px; background-color: #111827; border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);">
+          <!-- Top Accent Bar -->
+          <tr><td style="height: 4px; background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);"></td></tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 28px 30px 10px 30px; text-align: center;">
+              <div style="display: inline-block; padding: 6px 14px; background-color: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #818cf8; margin-bottom: 12px;">
+                👑 Platform Administration | አዲስ ትዕዛዝ ማሳወቂያ
+              </div>
+              <h1 style="margin: 8px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">
+                አዲስ ትዕዛዝ በሲስተሙ ተመዝግቧል
+              </h1>
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">
+                Order #${params.orderNumber} &bull; ${formattedDate}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Order Summary Card -->
+          <tr>
+            <td style="padding: 16px 30px 10px 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 14px 18px;">
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">ገዢ (Buyer):</td>
+                  <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 700; padding: 4px 0;">
+                    ${params.customerName} (${params.customerPhone})
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">ኢሜይል (Email):</td>
+                  <td style="font-size: 13px; color: #cbd5e1; text-align: right; padding: 4px 0;">
+                    ${params.customerEmail || 'Not provided'}
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">የክፍያ ዘዴ (Method):</td>
+                  <td style="font-size: 13px; color: #60a5fa; text-align: right; font-weight: 700; padding: 4px 0;">
+                    ${params.paymentMethod || 'Chapa'} (${params.paymentStatus || 'PAID'})
+                  </td>
+                </tr>
+                <tr style="border-top: 1px dashed rgba(255, 255, 255, 0.15);">
+                  <td style="font-size: 15px; color: #ffffff; font-weight: 800; padding: 10px 0 4px 0;">ጠቅላላ ክፍያ (Total Amount):</td>
+                  <td style="font-size: 16px; color: #34d399; text-align: right; font-weight: 800; padding: 10px 0 4px 0;">
+                    ${this.formatEtb(params.totalAmount)}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Items Table -->
+          <tr>
+            <td style="padding: 0 30px 15px 30px;">
+              <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                የትዕዛዝ ዕቃዎች ዝርዝር (Line Items &amp; Sellers)
+              </div>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden;">
+                <thead>
+                  <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">ምርት (Product &amp; Merchant)</th>
+                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">ብዛት</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ዋጋ</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ድምር</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemRowsHtml}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Delivery Details -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                የማድረሻ አድራሻ (Delivery Information)
+              </div>
+              <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+                <div><strong style="color: #ffffff;">ተቀባይ:</strong> ${params.deliveryAddress?.recipientName || params.customerName} (${params.deliveryAddress?.phone || params.customerPhone})</div>
+                <div><strong style="color: #ffffff;">አድራሻ:</strong> ${[params.deliveryAddress?.city, params.deliveryAddress?.subCity, params.deliveryAddress?.specificLocation].filter(Boolean).join(', ')}</div>
+                ${params.deliveryAddress?.notes ? `<div><strong style="color: #ffffff;">ማስታወሻ:</strong> ${params.deliveryAddress.notes}</div>` : ''}
+              </div>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          <tr>
+            <td style="text-align: center; padding: 0 30px 30px 30px;">
+              <a href="http://localhost:3000/dashboard/admin/orders" style="display: inline-block; background: linear-gradient(90deg, #6366f1, #4f46e5); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);">
+                ትዕዛዙን በአድሚን ዳሽቦርድ እይ (Open Admin Console) &rarr;
+              </a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #0a0e17; padding: 18px 30px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748b;">MercatoX Marketplace Internal Admin Notification &bull; Addis Ababa, Ethiopia</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      const info = await this.transporter.sendMail({
+        from: fromAddress,
+        to: adminRecipient,
+        subject,
+        text: `Admin Notification: New Order #${params.orderNumber} placed by ${params.customerName} (${params.customerPhone}).\nTotal Amount: ${this.formatEtb(params.totalAmount)}\nPayment: ${params.paymentMethod || 'Chapa'}\n\nManage in Admin: http://localhost:3000/dashboard/admin/orders\nMercatoX System`,
+        html: htmlContent,
+      });
+      this.logger.log(`Admin order notification email dispatched to ${adminRecipient} (MessageId: ${info.messageId})`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send admin order notification to ${adminRecipient}:`, err);
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 9. Seller / Supplier Order Notification Email (Specific to each Seller's items)
+  // ─────────────────────────────────────────────────────────────
+  async sendSellerOrderReceivedEmail(params: SellerOrderEmailParams): Promise<boolean> {
+    if (!this.transporter) this.initTransporter();
+    if (!this.transporter) return false;
+
+    const fromAddress = this.getFromAddress();
+    const merchantLabel = params.isSupplier ? 'Supplier' : 'Seller';
+    const subject = `🔔 አዲስ ሽያጭ ተከናውኗል | You Have a New Order #${params.orderNumber} (${this.formatEtb(params.sellerSubtotal)})`;
+
+    const itemRowsHtml = params.sellerItems
+      .map(
+        (it) => `
+        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.08);">
+          <td style="padding: 12px 10px; font-size: 13px; color: #ffffff; font-weight: 600;">
+            ${it.productTitle}
+            ${it.unitOfMeasure ? `<span style="display: block; font-size: 11px; color: #94a3b8; font-weight: 400;">Unit: ${it.unitOfMeasure}</span>` : ''}
+          </td>
+          <td style="padding: 12px 10px; font-size: 13px; color: #cbd5e1; text-align: center; font-weight: 700;">
+            ${it.quantity}
+          </td>
+          <td style="padding: 12px 10px; font-size: 13px; color: #cbd5e1; text-align: right;">
+            ${this.formatEtb(it.unitPrice)}
+          </td>
+          <td style="padding: 12px 10px; font-size: 13px; color: #34d399; text-align: right; font-weight: 700;">
+            ${this.formatEtb(it.totalPrice)}
+          </td>
+        </tr>`,
+      )
+      .join('');
+
+    const formattedDate = params.orderDate
+      ? new Date(params.orderDate).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' })
+      : new Date().toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0b0f19; padding: 35px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 600px; background-color: #111827; border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);">
+          <!-- Top Accent Bar -->
+          <tr><td style="height: 4px; background: linear-gradient(90deg, #f59e0b, #10b981, #06b6d4);"></td></tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 28px 30px 10px 30px; text-align: center;">
+              <div style="display: inline-block; padding: 6px 14px; background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #fbbf24; margin-bottom: 12px;">
+                💼 ${merchantLabel} Order Alert | አዲስ የተገዛ ዕቃ ማሳወቂያ
+              </div>
+              <h1 style="margin: 8px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">
+                እንኳን ደስ አለዎት! አዲስ ሽያጭ ተከናውኗል
+              </h1>
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">
+                Order #${params.orderNumber} &bull; ${formattedDate}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Greeting & Main Message -->
+          <tr>
+            <td style="padding: 16px 30px 10px 30px;">
+              <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid #f59e0b; border-radius: 0 12px 12px 0; padding: 14px 18px; margin-bottom: 16px;">
+                <p style="margin: 0 0 6px 0; font-size: 15px; color: #ffffff; font-weight: 700;">
+                  ውድ ${params.shopName || params.sellerName}፣
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
+                  ደንበኛ ከእርስዎ ሱቅ ዕቃዎችን አዟል! ከትዕዛዙ ውስጥ <strong style="color: #fbbf24;">የእርስዎ ምርት ብቻ</strong> ከዚህ በታች ተዘርዝሯል። ለእነዚህ ዕቃዎች የተመደበው የክፍያ ድርሻዎ <strong style="color: #34d399;">${this.formatEtb(params.sellerSubtotal)}</strong> በ MercatoX Escrow በዋስትና ተይዟል።
+                </p>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Buyer Info Box -->
+          <tr>
+            <td style="padding: 0 30px 15px 30px;">
+              <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                የገዢው መረጃ (Buyer Information)
+              </div>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 16px;">
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">የገዢው ስም (Buyer Name):</td>
+                  <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 700; padding: 3px 0;">${params.buyerName}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">ስልክ ቁጥር (Phone):</td>
+                  <td style="font-size: 13px; color: #34d399; text-align: right; font-weight: 700; padding: 3px 0;">${params.buyerPhone}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">የማድረሻ ከተማ/አድራሻ (Location):</td>
+                  <td style="font-size: 13px; color: #cbd5e1; text-align: right; padding: 3px 0;">
+                    ${[params.deliveryCity, params.deliverySubCity, params.deliveryLocation].filter(Boolean).join(', ') || 'Addis Ababa'}
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Seller Specific Items Table -->
+          <tr>
+            <td style="padding: 0 30px 15px 30px;">
+              <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
+                ከእርስዎ የተገዙ ዕቃዎች ዝርዝር (Your Sold Items)
+              </div>
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden;">
+                <thead>
+                  <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">የእርስዎ ምርት (Product)</th>
+                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">የታዘዘው ብዛት</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ነጠላ ዋጋ</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ድምር</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${itemRowsHtml}
+                </tbody>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Payout Summary -->
+          <tr>
+            <td style="padding: 0 30px 20px 30px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 14px 16px;">
+                <tr>
+                  <td style="font-size: 14px; color: #ffffff; font-weight: 800;">የእርስዎ ክፍያ ድምር (Your Payout):</td>
+                  <td style="font-size: 16px; color: #34d399; text-align: right; font-weight: 800;">${this.formatEtb(params.sellerSubtotal)}</td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; color: #94a3b8; padding-top: 6px;">የክፍያ ሁኔታ (Escrow Status):</td>
+                  <td style="font-size: 12px; color: #34d399; text-align: right; font-weight: 700; padding-top: 6px;">
+                    🛡️ በዋስትና ተይዟል (Secured in Escrow)
+                  </td>
+                </tr>
+                <tr>
+                  <td style="font-size: 12px; color: #94a3b8; padding-top: 3px;">ክፍያ አከፋፈል (Payout Release):</td>
+                  <td style="font-size: 12px; color: #cbd5e1; text-align: right; padding-top: 3px;">
+                    ዕቃው ለደንበኛ ሲደርስ በቀጥታ ይለቀቃል
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- CTA Button -->
+          <tr>
+            <td style="text-align: center; padding: 0 30px 30px 30px;">
+              <a href="http://localhost:3000/dashboard/${params.isSupplier ? 'supplier' : 'seller'}" style="display: inline-block; background: linear-gradient(90deg, #f59e0b, #d97706); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);">
+                ወደ ${merchantLabel} ዳሽቦርድ ይግቡ (Manage Order) &rarr;
+              </a>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #0a0e17; padding: 18px 30px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748b;">MercatoX Multi-Vendor Marketplace &bull; Addis Ababa, Ethiopia</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      const info = await this.transporter.sendMail({
+        from: fromAddress,
+        to: params.toEmail,
+        subject,
+        text: `Hello ${params.shopName || params.sellerName},\n\nYou have received an order #${params.orderNumber} on MercatoX!\nBuyer: ${params.buyerName} (${params.buyerPhone})\nYour Payout: ${this.formatEtb(params.sellerSubtotal)}\n\nManage order: http://localhost:3000/dashboard/${params.isSupplier ? 'supplier' : 'seller'}\nMercatoX Team`,
+        html: htmlContent,
+      });
+      this.logger.log(`Seller order notification email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send seller order notification to ${params.toEmail}:`, err);
+      return false;
+    }
+  }
 }
+
