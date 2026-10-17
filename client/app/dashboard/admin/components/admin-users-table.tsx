@@ -141,8 +141,8 @@ export function AdminUsersTable() {
 
         const response = await api.get<{ data: any[]; total: number; page: number; limit: number; totalPages: number }>(`/admin/users?${params.toString()}`);
         setUsers(normalizeUsers(response.data || []));
-      } catch (error) {
-        console.error("Failed to load admin users:", error);
+      } catch (error: any) {
+        console.warn("Failed to load admin users:", error?.message || error);
         toast.error("Users load failed", {
           description: "Unable to fetch users from the backend.",
         });
@@ -201,8 +201,8 @@ export function AdminUsersTable() {
         ),
       );
       toast.success(`User ${target.name} is now ${effectiveActive ? "Active" : "Blocked"}`);
-    } catch (error) {
-      console.error("Failed to change user status:", error);
+    } catch (error: any) {
+      console.warn("Failed to change user status:", error?.message || error);
       toast.error("Status update failed", {
         description: "Unable to update the user account status.",
       });
@@ -231,8 +231,8 @@ export function AdminUsersTable() {
         ),
       );
       toast.success(`Security lockout and failed attempts reset for ${target.name}. Account is now Active.`);
-    } catch (error) {
-      console.error("Failed to reset lockout:", error);
+    } catch (error: any) {
+      console.warn("Failed to reset lockout:", error?.message || error);
       toast.error("Reset failed", {
         description: "Unable to reset user lockout on the backend.",
       });
@@ -252,7 +252,7 @@ export function AdminUsersTable() {
         throw new Error("Deletion was not confirmed by the server");
       }
     } catch (error: any) {
-      console.error("Failed to delete user:", error);
+      console.warn("Failed to delete user:", error?.message || error);
       toast.error("User delete failed", {
         description: error?.message || "Unable to permanently delete this user from the database.",
       });

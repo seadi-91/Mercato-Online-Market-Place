@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   ShoppingBag,
   Trash2,
@@ -119,7 +118,6 @@ function getProductOptions(category?: string, name?: string) {
 }
 
 export default function CartPage() {
-  const router = useRouter();
   const items = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -128,6 +126,7 @@ export default function CartPage() {
   const clearCart = useCartStore((state) => state.clearCart);
   const getTotalPrice = useCartStore((state) => state.getTotalPrice);
   const token = useAuthStore((state) => state.token);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [mounted, setMounted] = useState(false);
   const [visibleSummaryCount, setVisibleSummaryCount] = useState(2);
@@ -162,9 +161,7 @@ export default function CartPage() {
     .filter((p) => !cartItemIds.has(p.id))
     .slice(0, 4);
 
-  const handleCheckout = () => {
-    router.push("/checkout");
-  };
+  const checkoutHref = isAuthenticated ? "/checkout" : "/login?redirect=%2Fcheckout";
 
   return (
     <div className="min-h-screen flex flex-col bg-[#070a12] text-zinc-100 selection:bg-indigo-500/30 selection:text-indigo-200">
@@ -539,7 +536,7 @@ export default function CartPage() {
 
                 {/* Checkout Button */}
                 <Link
-                  href="/checkout"
+                  href={checkoutHref}
                   className="w-full rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 py-3 text-xs sm:text-sm font-bold text-white shadow-xl shadow-indigo-500/25 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Lock className="h-4 w-4" />
@@ -679,7 +676,7 @@ export default function CartPage() {
             </span>
           </div>
           <Link
-            href="/checkout"
+            href={checkoutHref}
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 active:scale-95 transition-all"
           >
             <Lock className="h-3.5 w-3.5" />

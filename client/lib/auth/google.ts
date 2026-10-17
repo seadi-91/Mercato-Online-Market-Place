@@ -1,6 +1,7 @@
 "use client";
 
 import { API_CONFIG } from "@/config/api.config";
+import type { UserRole } from "@/store/auth-store";
 
 declare global {
   interface Window {
@@ -13,7 +14,7 @@ declare global {
             ux_mode?: "popup" | "redirect";
             redirect_uri?: string;
             callback?: (response: { code?: string; error?: string }) => void;
-            error_callback?: (error: any) => void;
+            error_callback?: (error: unknown) => void;
           }) => {
             requestCode: () => void;
           };
@@ -31,10 +32,21 @@ export function loadGoogleScript(): Promise<void> {
     if (typeof window === "undefined") return resolve();
     if (window.google?.accounts?.oauth2) return resolve();
 
+    const loadError = () =>
+      new Error(
+        "Could not load Google Identity Services. Check your internet connection, browser extensions, and Content Security Policy settings."
+      );
     const existingScript = document.getElementById("google-gsi-client");
     if (existingScript) {
-      existingScript.addEventListener("load", () => resolve());
-      existingScript.addEventListener("error", (e) => reject(e));
+      existingScript.addEventListener("load", () => resolve(), { once: true });
+      existingScript.addEventListener(
+        "error",
+        () => {
+          existingScript.remove();
+          reject(loadError());
+        },
+        { once: true }
+      );
       return;
     }
 
@@ -44,7 +56,10 @@ export function loadGoogleScript(): Promise<void> {
     script.async = true;
     script.defer = true;
     script.onload = () => resolve();
-    script.onerror = (e) => reject(e);
+    script.onerror = () => {
+      script.remove();
+      reject(loadError());
+    };
     document.head.appendChild(script);
   });
 }
@@ -57,12 +72,24 @@ export interface GoogleAuthResponse {
     email: string;
     fullName: string;
     phoneNumber?: string;
-    role: string;
+    role: UserRole;
   };
 }
 
+function getGoogleErrorMessage(error: unknown): string {
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const details = error as { message?: unknown; error?: unknown; type?: unknown };
+    for (const value of [details.message, details.error, details.type]) {
+      if (typeof value === "string" && value) return value;
+    }
+  }
+  return "Google sign-in could not be initialized. Check the OAuth client configuration and try again.";
+}
+
 /**
- * Triggers Google Sign-In popup with automatic code exchange via MercatoX backend
+ * Triggers the Google Identity Services popup and exchanges its authorization
+ * code via the MercatoX backend.
  */
 export async function triggerGoogleSignIn(): Promise<GoogleAuthResponse> {
   await loadGoogleScript();
@@ -71,15 +98,13 @@ export async function triggerGoogleSignIn(): Promise<GoogleAuthResponse> {
   if (!clientId) {
     throw new Error("Google Client ID is not configured");
   }
-
   return new Promise((resolve, reject) => {
     if (!window.google?.accounts?.oauth2) {
-      // Fallback: Redirect to Google OAuth authorization endpoint
-      const callback = `${window.location.origin}/auth/callback/google`;
-      const scope = encodeURIComponent("openid email profile");
-      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
-        callback
-      )}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
+      reject(
+        new Error(
+          "Google Identity Services did not load. Check your network connection and OAuth client configuration."
+        )
+      );
       return;
     }
 
@@ -90,7 +115,11 @@ export async function triggerGoogleSignIn(): Promise<GoogleAuthResponse> {
         ux_mode: "popup",
         callback: async (response) => {
           if (response.error) {
-            return reject(new Error(response.error));
+            const message =
+              response.error === "redirect_uri_mismatch"
+                ? "Google rejected the OAuth redirect. Verify that the frontend and backend use the same Google OAuth client ID."
+                : response.error;
+            return reject(new Error(message));
           }
           if (!response.code) {
             return reject(new Error("No authorization code received from Google"));
@@ -115,27 +144,25 @@ export async function triggerGoogleSignIn(): Promise<GoogleAuthResponse> {
             }
 
             resolve(data);
-          } catch (err: any) {
-            reject(err);
+          } catch (error: unknown) {
+            reject(
+              error instanceof Error
+                ? error
+                : new Error(getGoogleErrorMessage(error))
+            );
           }
         },
-        error_callback: (err: any) => {
-          const message =
-            typeof err === "string"
-              ? err
-              : err?.message || err?.error || err?.type || "Google sign-in popup was blocked or closed";
-          reject(new Error(message));
-        },
+        error_callback: (error: unknown) =>
+          reject(new Error(getGoogleErrorMessage(error))),
       });
 
       codeClient.requestCode();
-    } catch {
-      // Fallback to full page redirect if popup fails or is blocked
-      const callback = `${window.location.origin}/auth/callback/google`;
-      const scope = encodeURIComponent("openid email profile");
-      window.location.href = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${clientId}&redirect_uri=${encodeURIComponent(
-        callback
-      )}&response_type=code&scope=${scope}&access_type=offline&prompt=consent`;
+    } catch (error) {
+      reject(
+        new Error(
+          `Could not start Google sign-in: ${getGoogleErrorMessage(error)}`
+        )
+      );
     }
   });
 }

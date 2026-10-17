@@ -41,6 +41,7 @@ import {
 import { toast } from "sonner";
 import { useAuthStore } from "@/store";
 import { API_CONFIG } from "@/config/api.config";
+import { loadGoogleScript, triggerGoogleSignIn } from "@/lib/auth/google";
 
 // Account Roles available for registration: Customer / Buyer, Merchant / Seller, or Wholesale Supplier
 type BackendRole = "CUSTOMER" | "SELLER" | "SUPPLIER";
@@ -231,12 +232,12 @@ function DocUploadCard({
   return (
     <div
       className={`relative rounded-xl border p-3 transition-all ${doc?.url
-          ? "border-emerald-500/40 bg-emerald-500/10 shadow-xs"
-          : error
-            ? "border-rose-500/50 bg-rose-500/5"
-            : isDragOver
-              ? "border-emerald-400 bg-emerald-500/15"
-              : "border-white/10 bg-black/30 hover:border-white/20"
+        ? "border-emerald-500/40 bg-emerald-500/10 shadow-xs"
+        : error
+          ? "border-rose-500/50 bg-rose-500/5"
+          : isDragOver
+            ? "border-emerald-400 bg-emerald-500/15"
+            : "border-white/10 bg-black/30 hover:border-white/20"
         }`}
       onDragOver={(e) => {
         e.preventDefault();
@@ -382,8 +383,8 @@ function DocUploadCard({
           type="button"
           onClick={() => inputRef.current?.click()}
           className={`w-full flex items-center justify-center gap-2.5 py-3 rounded-lg border border-dashed transition-all group ${error
-              ? "border-rose-500/50 hover:border-rose-400 bg-rose-500/5"
-              : "border-white/15 hover:border-emerald-400/50 hover:bg-emerald-500/5"
+            ? "border-rose-500/50 hover:border-rose-400 bg-rose-500/5"
+            : "border-white/15 hover:border-emerald-400/50 hover:bg-emerald-500/5"
             }`}
         >
           <UploadCloud className="h-4 w-4 text-zinc-400 group-hover:text-emerald-400 transition-colors" />
@@ -421,6 +422,12 @@ function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
+
+  useEffect(() => {
+    loadGoogleScript().catch(() => {
+      // The click handler retries the load and displays any failure to the user.
+    });
+  }, []);
 
   // Step 1: Choose Role -> Click Continue
   // Step 2: Fill specific registration form
@@ -1095,7 +1102,52 @@ function RegisterPageContent() {
     }
   };
 
-  const handleOAuthRegister = (provider: string) => {
+  const handleOAuthRegister = async (provider: string) => {
+    if (provider === "Google") {
+      const postLoginDest = "/";
+      try {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("mercatox_auth_redirect", postLoginDest);
+        }
+      } catch {}
+
+      toast.loading("Connecting to Google...", { id: "oauth-reg" });
+
+      try {
+        const authData = await triggerGoogleSignIn();
+        if (authData && authData.accessToken) {
+          const userRole = authData.user.role || "CUSTOMER";
+          login(
+            {
+              id: authData.user.id,
+              name: authData.user.fullName || authData.user.email,
+              email: authData.user.email,
+              role: userRole,
+              phoneNumber: authData.user.phoneNumber,
+              isVerified: true,
+            },
+            authData.accessToken
+          );
+          toast.success(`Account registered with Google!`, {
+            id: "oauth-reg",
+            description: "Welcome to MercatoX! Redirecting to home...",
+          });
+          router.push(postLoginDest);
+          return;
+        }
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Google sign-in could not be completed.";
+        toast.error("Google registration failed", {
+          id: "oauth-reg",
+          description: message,
+        });
+        return;
+      }
+
+      return;
+    }
+
     toast.loading(`Connecting to ${provider}...`, { id: "oauth-reg" });
     setTimeout(() => {
       login(
@@ -1510,10 +1562,10 @@ function RegisterPageContent() {
                     {supplierStep === 1
                       ? "25% Completed"
                       : supplierStep === 2
-                      ? "50% Completed"
-                      : supplierStep === 3
-                      ? "75% Completed"
-                      : "Final Step — 100%"}
+                        ? "50% Completed"
+                        : supplierStep === 3
+                          ? "75% Completed"
+                          : "Final Step — 100%"}
                   </span>
                 </div>
 
@@ -1522,15 +1574,14 @@ function RegisterPageContent() {
                   <div
                     className="h-full bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-400 transition-all duration-300 ease-out"
                     style={{
-                      width: `${
-                        supplierStep === 1
+                      width: `${supplierStep === 1
                           ? 25
                           : supplierStep === 2
-                          ? 50
-                          : supplierStep === 3
-                          ? 75
-                          : 100
-                      }%`,
+                            ? 50
+                            : supplierStep === 3
+                              ? 75
+                              : 100
+                        }%`,
                     }}
                   />
                 </div>
@@ -1547,23 +1598,21 @@ function RegisterPageContent() {
                         key={s.step}
                         type="button"
                         onClick={() => handleStepClick(s.step as 1 | 2 | 3 | 4)}
-                        className={`flex flex-col items-center sm:items-start p-2 rounded-lg border transition-all text-left ${
-                          isCurrent
+                        className={`flex flex-col items-center sm:items-start p-2 rounded-lg border transition-all text-left ${isCurrent
                             ? "border-emerald-500 bg-emerald-500/15 text-emerald-300 shadow-sm shadow-emerald-500/20 ring-1 ring-emerald-500/30"
                             : isCompleted
-                            ? "border-emerald-500/30 bg-emerald-500/5 text-zinc-300 hover:bg-emerald-500/10 hover:border-emerald-500/50 cursor-pointer"
-                            : "border-white/5 bg-white/[0.02] text-zinc-500 hover:border-white/10 cursor-pointer"
-                        }`}
+                              ? "border-emerald-500/30 bg-emerald-500/5 text-zinc-300 hover:bg-emerald-500/10 hover:border-emerald-500/50 cursor-pointer"
+                              : "border-white/5 bg-white/[0.02] text-zinc-500 hover:border-white/10 cursor-pointer"
+                          }`}
                       >
                         <div className="flex items-center gap-1.5 mb-1">
                           <div
-                            className={`flex h-4 w-4 sm:h-4.5 sm:w-4.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold transition-colors ${
-                              isCompleted
+                            className={`flex h-4 w-4 sm:h-4.5 sm:w-4.5 shrink-0 items-center justify-center rounded-full text-[9px] font-bold transition-colors ${isCompleted
                                 ? "bg-emerald-400 text-black"
                                 : isCurrent
-                                ? "bg-emerald-500 text-black"
-                                : "bg-white/10 text-zinc-400"
-                            }`}
+                                  ? "bg-emerald-500 text-black"
+                                  : "bg-white/10 text-zinc-400"
+                              }`}
                           >
                             {isCompleted ? (
                               <Check className="h-2.5 w-2.5 stroke-[3]" />
@@ -1622,11 +1671,10 @@ function RegisterPageContent() {
                               setErrors((prev) => ({ ...prev, fullName: "" }));
                           }}
                           placeholder="e.g. Almaz Kebede / Dawit Hailu"
-                          className={`w-full rounded-xl border bg-black/40 py-2 px-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
-                            errors.fullName
+                          className={`w-full rounded-xl border bg-black/40 py-2 px-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${errors.fullName
                               ? "border-rose-500/60 ring-1 ring-rose-500/20"
                               : "border-white/10 hover:border-white/20"
-                          }`}
+                            }`}
                         />
                         {errors.fullName && (
                           <p className="mt-0.5 text-[10px] text-rose-400">
@@ -1645,9 +1693,8 @@ function RegisterPageContent() {
                             Ethiopian Mobile Number <span className="text-rose-400">*</span>
                           </label>
                           <span
-                            className={`text-[10px] font-medium ${
-                              isPhoneValid ? "text-emerald-400" : "text-zinc-500"
-                            }`}
+                            className={`text-[10px] font-medium ${isPhoneValid ? "text-emerald-400" : "text-zinc-500"
+                              }`}
                           >
                             {isPhoneValid ? "✓ Valid format" : "09... or 07..."}
                           </span>
@@ -1671,13 +1718,12 @@ function RegisterPageContent() {
                                   setErrors((prev) => ({ ...prev, phoneNumber: "" }));
                               }}
                               placeholder="911 22 33 44"
-                              className={`w-full rounded-xl border bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
-                                errors.phoneNumber
+                              className={`w-full rounded-xl border bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${errors.phoneNumber
                                   ? "border-rose-500/60 ring-1 ring-rose-500/20"
                                   : isPhoneValid
-                                  ? "border-emerald-500/40"
-                                  : "border-white/10 hover:border-white/20"
-                              }`}
+                                    ? "border-emerald-500/40"
+                                    : "border-white/10 hover:border-white/20"
+                                }`}
                             />
                           </div>
                         </div>
@@ -1711,9 +1757,8 @@ function RegisterPageContent() {
                                   setErrors((prev) => ({ ...prev, email: "" }));
                               }}
                               placeholder="sales@company.com"
-                              className={`w-full rounded-xl border bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${
-                                errors.email ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
-                              }`}
+                              className={`w-full rounded-xl border bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${errors.email ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
+                                }`}
                             />
                           </div>
                           {errors.email && (
@@ -1740,11 +1785,10 @@ function RegisterPageContent() {
                                 setErrors((prev) => ({ ...prev, nationalIdSupplier: "" }));
                             }}
                             placeholder="e.g. FAN-8492019"
-                            className={`w-full rounded-xl border bg-black/40 py-2 px-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${
-                              errors.nationalIdSupplier
+                            className={`w-full rounded-xl border bg-black/40 py-2 px-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${errors.nationalIdSupplier
                                 ? "border-rose-500/60 ring-1 ring-rose-500/20"
                                 : "border-white/10"
-                            }`}
+                              }`}
                           />
                           {errors.nationalIdSupplier && (
                             <p className="mt-0.5 text-[10px] text-rose-400">
@@ -1820,9 +1864,8 @@ function RegisterPageContent() {
                                 setErrors((prev) => ({ ...prev, companyName: "" }));
                             }}
                             placeholder="e.g. Abyssinia Wholesale Importers & Distribution PLC"
-                            className={`w-full rounded-xl border bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${
-                              errors.companyName ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
-                            }`}
+                            className={`w-full rounded-xl border bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${errors.companyName ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
+                              }`}
                           />
                         </div>
                         {errors.companyName && (
@@ -1854,9 +1897,8 @@ function RegisterPageContent() {
                                 }));
                             }}
                             placeholder="e.g. IMP-AA-748291"
-                            className={`w-full rounded-xl border bg-black/40 py-2 px-2.5 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${
-                              errors.tradeLicenseSupplier ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
-                            }`}
+                            className={`w-full rounded-xl border bg-black/40 py-2 px-2.5 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${errors.tradeLicenseSupplier ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
+                              }`}
                           />
                           {errors.tradeLicenseSupplier && (
                             <p className="mt-0.5 text-[10px] text-rose-400">
@@ -1883,9 +1925,8 @@ function RegisterPageContent() {
                                 setErrors((prev) => ({ ...prev, tinNumberSupplier: "" }));
                             }}
                             placeholder="0039281729"
-                            className={`w-full rounded-xl border bg-black/40 py-2 px-2.5 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${
-                              errors.tinNumberSupplier ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
-                            }`}
+                            className={`w-full rounded-xl border bg-black/40 py-2 px-2.5 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 ${errors.tinNumberSupplier ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
+                              }`}
                           />
                           {errors.tinNumberSupplier && (
                             <p className="mt-0.5 text-[10px] text-rose-400">
@@ -1968,9 +2009,8 @@ function RegisterPageContent() {
                               setErrors((prev) => ({ ...prev, warehouseAddress: "" }));
                           }}
                           placeholder="e.g. Block C4, Heavy Freight Gate 2, Near Dry Port"
-                          className={`w-full rounded-xl border bg-black/40 py-2 px-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-emerald-500 ${
-                            errors.warehouseAddress ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
-                          }`}
+                          className={`w-full rounded-xl border bg-black/40 py-2 px-2.5 text-xs text-white placeholder-zinc-500 outline-none focus:border-emerald-500 ${errors.warehouseAddress ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10"
+                            }`}
                         />
                         {errors.warehouseAddress && (
                           <p className="mt-0.5 text-[10px] text-rose-400">
@@ -2139,11 +2179,10 @@ function RegisterPageContent() {
                                 setErrors((prev) => ({ ...prev, password: "" }));
                             }}
                             placeholder="Minimum 8 characters"
-                            className={`w-full rounded-xl border bg-black/40 py-2 pl-3 pr-8 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
-                              errors.password
+                            className={`w-full rounded-xl border bg-black/40 py-2 pl-3 pr-8 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${errors.password
                                 ? "border-rose-500/60 ring-1 ring-rose-500/20"
                                 : "border-white/10 hover:border-white/20"
-                            }`}
+                              }`}
                           />
                           <button
                             type="button"
@@ -2165,9 +2204,8 @@ function RegisterPageContent() {
                               {[1, 2, 3, 4].map((bar) => (
                                 <div
                                   key={bar}
-                                  className={`h-1 rounded-full transition-all duration-300 ${
-                                    strengthScore >= bar ? strengthMeta.color : "bg-white/10"
-                                  }`}
+                                  className={`h-1 rounded-full transition-all duration-300 ${strengthScore >= bar ? strengthMeta.color : "bg-white/10"
+                                    }`}
                                 />
                               ))}
                             </div>
@@ -2191,11 +2229,10 @@ function RegisterPageContent() {
                           </label>
                           {confirmPassword && password && (
                             <span
-                              className={`text-[10px] font-medium flex items-center gap-1 ${
-                                confirmPassword === password
+                              className={`text-[10px] font-medium flex items-center gap-1 ${confirmPassword === password
                                   ? "text-emerald-400"
                                   : "text-rose-400"
-                              }`}
+                                }`}
                             >
                               {confirmPassword === password ? (
                                 <>
@@ -2224,11 +2261,10 @@ function RegisterPageContent() {
                                 }));
                             }}
                             placeholder="Re-type password"
-                            className={`w-full rounded-xl border bg-black/40 py-2 pl-3 pr-8 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${
-                              errors.confirmPassword
+                            className={`w-full rounded-xl border bg-black/40 py-2 pl-3 pr-8 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/20 ${errors.confirmPassword
                                 ? "border-rose-500/60 ring-1 ring-rose-500/20"
                                 : "border-white/10 hover:border-white/20"
-                            }`}
+                              }`}
                           />
                           <button
                             type="button"
@@ -2497,8 +2533,8 @@ function RegisterPageContent() {
                         }}
                         placeholder="e.g. NID-4920491"
                         className={`w-full rounded-xl border bg-black/40 py-2 px-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-amber-500 ${errors.nationalId
-                            ? "border-rose-500/60 ring-1 ring-rose-500/20"
-                            : "border-white/10"
+                          ? "border-rose-500/60 ring-1 ring-rose-500/20"
+                          : "border-white/10"
                           }`}
                       />
                       {errors.nationalId && (
@@ -2899,11 +2935,10 @@ function RegisterPageContent() {
               <button
                 type="submit"
                 disabled={isLoading}
-                className={`group relative flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none cursor-pointer ${
-                  selectedRole === "SELLER"
+                className={`group relative flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-semibold text-white shadow-lg transition-all hover:brightness-110 active:scale-[0.99] disabled:opacity-60 disabled:pointer-events-none cursor-pointer ${selectedRole === "SELLER"
                     ? "bg-gradient-to-r from-amber-500 via-orange-600 to-indigo-600 shadow-amber-500/20"
                     : "bg-gradient-to-r from-cyan-500 via-indigo-600 to-indigo-500 shadow-cyan-500/20"
-                }`}
+                  }`}
               >
                 {isLoading ? (
                   <>

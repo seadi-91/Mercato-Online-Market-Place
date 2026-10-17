@@ -27,33 +27,62 @@ import { usePlatformStore } from "@/store/platform-store";
 import { toast } from "sonner";
 
 export function MercatoXCardPromo() {
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
   const [copiedId, setCopiedId] = useState(false);
   const [hasCard, setHasCard] = useState(false);
+  const [ownedCard, setOwnedCard] = useState<any>(null);
+  const cardHref = isAuthenticated && user ? "/card" : "/login?redirect=%2Fcard";
 
   useEffect(() => {
-    if (user?.email || user?.id) {
+    if (isAuthenticated && user && (user?.email || user?.id || user?.phoneNumber)) {
+      try {
+        if (typeof window !== "undefined") {
+          const storageKey = `mercatox_card_${(user.email || user.id || "current").toLowerCase().trim()}`;
+          const cached = localStorage.getItem(storageKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.cardNumber) {
+              setHasCard(true);
+              setOwnedCard(parsed);
+            }
+          }
+        }
+      } catch {}
+
+      const emailParam = encodeURIComponent(user.email || "");
+      const customerIdParam = encodeURIComponent(user.id || "");
+      const phoneParam = encodeURIComponent(user.phoneNumber || "");
       fetch(
-        `/api/card/my-cards?email=${encodeURIComponent(user.email || "")}&customerId=${encodeURIComponent(user.id || "")}`
+        `/api/card/my-cards?email=${emailParam}&customerId=${customerIdParam}&phoneNumber=${phoneParam}`
       )
         .then((r) => r.json())
         .then((d) => {
-          if (d.success && Array.isArray(d.cards) && d.cards.some((c: any) => c.status === "ACTIVE")) {
+          if (d.success && Array.isArray(d.cards) && d.cards.length > 0) {
             setHasCard(true);
+            const userCard = d.cards.find((c: any) => c.status === "ACTIVE") || d.cards[0];
+            if (userCard) {
+              setOwnedCard(userCard);
+            }
+          } else {
+            setHasCard(false);
+            setOwnedCard(null);
           }
         })
-        .catch(() => {});
+        .catch(() => { });
+    } else {
+      setHasCard(false);
+      setOwnedCard(null);
     }
-  }, [user?.email, user?.id]);
+  }, [isAuthenticated, user?.email, user?.id, user?.phoneNumber]);
 
   // Cardholder visual details
-  const cardHolderName = user?.name || "MERCATOX MEMBER";
-  const cardHolderEmail = user?.email || "customer@mercatox.com";
-  const cardHolderPhone = user?.phoneNumber || "+251 9...";
-  const cardId = "4892 7104 8942 0192";
-  const expiryDate = "10/29";
-  const defaultBalance = platformSettings?.minCardLoadAmount || "500.00";
+  const cardHolderName = ownedCard?.cardholderName || (user && user.name) || "MERCATOX MEMBER";
+  const cardHolderEmail = ownedCard?.email || (user && user.email) || "customer@mercatox.com";
+  const cardHolderPhone = ownedCard?.phoneNumber || (user && user.phoneNumber) || "+251 9...";
+  const cardId = ownedCard?.cardNumber || "4892 7104 8942 0192";
+  const expiryDate = ownedCard?.expiryDate || "10/29";
+  const defaultBalance = ownedCard?.balance != null ? Number(ownedCard.balance).toFixed(2) : (platformSettings?.minCardLoadAmount || "500.00");
   const adminCardPrice = platformSettings?.cardIssuanceFee || "150";
 
   const handleCopyId = (e: React.MouseEvent) => {
@@ -97,7 +126,7 @@ export function MercatoXCardPromo() {
             {/* Compact Perks & Action Button Row */}
             <div className="pt-1 flex flex-wrap items-center gap-3 sm:gap-4">
               <Link
-                href="/card"
+                href={cardHref}
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:brightness-110 text-white px-5 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/25 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shrink-0"
               >
                 <CreditCard className="h-4 w-4" />
@@ -127,7 +156,7 @@ export function MercatoXCardPromo() {
           <div className="lg:col-span-5 flex items-center justify-center">
             {/* Cards Showcase Stack */}
             <Link
-              href="/card"
+              href={cardHref}
               title="Click to customize and buy your MercatoX Card"
               className="relative w-full max-w-[420px] h-[180px] sm:h-[195px] flex items-center justify-center group cursor-pointer"
             >

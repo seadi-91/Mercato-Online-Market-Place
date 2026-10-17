@@ -387,8 +387,8 @@ export default function AdminOrderDetailPage() {
         };
 
         setOrder(normalized);
-      } catch (err) {
-        console.error("Failed to load admin order detail:", err);
+      } catch (err: any) {
+        console.warn("Failed to load admin order detail:", err?.message || err);
         setError("Unable to load order details.");
         setOrder(null);
       } finally {

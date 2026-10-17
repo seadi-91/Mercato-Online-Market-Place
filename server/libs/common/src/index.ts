@@ -29,3 +29,6 @@ export * from './dto/admin.dto';
 export * from './dto/seller.dto';
 export * from './dto/warehouse.dto';
 export * from './dto/rfq.dto';
+export * from './mailer/mail.service';
+export * from './mailer/mail.module';
+

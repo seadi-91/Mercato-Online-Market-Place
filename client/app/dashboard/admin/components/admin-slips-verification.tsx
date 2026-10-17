@@ -328,8 +328,8 @@ export function AdminSlipsVerification() {
 
       const normalized = paymentsList.map(adaptBackendSlip);
       setSlips(normalized);
-    } catch (error) {
-      console.error("Failed to fetch pending bank slips:", error);
+    } catch (error: any) {
+      console.warn("Failed to fetch pending bank slips:", error?.message || error);
       setSlips([]);
       toast.error("Unable to load bank slips and payments.");
     } finally {
@@ -597,8 +597,8 @@ export function AdminSlipsVerification() {
         description: "Funds verified and credited into MercatoX Escrow custody.",
       });
       setViewingSlip(null);
-    } catch (error) {
-      console.error("Failed to approve bank slip:", error);
+    } catch (error: any) {
+      console.warn("Failed to approve bank slip:", error?.message || error);
       toast.error("Unable to approve this payment right now.");
     }
   };
@@ -651,8 +651,8 @@ export function AdminSlipsVerification() {
         description: "Customer notified to provide valid payment verification.",
       });
       setViewingSlip(null);
-    } catch (error) {
-      console.error("Failed to reject bank slip:", error);
+    } catch (error: any) {
+      console.warn("Failed to reject bank slip:", error?.message || error);
       toast.error("Unable to reject this payment right now.");
     }
   };
@@ -709,7 +709,7 @@ export function AdminSlipsVerification() {
         throw new Error(data?.error || "Failed to delete payment from database");
       }
     } catch (error: any) {
-      console.error("Failed to delete payment:", error);
+      console.warn("Failed to delete payment:", error?.message || error);
       toast.error("Delete failed", {
         description: error.message || "Unable to delete payment record from database.",
       });

@@ -116,8 +116,8 @@ export default function AdminProductDetailPage() {
               `/admin/users/${encodeURIComponent(productDetail.sellerId)}/details`,
             );
             if (isCurrent) setSeller(sellerDetail);
-          } catch (sellerLoadError) {
-            console.error("Failed to load product seller details:", sellerLoadError);
+          } catch (sellerLoadError: any) {
+            console.warn("Failed to load product seller details:", sellerLoadError?.message || sellerLoadError);
             if (isCurrent) {
               setSellerError("Seller profile could not be loaded from the backend.");
             }
@@ -126,8 +126,8 @@ export default function AdminProductDetailPage() {
           setSeller(null);
           setSellerError("This product does not include a seller ID.");
         }
-      } catch (loadError) {
-        console.error("Failed to load admin product details:", loadError);
+      } catch (loadError: any) {
+        console.warn("Failed to load admin product details:", loadError?.message || loadError);
         if (isCurrent) {
           setError("Could not load this product from the backend.");
           toast.error("Product details unavailable", {

@@ -148,6 +148,12 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
 
   const handleSignOut = () => {
     logout();
+    try {
+      localStorage.removeItem("mercatox-auth-storage");
+      sessionStorage.clear();
+    } catch {
+      // ignore
+    }
     setProfileDropdownOpen(false);
     toast.success("Signed out successfully");
     router.push("/login");
@@ -372,7 +378,7 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             </Link>
 
             {/* Profile Dropdown / Login Sign In Dropdown - visible on sm+ */}
-            {mounted && isAuthenticated ? (
+            {mounted && isAuthenticated && Boolean(user) ? (
               <div className="relative hidden sm:block" ref={profileDropdownRef}>
                 <button
                   type="button"
@@ -758,7 +764,7 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             {/* 2. Scrollable Body Content */}
             <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
               {/* Welcome User / Guest Card */}
-              {mounted && isAuthenticated ? (
+              {mounted && isAuthenticated && Boolean(user) ? (
                 <div
                   className={`p-3.5 rounded-2xl border transition-all ${theme === "light"
                     ? "border-indigo-100 bg-indigo-50/80 text-slate-900 shadow-xs"
@@ -1050,7 +1056,7 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
               </div>
 
               {/* Authenticated User Links */}
-              {mounted && isAuthenticated && (
+              {mounted && isAuthenticated && Boolean(user) && (
                 <div
                   className={`space-y-1 pt-2 border-t ${theme === "light"
                     ? "border-slate-200"

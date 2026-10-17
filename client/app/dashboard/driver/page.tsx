@@ -249,8 +249,8 @@ export default function DriverDashboardPage() {
             description: `${finalAssigned.length} assigned dispatches, ${mappedAvailable.length} available in queue.`,
           });
         }
-      } catch (err) {
-        console.error("Failed to load driver orders:", err);
+      } catch (err: any) {
+        console.warn("Failed to load driver orders:", err?.message || err);
         setMissions([]);
         setAvailableDeliveries([]);
       } finally {

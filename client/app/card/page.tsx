@@ -408,6 +408,35 @@ function BuyCardPageContent() {
   const adminCardPrice = Number(platformSettings?.cardIssuanceFee || DEFAULT_CARD_ISSUANCE_FEE);
   const totalAmountToPay = adminCardPrice + loadedAmount;
 
+  const userOwnsCard = Boolean(
+    isCardGenerated || activeCardData || (myCards && myCards.length > 0)
+  );
+
+  const currentCard =
+    activeCardData ||
+    (myCards && myCards.find((c: any) => c.status === "ACTIVE")) ||
+    (myCards && myCards[0]) ||
+    null;
+
+  const displayTheme =
+    CARD_THEMES.find((t) => t.id === (currentCard?.themeId || selectedThemeId)) ||
+    selectedTheme;
+
+  const displayCardholderName =
+    currentCard?.cardholderName || cardholderName || user?.name || "Official Member";
+
+  const displayEmail = currentCard?.email || email || user?.email || "";
+  const displayPhone = currentCard?.phoneNumber || phoneNumber || user?.phoneNumber || "";
+  const displayCardNumber = currentCard?.cardNumber || generatedCardId;
+  const displayBalance = Number(currentCard?.balance ?? loadedAmount ?? 0);
+  const displayExpiry = currentCard?.expiryDate || expiryDate;
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      router.replace("/login?redirect=%2Fcard");
+    }
+  }, [isAuthenticated, router, user]);
+
   // 1. Fetch real user information directly from backend profile
   useEffect(() => {
     let isMounted = true;
@@ -477,17 +506,26 @@ function BuyCardPageContent() {
       const data = await res.json();
       if (data.success && Array.isArray(data.cards)) {
         setMyCards(data.cards);
-        // If customer already owns an active card, switch directly to View Card mode
-        const existingActiveCard = data.cards.find((c: any) => c.status === "ACTIVE");
-        if (existingActiveCard) {
-          setActiveCardData(existingActiveCard);
-          setGeneratedCardId(existingActiveCard.cardNumber);
-          setLoadedAmount(Number(existingActiveCard.balance) || 0);
-          setCardholderName(existingActiveCard.cardholderName);
-          setSelectedThemeId(existingActiveCard.themeId || "mercatox-signature");
-          if (existingActiveCard.email) setEmail(existingActiveCard.email);
-          if (existingActiveCard.phoneNumber) setPhoneNumber(existingActiveCard.phoneNumber);
+        // If customer already owns a card (ACTIVE or PENDING), switch directly to View Card mode
+        const existingCard =
+          data.cards.find((c: any) => c.status === "ACTIVE") ||
+          data.cards[0];
+        if (existingCard) {
+          setActiveCardData(existingCard);
+          setGeneratedCardId(existingCard.cardNumber);
+          setLoadedAmount(Number(existingCard.balance) || 0);
+          setCardholderName(existingCard.cardholderName);
+          setSelectedThemeId(existingCard.themeId || "mercatox-signature");
+          if (existingCard.email) setEmail(existingCard.email);
+          if (existingCard.phoneNumber) setPhoneNumber(existingCard.phoneNumber);
           setIsCardGenerated(true);
+
+          try {
+            if (typeof window !== "undefined") {
+              const storageKey = `mercatox_card_${(user.email || user.id || "current").toLowerCase().trim()}`;
+              localStorage.setItem(storageKey, JSON.stringify(existingCard));
+            }
+          } catch {}
         } else {
           setIsCardGenerated(false);
           setActiveCardData(null);
@@ -502,11 +540,29 @@ function BuyCardPageContent() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
+      try {
+        if (typeof window !== "undefined") {
+          const storageKey = `mercatox_card_${(user.email || user.id || "current").toLowerCase().trim()}`;
+          const cached = localStorage.getItem(storageKey);
+          if (cached) {
+            const parsed = JSON.parse(cached);
+            if (parsed && parsed.cardNumber) {
+              setActiveCardData(parsed);
+              setGeneratedCardId(parsed.cardNumber);
+              setLoadedAmount(Number(parsed.balance) || 0);
+              if (parsed.cardholderName) setCardholderName(parsed.cardholderName);
+              if (parsed.themeId) setSelectedThemeId(parsed.themeId);
+              setIsCardGenerated(true);
+            }
+          }
+        }
+      } catch {}
+
       loadUserCards();
     } else {
       setIsLoadingCards(false);
     }
-  }, [isAuthenticated, user?.id, user?.email]);
+  }, [isAuthenticated, user?.id, user?.email, user?.phoneNumber]);
 
   // Handle return from Chapa payment
   useEffect(() => {
@@ -562,6 +618,11 @@ function BuyCardPageContent() {
   // Real Chapa & Backend Integration
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (userOwnsCard) {
+      toast.error("You already own an active MercatoX Card. Strictly 1 card is permitted per customer account.");
+      return;
+    }
 
     if (!isAuthenticated || !user) {
       toast.error("Please sign in to issue your official MercatoX Card");
@@ -670,9 +731,9 @@ function BuyCardPageContent() {
             <span>
               {!isAuthenticated
                 ? "Official MercatoX Card Issuance"
-                : isCardGenerated || activeCardData
-                ? "View My Official MercatoX Card"
-                : "Official MercatoX Card Issuance"}
+                : userOwnsCard
+                  ? "View My Official MercatoX Card"
+                  : "Official MercatoX Card Issuance"}
             </span>
           </div>
         </div>
@@ -735,7 +796,7 @@ function BuyCardPageContent() {
               </div>
             </div>
           </div>
-        ) : isLoadingCards ? (
+        ) : isLoadingCards && !userOwnsCard ? (
           /* ===================== VIEW: LOADING STATUS ===================== */
           <div className="min-h-[350px] flex flex-col items-center justify-center space-y-4 rounded-3xl border border-app bg-app-card shadow-xl p-8">
             <div className="h-10 w-10 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
@@ -743,8 +804,8 @@ function BuyCardPageContent() {
               Verifying your official MercatoX Card account...
             </p>
           </div>
-        ) : isCardGenerated || activeCardData ? (
-          /* ===================== VIEW 1: MY ACTIVE OFFICIAL CARD ===================== */
+        ) : userOwnsCard ? (
+          /* ===================== VIEW 1: MY ACTIVE OFFICIAL CARD (NO PURCHASE FORM) ===================== */
           <div className="rounded-3xl border border-app bg-app-card shadow-xl dark:shadow-2xl p-5 sm:p-7 md:p-8 space-y-6 relative overflow-hidden backdrop-blur-xl animate-in fade-in zoom-in-95 duration-200">
             <div className="absolute top-0 right-1/4 w-80 h-32 bg-gradient-to-br from-indigo-500/10 via-cyan-500/10 to-transparent rounded-full blur-3xl pointer-events-none" />
 
@@ -757,20 +818,20 @@ function BuyCardPageContent() {
                 My Official MercatoX Card
               </h2>
               <p className="text-xs sm:text-sm text-app-muted max-w-md mx-auto">
-                Verified digital ATM card with 5% automated cashback and live available balance.
+                Verified digital ATM card with 5% automated cashback and live available balance. You already own this card—additional purchases are restricted.
               </p>
             </div>
 
             {/* Generated Card Showcase */}
             <div className="relative z-10 flex flex-col items-center justify-center py-2">
               <AtmCardVisual
-                theme={selectedTheme}
-                cardholderName={cardholderName}
-                email={email}
-                phoneNumber={phoneNumber}
-                loadedAmount={loadedAmount}
-                cardNumber={generatedCardId}
-                expiryDate={expiryDate}
+                theme={displayTheme}
+                cardholderName={displayCardholderName}
+                email={displayEmail}
+                phoneNumber={displayPhone}
+                loadedAmount={displayBalance}
+                cardNumber={displayCardNumber}
+                expiryDate={displayExpiry}
                 logoUrl={platformSettings?.logoUrl}
                 platformName={platformSettings?.platformName}
                 onCopyNumber={handleCopyId}
@@ -783,7 +844,7 @@ function BuyCardPageContent() {
               <div className="flex items-center justify-between text-xs">
                 <span className="font-bold text-app">Card Management</span>
                 <span className="font-mono font-bold text-cyan-500">
-                  Available Balance: ETB {Number(loadedAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                  Available Balance: ETB {Number(displayBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                 </span>
               </div>
 
@@ -885,11 +946,10 @@ function BuyCardPageContent() {
                         onClick={() => setSelectedThemeId(theme.id)}
                         title={theme.name}
                         aria-label={theme.name}
-                        className={`group relative h-9 w-13 sm:h-10 sm:w-15 rounded-lg transition-all duration-200 cursor-pointer overflow-hidden p-[1px] ${
-                          isSelected
+                        className={`group relative h-9 w-13 sm:h-10 sm:w-15 rounded-lg transition-all duration-200 cursor-pointer overflow-hidden p-[1px] ${isSelected
                             ? "ring-2 ring-cyan-400 ring-offset-2 ring-offset-background scale-105 shadow-md shadow-cyan-500/30"
                             : "opacity-80 hover:opacity-100 hover:scale-105 border border-white/20"
-                        }`}
+                          }`}
                       >
                         {/* Realistic Small Card Rectangle Swatch */}
                         <div
@@ -988,11 +1048,10 @@ function BuyCardPageContent() {
                         key={amt}
                         type="button"
                         onClick={() => handleSelectLoadedAmount(amt)}
-                        className={`py-2.5 rounded-xl font-mono font-bold text-xs border transition-all cursor-pointer ${
-                          isSelected
+                        className={`py-2.5 rounded-xl font-mono font-bold text-xs border transition-all cursor-pointer ${isSelected
                             ? "border-cyan-500 bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 font-extrabold ring-1 ring-cyan-500"
                             : "border-app bg-app-surface text-app hover:bg-black/5 dark:hover:bg-white/5"
-                        }`}
+                          }`}
                       >
                         {amt === 0 ? "ETB 0" : `+${amt}`}
                       </button>
@@ -1152,4 +1211,3 @@ export default function BuyCardPage() {
     </React.Suspense>
   );
 }
-

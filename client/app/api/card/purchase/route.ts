@@ -105,9 +105,9 @@ export async function POST(req: Request) {
         customerId: customerId || undefined,
       });
 
-      const activeExistingCard = existingCards.find(
-        (c) => c.status === "ACTIVE"
-      );
+      const activeExistingCard =
+        existingCards.find((c) => c.status === "ACTIVE" || c.status === "PENDING") ||
+        existingCards[0];
       if (activeExistingCard) {
         return NextResponse.json(
           {

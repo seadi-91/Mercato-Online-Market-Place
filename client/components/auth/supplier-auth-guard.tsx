@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { API_CONFIG } from "@/config/api.config";
+import { isValidJwt, isJwtExpired } from "@/services/api/interceptors";
 import { toast } from "sonner";
 import {
   Lock,
@@ -49,7 +50,11 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
     return <>{children}</>;
   }
 
-  const hasValidSession = isAuthenticated && Boolean(token);
+  const hasValidSession =
+    isAuthenticated &&
+    Boolean(token) &&
+    isValidJwt(token) &&
+    !isJwtExpired(token);
 
   const isSupplierRole =
     user?.role === "SUPPLIER" ||
@@ -83,7 +88,7 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
           isVerified: true,
           shopName: data?.user?.shopName || "Abyssinia Agri-Commodities PLC",
         };
-        login(userData, data.accessToken);
+        login(userData, data.accessToken, data.refreshToken);
         toast.success("Supplier session authenticated successfully!", { id: toastId });
         return;
       }

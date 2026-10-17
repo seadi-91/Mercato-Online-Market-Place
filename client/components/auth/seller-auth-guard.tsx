@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/store/auth-store";
 import { API_CONFIG } from "@/config/api.config";
+import { isValidJwt, isJwtExpired } from "@/services/api/interceptors";
 import { toast } from "sonner";
 import {
   Lock,
@@ -28,11 +29,7 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
 
   useEffect(() => {
     setMounted(true);
-    // Purge outdated mock tokens from previous dev versions
-    if (token === "mock-jwt-token" || token === "oauth-token") {
-      logout();
-    }
-  }, [token, logout]);
+  }, []);
 
   if (!mounted) {
     return (
@@ -50,8 +47,8 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
   const hasValidSession =
     isAuthenticated &&
     Boolean(token) &&
-    token !== "mock-jwt-token" &&
-    token !== "oauth-token";
+    isValidJwt(token) &&
+    !isJwtExpired(token);
 
   const isSellerRole =
     user?.role === "SELLER" || user?.role === "ADMIN";
@@ -85,7 +82,7 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
         isVerified: true,
       };
 
-      login(userData, data.accessToken);
+      login(userData, data.accessToken, data.refreshToken);
       toast.success("Merchant session authenticated successfully!", { id: toastId });
     } catch (err: any) {
       toast.error(err.message || "Failed to connect to authentication gateway", { id: toastId });

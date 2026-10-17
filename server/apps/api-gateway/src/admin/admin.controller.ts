@@ -27,6 +27,7 @@ import {
   FilterAuditLogsDto,
   FilterOrdersDto,
   FilterUsersDto,
+  MailService,
   ModerateUserDto,
   OrderStatus,
   ProcessPayoutDto,
@@ -52,6 +53,7 @@ export class AdminController {
     @Inject('CATALOG_SERVICE') private readonly catalogClient: ClientProxy,
     @Inject('ORDERS_SERVICE') private readonly ordersClient: ClientProxy,
     @Inject('PAYMENTS_SERVICE') private readonly paymentsClient: ClientProxy,
+    private readonly mailService: MailService,
   ) {}
 
   @Get('analytics/overview')
@@ -366,6 +368,19 @@ export class AdminController {
     const resolvedAuthUserId = profile?.userId || userId;
     const resolvedProfileId = profile?.id || userId;
 
+    // Fetch user details before deleting so we can notify them by email
+    let recipientEmail = profile?.email;
+    let fullName = profile?.fullName;
+    let role = profile?.role;
+    if (!recipientEmail || !fullName) {
+      const authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId: resolvedAuthUserId }),
+      ).catch(() => null);
+      recipientEmail = recipientEmail || authUser?.email;
+      fullName = fullName || authUser?.fullName || 'Valued User';
+      role = role || authUser?.role || 'User';
+    }
+
     await Promise.all([
       firstValueFrom(this.authClient.send('delete_user', { userId: resolvedAuthUserId })).catch(() => null),
       firstValueFrom(this.usersClient.send('delete_user_profile', { userId: resolvedProfileId })).catch(() => null),
@@ -383,6 +398,19 @@ export class AdminController {
         userAgent: req.headers['user-agent'],
       }),
     ).catch(() => null);
+
+    // Send email notification about permanent account deletion
+    if (recipientEmail) {
+      this.mailService
+        .sendAccountDeletedEmail({
+          toEmail: recipientEmail,
+          fullName: fullName || 'Valued User',
+          role,
+        })
+        .catch((err) =>
+          console.error('[AdminController] Error sending account deleted email:', err),
+        );
+    }
 
     return {
       success: true,
@@ -434,6 +462,33 @@ export class AdminController {
         userAgent: req.headers['user-agent'],
       }),
     ).catch(() => null);
+
+    // Send email notification regarding account suspension or reactivation
+    let recipientEmail = profile?.email;
+    let fullName = profile?.fullName;
+    let role = profile?.role;
+    if (!recipientEmail || !fullName) {
+      const authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId: resolvedAuthUserId }),
+      ).catch(() => null);
+      recipientEmail = recipientEmail || authUser?.email;
+      fullName = fullName || authUser?.fullName || 'Valued User';
+      role = role || authUser?.role || 'User';
+    }
+
+    if (recipientEmail) {
+      this.mailService
+        .sendAccountStatusChangedEmail({
+          toEmail: recipientEmail,
+          fullName: fullName || 'Valued User',
+          role,
+          isActive: Boolean(dto.isActive),
+          reason: dto.reason,
+        })
+        .catch((err) =>
+          console.error('[AdminController] Error sending account status changed email:', err),
+        );
+    }
 
     return {
       success: true,
@@ -546,6 +601,32 @@ export class AdminController {
         userAgent: req.headers['user-agent'],
       }),
     );
+
+    // Send email notification to the Seller or Supplier regarding Approval or Rejection
+    let recipientEmail = profile?.email;
+    let recipientFullName = profile?.fullName;
+    if ((!recipientEmail || !recipientFullName) && resolvedAuthUserId) {
+      const authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId: resolvedAuthUserId }),
+      ).catch(() => null);
+      recipientEmail = recipientEmail || authUser?.email;
+      recipientFullName = recipientFullName || authUser?.fullName;
+    }
+
+    if (recipientEmail) {
+      this.mailService
+        .sendMerchantVerificationResultEmail({
+          toEmail: recipientEmail,
+          fullName: recipientFullName || 'Valued Partner',
+          shopName: profile?.shopName,
+          isSupplier,
+          isApproved: Boolean(dto.isVerified),
+          rejectionReason: dto.rejectionReason,
+        })
+        .catch((err) =>
+          console.error('[AdminController] Error sending merchant verification result email:', err),
+        );
+    }
 
     return profile;
   }
@@ -806,8 +887,23 @@ export class AdminController {
     @CurrentUser('id') adminId: string,
     @Req() req: Request,
   ) {
+    const profile = await firstValueFrom(
+      this.usersClient.send('get_profile', { userId }),
+    ).catch(() => null);
+    const resolvedAuthUserId = profile?.userId || userId;
+
+    let recipientEmail = profile?.email;
+    let fullName = profile?.fullName;
+    if (!recipientEmail || !fullName) {
+      const authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId: resolvedAuthUserId }),
+      ).catch(() => null);
+      recipientEmail = recipientEmail || authUser?.email;
+      fullName = fullName || authUser?.fullName || 'Delivery Driver';
+    }
+
     await Promise.all([
-      firstValueFrom(this.authClient.send('delete_user', { userId })).catch(() => null),
+      firstValueFrom(this.authClient.send('delete_user', { userId: resolvedAuthUserId })).catch(() => null),
       firstValueFrom(this.usersClient.send('delete_user_profile', { userId })).catch(() => null),
     ]);
 
@@ -823,6 +919,18 @@ export class AdminController {
         userAgent: req.headers['user-agent'],
       }),
     ).catch(() => null);
+
+    if (recipientEmail) {
+      this.mailService
+        .sendAccountDeletedEmail({
+          toEmail: recipientEmail,
+          fullName: fullName || 'Delivery Driver',
+          role: 'DELIVERY',
+        })
+        .catch((err) =>
+          console.error('[AdminController] Error sending delivery delete email:', err),
+        );
+    }
 
     return {
       success: true,

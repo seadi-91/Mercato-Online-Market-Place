@@ -666,11 +666,10 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("telebirr")}
-                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${
-                      paymentMethod === "telebirr"
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${paymentMethod === "telebirr"
                         ? "border-cyan-500 bg-cyan-500/10 shadow-lg shadow-cyan-500/10"
                         : "border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/20"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-cyan-300">Telebirr</span>
@@ -688,11 +687,10 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("chapa")}
-                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${
-                      paymentMethod === "chapa"
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${paymentMethod === "chapa"
                         ? "border-indigo-500 bg-indigo-500/10 shadow-lg shadow-indigo-500/10"
                         : "border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/20"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-indigo-300">Chapa</span>
@@ -710,11 +708,10 @@ export default function CheckoutPage() {
                   <button
                     type="button"
                     onClick={() => setPaymentMethod("cbe")}
-                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${
-                      paymentMethod === "cbe"
+                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer relative flex flex-col justify-between gap-3 ${paymentMethod === "cbe"
                         ? "border-purple-500 bg-purple-500/10 shadow-lg shadow-purple-500/10"
                         : "border-white/10 bg-white/[0.02] hover:bg-white/5 hover:border-white/20"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-xs text-purple-300">CBE Birr</span>
@@ -897,8 +894,8 @@ export default function CheckoutPage() {
                       {paymentMethod === "telebirr"
                         ? "Telebirr"
                         : paymentMethod === "cbe"
-                        ? "CBE Birr"
-                        : "Cards / Banks"}
+                          ? "CBE Birr"
+                          : "Cards / Banks"}
                       )
                     </span>
                   </span>

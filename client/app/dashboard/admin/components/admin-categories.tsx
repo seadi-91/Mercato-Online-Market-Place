@@ -41,8 +41,8 @@ export function AdminCategories() {
         setLoading(true);
         const result = await fetchCategories();
         setCategories(result);
-      } catch (error) {
-        console.error("Failed to load categories:", error);
+      } catch (error: any) {
+        console.warn("Failed to load categories:", error?.message || error);
         toast.error("Categories failed to load", {
           description: "Could not fetch backend categories.",
         });

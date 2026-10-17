@@ -1,8 +1,10 @@
 import {
+  IsEmail,
   IsIn,
   IsNotEmpty,
   IsOptional,
   IsString,
+  Length,
   Matches,
   MaxLength,
   MinLength,
@@ -137,3 +139,40 @@ export class ChangePasswordDto {
   @MaxLength(128, { message: 'New password cannot exceed 128 characters' })
   newPassword: string;
 }
+
+export class ForgotPasswordDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Email address is required' })
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  email: string;
+}
+
+export class VerifyOtpDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Email address is required' })
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  email: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'OTP is required' })
+  @Length(6, 6, { message: 'OTP must be exactly 6 digits' })
+  otp: string;
+}
+
+export class ResetPasswordDto {
+  @IsString()
+  @IsNotEmpty({ message: 'Email address is required' })
+  @IsEmail({}, { message: 'Please provide a valid email address' })
+  email: string;
+
+  @IsString()
+  @IsNotEmpty({ message: 'OTP is required' })
+  @Length(6, 6, { message: 'OTP must be exactly 6 digits' })
+  otp: string;
+
+  @IsString()
+  @MinLength(8, { message: 'Password must be at least 8 characters long' })
+  @MaxLength(128, { message: 'Password cannot exceed 128 characters' })
+  newPassword: string;
+}
+

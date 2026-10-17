@@ -18,6 +18,7 @@ import { SubscriptionsController } from './subscription/subscriptions.controller
 import {
   AuthGuard,
   CloudinaryModule,
+  MailModule,
   RateLimitGuard,
   RolesGuard,
   SecurityHeadersMiddleware,
@@ -30,6 +31,7 @@ import {
       envFilePath: './.env',
     }),
     CloudinaryModule,
+    MailModule,
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {

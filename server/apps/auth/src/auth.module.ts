@@ -5,7 +5,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { MailService } from './mail.service';
 import { User } from './entities/user.entity';
+import { PasswordResetOtp } from './entities/password-reset-otp.entity';
 
 @Module({
   imports: [
@@ -22,11 +24,11 @@ import { User } from './entities/user.entity';
         username: config.get<string>('DB_USER'),
         password: config.get<string>('DB_PASSWORD'),
         database: config.get<string>('AUTH_DB_NAME'),
-        entities: [User],
+        entities: [User, PasswordResetOtp],
         synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
       }),
     }),
-    TypeOrmModule.forFeature([User]),
+    TypeOrmModule.forFeature([User, PasswordResetOtp]),
     JwtModule.registerAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
@@ -57,7 +59,7 @@ import { User } from './entities/user.entity';
     ]),
   ],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [AuthService, TypeOrmModule],
+  providers: [AuthService, MailService],
+  exports: [AuthService, MailService, TypeOrmModule],
 })
 export class AuthModule {}

@@ -169,8 +169,8 @@ export function AdminOrdersEscrow() {
       const normalized = rawOrders.map(normalizeOrder);
       setOrders(normalized);
       if (isManualRefresh) toast.success("Orders refreshed from backend");
-    } catch (error) {
-      console.error("Failed to load admin orders:", error);
+    } catch (error: any) {
+      console.warn("Failed to load admin orders:", error?.message || error);
       toast.error("Orders load failed", {
         description: "Unable to fetch the order list from the backend.",
       });
@@ -320,7 +320,7 @@ export function AdminOrdersEscrow() {
       });
       setAssignDriverModalOrder(null);
     } catch (err: any) {
-      console.error("Assign driver error:", err);
+      console.warn("Assign driver error:", err?.message || err);
       toast.error("Assignment failed", {
         description: err?.message || "Could not assign driver to order.",
       });
@@ -368,7 +368,7 @@ export function AdminOrdersEscrow() {
       );
       toast.success(`Order ${orderNumber} updated to ${newStatus.replace(/_/g, " ")}`);
     } catch (err: any) {
-      console.error("Failed to update order status:", err);
+      console.warn("Failed to update order status:", err?.message || err);
       toast.error("Failed to update status", {
         description: err?.message || "Could not update status in backend.",
       });
@@ -458,8 +458,8 @@ export function AdminOrdersEscrow() {
         ),
       );
       toast.success(`Order ${orderNumber} cancelled`);
-    } catch (error) {
-      console.error("Failed to cancel order:", error);
+    } catch (error: any) {
+      console.warn("Failed to cancel order:", error?.message || error);
       toast.error("Cancellation failed", {
         description: "Unable to cancel this order from the backend.",
       });
@@ -484,7 +484,7 @@ export function AdminOrdersEscrow() {
         throw new Error("Deletion was not confirmed by the server");
       }
     } catch (error: any) {
-      console.error("Failed to delete order:", error);
+      console.warn("Failed to delete order:", error?.message || error);
       toast.error("Delete failed", {
         description: error?.message || "Unable to permanently delete this order.",
       });

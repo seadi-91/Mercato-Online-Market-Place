@@ -67,8 +67,8 @@ export function AdminCatalog() {
         }));
 
         setProducts(mapped);
-      } catch (error) {
-        console.error("Failed to load product catalog:", error);
+      } catch (error: any) {
+        console.warn("Failed to load product catalog:", error?.message || error);
         toast.error("Product load failed", {
           description: "Could not fetch backend products for moderation.",
         });

@@ -16,19 +16,32 @@ import * as bcrypt from 'bcryptjs';
 import * as fs from 'fs';
 import * as path from 'path';
 import { User } from './entities/user.entity';
+import { PasswordResetOtp } from './entities/password-reset-otp.entity';
+import { MailService } from './mail.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
-import { JwtPayload, UserRole, KycStatus, AuditAction } from '@app/common';
+import {
+  JwtPayload,
+  UserRole,
+  KycStatus,
+  AuditAction,
+  ForgotPasswordDto,
+  VerifyOtpDto,
+  ResetPasswordDto,
+} from '@app/common';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
+    @InjectRepository(PasswordResetOtp)
+    private readonly otpRepository: Repository<PasswordResetOtp>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
     @Inject('USERS_SERVICE')
     private readonly usersClient: ClientProxy,
   ) { }
@@ -167,6 +180,41 @@ export class AuthService {
           },
         }),
       ).catch(() => null);
+
+      // Send email notification to Admin about the new Seller / Supplier
+      this.mailService
+        .sendAdminNewMerchantNotificationEmail({
+          fullName: dto.fullName,
+          email: savedUser.email || dto.email || 'N/A',
+          phoneNumber: savedUser.phoneNumber || dto.phoneNumber,
+          role: savedUser.role,
+          isSupplier,
+          shopName: dto.shopName,
+          businessType: dto.businessType,
+          marketZone: dto.marketZone,
+          city: dto.city,
+          specificLocation: dto.specificLocation,
+          tradeLicenseNumber: dto.tradeLicenseNumber,
+          tinNumber: dto.tinNumber,
+        })
+        .catch((err) =>
+          console.error('[AuthService] Error sending admin notification email:', err),
+        );
+    }
+
+    // Send registration email to the user (if email provided)
+    if (savedUser.email) {
+      this.mailService
+        .sendRegistrationSuccessEmail({
+          toEmail: savedUser.email,
+          fullName: dto.fullName,
+          role: savedUser.role,
+          isSupplier,
+          shopName: dto.shopName,
+        })
+        .catch((err) =>
+          console.error('[AuthService] Error sending user registration email:', err),
+        );
     }
 
     const tokens = await this.generateTokens(
@@ -754,6 +802,408 @@ export class AuthService {
       role: user.role,
       isActive: user.isActive,
       createdAt: user.createdAt,
+    };
+  }
+
+  async googleLogin(payload: {
+    code?: string;
+    redirectUri?: string;
+    credential?: string;
+    idToken?: string;
+    accessToken?: string;
+  }) {
+    const { code, redirectUri, credential, idToken, accessToken } = payload;
+
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+
+    if (!clientId || !clientSecret) {
+      throw new RpcException(
+        new BadRequestException('Google OAuth credentials are not configured on the server.'),
+      );
+    }
+
+    let googleUser: {
+      sub: string;
+      email: string;
+      name?: string;
+      given_name?: string;
+      family_name?: string;
+      picture?: string;
+    } | null = null;
+
+    if (code) {
+      // 1. Exchange authorization code for tokens
+      const effectiveRedirectUri =
+        redirectUri || 'http://localhost:3000/auth/callback/google';
+      const params = new URLSearchParams();
+      params.append('code', code);
+      params.append('client_id', clientId);
+      params.append('client_secret', clientSecret);
+      params.append('redirect_uri', effectiveRedirectUri);
+      params.append('grant_type', 'authorization_code');
+
+      try {
+        const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: params.toString(),
+        });
+        const tokenData = await tokenRes.json();
+        if (!tokenRes.ok || !tokenData.access_token) {
+          console.error('[AuthService] Google token exchange failure:', tokenData);
+          throw new Error(
+            tokenData?.error_description ||
+              tokenData?.error ||
+              'Failed to exchange authorization code with Google',
+          );
+        }
+
+        // Fetch user profile
+        const userRes = await fetch(
+          'https://www.googleapis.com/oauth2/v3/userinfo',
+          {
+            headers: {
+              Authorization: `Bearer ${tokenData.access_token}`,
+            },
+          },
+        );
+        const profileData = await userRes.json();
+        if (!userRes.ok || !profileData.email) {
+          console.error(
+            '[AuthService] Google userinfo fetch failure:',
+            profileData,
+          );
+          throw new Error('Failed to retrieve user profile from Google');
+        }
+        googleUser = profileData;
+      } catch (err: any) {
+        console.error('[AuthService] Google OAuth error:', err);
+        throw new RpcException(
+          new UnauthorizedException(
+            err.message || 'Google authentication failed',
+          ),
+        );
+      }
+    } else if (credential || idToken) {
+      // 2. Direct ID Token verification via Google tokeninfo
+      const token = credential || idToken;
+      try {
+        const res = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${token}`,
+        );
+        const tokenInfo = await res.json();
+        if (!res.ok || !tokenInfo.email) {
+          throw new Error(
+            tokenInfo?.error_description || 'Invalid Google ID token',
+          );
+        }
+        googleUser = tokenInfo;
+      } catch (err: any) {
+        throw new RpcException(
+          new UnauthorizedException(
+            err.message || 'Google token validation failed',
+          ),
+        );
+      }
+    } else if (accessToken) {
+      // 3. User info via Access Token
+      try {
+        const res = await fetch(
+          'https://www.googleapis.com/oauth2/v3/userinfo',
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        );
+        const data = await res.json();
+        if (!res.ok || !data.email) {
+          throw new Error(
+            data?.error_description || 'Invalid Google access token',
+          );
+        }
+        googleUser = data;
+      } catch (err: any) {
+        throw new RpcException(
+          new UnauthorizedException(
+            err.message || 'Google access token validation failed',
+          ),
+        );
+      }
+    } else {
+      throw new RpcException(
+        new BadRequestException(
+          'Google authorization code, ID token, or access token is required',
+        ),
+      );
+    }
+
+    if (!googleUser || !googleUser.email) {
+      throw new RpcException(
+        new UnauthorizedException('Could not retrieve email from Google'),
+      );
+    }
+
+    const email = googleUser.email.toLowerCase().trim();
+    const googleId = googleUser.sub;
+    const fullName =
+      googleUser.name ||
+      `${googleUser.given_name || ''} ${googleUser.family_name || ''}`.trim() ||
+      email.split('@')[0] ||
+      'Customer';
+
+    // Check if user exists in auth db by googleId or email
+    let user = await this.userRepository.findOne({
+      where: [
+        ...(googleId ? [{ googleId }] : []),
+        { email },
+      ],
+    });
+
+    if (user) {
+      let needsSave = false;
+      if (!user.googleId && googleId) {
+        user.googleId = googleId;
+        needsSave = true;
+      }
+      if (user.authProvider !== 'google') {
+        user.authProvider = 'google';
+        needsSave = true;
+      }
+      if (!user.isActive) {
+        user.isActive = true;
+        needsSave = true;
+      }
+      if (
+        user.failedLoginAttempts > 0 ||
+        user.lockedUntil ||
+        user.lockoutRounds > 0
+      ) {
+        user.failedLoginAttempts = 0;
+        user.lockedUntil = null;
+        user.lockoutRounds = 0;
+        needsSave = true;
+      }
+      if (needsSave) {
+        user = await this.userRepository.save(user);
+      }
+    } else {
+      // New user registering via Google: create user with role CUSTOMER
+      user = this.userRepository.create({
+        email,
+        phoneNumber: null,
+        role: UserRole.CUSTOMER,
+        authProvider: 'google',
+        googleId,
+        isActive: true,
+        failedLoginAttempts: 0,
+        lockoutRounds: 0,
+        lockedUntil: null,
+      });
+      user = await this.userRepository.save(user);
+    }
+
+    // Ensure Profile exists in mercatox_users_db
+    let profile: any = null;
+    try {
+      profile = await firstValueFrom(
+        this.usersClient.send('get_profile', { userId: user.id }),
+      );
+    } catch {
+      // ignore
+    }
+
+    if (!profile) {
+      try {
+        profile = await firstValueFrom(
+          this.usersClient.send('create_profile', {
+            userId: user.id,
+            role: user.role || UserRole.CUSTOMER,
+            fullName,
+            email: user.email,
+          }),
+        );
+      } catch (e) {
+        console.error(
+          '[AuthService] Failed creating user profile for Google login:',
+          e,
+        );
+      }
+    }
+
+    // Generate JWT tokens
+    const tokens = await this.generateTokens(
+      user.id,
+      user.phoneNumber,
+      user.role,
+      user.email,
+    );
+
+    const salt = await bcrypt.genSalt(10);
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, salt);
+    await this.userRepository.update(user.id, { refreshTokenHash });
+
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        fullName: profile?.fullName || fullName,
+        role: user.role,
+        isVerified: true,
+        authProvider: 'google',
+      },
+    };
+  }
+
+  async forgotPassword(dto: ForgotPasswordDto) {
+    const email = dto.email.toLowerCase().trim();
+
+    // Check if user exists with this email
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .where('LOWER(TRIM(user.email)) = :email', { email })
+      .getOne();
+
+    if (!user) {
+      throw new RpcException(
+        new NotFoundException('No account found associated with this email address.'),
+      );
+    }
+
+    if (!user.isActive) {
+      throw new RpcException(
+        new BadRequestException('Your account has been deactivated. Please contact support.'),
+      );
+    }
+
+    // Generate secure 6-digit random code (100000 - 999999)
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+    // Set 30 minutes expiration
+    const expiresAt = new Date(Date.now() + 30 * 60 * 1000);
+
+    // Invalidate any existing unused OTPs for this email
+    await this.otpRepository.update(
+      { email, isUsed: false },
+      { isUsed: true },
+    );
+
+    // Persist new OTP
+    const otpRecord = this.otpRepository.create({
+      email,
+      otp,
+      expiresAt,
+      isUsed: false,
+    });
+    await this.otpRepository.save(otpRecord);
+
+    // Fetch user full name from user service if available
+    let userName: string | undefined;
+    try {
+      const profile = await firstValueFrom(
+        this.usersClient.send('get_profile', { userId: user.id }),
+      );
+      userName = profile?.fullName;
+    } catch {
+      // non-blocking
+    }
+
+    // Dispatch the email with OTP
+    await this.mailService.sendPasswordResetOtpEmail(email, otp, userName);
+
+    return {
+      success: true,
+      message: 'A 6-digit verification code has been dispatched to your email address.',
+      expiresInMinutes: 30,
+    };
+  }
+
+  async verifyOtp(dto: VerifyOtpDto) {
+    const email = dto.email.toLowerCase().trim();
+    const otp = dto.otp.trim();
+
+    const otpRecord = await this.otpRepository.findOne({
+      where: { email, otp, isUsed: false },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!otpRecord) {
+      throw new RpcException(
+        new BadRequestException('Invalid verification code. Please check your email and try again.'),
+      );
+    }
+
+    const now = new Date();
+    if (now > new Date(otpRecord.expiresAt)) {
+      throw new RpcException(
+        new BadRequestException('This verification code has expired after 30 minutes. Please request a new code.'),
+      );
+    }
+
+    return {
+      success: true,
+      valid: true,
+      message: 'Verification code confirmed. You may now set your new password.',
+    };
+  }
+
+  async resetPasswordWithOtp(dto: ResetPasswordDto) {
+    const email = dto.email.toLowerCase().trim();
+    const otp = dto.otp.trim();
+
+    const otpRecord = await this.otpRepository.findOne({
+      where: { email, otp, isUsed: false },
+      order: { createdAt: 'DESC' },
+    });
+
+    if (!otpRecord) {
+      throw new RpcException(
+        new BadRequestException('Invalid or expired verification code. Please request a new one.'),
+      );
+    }
+
+    const now = new Date();
+    if (now > new Date(otpRecord.expiresAt)) {
+      throw new RpcException(
+        new BadRequestException('This verification code has expired after 30 minutes. Please request a new one.'),
+      );
+    }
+
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.passwordHash')
+      .where('LOWER(TRIM(user.email)) = :email', { email })
+      .getOne();
+
+    if (!user) {
+      throw new RpcException(
+        new NotFoundException('User account not found.'),
+      );
+    }
+
+    // Hash the new password
+    const salt = await bcrypt.genSalt(10);
+    const passwordHash = await bcrypt.hash(dto.newPassword, salt);
+
+    // Update password and reset lockout state & existing sessions
+    user.passwordHash = passwordHash;
+    user.failedLoginAttempts = 0;
+    user.lockoutRounds = 0;
+    user.lockedUntil = null;
+    user.refreshTokenHash = null;
+
+    await this.userRepository.save(user);
+
+    // Mark the OTP as consumed
+    otpRecord.isUsed = true;
+    await this.otpRepository.save(otpRecord);
+
+    return {
+      success: true,
+      message: 'Password has been reset successfully. You can now log in with your new credentials.',
     };
   }
 }

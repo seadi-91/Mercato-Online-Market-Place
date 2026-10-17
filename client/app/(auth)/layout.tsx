@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Lock, ShieldCheck } from "lucide-react";
+import { Lock, ShieldCheck, Home } from "lucide-react";
 import { usePlatformStore } from "@/store";
 
 export default function AuthLayout({
@@ -30,8 +30,9 @@ export default function AuthLayout({
       <header className="relative z-10 w-full px-4 pt-5 pb-3">
         <div className="mx-auto flex max-w-4xl items-center justify-between">
           <Link
-            href="/login"
+            href="/"
             className="group flex items-center gap-2.5 transition-transform hover:scale-[1.01]"
+            title="Go to Home"
           >
             {/* Logo */}
             <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-600 via-indigo-500 to-cyan-400 p-[1px] shadow-lg shadow-indigo-500/20 overflow-hidden">
@@ -72,18 +73,30 @@ export default function AuthLayout({
             </div>
           </Link>
 
-          {/* System status pill */}
-          <div className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 sm:px-3 py-1 backdrop-blur-md">
-            <span className="relative flex h-2 w-2">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-            </span>
-            <span className="text-[11px] font-medium text-zinc-300 hidden xs:inline">
-              Systems Operational
-            </span>
-            <span className="text-[10px] font-medium text-emerald-400 xs:hidden">
-              Live
-            </span>
+          {/* Top Actions */}
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/"
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 sm:px-3 py-1 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/10 hover:border-indigo-500/40 transition-all cursor-pointer shadow-sm"
+              title="Return to Home Page"
+            >
+              <Home className="h-3.5 w-3.5 text-indigo-400" />
+              <span>Home</span>
+            </Link>
+
+            {/* System status pill */}
+            <div className="flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/10 bg-white/[0.03] px-2.5 sm:px-3 py-1 backdrop-blur-md">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+              </span>
+              <span className="text-[11px] font-medium text-zinc-300 hidden xs:inline">
+                Systems Operational
+              </span>
+              <span className="text-[10px] font-medium text-emerald-400 xs:hidden">
+                Live
+              </span>
+            </div>
           </div>
         </div>
       </header>

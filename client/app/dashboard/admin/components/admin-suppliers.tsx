@@ -149,7 +149,7 @@ export function AdminSuppliers() {
       });
       setSuppliers(res.data || []);
     } catch (err: any) {
-      console.error("Failed to load suppliers from backend:", err);
+      console.warn("Failed to load suppliers from backend:", err?.message || err);
       toast.error("Failed to load suppliers from database");
     } finally {
       setLoading(false);
@@ -168,8 +168,8 @@ export function AdminSuppliers() {
     try {
       const data = await adminSupplierService.getSupplierStaff(supplier.userId);
       setStaffList(data || []);
-    } catch (err) {
-      console.error("Failed to load supplier staff:", err);
+    } catch (err: any) {
+      console.warn("Failed to load supplier staff:", err?.message || err);
       toast.error("Failed to load staff for " + (supplier.shopName || supplier.fullName));
       setStaffList([]);
     } finally {

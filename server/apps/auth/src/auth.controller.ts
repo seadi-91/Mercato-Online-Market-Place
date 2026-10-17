@@ -74,4 +74,24 @@ export class AuthController {
   getUsersSecurityInfo(@Payload() payload: { userIds: string[] }) {
     return this.authService.getUsersSecurityInfo(payload.userIds);
   }
+
+  @MessagePattern('google_login')
+  googleLogin(@Payload() payload: any) {
+    return this.authService.googleLogin(payload);
+  }
+
+  @MessagePattern('forgot_password')
+  forgotPassword(@Payload() payload: any) {
+    return this.authService.forgotPassword(payload);
+  }
+
+  @MessagePattern('verify_otp')
+  verifyOtp(@Payload() payload: any) {
+    return this.authService.verifyOtp(payload);
+  }
+
+  @MessagePattern('reset_password_with_otp')
+  resetPasswordWithOtp(@Payload() payload: any) {
+    return this.authService.resetPasswordWithOtp(payload);
+  }
 }

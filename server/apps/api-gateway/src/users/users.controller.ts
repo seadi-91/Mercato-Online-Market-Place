@@ -18,6 +18,7 @@ import {
   AuthGuard,
   CurrentUser,
   DeliveryKycDto,
+  MailService,
   MerchantKycDto,
   Roles,
   RolesGuard,
@@ -30,6 +31,7 @@ import {
 export class UsersController {
   constructor(
     @Inject('USERS_SERVICE') private readonly usersClient: ClientProxy,
+    private readonly mailService: MailService,
   ) {}
 
   private auditLog(
@@ -155,14 +157,37 @@ export class UsersController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch('admin/verify-merchant/:userId')
-  verifyMerchant(
+  async verifyMerchant(
     @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body() dto: VerifyKycDto,
   ) {
-    return this.usersClient.send('verify_merchant', {
-      userId,
-      isVerified: dto.isVerified,
-    });
+    const profile = await firstValueFrom(
+      this.usersClient.send('verify_merchant', {
+        userId,
+        isVerified: dto.isVerified,
+      }),
+    );
+
+    if (profile?.email) {
+      const isSupplier = Boolean(
+        profile.role === UserRole.SUPPLIER ||
+        (profile.businessType && profile.businessType.toLowerCase().includes('supplier'))
+      );
+      this.mailService
+        .sendMerchantVerificationResultEmail({
+          toEmail: profile.email,
+          fullName: profile.fullName || 'Valued Partner',
+          shopName: profile.shopName,
+          isSupplier,
+          isApproved: Boolean(dto.isVerified),
+          rejectionReason: (dto as any)?.rejectionReason,
+        })
+        .catch((err) =>
+          console.error('[UsersController] Error sending merchant verification email:', err),
+        );
+    }
+
+    return profile;
   }
 
   @UseGuards(AuthGuard, RolesGuard)

@@ -317,8 +317,8 @@ export function AdminDelivery() {
       } else {
         setRiders([]);
       }
-    } catch (err) {
-      console.error("Failed to load delivery couriers from database:", err);
+    } catch (err: any) {
+      console.warn("Failed to load delivery couriers from database:", err?.message || err);
       setRiders([]);
     } finally {
       setLoading(false);
@@ -392,8 +392,8 @@ export function AdminDelivery() {
 
       setOrders(normalized);
       if (isManual) toast.success("Orders & Tasks updated from backend");
-    } catch (e) {
-      console.error("Failed to load delivery orders from database:", e);
+    } catch (e: any) {
+      console.warn("Failed to load delivery orders from database:", e?.message || e);
       setOrders([]);
     } finally {
       setLoadingOrders(false);
@@ -470,7 +470,7 @@ export function AdminDelivery() {
       });
       setOrderToAssign(null);
     } catch (err: any) {
-      console.error("Assign driver error:", err);
+      console.warn("Assign driver error:", err?.message || err);
       toast.error("Assignment failed", {
         description: err?.message || "Could not assign driver to order.",
       });
@@ -643,7 +643,7 @@ export function AdminDelivery() {
       // Re-sync with backend
       loadDeliveryStaff(false);
     } catch (err: any) {
-      console.error("Failed to register courier in backend:", err);
+      console.warn("Failed to register courier in backend:", err?.message || err);
       toast.error("Registration failed", {
         description: err?.message || "Could not save driver in backend database. Check phone number/email uniqueness.",
       });
@@ -737,7 +737,7 @@ export function AdminDelivery() {
       });
       setEditingRider(null);
     } catch (err: any) {
-      console.error("Failed to update driver:", err);
+      console.warn("Failed to update driver:", err?.message || err);
       // Fallback local update
       setRiders((prev) =>
         prev.map((r) =>

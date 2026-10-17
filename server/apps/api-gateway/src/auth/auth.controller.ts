@@ -14,11 +14,14 @@ import {
   AuthGuard,
   ChangePasswordDto,
   CurrentUser,
+  ForgotPasswordDto,
   LoginDto,
   RateLimit,
   RefreshTokenDto,
   RegisterDto,
+  ResetPasswordDto,
   UserRole,
+  VerifyOtpDto,
 } from '@app/common';
 
 @Controller('auth')
@@ -132,6 +135,34 @@ export class AuthController {
     }
   }
 
+  @RateLimit({ limit: 100, ttlMs: 60000 })
+  @Post('google')
+  async googleLogin(@Body() body: any, @Req() req: Request) {
+    const result = await firstValueFrom(
+      this.authClient.send('google_login', body),
+    );
+
+    const actorRole = ((result.user as any).actualRole || result.user.role) as UserRole;
+
+    this.auditLog(
+      {
+        actorId: result.user.id,
+        actorRole,
+        action: AuditAction.USER_LOGIN,
+        targetEntity: 'User',
+        targetId: result.user.id,
+        details: {
+          email: result.user.email,
+          role: result.user.role,
+          authProvider: 'google',
+        },
+      },
+      req,
+    );
+
+    return result;
+  }
+
   @RateLimit({ limit: 30, ttlMs: 60000 })
   @Post('refresh')
   refresh(@Body() dto: RefreshTokenDto) {
@@ -183,6 +214,60 @@ export class AuthController {
         action: AuditAction.PASSWORD_CHANGED,
         targetEntity: 'User',
         targetId: userId,
+      },
+      req,
+    );
+
+    return result;
+  }
+
+  @RateLimit({ limit: 10, ttlMs: 60000 })
+  @Post('forgot-password')
+  async forgotPassword(@Body() dto: ForgotPasswordDto, @Req() req: Request) {
+    const result = await firstValueFrom(
+      this.authClient.send('forgot_password', dto),
+    );
+
+    // Audit log request
+    this.auditLog(
+      {
+        actorId: '00000000-0000-0000-0000-000000000000',
+        actorRole: UserRole.CUSTOMER,
+        action: AuditAction.SETTINGS_UPDATED,
+        targetEntity: 'User',
+        targetId: dto.email,
+        details: { email: dto.email, action: 'PASSWORD_RESET_REQUESTED' },
+      },
+      req,
+    );
+
+    return result;
+  }
+
+  @RateLimit({ limit: 20, ttlMs: 60000 })
+  @Post('verify-otp')
+  async verifyOtp(@Body() dto: VerifyOtpDto) {
+    return firstValueFrom(
+      this.authClient.send('verify_otp', dto),
+    );
+  }
+
+  @RateLimit({ limit: 10, ttlMs: 60000 })
+  @Post('reset-password')
+  async resetPassword(@Body() dto: ResetPasswordDto, @Req() req: Request) {
+    const result = await firstValueFrom(
+      this.authClient.send('reset_password_with_otp', dto),
+    );
+
+    // Audit log successful reset
+    this.auditLog(
+      {
+        actorId: '00000000-0000-0000-0000-000000000000',
+        actorRole: UserRole.CUSTOMER,
+        action: AuditAction.PASSWORD_CHANGED,
+        targetEntity: 'User',
+        targetId: dto.email,
+        details: { email: dto.email, action: 'PASSWORD_RESET_COMPLETED' },
       },
       req,
     );

@@ -14,16 +14,37 @@ import {
   X,
   ShieldAlert,
   Clock,
+  Home,
+  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
 import { useAuthStore } from "@/store";
 import { useSupplierStore } from "@/store/supplier-store";
 import { API_CONFIG } from "@/config/api.config";
+import { loadGoogleScript, triggerGoogleSignIn } from "@/lib/auth/google";
 
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
+
+  const getPostLoginDestination = () => {
+    try {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        let dest = params.get("redirect");
+        if (dest) {
+          try {
+            dest = decodeURIComponent(dest);
+          } catch {}
+          if (dest.startsWith("/card")) return "/card";
+          if (dest.startsWith("/checkout")) return "/checkout";
+          if (dest.startsWith("/")) return dest;
+        }
+      }
+    } catch {}
+    return "/";
+  };
 
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
@@ -46,6 +67,12 @@ export default function LoginPage() {
 
   React.useEffect(() => {
     useSupplierStore.getState().hydrateStore();
+  }, []);
+
+  React.useEffect(() => {
+    loadGoogleScript().catch(() => {
+      // The click handler retries the load and displays any failure to the user.
+    });
   }, []);
 
   React.useEffect(() => {
@@ -337,7 +364,7 @@ export default function LoginPage() {
         if (isPermanentlyBlocked) {
           setBlockedAccountError(
             errorMsg ||
-              "Your account has been permanently blocked because you exceeded the security lockout limit. Please contact an administrator to unblock your account."
+            "Your account has been permanently blocked because you exceeded the security lockout limit. Please contact an administrator to unblock your account."
           );
           setAttemptWarning(null);
         } else {
@@ -419,7 +446,7 @@ export default function LoginPage() {
         merchantKycStatus: merchantKycStatus,
       };
 
-      login(userData, data?.accessToken);
+      login(userData, data?.accessToken, data?.refreshToken);
 
       if (isRejected) {
         toast.info("Account Type: Customer", {
@@ -436,10 +463,10 @@ export default function LoginPage() {
           description: isStaffDriver
             ? `Commercial Driver & Courier Portal (${userData.assignedVehiclePlate || "Fleet Truck"})`
             : isBranchManager
-            ? `Branch Manager Console · ${userData.branchName || "Logistics Hub"}`
-            : isSupplierUser
-            ? "Signed in to B2B Wholesale Supplier Console"
-            : `Signed in to ${effectiveRole} console`,
+              ? `Branch Manager Console · ${userData.branchName || "Logistics Hub"}`
+              : isSupplierUser
+                ? "Signed in to B2B Wholesale Supplier Console"
+                : `Signed in to ${effectiveRole} console`,
         });
       }
 
@@ -454,8 +481,7 @@ export default function LoginPage() {
       } else if (isStaffDriver || effectiveRole === "DRIVER" || (effectiveRole as string) === "DELIVERY") {
         router.push("/dashboard/driver");
       } else {
-        // Customer or Rejected Account -> Redirect to home / guest page!
-        router.push("/");
+        router.push(getPostLoginDestination());
       }
     } catch {
       toast.error("Unable to connect to authentication server. Please verify API Gateway is running.");
@@ -464,7 +490,52 @@ export default function LoginPage() {
     }
   };
 
-  const handleOAuth = (provider: string) => {
+  const handleOAuth = async (provider: string) => {
+    if (provider === "Google") {
+      const postLoginDest = getPostLoginDestination();
+      try {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("mercatox_auth_redirect", postLoginDest);
+        }
+      } catch {}
+
+      toast.loading("Connecting to Google...", { id: "oauth" });
+
+      try {
+        const authData = await triggerGoogleSignIn();
+        if (authData && authData.accessToken) {
+          const userRole = authData.user.role || "CUSTOMER";
+          login(
+            {
+              id: authData.user.id,
+              name: authData.user.fullName || authData.user.email,
+              email: authData.user.email,
+              role: userRole,
+              phoneNumber: authData.user.phoneNumber,
+              isVerified: true,
+            },
+            authData.accessToken
+          );
+          toast.success(`Welcome back, ${authData.user.fullName || "Customer"}!`, {
+            id: "oauth",
+            description: "Signed in with Google successfully.",
+          });
+          router.push(postLoginDest);
+          return;
+        }
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Google sign-in could not be completed.";
+        toast.error("Google sign-in failed", {
+          id: "oauth",
+          description: message,
+        });
+        return;
+      }
+
+      return;
+    }
+
     toast.loading(`Connecting to ${provider}...`, { id: "oauth" });
     setTimeout(() => {
       login(
@@ -474,13 +545,13 @@ export default function LoginPage() {
           email: `user@${provider.toLowerCase()}.com`,
           role: "CUSTOMER",
         },
-        "oauth-token"
+        `jwt-oauth-${provider.toLowerCase()}-${Date.now()}`
       );
       toast.success(`Signed in with ${provider}!`, {
         id: "oauth",
         description: "Welcome back to MercatoX. Redirecting to home...",
       });
-      router.push("/");
+      router.push(getPostLoginDestination());
     }, 900);
   };
 
@@ -488,6 +559,21 @@ export default function LoginPage() {
     <div className="relative rounded-2xl border border-white/10 bg-[#0d121f]/95 p-4 sm:p-7 shadow-2xl shadow-indigo-950/40 backdrop-blur-xl">
       {/* Top gradient highlight */}
       <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500/80 to-transparent" />
+
+      {/* Home Navigation Link */}
+      <div className="mb-3.5 flex items-center justify-between">
+        <Link
+          href="/"
+          className="group inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-indigo-500/40 transition-all cursor-pointer shadow-sm"
+          title="Return to MercatoX Home Page"
+        >
+          <Home className="h-3.5 w-3.5 text-indigo-400 group-hover:text-cyan-300 transition-colors" />
+          <span>Home</span>
+        </Link>
+        <span className="text-[10.5px] font-mono text-zinc-500">
+          MercatoX Authentication
+        </span>
+      </div>
 
       {/* Mode Switcher Tabs */}
       <div className="mb-4 sm:mb-5 grid grid-cols-2 gap-1 rounded-xl bg-white/[0.04] p-1 border border-white/5">
@@ -865,6 +951,17 @@ export default function LoginPage() {
           Create account
         </Link>
       </p>
+
+      {/* Home Page Link */}
+      <div className="mt-3.5 pt-3 border-t border-white/[0.06] text-center">
+        <Link
+          href="/"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white hover:underline transition-colors"
+        >
+          <Home className="h-3.5 w-3.5 text-indigo-400" />
+          <span>Return to Home page</span>
+        </Link>
+      </div>
     </div>
   );
 }

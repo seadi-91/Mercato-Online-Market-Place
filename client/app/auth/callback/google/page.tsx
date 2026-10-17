@@ -5,7 +5,19 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store";
+import type { UserRole } from "@/store/auth-store";
 import { API_CONFIG } from "@/config/api.config";
+
+function isUserRole(role: string | null): role is UserRole {
+  return (
+    role === "ADMIN" ||
+    role === "SELLER" ||
+    role === "SUPPLIER" ||
+    role === "DELIVERY" ||
+    role === "DRIVER" ||
+    role === "CUSTOMER"
+  );
+}
 
 export default function GoogleCallbackPage() {
   const router = useRouter();
@@ -23,7 +35,8 @@ export default function GoogleCallbackPage() {
       const userId = searchParams.get("id");
       const email = searchParams.get("email");
       const fullName = searchParams.get("name");
-      const role = searchParams.get("role") || "CUSTOMER";
+      const roleParam = searchParams.get("role");
+      const role: UserRole = isUserRole(roleParam) ? roleParam : "CUSTOMER";
 
       if (accessToken && userId) {
         login(
@@ -31,7 +44,7 @@ export default function GoogleCallbackPage() {
             id: userId,
             email: email || "",
             name: fullName || email || "Google User",
-            role: role as any,
+            role,
             isVerified: true,
           },
           accessToken
@@ -42,14 +55,26 @@ export default function GoogleCallbackPage() {
           description: "Signed in with Google successfully",
         });
 
+        const storedDest =
+          typeof window !== "undefined"
+            ? sessionStorage.getItem("mercatox_auth_redirect")
+            : null;
+        const stateDest = searchParams.get("state");
+        const targetUrl =
+          (stateDest && stateDest.startsWith("/") ? stateDest : null) ||
+          (storedDest && storedDest.startsWith("/") ? storedDest : null) ||
+          (role === "ADMIN"
+            ? "/dashboard/admin"
+            : role === "SELLER"
+            ? "/dashboard/seller"
+            : "/");
+
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("mercatox_auth_redirect");
+        }
+
         setTimeout(() => {
-          if (role === "ADMIN") {
-            router.push("/dashboard/admin");
-          } else if (role === "SELLER") {
-            router.push("/dashboard/seller");
-          } else {
-            router.push("/");
-          }
+          router.push(targetUrl);
         }, 1000);
         return;
       }
@@ -65,8 +90,7 @@ export default function GoogleCallbackPage() {
           friendlyMsg =
             "Access blocked: Your Google account is not added as a Test User in Google Cloud Console.";
         } else if (error === "redirect_uri_mismatch") {
-          friendlyMsg =
-            "Redirect URI mismatch: Please add http://localhost:3000/auth/callback/google to Authorized redirect URIs in Google Cloud Console.";
+          friendlyMsg = `Google rejected this callback URL: ${window.location.origin}/auth/callback/google. Add that exact URL to Authorized redirect URIs for the configured OAuth client in Google Cloud Console.`;
         }
         setErrorMessage(friendlyMsg);
         toast.error(friendlyMsg, { duration: 6000 });
@@ -97,7 +121,9 @@ export default function GoogleCallbackPage() {
           throw new Error(data?.message || "Failed to authenticate with Google");
         }
 
-        const userRole = data?.user?.role || "CUSTOMER";
+        const userRole: UserRole = isUserRole(data?.user?.role)
+          ? data.user.role
+          : "CUSTOMER";
         login(
           {
             id: data.user.id,
@@ -105,6 +131,7 @@ export default function GoogleCallbackPage() {
             email: data.user.email,
             role: userRole,
             phoneNumber: data.user.phoneNumber,
+            avatar: data.user.avatarUrl,
             isVerified: true,
           },
           data.accessToken
@@ -115,19 +142,33 @@ export default function GoogleCallbackPage() {
           description: "Signed in with Google successfully",
         });
 
+        const storedDest =
+          typeof window !== "undefined"
+            ? sessionStorage.getItem("mercatox_auth_redirect")
+            : null;
+        const stateDest = searchParams.get("state");
+        const targetUrl =
+          (stateDest && stateDest.startsWith("/") ? stateDest : null) ||
+          (storedDest && storedDest.startsWith("/") ? storedDest : null) ||
+          (userRole === "ADMIN"
+            ? "/dashboard/admin"
+            : userRole === "SELLER"
+            ? "/dashboard/seller"
+            : "/");
+
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("mercatox_auth_redirect");
+        }
+
         setTimeout(() => {
-          if (userRole === "ADMIN") {
-            router.push("/dashboard/admin");
-          } else if (userRole === "SELLER") {
-            router.push("/dashboard/seller");
-          } else {
-            router.push("/");
-          }
+          router.push(targetUrl);
         }, 1000);
-      } catch (err: any) {
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "Authentication failed";
         setStatus("error");
-        setErrorMessage(err?.message || "Authentication failed");
-        toast.error(err?.message || "Authentication failed");
+        setErrorMessage(message);
+        toast.error(message);
         setTimeout(() => router.push("/login"), 3000);
       }
     }
