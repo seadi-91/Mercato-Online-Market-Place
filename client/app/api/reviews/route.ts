@@ -77,16 +77,9 @@ export async function GET(req: Request) {
     const conditions: string[] = [];
     const values: any[] = [];
 
-    if (productId && productTitle) {
-      values.push(productId);
-      values.push(`%${productTitle.toLowerCase()}%`);
-      conditions.push(`("productId" = $1 OR LOWER("productTitle") LIKE $2)`);
-    } else if (productId) {
+    if (productId && productId !== "all") {
       values.push(productId);
       conditions.push(`"productId" = $${values.length}`);
-    } else if (productTitle) {
-      values.push(`%${productTitle.toLowerCase()}%`);
-      conditions.push(`LOWER("productTitle") LIKE $${values.length}`);
     } else if (txRef) {
       values.push(txRef);
       conditions.push(`"txRef" = $${values.length}`);
@@ -102,51 +95,6 @@ export async function GET(req: Request) {
     query += ` ORDER BY "createdAt" DESC`;
 
     const result = await pool.query(query, values);
-
-    // If no specific reviews exist for this product yet, seed 3 verified customer reviews into the database
-    if (result.rows.length === 0 && productId && productId !== "all") {
-      const seedReviews = [
-        {
-          id: `rev-${productId}-1`,
-          productId,
-          productTitle: productTitle || "Verified Purchase",
-          customerName: "Dawit G. (Bole Medhanialem)",
-          rating: 5.0,
-          comment: "Item arrived in mint condition. Courier was on time and verified my 4-digit OTP right at my gate. Very reliable service!",
-          tags: ["✨ High Quality", "🛡️ Escrow Verified", "⚡ Fast Dispatch"],
-        },
-        {
-          id: `rev-${productId}-2`,
-          productId,
-          productTitle: productTitle || "Verified Purchase",
-          customerName: "Bethlehem T. (Kazanchis)",
-          rating: 5.0,
-          comment: "Authentic quality just as advertised on MercatoX. The merchant was very responsive and professional.",
-          tags: ["💯 Authentic", "🤝 Great Merchant"],
-        },
-        {
-          id: `rev-${productId}-3`,
-          productId,
-          productTitle: productTitle || "Verified Purchase",
-          customerName: "Yared M. (Mercato Zone)",
-          rating: 4.8,
-          comment: "Fast dispatch and safe delivery. Everything matched the technical specifications accurately.",
-          tags: ["📦 Well Packaged", "🛡️ Escrow Inspected"],
-        },
-      ];
-
-      for (const s of seedReviews) {
-        await pool.query(
-          `INSERT INTO reviews (id, "productId", "productTitle", "customerName", rating, comment, tags, "createdAt")
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW() - INTERVAL '2 days')
-           ON CONFLICT (id) DO NOTHING`,
-          [s.id, s.productId, s.productTitle, s.customerName, s.rating, s.comment, JSON.stringify(s.tags)]
-        );
-      }
-
-      const refetched = await pool.query(query, values);
-      result.rows = refetched.rows;
-    }
 
     const reviews: ReviewItem[] = result.rows.map((row) => ({
       id: row.id,
@@ -170,7 +118,7 @@ export async function GET(req: Request) {
               reviews.reduce((sum, r) => sum + r.rating, 0) / totalCount
             ).toFixed(1)
           )
-        : 5.0;
+        : 0;
 
     return NextResponse.json({
       success: true,

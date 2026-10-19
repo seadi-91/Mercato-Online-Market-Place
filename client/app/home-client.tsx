@@ -21,7 +21,7 @@ import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { ProductCard } from "@/components/products/product-card";
-import { ProductDetailModal } from "@/components/modals/product-detail-modal";
+import { useRouter } from "next/navigation";
 import { MercatoXCardPromo } from "@/components/home/mercatox-card-promo";
 import type { Product, CategoryItem } from "@/constants/mock-data";
 
@@ -194,8 +194,7 @@ export function HomePageClient({
   initialProducts,
   initialCategories,
 }: HomePageClientProps) {
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const router = useRouter();
 
   // Filter products for the home page sections (strictly exclude products from excluded categories)
   const homeProducts = useMemo(() => {
@@ -249,8 +248,7 @@ export function HomePageClient({
   };
 
   const handleQuickView = (product: Product) => {
-    setSelectedProduct(product);
-    setIsModalOpen(true);
+    router.push(`/products/${product.id}`);
   };
 
   return (
@@ -399,13 +397,6 @@ export function HomePageClient({
 
       {/* Floating Bottom Nav */}
       <CustomerBottomNav />
-
-      {/* Product Detail Modal */}
-      <ProductDetailModal
-        product={selectedProduct}
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
 
       {/* MercatoX Loyalty & Cashback Card Promo Section */}
       <MercatoXCardPromo />

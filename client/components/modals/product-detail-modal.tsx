@@ -98,6 +98,13 @@ export function ProductDetailModal({
   }, [product]);
 
   useEffect(() => {
+    if (isOpen && product?.id) {
+      router.push(`/products/${product.id}`);
+      onClose();
+    }
+  }, [isOpen, product, router, onClose]);
+
+  useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
     };

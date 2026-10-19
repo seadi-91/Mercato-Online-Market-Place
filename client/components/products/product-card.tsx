@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ShoppingCart,
   Heart,
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { Product } from "@/constants/mock-data";
 import { useCartStore } from "@/store";
+import { useThemeStore } from "@/store/theme-store";
 import { toast } from "sonner";
 import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 
@@ -30,6 +32,12 @@ export function ProductCard({
   hideBadges = false,
   transparentCartButton = false,
 }: ProductCardProps) {
+  const router = useRouter();
+  const { theme } = useThemeStore();
+  const isLight = theme === "light";
+  const isDark = theme === "dark";
+  const isSystem = theme === "system";
+
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const isFavorite = useCartStore((state) => state.isFavorite);
@@ -92,60 +100,127 @@ export function ProductCard({
     }
   };
 
+  const handleCardClick = () => {
+    if (onQuickView) {
+      onQuickView(product);
+    } else {
+      router.push(`/products/${product.id}`);
+    }
+  };
+
+  const primaryImage = product.image || (product as any).images?.[0] || "/placeholder.jpg";
+  const secondaryImage =
+    (product.gallery && product.gallery.length > 1 && product.gallery[1] && product.gallery[1] !== primaryImage)
+      ? product.gallery[1]
+      : (Array.isArray((product as any).images) && (product as any).images.length > 1 && (product as any).images[1] && (product as any).images[1] !== primaryImage)
+        ? (product as any).images[1]
+        : null;
+
   return (
     <div
-      onClick={() => onQuickView && onQuickView(product)}
+      onClick={handleCardClick}
       className="product-card-surface group relative flex flex-col justify-between rounded-xl border border-app bg-app-card text-app transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer overflow-hidden h-full"
     >
       {/* Product Image: Ultra-compact aspect-square */}
-      <div className="relative aspect-square w-full overflow-hidden bg-black/5 dark:bg-black/40">
+      <div className={`relative aspect-square w-full overflow-hidden transition-colors ${
+        isLight ? "bg-slate-100/90" : isDark ? "bg-[#101014]" : "bg-[#0a0f1d]"
+      }`}>
+        {/* Primary Image */}
         <img
-          src={product.image}
+          src={primaryImage}
           alt={product.name}
-          className="h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+          className={`h-full w-full object-cover object-center transition-all duration-300 ${
+            secondaryImage
+              ? "group-hover:opacity-0 group-hover:scale-105"
+              : "group-hover:scale-105"
+          }`}
           loading="lazy"
         />
+
+        {/* Secondary Image on Hover (if available) */}
+        {secondaryImage && (
+          <img
+            src={secondaryImage}
+            alt={`${product.name} alternate view`}
+            className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-all duration-300 group-hover:opacity-100 group-hover:scale-105"
+            loading="lazy"
+          />
+        )}
 
         {/* Optional product-specific badge */}
         {!hideBadges && (
           <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
             {product.badge && (
-              <span className="rounded bg-black/80 backdrop-blur-xs px-1.5 py-0.5 text-[8px] font-bold text-white shadow-xs">
+              <span
+                className={`rounded px-1.5 py-0.5 text-[8px] font-bold border backdrop-blur-xs shadow-xs transition-colors ${
+                  isLight
+                    ? product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-300/80"
+                      : product.badge === "Trending" || product.badge === "Best Seller"
+                        ? "bg-amber-50 text-amber-900 border-amber-300/80"
+                        : "bg-indigo-50 text-indigo-700 border-indigo-200/90"
+                    : isDark
+                      ? product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
+                        ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/30"
+                        : product.badge === "Trending" || product.badge === "Best Seller"
+                          ? "bg-amber-950/80 text-amber-300 border-amber-500/30"
+                          : "bg-[#18181c]/90 text-indigo-300 border-white/10"
+                      : product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
+                        ? "bg-emerald-950/70 text-emerald-300 border-emerald-500/30"
+                        : product.badge === "Trending" || product.badge === "Best Seller"
+                          ? "bg-amber-950/70 text-amber-300 border-amber-500/30"
+                          : "bg-[#0d1222]/90 text-cyan-300 border-blue-500/30"
+                }`}
+              >
                 {product.badge}
               </span>
             )}
           </div>
         )}
 
-        {/* Quick Actions on Top Right */}
-        <div className="absolute right-1.5 top-1.5 flex items-center gap-1 z-10">
+        {/* Centered Quick View Button (Visible ONLY on Hover, hidden when not hovering) */}
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none group-hover:pointer-events-auto z-20">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              onQuickView && onQuickView(product);
+              handleCardClick();
             }}
-            title="Quick View"
-            className="flex items-center justify-center p-1 text-white hover:scale-115 transition-transform cursor-pointer bg-transparent border-none outline-none"
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md shadow-xl text-[11px] font-bold tracking-wide transform scale-90 group-hover:scale-100 transition-all duration-200 cursor-pointer active:scale-95 ${
+              isLight
+                ? "bg-white/95 hover:bg-white text-slate-800 hover:text-indigo-600 border border-slate-200/90 shadow-md hover:border-indigo-400"
+                : isDark
+                  ? "bg-[#141418]/90 hover:bg-black text-white hover:text-cyan-300 border border-white/20 hover:border-cyan-400"
+                  : "bg-[#0d1222]/90 hover:bg-[#070d1e] text-white hover:text-cyan-300 border border-blue-500/30 hover:border-cyan-400"
+            }`}
           >
-            <Eye
-              className="h-3.5 w-3.5 text-white stroke-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)]"
-              color="#ffffff"
-              style={{ stroke: "#ffffff" }}
-            />
+            <Eye className={`h-3.5 w-3.5 ${isLight ? "text-indigo-600" : "text-cyan-400"}`} />
+            <span>Quick View</span>
           </button>
+        </div>
 
+        {/* Wishlist Button on Top Right (Eye icon removed from here so no Eye icon appears when not hovered) */}
+        <div className="absolute right-1.5 top-1.5 flex items-center gap-1 z-10">
           <button
             type="button"
             onClick={handleToggleFav}
-            title="Wishlist"
-            className="flex items-center justify-center p-1 text-white hover:scale-115 transition-transform cursor-pointer bg-transparent border-none outline-none"
+            title={fav ? "Remove from wishlist" : "Add to wishlist"}
+            className={`flex items-center justify-center p-1.5 rounded-full backdrop-blur-xs hover:scale-110 transition-transform cursor-pointer border outline-none ${
+              isLight
+                ? "bg-white/90 hover:bg-white text-slate-700 border-slate-200/90 shadow-xs hover:border-rose-300"
+                : isDark
+                  ? "bg-black/40 hover:bg-black/60 text-white border-white/10"
+                  : "bg-[#0d1222]/80 hover:bg-[#070d1e] text-white border-blue-500/25"
+            }`}
           >
             <Heart
-              className={`h-3.5 w-3.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.85)] transition-colors ${fav ? "fill-white text-white" : "text-white"
-                }`}
-              color="#ffffff"
-              style={{ fill: fav ? "#ffffff" : "none", stroke: "#ffffff" }}
+              className={`h-3.5 w-3.5 transition-colors ${
+                fav
+                  ? "fill-rose-500 text-rose-500"
+                  : isLight
+                    ? "text-slate-600 hover:text-rose-500"
+                    : "text-white hover:text-rose-400"
+              }`}
             />
           </button>
         </div>

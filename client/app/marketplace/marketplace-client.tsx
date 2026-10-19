@@ -43,7 +43,6 @@ import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { ProductCard } from "@/components/products/product-card";
 import { HorizontalProductCard } from "@/components/products/horizontal-product-card";
-import { ProductDetailModal } from "@/components/modals/product-detail-modal";
 import { Product, CategoryItem } from "@/constants/mock-data";
 import { fetchProducts, fetchCategories } from "@/lib/api/catalog";
 import { useCartStore } from "@/store";
@@ -106,9 +105,6 @@ export function MarketplaceClient({
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState<boolean>(false);
   const [viewMode, setViewMode] = useState<"grid" | "normal">("grid");
 
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-
   useEffect(() => {
     if (initialProducts.length > 0) return;
     let isMounted = true;
@@ -152,8 +148,7 @@ export function MarketplaceClient({
   }, [searchParams]);
 
   const handleQuickView = (product: Product) => {
-    setSelectedProduct(product);
-    setIsModalOpen(true);
+    router.push(`/products/${product.id}`);
   };
 
   const getCategoryIcon = (slug: string) => {
@@ -1324,7 +1319,6 @@ export function MarketplaceClient({
         </div>
       )}
 
-      <ProductDetailModal product={selectedProduct} isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
       <CustomerBottomNav />
       <CustomerFooter />
     </div>
