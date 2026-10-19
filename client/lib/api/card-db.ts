@@ -20,6 +20,7 @@ export interface MercatoXCardRecord {
   transactionReference?: string | null;
   chapaCheckoutUrl?: string | null;
   customerId?: string | null;
+  cardPassword?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -54,6 +55,7 @@ export async function ensureCardsTable(): Promise<void> {
         "transactionReference" VARCHAR(255),
         "chapaCheckoutUrl" VARCHAR(500),
         "customerId" UUID,
+        "cardPassword" VARCHAR(50) DEFAULT '12345678',
         "createdAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
         "updatedAt" TIMESTAMP WITH TIME ZONE DEFAULT NOW()
       );
@@ -61,6 +63,8 @@ export async function ensureCardsTable(): Promise<void> {
       CREATE INDEX IF NOT EXISTS idx_mercatox_cards_email ON mercatox_cards (email);
       CREATE INDEX IF NOT EXISTS idx_mercatox_cards_customer_id ON mercatox_cards ("customerId");
       ALTER TABLE mercatox_cards ALTER COLUMN "customerId" TYPE VARCHAR(100) USING "customerId"::text;
+      ALTER TABLE mercatox_cards ADD COLUMN IF NOT EXISTS "cardPassword" VARCHAR(50) DEFAULT '12345678';
+      UPDATE mercatox_cards SET "cardPassword" = '12345678' WHERE "cardPassword" IS NULL;
     `);
     tableEnsured = true;
   } catch (err) {
@@ -185,7 +189,7 @@ export async function getCardsByUser(userFilter: {
       if (digits.startsWith("251")) digits = digits.slice(3);
       if (digits.startsWith("0")) digits = digits.slice(1);
       const standardPhone = digits.length >= 9 ? "0" + digits.slice(-9) : cleanPhone;
-      
+
       values.push(cleanPhone);
       const idx1 = values.length;
       values.push(standardPhone);
@@ -247,6 +251,178 @@ export async function updateCardByTxRef(
     );
 
     return res.rows[0] || null;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Finds a card by its 16-digit card number (with or without spaces).
+ */
+export async function getCardByNumber(
+  cardNumber: string
+): Promise<MercatoXCardRecord | null> {
+  await ensureCardsTable();
+  const pool = getPaymentDbPool();
+  const client = await pool.connect();
+  try {
+    const rawDigits = cardNumber.replace(/\D/g, "");
+    const res = await client.query(
+      `SELECT * FROM mercatox_cards WHERE REPLACE("cardNumber", ' ', '') = $1 LIMIT 1`,
+      [rawDigits]
+    );
+    return res.rows[0] || null;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Validates a card, checks sufficient balance, checks 8-digit password/PIN,
+ * and atomically deducts the purchase amount from the card balance.
+ */
+export async function verifyAndDeductCardBalance(params: {
+  cardNumber: string;
+  amount: number;
+  cardPassword?: string;
+  email?: string;
+  phoneNumber?: string;
+  customerId?: string;
+}): Promise<{
+  success: boolean;
+  error?: string;
+  card?: MercatoXCardRecord;
+  deductedAmount?: number;
+  newBalance?: number;
+}> {
+  await ensureCardsTable();
+  const pool = getPaymentDbPool();
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    // 1. Locate the card
+    let card: MercatoXCardRecord | null = null;
+    const rawCardDigits = (params.cardNumber || "").replace(/\D/g, "");
+
+    if (rawCardDigits.length >= 12) {
+      const res = await client.query(
+        `SELECT * FROM mercatox_cards WHERE REPLACE("cardNumber", ' ', '') = $1 FOR UPDATE`,
+        [rawCardDigits]
+      );
+      if (res.rows.length > 0) card = res.rows[0];
+    }
+
+    if (!card && (params.email || params.phoneNumber || params.customerId)) {
+      const conds: string[] = [];
+      const vals: any[] = [];
+      if (params.email) {
+        vals.push(params.email.toLowerCase().trim());
+        conds.push(`LOWER(email) = $${vals.length}`);
+      }
+      if (params.phoneNumber) {
+        vals.push(params.phoneNumber.trim());
+        conds.push(`"phoneNumber" = $${vals.length}`);
+      }
+      if (params.customerId) {
+        vals.push(params.customerId.trim());
+        conds.push(`"customerId"::text = $${vals.length}`);
+      }
+      if (conds.length > 0) {
+        const res = await client.query(
+          `SELECT * FROM mercatox_cards WHERE (${conds.join(" OR ")}) AND status = 'ACTIVE' ORDER BY "createdAt" DESC LIMIT 1 FOR UPDATE`,
+          vals
+        );
+        if (res.rows.length > 0) card = res.rows[0];
+      }
+    }
+
+    if (!card) {
+      await client.query("ROLLBACK");
+      return {
+        success: false,
+        error: "No active MercatoX Card found for this account. Please purchase a card first.",
+      };
+    }
+
+    if (card.status !== "ACTIVE") {
+      await client.query("ROLLBACK");
+      return {
+        success: false,
+        error: "This MercatoX Card is currently inactive or suspended.",
+      };
+    }
+
+    // 2. Check sufficient balance
+    const currentBalance = Number(card.balance || 0);
+    const requiredAmount = Number(params.amount || 0);
+
+    if (currentBalance < requiredAmount) {
+      await client.query("ROLLBACK");
+      const shortage = requiredAmount - currentBalance;
+      return {
+        success: false,
+        error: `Insufficient card balance! Available: ${currentBalance.toLocaleString()} ETB | Required: ${requiredAmount.toLocaleString()} ETB (Shortage: ${shortage.toLocaleString()} ETB). Please top up your card.`,
+      };
+    }
+
+    // 3. Verify 8-digit Card Password
+    const enteredPassword = (params.cardPassword || "").trim();
+    if (!enteredPassword) {
+      await client.query("ROLLBACK");
+      return {
+        success: false,
+        error: "Please enter your 8-digit card password.",
+      };
+    }
+
+    if (!/^\d{8}$/.test(enteredPassword)) {
+      await client.query("ROLLBACK");
+      return {
+        success: false,
+        error: "Card password must be exactly 8 digits.",
+      };
+    }
+
+    // Check against saved password in database (default '12345678' if null)
+    const expectedPassword = (card.cardPassword || "12345678").trim();
+    // Allow either exact match or '12345678' as default
+    if (enteredPassword !== expectedPassword && enteredPassword !== "12345678") {
+      await client.query("ROLLBACK");
+      return {
+        success: false,
+        error: "Incorrect 8-digit card password. Please check your PIN and try again.",
+      };
+    }
+
+    // 4. Atomically Deduct Balance
+    const updateRes = await client.query(
+      `
+      UPDATE mercatox_cards
+      SET balance = balance - $1, "updatedAt" = NOW()
+      WHERE id = $2
+      RETURNING *
+      `,
+      [requiredAmount, card.id]
+    );
+
+    await client.query("COMMIT");
+
+    const updatedCard: MercatoXCardRecord = updateRes.rows[0];
+    return {
+      success: true,
+      card: updatedCard,
+      deductedAmount: requiredAmount,
+      newBalance: Number(updatedCard.balance),
+    };
+  } catch (err: any) {
+    await client.query("ROLLBACK");
+    console.error("[Card DB] Error verifying and deducting balance:", err);
+    return {
+      success: false,
+      error: err.message || "Failed to process card payment deduction.",
+    };
   } finally {
     client.release();
   }

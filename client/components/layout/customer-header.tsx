@@ -41,9 +41,13 @@ import { toast } from "sonner";
 
 interface CustomerHeaderProps {
   transparentOverlay?: boolean;
+  fixed?: boolean;
 }
 
-export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderProps = {}) {
+export function CustomerHeader({
+  transparentOverlay = false,
+  fixed = false,
+}: CustomerHeaderProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, logout } = useAuthStore();
@@ -170,8 +174,35 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
     { name: "Categories", href: "/categories" },
   ];
 
-  // Header class configuration: completely transparent over hero at top, smoothly transitions to page background on scroll
-  const headerClass = isHomePage
+  const isAuthPage =
+    Boolean(pathname) &&
+    (pathname.startsWith("/login") ||
+      pathname.startsWith("/register") ||
+      pathname.startsWith("/forgot-password") ||
+      pathname.startsWith("/reset-password") ||
+      pathname.startsWith("/verify-email"));
+
+  const shouldBeFixed = fixed || isAuthPage;
+
+  // Header class configuration:
+  // When fixed on auth or when explicit fixed=true: stay pinned at top and never scroll away
+  const fixedHeaderClass = isScrolled
+    ? `fixed top-0 left-0 right-0 z-50 w-full header-scrolled border-b transition-all duration-300 ease-in-out shadow-xs ${
+        theme === "light"
+          ? "border-slate-200/90 bg-white/95 backdrop-blur-md shadow-xs text-slate-900"
+          : theme === "dark"
+            ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white shadow-xs"
+            : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white shadow-xs"
+      }`
+    : `fixed top-0 left-0 right-0 z-50 w-full border-b transition-all duration-300 ease-in-out ${
+        theme === "light"
+          ? "border-slate-200/80 bg-white/90 backdrop-blur-md text-slate-900 shadow-xs"
+          : theme === "dark"
+            ? "border-white/10 bg-[#09090b]/90 backdrop-blur-md text-white shadow-xs"
+            : "border-blue-500/20 bg-[#070d1e]/90 backdrop-blur-md text-white shadow-xs"
+      }`;
+
+  const standardHeaderClass = isHomePage
     ? isScrolled
       ? `fixed top-0 left-0 right-0 z-50 w-full header-scrolled border-b transition-all duration-300 ease-in-out shadow-xs ${theme === "light"
         ? "border-slate-200/90 bg-white/95 backdrop-blur-md text-slate-900"
@@ -190,6 +221,8 @@ export function CustomerHeader({ transparentOverlay = false }: CustomerHeaderPro
             ? "border-white/10 bg-[#09090b]/95 backdrop-blur-md text-white shadow-xs"
             : "border-blue-500/20 bg-[#070d1e]/95 backdrop-blur-md text-white shadow-xs"
         }`;
+
+  const headerClass = shouldBeFixed ? fixedHeaderClass : standardHeaderClass;
 
   return (
     <header className={headerClass}>

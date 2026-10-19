@@ -520,7 +520,8 @@ export default function LoginPage() {
             id: "oauth",
             description: "Signed in with Google successfully.",
           });
-          router.push(postLoginDest);
+          const finalDest = (userRole === "SELLER" && postLoginDest === "/") ? "/dashboard/seller" : postLoginDest;
+          router.push(finalDest);
           return;
         }
       } catch (err: unknown) {

@@ -811,6 +811,7 @@ export class AuthService {
     credential?: string;
     idToken?: string;
     accessToken?: string;
+    role?: UserRole;
   }) {
     const { code, redirectUri, credential, idToken, accessToken } = payload;
 
@@ -989,11 +990,16 @@ export class AuthService {
         user = await this.userRepository.save(user);
       }
     } else {
-      // New user registering via Google: create user with role CUSTOMER
+      // New user registering via Google: create user with role from payload or CUSTOMER
+      const registrationRole =
+        payload.role && Object.values(UserRole).includes(payload.role)
+          ? payload.role
+          : UserRole.CUSTOMER;
+
       user = this.userRepository.create({
         email,
         phoneNumber: null,
-        role: UserRole.CUSTOMER,
+        role: registrationRole,
         authProvider: 'google',
         googleId,
         isActive: true,

@@ -91,12 +91,14 @@ function getGoogleErrorMessage(error: unknown): string {
  * Triggers the Google Identity Services popup and exchanges its authorization
  * code via the MercatoX backend.
  */
-export async function triggerGoogleSignIn(): Promise<GoogleAuthResponse> {
+export async function triggerGoogleSignIn(role?: UserRole): Promise<GoogleAuthResponse> {
   await loadGoogleScript();
 
   const clientId = API_CONFIG.googleClientId;
   if (!clientId) {
-    throw new Error("Google Client ID is not configured");
+    throw new Error(
+      "Google Client ID is not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID in client/.env"
+    );
   }
   return new Promise((resolve, reject) => {
     if (!window.google?.accounts?.oauth2) {
@@ -115,10 +117,20 @@ export async function triggerGoogleSignIn(): Promise<GoogleAuthResponse> {
         ux_mode: "popup",
         callback: async (response) => {
           if (response.error) {
-            const message =
-              response.error === "redirect_uri_mismatch"
-                ? "Google rejected the OAuth redirect. Verify that the frontend and backend use the same Google OAuth client ID."
-                : response.error;
+            let message = response.error;
+            if (response.error === "redirect_uri_mismatch") {
+              message =
+                "Google OAuth redirect_uri_mismatch: Ensure 'postmessage' and your domain are allowed in Google Cloud Console.";
+            } else if (response.error === "origin_mismatch") {
+              message =
+                "Google OAuth origin_mismatch: Add 'http://localhost:3000' to 'Authorized JavaScript origins' in Google Cloud Console.";
+            } else if (response.error === "access_denied") {
+              message = "Google authorization was cancelled or access denied.";
+            } else if (response.error === "popup_closed_by_user") {
+              message = "Sign-in popup was closed before completing.";
+            } else if (response.error === "popup_failed_to_open") {
+              message = "Popup blocked by browser. Please allow popups for localhost:3000.";
+            }
             return reject(new Error(message));
           }
           if (!response.code) {
@@ -133,6 +145,7 @@ export async function triggerGoogleSignIn(): Promise<GoogleAuthResponse> {
               body: JSON.stringify({
                 code: response.code,
                 redirectUri: "postmessage",
+                role: role || "CUSTOMER",
               }),
             });
 

@@ -17,7 +17,7 @@ function getAdminCardPrice(clientFee?: number): number {
         if (!isNaN(parsed) && parsed >= 0) return parsed;
       }
     }
-  } catch {}
+  } catch { }
   if (clientFee && clientFee > 0) return clientFee;
   return 150;
 }

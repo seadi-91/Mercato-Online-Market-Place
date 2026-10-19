@@ -1104,7 +1104,8 @@ function RegisterPageContent() {
 
   const handleOAuthRegister = async (provider: string) => {
     if (provider === "Google") {
-      const postLoginDest = "/";
+      const targetRole = selectedRole || "CUSTOMER";
+      const postLoginDest = targetRole === "SELLER" ? "/dashboard/seller" : "/";
       try {
         if (typeof window !== "undefined") {
           sessionStorage.setItem("mercatox_auth_redirect", postLoginDest);
@@ -1114,9 +1115,9 @@ function RegisterPageContent() {
       toast.loading("Connecting to Google...", { id: "oauth-reg" });
 
       try {
-        const authData = await triggerGoogleSignIn();
+        const authData = await triggerGoogleSignIn(targetRole as any);
         if (authData && authData.accessToken) {
-          const userRole = authData.user.role || "CUSTOMER";
+          const userRole = authData.user.role || targetRole;
           login(
             {
               id: authData.user.id,
@@ -1130,9 +1131,10 @@ function RegisterPageContent() {
           );
           toast.success(`Account registered with Google!`, {
             id: "oauth-reg",
-            description: "Welcome to MercatoX! Redirecting to home...",
+            description: `Welcome to MercatoX, ${authData.user.fullName || "Customer"}! Redirecting...`,
           });
-          router.push(postLoginDest);
+          const finalDest = userRole === "SELLER" ? "/dashboard/seller" : postLoginDest;
+          router.push(finalDest);
           return;
         }
       } catch (err: unknown) {

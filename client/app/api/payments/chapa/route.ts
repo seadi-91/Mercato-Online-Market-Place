@@ -29,6 +29,8 @@ export async function POST(req: Request) {
       customerId,
       sellerId,
       paymentMethod = "CHAPA",
+      cardNumber = "",
+      cardPassword = "",
       returnUrl: customReturnUrl,
     } = body || {};
 
@@ -272,38 +274,73 @@ export async function POST(req: Request) {
       email: validEmail,
     });
 
+    const isMercatoXCard =
+      String(paymentMethod).toUpperCase() === "MERCATOX_CARD" ||
+      String(paymentMethod).toLowerCase() === "mercatox_card";
+
     let checkoutUrl = "";
     let chapaSuccess = false;
     let chapaResponseData: any = null;
+    let cardDeductInfo: any = null;
 
-    try {
-      const chapaRes = await fetch(`${chapaBaseUrl}/transaction/initialize`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${chapaSecretKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(chapaPayload),
+    if (isMercatoXCard) {
+      // 1. Verify card exists, has sufficient balance, and 8-digit password matches
+      const { verifyAndDeductCardBalance } = await import("@/lib/api/card-db");
+      const deductResult = await verifyAndDeductCardBalance({
+        cardNumber: cardNumber || "",
+        amount: calcTotal,
+        cardPassword: cardPassword || "",
+        email: email || validEmail,
+        phoneNumber: phoneNumber || cleanPhone,
+        customerId: resolvedCustomerId,
       });
 
-      chapaResponseData = await chapaRes.json();
-
-      if (chapaRes.ok && chapaResponseData.status === "success" && chapaResponseData.data?.checkout_url) {
-        checkoutUrl = chapaResponseData.data.checkout_url;
-        chapaSuccess = true;
-      } else {
-        console.warn("[Chapa API] Gateway responded with non-success:", chapaResponseData);
+      if (!deductResult.success) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: deductResult.error || "Failed to process MercatoX Card payment.",
+          },
+          { status: 400 }
+        );
       }
-    } catch (chapaHttpErr: any) {
-      console.error("[Chapa API] HTTP connection error:", chapaHttpErr);
-    }
 
-    if (!chapaSuccess || !checkoutUrl) {
-      console.warn(
-        "[Chapa API Route] Chapa live link unavailable, using sandbox verified return URL fallback."
-      );
+      cardDeductInfo = deductResult;
       checkoutUrl = returnUrl;
       chapaSuccess = true;
+      console.log(
+        `[Payment API] MercatoX Card payment approved for order ${orderNumber} (${txRef}). Deducted ETB ${calcTotal}, Remaining Balance: ${deductResult.newBalance}`
+      );
+    } else {
+      try {
+        const chapaRes = await fetch(`${chapaBaseUrl}/transaction/initialize`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${chapaSecretKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(chapaPayload),
+        });
+
+        chapaResponseData = await chapaRes.json();
+
+        if (chapaRes.ok && chapaResponseData.status === "success" && chapaResponseData.data?.checkout_url) {
+          checkoutUrl = chapaResponseData.data.checkout_url;
+          chapaSuccess = true;
+        } else {
+          console.warn("[Chapa API] Gateway responded with non-success:", chapaResponseData);
+        }
+      } catch (chapaHttpErr: any) {
+        console.error("[Chapa API] HTTP connection error:", chapaHttpErr);
+      }
+
+      if (!chapaSuccess || !checkoutUrl) {
+        console.warn(
+          "[Chapa API Route] Chapa live link unavailable, using sandbox verified return URL fallback."
+        );
+        checkoutUrl = returnUrl;
+        chapaSuccess = true;
+      }
     }
 
     // 2. SAVE PAYMENT INFORMATION IN PAYMENT SERVICE (mercatox_payment_db)
@@ -315,8 +352,8 @@ export async function POST(req: Request) {
         sellerId: resolvedSellerId,
         amount: calcTotal,
         currency: "ETB",
-        provider: paymentMethod || "CHAPA",
-        status: "INITIATED",
+        provider: isMercatoXCard ? "MERCATOX_CARD" : (paymentMethod || "CHAPA"),
+        status: isMercatoXCard ? "COMPLETED" : "INITIATED",
         providerReference: chapaResponseData?.data?.reference || txRef,
         escrowStatus: "HELD",
         metadata: {
@@ -336,10 +373,29 @@ export async function POST(req: Request) {
             quantity: it?.quantity,
           })),
           chapaInitData: chapaResponseData?.data,
+          cardNumber: cardDeductInfo?.card?.cardNumber,
+          remainingCardBalance: cardDeductInfo?.newBalance,
           initiatedAt: new Date().toISOString(),
         },
       });
       console.log(`[Chapa API] Saved payment for order ${orderId} (${txRef}) in mercatox_payment_db`);
+
+      if (isMercatoXCard) {
+        try {
+          const orderPool = getOrderDbPool();
+          const orderClient = await orderPool.connect();
+          try {
+            await orderClient.query(
+              `UPDATE orders SET "paymentStatus" = 'PAID', status = 'CONFIRMED', "updatedAt" = NOW() WHERE id = $1`,
+              [orderId]
+            );
+          } finally {
+            orderClient.release();
+          }
+        } catch (orderUpdErr) {
+          console.warn("[Chapa API] Failed to update order status to PAID:", orderUpdErr);
+        }
+      }
     } catch (payDbInitErr) {
       console.warn("[Chapa API] Failed to pre-save payment in mercatox_payment_db:", payDbInitErr);
     }

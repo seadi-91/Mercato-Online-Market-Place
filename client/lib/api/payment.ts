@@ -7,6 +7,8 @@ export interface ChapaCheckoutRequest {
   specificAddress: string;
   deliveryNotes?: string;
   paymentMethod?: string;
+  cardNumber?: string;
+  cardPassword?: string;
   customerId?: string;
   sellerId?: string;
   returnUrl?: string;
