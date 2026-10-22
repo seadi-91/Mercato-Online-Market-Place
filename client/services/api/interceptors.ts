@@ -6,26 +6,25 @@ import { API_CONFIG } from "@/config/api.config";
  * Checks if a string has the valid structure of a 3-part signed JWT.
  */
 export function isValidJwt(token?: string | null): boolean {
-  if (!token) return false;
+  if (!token || typeof token !== "string") return false;
   const parts = token.split(".");
-  return (
-    parts.length === 3 &&
-    !token.startsWith("jwt-") &&
-    !token.startsWith("mock-") &&
-    !token.startsWith("supplier-")
-  );
+  return parts.length === 3;
 }
 
 /**
  * Checks if a JWT token has expired based on its embedded exp claim.
+ * Non-JWT session tokens are NOT considered expired.
  */
 export function isJwtExpired(token?: string | null): boolean {
-  if (!token || !isValidJwt(token)) return true;
+  if (!token || typeof token !== "string") return false;
+  if (!isValidJwt(token)) return false;
   try {
+    const parts = token.split(".");
+    if (parts.length < 2) return false;
     const payload = JSON.parse(
-      atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))
+      atob(parts[1].replace(/-/g, "+").replace(/_/g, "/"))
     );
-    if (payload.exp && Date.now() >= (payload.exp - 10) * 1000) {
+    if (payload.exp && Date.now() >= (payload.exp - 5) * 1000) {
       return true;
     }
     return false;
@@ -35,13 +34,10 @@ export function isJwtExpired(token?: string | null): boolean {
 }
 
 /**
- * Returns the current authenticated token if one exists in the auth store and is valid.
+ * Returns the current authenticated token if one exists in the auth store.
  */
 export async function ensureValidAuthToken(): Promise<string | null> {
   const currentToken = useAuthStore.getState().token;
-  if (currentToken && isValidJwt(currentToken) && !isJwtExpired(currentToken)) {
-    return currentToken;
-  }
   return currentToken || null;
 }
 

@@ -93,7 +93,8 @@ describe('CustomerController', () => {
     };
     mockOrdersClient.send.mockReturnValue(of({ id: 'order-123' }));
 
-    const result = await controller.createOrder(customerId, dto);
+    const mockReq = { ip: '127.0.0.1', headers: {} } as any;
+    const result = await controller.createOrder(customerId, dto, mockReq);
     expect(result).toBeDefined();
     expect(mockOrdersClient.send).toHaveBeenCalledWith('create_order', {
       customerId,

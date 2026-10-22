@@ -50,7 +50,7 @@ export function CustomerHeader({
 }: CustomerHeaderProps = {}) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isAuthenticated, logout } = useAuthStore();
+  const { user, isAuthenticated, hasHydrated, logout } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
   const { theme, setTheme } = useThemeStore();
   const cartItemsCount = useCartStore((state) => state.getItemCount());
@@ -411,7 +411,7 @@ export function CustomerHeader({
             </Link>
 
             {/* Profile Dropdown / Login Sign In Dropdown - visible on sm+ */}
-            {mounted && isAuthenticated && Boolean(user) ? (
+            {mounted && hasHydrated && isAuthenticated && Boolean(user) ? (
               <div className="relative hidden sm:block" ref={profileDropdownRef}>
                 <button
                   type="button"
@@ -797,7 +797,7 @@ export function CustomerHeader({
             {/* 2. Scrollable Body Content */}
             <div className="flex-1 overflow-y-auto overscroll-contain px-4 py-4 space-y-4">
               {/* Welcome User / Guest Card */}
-              {mounted && isAuthenticated && Boolean(user) ? (
+              {mounted && hasHydrated && isAuthenticated && Boolean(user) ? (
                 <div
                   className={`p-3.5 rounded-2xl border transition-all ${theme === "light"
                     ? "border-indigo-100 bg-indigo-50/80 text-slate-900 shadow-xs"

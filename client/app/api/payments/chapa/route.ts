@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getOrderDbPool } from "@/lib/db";
+import { getOrderDbPool, getUsersDbPool, getPaymentDbPool } from "@/lib/db";
 import { recordPaymentInDatabase } from "@/lib/api/payment-db";
 import { getAccurateProductImage } from "@/lib/utils/product-image";
+import { triggerOrderEmailNotifications } from "@/app/api/orders/route";
 import crypto from "crypto";
 
 const DEFAULT_CUSTOMER_ID = "609563b9-3c51-4b25-80c2-a3b238ee929f";
@@ -71,8 +72,58 @@ export async function POST(req: Request) {
       cleanPhone = "0911442200";
     }
 
-    // Ensure valid public email for Chapa strict validation (rejects .et or unusual TLDs)
-    let validEmail = (email || "").trim();
+    // Resolve authentic customer email from input, profiles, cards, or auth
+    let resolvedCustomerRealEmail: string | undefined = undefined;
+    if (
+      email &&
+      email.trim().includes("@") &&
+      !email.trim().toLowerCase().includes(".mercatox@gmail.com") &&
+      !email.trim().toLowerCase().includes("example.com")
+    ) {
+      resolvedCustomerRealEmail = email.trim().toLowerCase();
+    }
+
+    if (!resolvedCustomerRealEmail && isValidUuid(customerId)) {
+      try {
+        const uPool = getUsersDbPool();
+        const uRes = await uPool.query(
+          `SELECT email FROM profiles WHERE "userId" = $1 OR id = $1 LIMIT 1`,
+          [customerId]
+        );
+        if (uRes.rows.length > 0 && uRes.rows[0].email && !uRes.rows[0].email.includes("example.com")) {
+          resolvedCustomerRealEmail = uRes.rows[0].email.trim().toLowerCase();
+        }
+      } catch { }
+    }
+
+    if (!resolvedCustomerRealEmail && cleanPhone) {
+      try {
+        const uPool = getUsersDbPool();
+        const pRes = await uPool.query(
+          `SELECT email FROM profiles WHERE "phoneNumber" LIKE $1 LIMIT 1`,
+          [`%${cleanPhone.slice(-8)}%`]
+        );
+        if (pRes.rows.length > 0 && pRes.rows[0].email && !pRes.rows[0].email.includes("example.com")) {
+          resolvedCustomerRealEmail = pRes.rows[0].email.trim().toLowerCase();
+        }
+      } catch { }
+    }
+
+    if (!resolvedCustomerRealEmail && body.cardNumber) {
+      try {
+        const pPool = getPaymentDbPool();
+        const targetNum = String(body.cardNumber).replace(/\D/g, "");
+        const cRes = await pPool.query(
+          `SELECT email FROM mercatox_cards WHERE REPLACE("cardNumber", ' ', '') = $1 LIMIT 1`,
+          [targetNum]
+        );
+        if (cRes.rows.length > 0 && cRes.rows[0].email && !cRes.rows[0].email.includes("example.com")) {
+          resolvedCustomerRealEmail = cRes.rows[0].email.trim().toLowerCase();
+        }
+      } catch { }
+    }
+
+    let validEmail = resolvedCustomerRealEmail || (email || "").trim().toLowerCase();
     const emailRegex = /^[^\s@]+@[^\s@]+\.(com|org|net|io|co|edu|biz|info)$/i;
     if (!validEmail || !emailRegex.test(validEmail) || validEmail.toLowerCase().endsWith(".et")) {
       const safePrefix = firstName.toLowerCase().replace(/[^a-z0-9]/g, "") || "buyer";
@@ -116,7 +167,7 @@ export async function POST(req: Request) {
 
     const deliveryAddressObj = {
       buyerId: customerId || resolvedCustomerId,
-      buyerEmail: email || validEmail,
+      buyerEmail: resolvedCustomerRealEmail || validEmail,
       buyerPhone: phoneNumber || cleanPhone,
       buyerName: trimmedName || "Customer",
       recipientName: trimmedName || "Customer",
@@ -125,6 +176,7 @@ export async function POST(req: Request) {
       subCity: subcity || "Bole (Medhanialem, Rwanda, Atlas, Bulbula)",
       specificLocation: specificAddress || "Addis Ababa",
       phone: cleanPhone,
+      email: resolvedCustomerRealEmail || validEmail,
       notes: deliveryNotes,
       itemsSnapshot,
     };
@@ -392,6 +444,33 @@ export async function POST(req: Request) {
           } finally {
             orderClient.release();
           }
+
+          // Trigger email notifications for MercatoX Card order (Customer, Admin, and Each Seller)
+          const targetRecipientEmail =
+            (resolvedCustomerRealEmail && resolvedCustomerRealEmail.includes("@") && !resolvedCustomerRealEmail.includes("example.com"))
+              ? resolvedCustomerRealEmail
+              : ((cardDeductInfo?.card?.email && cardDeductInfo.card.email.includes("@") && !cardDeductInfo.card.email.includes("example.com"))
+                  ? cardDeductInfo.card.email
+                  : (validEmail.includes(".mercatox@gmail.com") ? undefined : validEmail));
+
+          await triggerOrderEmailNotifications({
+            id: orderId,
+            orderNumber,
+            customerId: resolvedCustomerId,
+            sellerId: resolvedSellerId,
+            customerEmail: targetRecipientEmail,
+            customerName: trimmedName || firstName,
+            customerPhone: cleanPhone,
+            subtotalAmount: calcSubtotal,
+            deliveryFee: calcDeliveryFee,
+            totalAmount: calcTotal,
+            deliveryAddress: deliveryAddressObj,
+            paymentMethod: "MercatoX Card Escrow (0% Transaction Fee)",
+            paymentStatus: "PAID",
+            notes: deliveryNotes,
+            items: itemsSnapshot,
+            createdAt: new Date().toISOString(),
+          });
         } catch (orderUpdErr) {
           console.warn("[Chapa API] Failed to update order status to PAID:", orderUpdErr);
         }

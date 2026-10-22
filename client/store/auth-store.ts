@@ -26,9 +26,11 @@ interface AuthState {
   token: string | null;
   refreshToken: string | null;
   isAuthenticated: boolean;
+  hasHydrated: boolean;
+  setHasHydrated: (hasHydrated: boolean) => void;
   login: (user: User, token?: string, refreshToken?: string) => void;
   logout: () => void;
-  setUser: (user: User) => void;
+  setUser: (user: Partial<User>) => void;
   setTokens: (token: string, refreshToken?: string) => void;
 }
 
@@ -39,6 +41,8 @@ export const useAuthStore = create<AuthState>()(
       token: null,
       refreshToken: null,
       isAuthenticated: false,
+      hasHydrated: false,
+      setHasHydrated: (hasHydrated: boolean) => set({ hasHydrated }),
       login: (user: User, token?: string, refreshToken?: string) => {
         const validToken = token || "jwt-session-token-" + Date.now();
         set({
@@ -46,6 +50,7 @@ export const useAuthStore = create<AuthState>()(
           token: validToken,
           refreshToken: refreshToken || null,
           isAuthenticated: true,
+          hasHydrated: true,
         });
       },
       logout: () => {
@@ -53,6 +58,8 @@ export const useAuthStore = create<AuthState>()(
           try {
             localStorage.removeItem("mercatox-auth-storage");
             sessionStorage.removeItem("mercatox-auth-storage");
+            localStorage.removeItem("mercatox_token");
+            localStorage.removeItem("token");
           } catch {
             // ignore storage access errors
           }
@@ -62,11 +69,13 @@ export const useAuthStore = create<AuthState>()(
           token: null,
           refreshToken: null,
           isAuthenticated: false,
+          hasHydrated: true,
         });
       },
-      setUser: (user: User) =>
+      setUser: (user: Partial<User>) =>
         set((state) => ({
-          user: { ...state.user, ...user },
+          user: state.user ? { ...state.user, ...user } : (user as User),
+          isAuthenticated: true,
         })),
       setTokens: (token: string, refreshToken?: string) =>
         set((state) => ({
@@ -79,15 +88,37 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => localStorage),
       onRehydrateStorage: () => (state) => {
         if (state) {
-          if (state.token && state.user) {
+          if (state.user && state.token) {
+            state.isAuthenticated = true;
+          } else if (state.user && !state.token) {
+            state.token = "jwt-session-token-" + Date.now();
             state.isAuthenticated = true;
           } else {
             state.user = null;
             state.token = null;
+            state.refreshToken = null;
             state.isAuthenticated = false;
           }
+          state.hasHydrated = true;
+        } else {
+          useAuthStore.setState({
+            hasHydrated: true,
+            user: null,
+            token: null,
+            refreshToken: null,
+            isAuthenticated: false,
+          });
         }
       },
     }
   )
 );
+
+if (typeof window !== "undefined") {
+  if (useAuthStore.persist?.hasHydrated?.()) {
+    useAuthStore.setState({ hasHydrated: true });
+  }
+  useAuthStore.persist?.onFinishHydration?.(() => {
+    useAuthStore.setState({ hasHydrated: true });
+  });
+}

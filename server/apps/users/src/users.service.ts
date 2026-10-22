@@ -180,6 +180,37 @@ export class UsersService implements OnModuleInit {
     return profile;
   }
 
+  async getProfileByEmail(email: string): Promise<Profile | null> {
+    if (!email) return null;
+    const cleanEmail = email.toLowerCase().trim();
+    const profile = await this.profileRepository
+      .createQueryBuilder('profile')
+      .where('LOWER(TRIM(profile.email)) = :email', { email: cleanEmail })
+      .getOne();
+
+    if (!profile) return null;
+
+    try {
+      const rows = await this.profileRepository.query(
+        `SELECT "phoneNumber", "alternatePhone", "businessLicenseUrl", "tinCertificateUrl", "commercialRegistrationUrl", "ownerIdUrl", "businessType" FROM profiles WHERE id = $1`,
+        [profile.id],
+      );
+      if (rows && rows[0]) {
+        profile.phoneNumber = rows[0].phoneNumber ?? profile.phoneNumber ?? profile.alternatePhone;
+        profile.alternatePhone = rows[0].alternatePhone ?? profile.alternatePhone ?? profile.phoneNumber;
+        profile.businessLicenseUrl = rows[0].businessLicenseUrl ?? profile.businessLicenseUrl;
+        profile.tinCertificateUrl = rows[0].tinCertificateUrl ?? profile.tinCertificateUrl;
+        profile.commercialRegistrationUrl = rows[0].commercialRegistrationUrl ?? profile.commercialRegistrationUrl;
+        profile.ownerIdUrl = rows[0].ownerIdUrl ?? profile.ownerIdUrl;
+        profile.businessType = rows[0].businessType ?? profile.businessType;
+      }
+    } catch {
+      // safe fallback
+    }
+
+    return profile;
+  }
+
   async updateProfile(userId: string, dto: UpdateProfileDto): Promise<Profile> {
     let profile = await this.profileRepository.findOne({
       where: { userId },
@@ -296,21 +327,70 @@ export class UsersService implements OnModuleInit {
     return this.profileRepository.save(profile);
   }
 
-  async deleteProfile(userId: string): Promise<{ success: boolean; userId: string }> {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
-    if (!isUuid) return { success: false, userId };
-    const profile = await this.profileRepository.findOne({
-      where: [
-        { userId },
-        { id: userId },
-      ],
-    });
-    if (!profile) {
-      throw new RpcException(new NotFoundException('Profile not found'));
-    }
+  async deleteProfile(userId: string): Promise<{ success: boolean; userId: string; deletedCount?: number }> {
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+      let deletedCount = 0;
+      const profile = await this.profileRepository.findOne({
+        where: isUuid
+          ? [{ userId }, { id: userId }]
+          : [{ email: userId }],
+      });
 
-    await this.profileRepository.remove(profile);
-    return { success: true, userId };
+      const candidateIds = [userId];
+      if (profile) {
+        if (profile.id) candidateIds.push(profile.id);
+        if (profile.userId) candidateIds.push(profile.userId);
+      }
+      const allIds = Array.from(new Set(candidateIds.filter(Boolean)));
+
+      // Clean up staff records associated with this user, seller, or driver
+      if (allIds.length > 0) {
+        await this.staffRepository
+          .createQueryBuilder()
+          .delete()
+          .where('sellerId IN (:...allIds) OR id IN (:...allIds)', { allIds })
+          .execute()
+          .catch(() => null);
+      }
+
+      if (profile?.email) {
+        await this.staffRepository
+          .createQueryBuilder()
+          .delete()
+          .where('LOWER(email) = :email', { email: profile.email.toLowerCase() })
+          .execute()
+          .catch(() => null);
+      }
+
+      if (profile?.phoneNumber) {
+        await this.staffRepository
+          .createQueryBuilder()
+          .delete()
+          .where('phone = :phone', { phone: profile.phoneNumber })
+          .execute()
+          .catch(() => null);
+      }
+
+      if (profile) {
+        await this.profileRepository.remove(profile);
+        deletedCount = 1;
+      } else if (isUuid) {
+        const delRes = await this.profileRepository.delete([
+          { userId },
+          { id: userId },
+        ]);
+        deletedCount = delRes.affected || 0;
+      } else {
+        const delRes = await this.profileRepository.delete({ email: userId });
+        deletedCount = delRes.affected || 0;
+      }
+
+      return { success: true, userId, deletedCount };
+    } catch (err) {
+      console.error('[UsersService] Error deleting profile:', err);
+      return { success: false, userId, deletedCount: 0 };
+    }
   }
 
   async listUsers(query: FilterUsersDto) {

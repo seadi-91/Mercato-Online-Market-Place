@@ -17,6 +17,7 @@ import * as path from 'path';
 import {
   AuthGuard,
   CurrentUser,
+  MailService,
   Roles,
   RolesGuard,
   UserRole,
@@ -64,6 +65,8 @@ export interface UserSubscriptionRecord {
 
 @Controller()
 export class SubscriptionsController {
+  constructor(private readonly mailService: MailService) {}
+
   private getStorageFilePath(): string {
     return path.resolve(process.cwd(), 'platform-subscriptions.json');
   }
@@ -351,8 +354,9 @@ export class SubscriptionsController {
   updateSubscriberStatus(
     @Param('id') id: string,
     @Body('status') status: 'PAID' | 'PENDING' | 'REJECTED',
+    @Body('rejectionReason') rejectionReason?: string,
   ) {
-    return this.applySubscriberStatus(id, status);
+    return this.applySubscriberStatus(id, status, rejectionReason);
   }
 
   /**
@@ -363,11 +367,16 @@ export class SubscriptionsController {
   updateSubscriberStatusPublic(
     @Param('id') id: string,
     @Body('status') status: 'PAID' | 'PENDING' | 'REJECTED',
+    @Body('rejectionReason') rejectionReason?: string,
   ) {
-    return this.applySubscriberStatus(id, status);
+    return this.applySubscriberStatus(id, status, rejectionReason);
   }
 
-  private applySubscriberStatus(id: string, status: 'PAID' | 'PENDING' | 'REJECTED') {
+  private applySubscriberStatus(
+    id: string,
+    status: 'PAID' | 'PENDING' | 'REJECTED',
+    rejectionReason?: string,
+  ) {
     const { plans, subscribers } = this.readStorage();
     const record = subscribers.find((s) => s.id === id);
     if (!record) {
@@ -376,6 +385,24 @@ export class SubscriptionsController {
 
     record.paymentStatus = status;
     this.writeStorage({ plans, subscribers });
+
+    // Send email notification to the merchant
+    if (record.userEmail && (status === 'PAID' || status === 'REJECTED')) {
+      this.mailService
+        .sendSubscriptionStatusEmail({
+          toEmail: record.userEmail,
+          fullName: record.userName || 'Valued Merchant',
+          planName: record.planName,
+          price: record.price,
+          billingPeriod: record.billingPeriod,
+          paymentMethod: record.paymentMethod,
+          isApproved: status === 'PAID',
+          rejectionReason,
+        })
+        .catch((err) =>
+          console.error('[SubscriptionsController] Failed to send subscription status email:', err),
+        );
+    }
 
     return { success: true, record };
   }

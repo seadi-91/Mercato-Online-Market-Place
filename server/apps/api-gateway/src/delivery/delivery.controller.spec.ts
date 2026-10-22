@@ -69,7 +69,8 @@ describe('DeliveryController', () => {
     const orderId = 'order-123';
     mockOrdersClient.send.mockReturnValue(of({ id: orderId, carrierId: deliveryStaffId }));
 
-    const result = await controller.claimDelivery(orderId, deliveryStaffId);
+    const mockReq = { ip: '127.0.0.1', headers: {} } as any;
+    const result = await controller.claimDelivery(orderId, deliveryStaffId, mockReq);
     expect(result).toBeDefined();
     expect(mockOrdersClient.send).toHaveBeenCalledWith('claim_delivery', {
       orderId,

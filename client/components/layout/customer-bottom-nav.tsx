@@ -16,11 +16,13 @@ export function CustomerBottomNav() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const cartCount = useCartStore((state) => state.getItemCount());
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, hasHydrated } = useAuthStore();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const isUserLoggedIn = mounted && hasHydrated && isAuthenticated && Boolean(user);
 
   const navItems = [
     {
@@ -49,8 +51,8 @@ export function CustomerBottomNav() {
       isActive: pathname === "/orders",
     },
     {
-      label: isAuthenticated ? (user?.role === "ADMIN" ? "Admin" : "Profile") : "Login",
-      href: isAuthenticated
+      label: isUserLoggedIn ? (user?.role === "ADMIN" ? "Admin" : "Profile") : "Login",
+      href: isUserLoggedIn
         ? user?.role === "ADMIN"
           ? "/dashboard/admin"
           : "/profile"

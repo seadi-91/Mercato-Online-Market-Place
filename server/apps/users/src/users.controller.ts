@@ -27,6 +27,11 @@ export class UsersController {
     return this.usersService.getProfileByUserId(payload.userId);
   }
 
+  @MessagePattern('get_profile_by_email')
+  getProfileByEmail(@Payload() payload: { email: string }) {
+    return this.usersService.getProfileByEmail(payload?.email);
+  }
+
   @MessagePattern('update_profile')
   updateProfile(
     @Payload() payload: { userId: string; dto: UpdateProfileDto },

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getOrderDbPool } from "@/lib/db";
+import { getOrderDbPool, getUsersDbPool, getPaymentDbPool } from "@/lib/db";
 import { recordPaymentInDatabase } from "@/lib/api/payment-db";
 import { getAccurateProductImage } from "@/lib/utils/product-image";
+import { sendOrderEmailsDirectly } from "@/lib/mailer";
 import crypto from "crypto";
 
 const DEFAULT_CUSTOMER_ID = "609563b9-3c51-4b25-80c2-a3b238ee929f";
@@ -14,31 +15,179 @@ function isValidUuid(id?: string | null): boolean {
   );
 }
 
-async function triggerOrderEmailNotifications(payload: any) {
+export async function triggerOrderEmailNotifications(payload: any) {
   try {
+    let deliv = payload.deliveryAddress || {};
+    if (typeof deliv === "string") {
+      try {
+        deliv = JSON.parse(deliv);
+      } catch {
+        deliv = {};
+      }
+    }
+
+    let customerEmail =
+      payload.customerEmail ||
+      deliv.buyerEmail ||
+      deliv.email ||
+      payload.email;
+
+    let customerName =
+      payload.customerName ||
+      deliv.buyerName ||
+      deliv.recipientName ||
+      deliv.fullName ||
+      payload.fullName;
+
+    let customerPhone =
+      payload.customerPhone ||
+      deliv.buyerPhone ||
+      deliv.recipientPhone ||
+      deliv.phone ||
+      payload.phoneNumber;
+
+    // If customer email is missing, synthetic placeholder, or example address, resolve from DB
+    const targetUserId = payload.customerId || deliv.buyerId;
+    if (
+      !customerEmail ||
+      customerEmail.includes(".mercatox@gmail.com") ||
+      customerEmail.includes("example.com")
+    ) {
+      // 1. Try resolving via profiles table by targetUserId
+      if (targetUserId && isValidUuid(targetUserId)) {
+        try {
+          const usersPool = getUsersDbPool();
+          const pRes = await usersPool.query(
+            `SELECT email, "fullName", "phoneNumber" FROM profiles WHERE "userId" = $1 OR id = $1 LIMIT 1`,
+            [targetUserId]
+          );
+          if (pRes.rows.length > 0 && pRes.rows[0].email && !pRes.rows[0].email.includes("example.com")) {
+            customerEmail = pRes.rows[0].email;
+            if (!customerName) customerName = pRes.rows[0].fullName;
+            if (!customerPhone) customerPhone = pRes.rows[0].phoneNumber;
+          }
+        } catch (err) {
+          console.warn("[Orders API] Could not resolve customer profile by userId:", err);
+        }
+      }
+
+      // 2. Try resolving via profiles table by phone number
+      if ((!customerEmail || customerEmail.includes(".mercatox@gmail.com") || customerEmail.includes("example.com")) && customerPhone) {
+        try {
+          const rawDigits = String(customerPhone).replace(/\D/g, "");
+          if (rawDigits.length >= 8) {
+            const usersPool = getUsersDbPool();
+            const pRes = await usersPool.query(
+              `SELECT email, "fullName", "phoneNumber" FROM profiles WHERE "phoneNumber" LIKE $1 LIMIT 1`,
+              [`%${rawDigits.slice(-8)}%`]
+            );
+            if (pRes.rows.length > 0 && pRes.rows[0].email && !pRes.rows[0].email.includes("example.com")) {
+              customerEmail = pRes.rows[0].email;
+              if (!customerName) customerName = pRes.rows[0].fullName;
+            }
+          }
+        } catch { }
+      }
+
+      // 3. Try resolving via mercatox_cards table
+      if (!customerEmail || customerEmail.includes(".mercatox@gmail.com") || customerEmail.includes("example.com")) {
+        try {
+          const payPool = getPaymentDbPool();
+          const cleanPhone = String(customerPhone || "").replace(/\D/g, "");
+          const cRes = await payPool.query(
+            `SELECT email, "cardholderName" FROM mercatox_cards WHERE ("phoneNumber" LIKE $1 OR "customerId"::text = $2) AND email NOT LIKE '%example.com%' ORDER BY "createdAt" DESC LIMIT 1`,
+            [`%${cleanPhone.slice(-8)}%`, targetUserId || ""]
+          );
+          if (cRes.rows.length > 0 && cRes.rows[0].email) {
+            customerEmail = cRes.rows[0].email;
+            if (!customerName) customerName = cRes.rows[0].cardholderName;
+          }
+        } catch { }
+      }
+    }
+
+    // Normalize and enrich items with seller info if missing
+    const rawItems = Array.isArray(payload.items) ? payload.items : [];
+    const enrichedItems: any[] = [];
+    const usersPool = getUsersDbPool();
+
+    for (const it of rawItems) {
+      let sEmail = it.sellerEmail;
+      let sName = it.sellerName;
+      const sId = it.sellerId || payload.sellerId;
+
+      if (!sEmail && sId && isValidUuid(sId)) {
+        try {
+          const sRes = await usersPool.query(
+            `SELECT email, "shopName", "fullName" FROM profiles WHERE "userId" = $1 OR id = $1 LIMIT 1`,
+            [sId]
+          );
+          if (sRes.rows.length > 0) {
+            sEmail = sRes.rows[0].email;
+            sName = sRes.rows[0].shopName || sRes.rows[0].fullName;
+          }
+        } catch {
+          // ignore
+        }
+      }
+
+      enrichedItems.push({
+        ...it,
+        sellerId: sId,
+        sellerEmail: sEmail || "muradsada8@gmail.com",
+        sellerName: sName || "Mercato Wholesale Merchant",
+      });
+    }
+
+    const orderNumber = payload.orderNumber || payload.id;
+
+    // 1. Send all order emails directly via Nodemailer (Customer, Admin, and Each Seller)
+    try {
+      const emailResults = await sendOrderEmailsDirectly({
+        orderNumber,
+        customerEmail,
+        customerName: customerName || "Valued Customer",
+        customerPhone: customerPhone || "Not provided",
+        deliveryAddress: deliv,
+        items: enrichedItems,
+        subtotal: Number(payload.subtotalAmount || payload.subtotal || 0),
+        deliveryFee: Number(payload.deliveryFee || 0),
+        totalAmount: Number(payload.totalAmount || 0),
+        paymentMethod: payload.paymentMethod || "Chapa Escrow (Telebirr / CBE / Card)",
+        paymentStatus: payload.paymentStatus || "PAID",
+      });
+      console.log(`[Orders API] Direct order emails dispatched:`, emailResults);
+    } catch (mailErr: any) {
+      console.error(`[Orders API] Error sending direct order emails:`, mailErr.message || mailErr);
+    }
+
+    // 2. Also notify API Gateway asynchronously to sync microservices and audit logs
     const apiGatewayUrl =
       process.env.INTERNAL_API_GATEWAY_URL ||
       process.env.API_GATEWAY_URL ||
       process.env.NEXT_PUBLIC_API_URL ||
       "http://localhost:3001";
 
-    fetch(`${apiGatewayUrl}/orders/notify-new-order`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-      .then(async (res) => {
-        if (res.ok) {
-          console.log(`[Orders API] Dispatched order notifications for ${payload.orderNumber || payload.id}`);
-        } else {
-          console.warn(`[Orders API] Gateway responded with ${res.status} to notify-new-order`);
-        }
-      })
-      .catch((err) => {
-        console.warn(`[Orders API] Could not dispatch order notifications:`, err.message || err);
+    try {
+      await fetch(`${apiGatewayUrl}/orders/notify-new-order`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...payload,
+          customerEmail,
+          customerName,
+          customerPhone,
+          items: enrichedItems,
+        }),
+        signal: AbortSignal.timeout(5000),
+      }).catch((gatewayErr) => {
+        console.warn(`[Orders API] API Gateway notification ping failed (non-critical):`, gatewayErr.message || gatewayErr);
       });
+    } catch (e) {
+      // non-critical
+    }
   } catch (err: any) {
-    console.warn(`[Orders API] Error initiating order notification request:`, err.message || err);
+    console.warn(`[Orders API] Error in triggerOrderEmailNotifications:`, err.message || err);
   }
 }
 
@@ -274,10 +423,55 @@ export async function POST(req: Request) {
       sku: it.sku || it.productSku,
     }));
 
+    let resolvedCustomerEmail =
+      deliveryAddress?.buyerEmail ||
+      deliveryAddress?.email ||
+      body.customerEmail ||
+      body.email;
+
+    if (
+      !resolvedCustomerEmail ||
+      resolvedCustomerEmail.includes(".mercatox@gmail.com") ||
+      resolvedCustomerEmail.includes("example.com")
+    ) {
+      if (resolvedCustomerId && isValidUuid(resolvedCustomerId) && resolvedCustomerId !== DEFAULT_CUSTOMER_ID) {
+        try {
+          const usersPool = getUsersDbPool();
+          const pRes = await usersPool.query(
+            `SELECT email FROM profiles WHERE "userId" = $1 OR id = $1 LIMIT 1`,
+            [resolvedCustomerId]
+          );
+          if (pRes.rows.length > 0 && pRes.rows[0].email && !pRes.rows[0].email.includes("example.com")) {
+            resolvedCustomerEmail = pRes.rows[0].email.trim();
+          }
+        } catch { }
+      }
+
+      if (
+        (!resolvedCustomerEmail || resolvedCustomerEmail.includes(".mercatox@gmail.com") || resolvedCustomerEmail.includes("example.com")) &&
+        (deliveryAddress?.phone || deliveryAddress?.buyerPhone)
+      ) {
+        try {
+          const rawDigits = String(deliveryAddress.phone || deliveryAddress.buyerPhone).replace(/\D/g, "");
+          if (rawDigits.length >= 8) {
+            const usersPool = getUsersDbPool();
+            const pRes = await usersPool.query(
+              `SELECT email FROM profiles WHERE "phoneNumber" LIKE $1 LIMIT 1`,
+              [`%${rawDigits.slice(-8)}%`]
+            );
+            if (pRes.rows.length > 0 && pRes.rows[0].email && !pRes.rows[0].email.includes("example.com")) {
+              resolvedCustomerEmail = pRes.rows[0].email.trim();
+            }
+          }
+        } catch { }
+      }
+    }
+
     const augmentedDeliveryAddress = {
       ...(typeof deliveryAddress === "object" ? deliveryAddress : {}),
       buyerId: deliveryAddress?.buyerId || (isValidUuid(customerId) ? customerId : undefined) || resolvedCustomerId,
-      buyerEmail: deliveryAddress?.buyerEmail || deliveryAddress?.email,
+      buyerEmail: resolvedCustomerEmail,
+      email: resolvedCustomerEmail,
       buyerPhone: deliveryAddress?.buyerPhone || deliveryAddress?.phone,
       buyerName: deliveryAddress?.buyerName || deliveryAddress?.recipientName || deliveryAddress?.fullName,
       itemsSnapshot,
@@ -337,11 +531,12 @@ export async function POST(req: Request) {
         }
 
         // Trigger order email notifications (Customer, Admin, and Each Seller)
-        triggerOrderEmailNotifications({
+        await triggerOrderEmailNotifications({
           id: exOrder.id,
           orderNumber: exOrder.orderNumber,
           customerId: exOrder.customerId,
           sellerId: exOrder.sellerId,
+          customerEmail: resolvedCustomerEmail,
           subtotalAmount: Number(exOrder.subtotalAmount || exOrder.totalAmount),
           deliveryFee: Number(exOrder.deliveryFee || 0),
           totalAmount: Number(exOrder.totalAmount),
@@ -527,11 +722,12 @@ export async function POST(req: Request) {
     }
 
     // Trigger order email notifications (Customer, Admin, and Each Seller)
-    triggerOrderEmailNotifications({
+    await triggerOrderEmailNotifications({
       id: orderId,
       orderNumber: finalOrderNumber,
       customerId: resolvedCustomerId,
       sellerId: resolvedSellerId,
+      customerEmail: resolvedCustomerEmail,
       subtotalAmount: calcSubtotal,
       deliveryFee: calcDeliveryFee,
       totalAmount: calcTotal,

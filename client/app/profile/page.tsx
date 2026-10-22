@@ -36,11 +36,18 @@ import { toast } from "sonner";
 
 function ProfilePageContent() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, isAuthenticated, hasHydrated, logout } = useAuthStore();
 
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [profileError, setProfileError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (!isAuthenticated || !user) {
+      router.replace("/login?redirect=%2Fprofile");
+    }
+  }, [hasHydrated, isAuthenticated, router, user]);
 
   const [orderStats, setOrderStats] = useState({ total: 0, delivered: 0, inTransit: 0 });
   const [isLoadingOrders, setIsLoadingOrders] = useState(true);
@@ -144,6 +151,21 @@ function ProfilePageContent() {
     });
     setIsEditing(false);
   };
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#070a12]">
+        <div className="flex items-center gap-3 text-indigo-400">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-medium text-zinc-300">Verifying profile access...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   const displayName = form.fullName || user?.name || "Customer";
   const initials = displayName.split(" ").map((n: string) => n[0]).join("").toUpperCase().slice(0, 2);

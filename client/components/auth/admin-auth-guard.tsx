@@ -26,7 +26,7 @@ interface AdminAuthGuardProps {
 
 export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
   const router = useRouter();
-  const { user, token, isAuthenticated, login, logout } = useAuthStore();
+  const { user, token, isAuthenticated, hasHydrated, login, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -34,7 +34,7 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  if (!mounted || !hasHydrated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#050811]">
         <div className="flex items-center gap-3 text-indigo-400">
@@ -49,9 +49,8 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
 
   const hasValidSession =
     isAuthenticated &&
-    Boolean(token) &&
-    isValidJwt(token) &&
-    !isJwtExpired(token);
+    Boolean(user) &&
+    Boolean(token);
 
   const isAdminRole = user?.role === "ADMIN";
 

@@ -141,6 +141,14 @@ export class OrdersController {
     return this.ordersService.deleteOrderAdmin(payload.id);
   }
 
+  @MessagePattern('delete_user_orders_data')
+  deleteUserOrdersData(@Payload() payload: { userIds: string[] | string }) {
+    const ids = Array.isArray(payload.userIds)
+      ? payload.userIds
+      : [payload.userIds];
+    return this.ordersService.deleteUserOrdersData(ids);
+  }
+
   @MessagePattern('assign_order_carrier')
   assignOrderCarrier(
     @Payload()

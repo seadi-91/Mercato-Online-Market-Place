@@ -514,6 +514,11 @@ function RegisterPageContent() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [agreed, setAgreed] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    loadGoogleScript().catch(() => {});
+  }, []);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   // Active Role Metadata
@@ -1054,7 +1059,7 @@ function RegisterPageContent() {
         setSupplierUnderReview(true);
         setIsLoading(false);
         toast.success("Supplier Application Submitted!", {
-          description: "Your account is under review (እባክዎ በትዕግስት ይጠብቁ). Please wait for admin approval.",
+          description: "Your account is under review. Please wait for admin approval.",
           duration: 8000,
         });
         return;
@@ -1105,17 +1110,29 @@ function RegisterPageContent() {
   const handleOAuthRegister = async (provider: string) => {
     if (provider === "Google") {
       const targetRole = selectedRole || "CUSTOMER";
-      const postLoginDest = targetRole === "SELLER" ? "/dashboard/seller" : "/";
+      const roleStr = String(targetRole);
+      const postLoginDest =
+        roleStr === "SELLER"
+          ? "/dashboard/seller"
+          : roleStr === "SUPPLIER"
+          ? "/dashboard/supplier"
+          : roleStr === "ADMIN"
+          ? "/dashboard/admin"
+          : roleStr === "DRIVER" || roleStr === "DELIVERY"
+          ? "/dashboard/driver"
+          : "/";
+
       try {
         if (typeof window !== "undefined") {
           sessionStorage.setItem("mercatox_auth_redirect", postLoginDest);
         }
       } catch {}
 
+      setIsGoogleLoading(true);
       toast.loading("Connecting to Google...", { id: "oauth-reg" });
 
       try {
-        const authData = await triggerGoogleSignIn(targetRole as any);
+        const authData = await triggerGoogleSignIn(targetRole as any, true);
         if (authData && authData.accessToken) {
           const userRole = authData.user.role || targetRole;
           login(
@@ -1125,15 +1142,26 @@ function RegisterPageContent() {
               email: authData.user.email,
               role: userRole,
               phoneNumber: authData.user.phoneNumber,
+              avatar: authData.user.avatar || authData.user.avatarUrl,
               isVerified: true,
             },
-            authData.accessToken
+            authData.accessToken,
+            authData.refreshToken
           );
           toast.success(`Account registered with Google!`, {
             id: "oauth-reg",
             description: `Welcome to MercatoX, ${authData.user.fullName || "Customer"}! Redirecting...`,
           });
-          const finalDest = userRole === "SELLER" ? "/dashboard/seller" : postLoginDest;
+          const finalDest =
+            userRole === "SELLER"
+              ? "/dashboard/seller"
+              : userRole === "SUPPLIER"
+              ? "/dashboard/supplier"
+              : userRole === "ADMIN"
+              ? "/dashboard/admin"
+              : userRole === "DRIVER" || (userRole as string) === "DELIVERY"
+              ? "/dashboard/driver"
+              : postLoginDest;
           router.push(finalDest);
           return;
         }
@@ -1145,6 +1173,8 @@ function RegisterPageContent() {
           description: message,
         });
         return;
+      } finally {
+        setIsGoogleLoading(false);
       }
 
       return;
@@ -1185,7 +1215,7 @@ function RegisterPageContent() {
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/15 border border-amber-500/30 text-amber-300">
             <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-            <span>Account Under Review · መለያዎ በግምገማ ላይ ነው</span>
+            <span>Account Under Review</span>
           </div>
 
           <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white">
@@ -1193,7 +1223,7 @@ function RegisterPageContent() {
           </h1>
           <p className="text-xs sm:text-sm text-zinc-300 max-w-lg mx-auto leading-relaxed">
             Your supplier registration form and legal compliance files have been securely saved to our database.
-            Your account is currently <strong className="text-amber-400 font-semibold">under review (እባክዎ በትዕግስት ይጠብቁ)</strong>.
+            Your account is currently <strong className="text-amber-400 font-semibold">under review</strong>.
             MercatoX administrators will verify your documents before activating your account.
           </p>
         </div>
@@ -1359,30 +1389,38 @@ function RegisterPageContent() {
             </p>
           </div>
 
-          {/* Fast Social Sign-up (Default Role: Customer) */}
+          {/* Fast Social Sign-up */}
           <div className="mb-4">
-            <div className="grid grid-cols-2 gap-2.5">
+            <div className="space-y-2.5">
               <button
                 type="button"
                 onClick={() => handleOAuthRegister("Google")}
-                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 px-3 text-xs font-medium text-white transition-all hover:bg-white/[0.08] hover:border-white/20 active:scale-[0.98] cursor-pointer"
+                disabled={isGoogleLoading}
+                className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 px-4 text-xs font-semibold text-white transition-all hover:bg-white/[0.09] hover:border-cyan-500/40 active:scale-[0.99] cursor-pointer shadow-sm disabled:opacity-60 group"
               >
-                <GoogleIcon className="h-4 w-4 shrink-0" />
-                <span>Google</span>
+                {isGoogleLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-cyan-400" />
+                ) : (
+                  <GoogleIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+                )}
+                <span>{isGoogleLoading ? "Connecting to Google..." : "Continue with Google account"}</span>
               </button>
               <button
                 type="button"
                 onClick={() => handleOAuthRegister("GitHub")}
-                className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 px-3 text-xs font-medium text-white transition-all hover:bg-white/[0.08] hover:border-white/20 active:scale-[0.98] cursor-pointer"
+                disabled={isGoogleLoading}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] py-2 px-3 text-xs font-medium text-zinc-300 transition-all hover:bg-white/[0.06] hover:text-white hover:border-white/20 active:scale-[0.99] cursor-pointer disabled:opacity-60"
               >
                 <GithubIcon className="h-4 w-4 shrink-0" />
-                <span>GitHub</span>
+                <span>Continue with GitHub</span>
               </button>
             </div>
-            <div className="mt-2 flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
+            <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span>Continue with Google / GitHub registers directly as</span>
-              <span className="font-semibold text-cyan-300">Customer</span>
+              <span>Registers directly with Google as</span>
+              <span className="font-semibold text-cyan-300">
+                {selectedRole === "SELLER" ? "Merchant / Seller" : selectedRole === "SUPPLIER" ? "B2B Supplier" : "Customer"}
+              </span>
             </div>
           </div>
 

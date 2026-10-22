@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Lock, Bell, Sun, Moon, Monitor, Eye, EyeOff, Loader2,
   ShieldCheck, ChevronRight, User, Package, LogOut,
   CheckCircle2, AlertCircle, Palette, Info, Smartphone,
-  Globe,
+  Globe, RefreshCw,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -269,10 +269,17 @@ type TabKey = typeof TABS[number]["key"];
 
 function SettingsContent() {
   const router = useRouter();
-  const { user, token, logout } = useAuthStore();
+  const { user, token, isAuthenticated, hasHydrated, logout } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
 
   const [activeTab, setActiveTab] = useState<TabKey>("security");
+
+  useEffect(() => {
+    if (!hasHydrated) return;
+    if (!isAuthenticated || !user) {
+      router.replace("/login?redirect=%2Fsettings");
+    }
+  }, [hasHydrated, isAuthenticated, router, user]);
 
   /* Password state */
   const [currentPw, setCurrentPw] = useState("");
@@ -398,6 +405,21 @@ function SettingsContent() {
       : theme === "system"
       ? "hover:bg-blue-600/10"
       : "hover:bg-white/[0.04]";
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#000000]">
+        <div className="flex items-center gap-3 text-indigo-400">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-medium text-zinc-300">Verifying account settings access...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   return (
     <div className={`min-h-screen flex flex-col transition-colors duration-300 ${pageBg}`}>

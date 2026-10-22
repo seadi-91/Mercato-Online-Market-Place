@@ -181,6 +181,7 @@ export async function POST(req: Request) {
 
     // Insert card into database with initial loaded balance and pending status (awaiting Chapa payment)
     const initialStatus = chapaSuccess ? "PENDING" : "ACTIVE";
+    const cardPassword = Math.floor(10000000 + Math.random() * 90000000).toString();
 
     const cardRecord = await createCardRecord({
       cardNumber,
@@ -200,7 +201,29 @@ export async function POST(req: Request) {
       transactionReference: txRef,
       chapaCheckoutUrl: checkoutUrl || undefined,
       customerId,
+      cardPassword,
     });
+
+    // If directly active (offline/test bypass mode without Chapa redirect), dispatch email immediately
+    if (initialStatus === "ACTIVE" && cardRecord) {
+      try {
+        const { sendCardPasswordEmail } = await import("@/lib/mailer");
+        const { markCardPasswordEmailSent } = await import("@/lib/api/card-db");
+        await sendCardPasswordEmail({
+          toEmail: validEmail,
+          cardholderName: trimmedName,
+          cardNumber: cardRecord.cardNumber,
+          cardPassword: cardPassword,
+          balance: Number(cardRecord.balance || 0),
+          currency: cardRecord.currency || "ETB",
+          expiryDate: cardRecord.expiryDate,
+        });
+        await markCardPasswordEmailSent(cardRecord.id);
+        console.log(`[Card Purchase] Dispatched instant 8-digit password email to ${validEmail}`);
+      } catch (mailErr) {
+        console.warn("[Card Purchase] Error sending instant card password email:", mailErr);
+      }
+    }
 
     // Record payment transaction in mercatox_payment_db payments table
     try {

@@ -292,6 +292,80 @@ export class CatalogService {
     return { success: true };
   }
 
+  async deleteSellerCatalogData(sellerIds: string[]): Promise<{
+    success: boolean;
+    deletedProducts: number;
+    deletedWarehouses: number;
+  }> {
+    const validIds = (sellerIds || []).filter((id) => id && typeof id === 'string');
+    if (validIds.length === 0) {
+      return { success: true, deletedProducts: 0, deletedWarehouses: 0 };
+    }
+
+    try {
+      // Find all products by these sellerIds (including soft-deleted)
+      const products = await this.productRepository
+        .createQueryBuilder('product')
+        .withDeleted()
+        .where('product.sellerId IN (:...validIds)', { validIds })
+        .getMany();
+
+      let deletedProducts = 0;
+      if (products.length > 0) {
+        const productIds = products.map((p) => p.id);
+        deletedProducts = productIds.length;
+
+        // Delete tiered pricing for these products
+        await this.tieredPricingRepository
+          .createQueryBuilder()
+          .delete()
+          .where('productId IN (:...productIds)', { productIds })
+          .execute()
+          .catch(() => null);
+
+        // Delete warehouse transfers referencing these products
+        await this.transferRepository
+          .createQueryBuilder()
+          .delete()
+          .where('productId IN (:...productIds)', { productIds })
+          .execute()
+          .catch(() => null);
+
+        // Hard-delete the products
+        await this.productRepository
+          .createQueryBuilder()
+          .delete()
+          .where('id IN (:...productIds)', { productIds })
+          .execute();
+      }
+
+      // Delete any warehouse transfers tied to these sellers
+      await this.transferRepository
+        .createQueryBuilder()
+        .delete()
+        .where('sellerId IN (:...validIds)', { validIds })
+        .execute()
+        .catch(() => null);
+
+      // Delete warehouses belonging to these sellers
+      const warehouseRes = await this.warehouseRepository
+        .createQueryBuilder()
+        .delete()
+        .where('sellerId IN (:...validIds)', { validIds })
+        .execute()
+        .catch(() => ({ affected: 0 }));
+
+      return {
+        success: true,
+        deletedProducts,
+        deletedWarehouses: warehouseRes?.affected || 0,
+      };
+    } catch (err: any) {
+      this.logger.error(`Error deleting seller catalog data for ${validIds.join(',')}: ${err?.message || err}`);
+      return { success: false, deletedProducts: 0, deletedWarehouses: 0 };
+    }
+  }
+
   async getProductById(id: string): Promise<Product> {
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     let product: Product | null = null;

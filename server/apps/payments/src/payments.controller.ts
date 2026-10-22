@@ -133,5 +133,17 @@ export class PaymentsController {
   deletePaymentAdmin(@Payload() payload: { id: string }) {
     return this.paymentsService.deletePayment(payload.id);
   }
+
+  @MessagePattern('delete_user_payments_data')
+  deleteUserPaymentsData(
+    @Payload()
+    payload: {
+      userIds: string[];
+      email?: string;
+      orderIds?: string[];
+    },
+  ) {
+    return this.paymentsService.deleteUserPaymentsData(payload);
+  }
 }
 

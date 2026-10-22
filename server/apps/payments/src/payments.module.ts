@@ -4,12 +4,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
+import { MailModule } from '@app/common';
 import { Payment } from './entities/payment.entity';
 import { Payout } from './entities/payout.entity';
 import { MercatoXCard } from './entities/card.entity';
 
 @Module({
   imports: [
+    MailModule,
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: './.env',

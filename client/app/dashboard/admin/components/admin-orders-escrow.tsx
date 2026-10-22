@@ -140,15 +140,8 @@ export function AdminOrdersEscrow() {
 
   // Load Orders
   const loadOrders = useCallback(async (isManualRefresh = false) => {
-    const hasValidToken = Boolean(token && token !== "mock-jwt-token" && token !== "oauth-token");
-    if (!hasValidToken) {
+    if (!token) {
       setLoadingOrders(false);
-      setOrders([]);
-      logout();
-      toast.error("Session expired", {
-        description: "Please sign in again to access admin orders.",
-      });
-      router.push("/login");
       return;
     }
 

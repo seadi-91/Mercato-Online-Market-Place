@@ -31,6 +31,8 @@ import {
   ExternalLink,
   LogIn,
   UserPlus,
+  Lock,
+  RefreshCw,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -382,7 +384,7 @@ function AtmCardVisual({
 function BuyCardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, token, isAuthenticated } = useAuthStore();
+  const { user, token, isAuthenticated, hasHydrated } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
 
   // Form State - Defaulted to official MercatoX Signature theme
@@ -402,6 +404,7 @@ function BuyCardPageContent() {
   const [myCards, setMyCards] = useState<any[]>([]);
   const [isLoadingCards, setIsLoadingCards] = useState(true);
   const [redirectCheckoutUrl, setRedirectCheckoutUrl] = useState<string>("");
+  const [isResendingPin, setIsResendingPin] = useState(false);
 
   const expiryDate = CARD_EXPIRY_DATE;
   const selectedTheme = CARD_THEMES.find((t) => t.id === selectedThemeId) || CARD_THEMES[0];
@@ -425,17 +428,22 @@ function BuyCardPageContent() {
   const displayCardholderName =
     currentCard?.cardholderName || cardholderName || user?.name || "Official Member";
 
-  const displayEmail = currentCard?.email || email || user?.email || "";
+  const displayEmail =
+    (user?.email && user.email.includes("@") && !user.email.includes("example.com"))
+      ? user.email
+      : ((currentCard?.email && !currentCard.email.includes("example.com")) ? currentCard.email : (email || user?.email || ""));
   const displayPhone = currentCard?.phoneNumber || phoneNumber || user?.phoneNumber || "";
   const displayCardNumber = currentCard?.cardNumber || generatedCardId;
   const displayBalance = Number(currentCard?.balance ?? loadedAmount ?? 0);
   const displayExpiry = currentCard?.expiryDate || expiryDate;
 
   useEffect(() => {
+    if (!hasHydrated) return;
     if (!isAuthenticated || !user) {
       router.replace("/login?redirect=%2Fcard");
     }
-  }, [isAuthenticated, router, user]);
+  }, [hasHydrated, isAuthenticated, router, user]);
+
 
   // 1. Fetch real user information directly from backend profile
   useEffect(() => {
@@ -581,9 +589,10 @@ function BuyCardPageContent() {
             setCardholderName(data.card.cardholderName);
             setSelectedThemeId(data.card.themeId || "mercatox-signature");
             setIsCardGenerated(true);
-            toast.success("Payment Verified! Your Card is Active", {
+            toast.success("Payment Verified! 8-Digit Password Sent to Email", {
               id: "chapa-verify",
-              description: `Card ${data.card.cardNumber} loaded with ETB ${Number(data.card.balance).toLocaleString()} is ready to use.`,
+              description: `Card ${data.card.cardNumber} is active! Your 8-digit card password has been sent to ${data.card.email}. Use it to checkout on MercatoX.`,
+              duration: 8000,
             });
             loadUserCards();
           } else {
@@ -595,6 +604,41 @@ function BuyCardPageContent() {
         });
     }
   }, [searchParams]);
+
+  const handleResendPassword = async () => {
+    const targetEmail = displayEmail;
+    if (!targetEmail) {
+      toast.error("No registered email address found for this card.");
+      return;
+    }
+    setIsResendingPin(true);
+    toast.loading("Sending 8-digit password to your email...", { id: "resend-pin" });
+    try {
+      const res = await fetch("/api/card/resend-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail,
+          phoneNumber: displayPhone,
+          customerId: user?.id,
+          cardNumber: displayCardNumber,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("8-Digit Password Sent to Email!", {
+          id: "resend-pin",
+          description: `Your card password has been sent to ${targetEmail}. Please check your inbox and spam folder.`,
+        });
+      } else {
+        toast.error(data.error || "Failed to send email", { id: "resend-pin" });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Network error", { id: "resend-pin" });
+    } finally {
+      setIsResendingPin(false);
+    }
+  };
 
   const handleCopyId = () => {
     navigator.clipboard?.writeText(generatedCardId);
@@ -709,6 +753,21 @@ function BuyCardPageContent() {
       setIsProcessing(false);
     }
   };
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#070a12]">
+        <div className="flex items-center gap-3 text-cyan-400">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-medium text-zinc-300">Verifying MercatoX Card access...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-app-surface text-app flex flex-col transition-colors duration-200">
@@ -841,11 +900,34 @@ function BuyCardPageContent() {
 
             {/* Actions */}
             <div className="relative z-10 space-y-3 pt-2">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-bold text-app">Card Management</span>
-                <span className="font-mono font-bold text-cyan-500">
-                  Available Balance: ETB {Number(displayBalance).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </span>
+              {/* 8-Digit Password Security Box */}
+              <div className="rounded-2xl border border-cyan-500/30 bg-gradient-to-r from-cyan-500/10 via-indigo-500/5 to-transparent p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-inner">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-cyan-500/15 border border-cyan-500/30 flex items-center justify-center text-cyan-400 shrink-0 shadow-sm">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-app">8-Digit Checkout Password</span>
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                        PROTECTED
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-app-muted mt-0.5">
+                      Your 8-digit password was sent to <strong className="text-cyan-400 font-mono">{displayEmail}</strong>. Enter it whenever checking out on MercatoX.
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleResendPassword}
+                  disabled={isResendingPin}
+                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl bg-app-surface border border-cyan-500/40 hover:bg-cyan-500/10 text-cyan-400 text-xs font-bold transition-all cursor-pointer disabled:opacity-50 shrink-0 shadow-xs"
+                >
+                  <Mail className="h-3.5 w-3.5" />
+                  <span>{isResendingPin ? "Sending Email..." : "Resend Password to Email"}</span>
+                </button>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

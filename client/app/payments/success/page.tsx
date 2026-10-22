@@ -15,6 +15,7 @@ import {
   Star,
   Send,
   Sparkles,
+  CreditCard,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -79,6 +80,14 @@ function PaymentSuccessContent() {
   const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
   const [reviewSubmitted, setReviewSubmitted] = useState<boolean>(false);
   const [orderPersistedInDb, setOrderPersistedInDb] = useState<boolean>(false);
+  const [rewardInfo, setRewardInfo] = useState<{
+    rewardApplied: boolean;
+    rewardPercent: number;
+    rewardAmount: number;
+    newBalance?: number;
+    cardNumber?: string;
+    isNewCard?: boolean;
+  } | null>(null);
 
   useEffect(() => {
     // 1. Clear cart now that payment has succeeded
@@ -102,6 +111,15 @@ function PaymentSuccessContent() {
     const resolvedSeller = parsed?.sellerId || parsed?.items?.[0]?.sellerId || "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
     if (parsed) {
+      const buyerEmail =
+        (user?.email && user.email.includes("@") && !user.email.includes("example.com"))
+          ? user.email
+          : ((parsed.email && !parsed.email.includes(".mercatox@gmail.com") && !parsed.email.includes("example.com"))
+              ? parsed.email
+              : (user?.email || (user as any)?.user?.email || parsed.email));
+      const buyerPhone = parsed.phoneNumber || (user as any)?.phoneNumber || (user as any)?.phone;
+      const buyerName = parsed.fullName || user?.name || (user as any)?.fullName || "Customer";
+
       // Save completed order record in localStorage
       try {
         const existingCompletedRaw = localStorage.getItem("mercatox_completed_orders");
@@ -119,8 +137,12 @@ function PaymentSuccessContent() {
           deliveryFee: 150,
           totalAmount: Number(parsed.amount),
           deliveryAddress: {
-            recipientName: parsed.fullName,
-            phone: parsed.phoneNumber,
+            recipientName: parsed.fullName || buyerName,
+            phone: parsed.phoneNumber || buyerPhone,
+            buyerName,
+            buyerPhone,
+            buyerEmail,
+            email: buyerEmail,
             city: "Addis Ababa",
             subCity: parsed.subcity,
             specificLocation: parsed.specificAddress,
@@ -155,8 +177,12 @@ function PaymentSuccessContent() {
         txRef: tx,
         items: parsed.items || [],
         deliveryAddress: {
-          recipientName: parsed.fullName,
-          phone: parsed.phoneNumber,
+          recipientName: parsed.fullName || buyerName,
+          phone: parsed.phoneNumber || buyerPhone,
+          buyerName,
+          buyerPhone,
+          buyerEmail,
+          email: buyerEmail,
           city: "Addis Ababa",
           subCity: parsed.subcity,
           specificLocation: parsed.specificAddress,
@@ -174,9 +200,53 @@ function PaymentSuccessContent() {
         }
       });
 
-      // Verify payment with payment service
+      // Verify payment with payment service and process 2% Card Cashback Reward
       if (tx) {
-        fetch(`/api/payments/verify?tx_ref=${encodeURIComponent(tx)}`).catch(() => {});
+        fetch(`/api/payments/verify?tx_ref=${encodeURIComponent(tx)}`)
+          .then((r) => r.json())
+          .then((res) => {
+            if (res.reward && res.reward.rewardApplied) {
+              setRewardInfo({
+                rewardApplied: true,
+                rewardPercent: res.reward.rewardPercent || 2,
+                rewardAmount: res.reward.rewardAmount,
+                newBalance: res.reward.newBalance,
+                cardNumber: res.reward.card?.cardNumber,
+                isNewCard: res.reward.isNewCard,
+              });
+            } else if (parsed && !String(parsed.paymentMethod || "").toLowerCase().includes("mercatox_card")) {
+              fetch("/api/payments/chapa/reward", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  txRef: tx,
+                  amount: Number(parsed.amount),
+                  orderId: parsed.orderId,
+                  orderNumber: parsed.orderNumber,
+                  customerId: custId,
+                  email: parsed.email || (user as any)?.email,
+                  phoneNumber: parsed.phoneNumber || (user as any)?.phoneNumber,
+                  cardholderName: parsed.fullName || (user as any)?.name,
+                  paymentMethod: parsed.paymentMethod || "CHAPA",
+                }),
+              })
+                .then((rr) => rr.json())
+                .then((rData) => {
+                  if (rData.rewardApplied) {
+                    setRewardInfo({
+                      rewardApplied: true,
+                      rewardPercent: rData.rewardPercent || 2,
+                      rewardAmount: rData.rewardAmount,
+                      newBalance: rData.newBalance,
+                      cardNumber: rData.card?.cardNumber,
+                      isNewCard: rData.isNewCard,
+                    });
+                  }
+                })
+                .catch(() => {});
+            }
+          })
+          .catch(() => {});
       }
     }
   }, [clearCart, txRefFromQuery, user?.id]);
@@ -308,6 +378,63 @@ function PaymentSuccessContent() {
               )}
             </div>
           </div>
+
+          {/* 2% MercatoX Card Cashback Reward Box (ONLY for Chapa payments) */}
+          {rewardInfo && rewardInfo.rewardApplied && (
+            <div className="rounded-2xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 via-yellow-500/10 to-amber-500/5 p-4 space-y-2.5 shadow-lg relative overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="h-7 w-7 rounded-xl bg-gradient-to-tr from-amber-400 to-yellow-500 flex items-center justify-center text-slate-900 shadow-md">
+                    <Sparkles className="h-4 w-4 fill-slate-900" />
+                  </div>
+                  <div>
+                    <h3 className="text-xs sm:text-sm font-bold text-amber-500 dark:text-amber-300 flex items-center gap-1.5">
+                      <span>2% Card Cashback Reward Earned!</span>
+                      <span className="rounded-full bg-amber-500/20 px-1.5 py-0.2 text-[9px] font-extrabold text-amber-600 dark:text-amber-300">
+                        +2% BONUS
+                      </span>
+                    </h3>
+                    <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400">
+                      {rewardInfo.isNewCard
+                        ? "New digital MercatoX Card created with your bonus!"
+                        : "Deposited directly to your MercatoX Card balance!"}
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-base sm:text-lg font-black text-amber-500 dark:text-amber-300 font-mono">
+                    +{rewardInfo.rewardAmount.toFixed(2)}
+                  </span>
+                  <span className="text-[10px] text-zinc-400 block font-sans font-medium">ETB</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-amber-500/20 flex items-center justify-between gap-2 text-xs">
+                <div className="flex items-center gap-1.5 text-zinc-600 dark:text-zinc-300 font-mono text-[11px]">
+                  <CreditCard className="h-3.5 w-3.5 text-amber-500 dark:text-amber-400" />
+                  <span>{rewardInfo.cardNumber ? `Card: ${rewardInfo.cardNumber}` : "MercatoX Card"}</span>
+                </div>
+                {rewardInfo.newBalance !== undefined && (
+                  <div className="text-[11px] font-semibold text-zinc-700 dark:text-zinc-200">
+                    New Balance: <span className="font-mono text-emerald-600 dark:text-emerald-400 font-bold">{rewardInfo.newBalance.toLocaleString()} ETB</span>
+                  </div>
+                )}
+              </div>
+
+              <div className="pt-1 flex items-center justify-between gap-2">
+                <p className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  Use your card balance anytime on your next MercatoX checkout.
+                </p>
+                <Link
+                  href="/card"
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-600 dark:text-amber-300 text-[10.5px] font-bold transition-all shrink-0 cursor-pointer"
+                >
+                  <span>View Card</span>
+                  <ArrowRight className="h-3 w-3" />
+                </Link>
+              </div>
+            </div>
+          )}
 
           {/* Compact Order Details Toggle */}
           {orderInfo && (

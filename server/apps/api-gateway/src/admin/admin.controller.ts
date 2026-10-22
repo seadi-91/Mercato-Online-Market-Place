@@ -356,68 +356,165 @@ export class AdminController {
     return this.getUserDetails(userId);
   }
 
+  private async cascadeDeleteUser(
+    targetUserId: string,
+    adminId: string,
+    req: Request,
+    fallbackRole?: string,
+  ) {
+    // 1. Fetch user profile from users service
+    let profile = await firstValueFrom(
+      this.usersClient.send('get_profile', { userId: targetUserId }),
+    ).catch(() => null);
+
+    // 2. Fetch auth user from auth service
+    let authUser = await firstValueFrom(
+      this.authClient.send('get_user_by_id', { userId: targetUserId }),
+    ).catch(() => null);
+
+    if (!authUser && profile?.userId) {
+      authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId: profile.userId }),
+      ).catch(() => null);
+    }
+    if (!profile && authUser?.id) {
+      profile = await firstValueFrom(
+        this.usersClient.send('get_profile', { userId: authUser.id }),
+      ).catch(() => null);
+    }
+    if (!profile && authUser?.email) {
+      profile = await firstValueFrom(
+        this.usersClient.send('get_profile_by_email', { email: authUser.email }),
+      ).catch(() => null);
+    }
+
+    const resolvedAuthUserId = profile?.userId || authUser?.id || targetUserId;
+    const resolvedProfileId = profile?.id || targetUserId;
+
+    // 3. Resolve all candidate IDs, email, phone, and role
+    const userIds = Array.from(
+      new Set(
+        [targetUserId, resolvedAuthUserId, resolvedProfileId, authUser?.id].filter(
+          Boolean,
+        ),
+      ),
+    ) as string[];
+
+    const recipientEmail = (profile?.email || authUser?.email || '').trim().toLowerCase();
+    const phoneNumber = profile?.phoneNumber || authUser?.phoneNumber || '';
+    const fullName = profile?.fullName || authUser?.fullName || 'Valued User';
+    const role = profile?.role || authUser?.role || fallbackRole || 'User';
+
+    // 4. Send email notification immediately before wiping records
+    if (recipientEmail && recipientEmail.includes('@')) {
+      try {
+        const sent = await this.mailService.sendAccountDeletedEmail({
+          toEmail: recipientEmail,
+          fullName,
+          role,
+        });
+        console.log(`[AdminController] Account deleted email dispatched to ${recipientEmail}: ${sent}`);
+      } catch (err) {
+        console.error('[AdminController] Error sending account deleted email:', err);
+      }
+    }
+
+    // 5. Cascade delete Orders, Order Items, RFQs, Quotations, Negotiations
+    const ordersRes = await firstValueFrom(
+      this.ordersClient.send('delete_user_orders_data', { userIds }),
+    ).catch(() => ({ deletedOrderIds: [] }));
+
+    const orderIds = ordersRes?.deletedOrderIds || [];
+
+    // 6. Cascade delete Payments, Payouts, and MercatoX Cards
+    await firstValueFrom(
+      this.paymentsClient.send('delete_user_payments_data', {
+        userIds,
+        email: recipientEmail,
+        orderIds,
+      }),
+    ).catch(() => null);
+
+    // 7. Cascade delete Catalog data (Products, TieredPricing, Warehouses, Transfers)
+    await firstValueFrom(
+      this.catalogClient.send('delete_seller_catalog_data', { sellerIds: userIds }),
+    ).catch(() => null);
+
+    // 8. Cascade delete Profiles and Staff
+    await Promise.all(
+      userIds.map((id) =>
+        firstValueFrom(
+          this.usersClient.send('delete_user_profile', { userId: id }),
+        ).catch(() => null),
+      ),
+    );
+
+    // 9. Delete Auth User and Password Reset OTPs
+    await Promise.all(
+      userIds.map((id) =>
+        firstValueFrom(
+          this.authClient.send('delete_user', { userId: id }),
+        ).catch(() => null),
+      ),
+    );
+
+    // 10. Remove platform subscriptions for this user
+    try {
+      const subFilePath = path.resolve(process.cwd(), 'platform-subscriptions.json');
+      if (fs.existsSync(subFilePath)) {
+        const raw = fs.readFileSync(subFilePath, 'utf-8');
+        const data = JSON.parse(raw);
+        if (Array.isArray(data.subscribers)) {
+          const prevCount = data.subscribers.length;
+          data.subscribers = data.subscribers.filter((s: any) => {
+            const matchesId = userIds.includes(s.userId) || userIds.includes(s.id);
+            const matchesEmail = recipientEmail && s.userEmail?.toLowerCase() === recipientEmail;
+            return !matchesId && !matchesEmail;
+          });
+          if (data.subscribers.length !== prevCount) {
+            fs.writeFileSync(subFilePath, JSON.stringify(data, null, 2), 'utf-8');
+          }
+        }
+      }
+    } catch (subErr) {
+      console.error('[AdminController] Error removing user subscriptions:', subErr);
+    }
+
+    // 11. Create audit log
+    await firstValueFrom(
+      this.usersClient.send('create_audit_log', {
+        actorId: adminId,
+        actorRole: UserRole.ADMIN,
+        action: AuditAction.USER_DELETED,
+        targetEntity: fallbackRole === 'DELIVERY' ? 'DeliveryRider' : 'User',
+        targetId: targetUserId,
+        details: {
+          deletedBy: adminId,
+          role,
+          deletedOrderIds: orderIds,
+          associatedUserIds: userIds,
+        },
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+      }),
+    ).catch(() => null);
+
+    return {
+      success: true,
+      userId: targetUserId,
+      deletedBy: adminId,
+      ipAddress: req.ip,
+      deletedOrdersCount: orderIds.length,
+    };
+  }
+
   @Delete('users/:userId')
   async deleteUser(
     @Param('userId') userId: string,
     @CurrentUser('id') adminId: string,
     @Req() req: Request,
   ) {
-    const profile = await firstValueFrom(
-      this.usersClient.send('get_profile', { userId }),
-    ).catch(() => null);
-    const resolvedAuthUserId = profile?.userId || userId;
-    const resolvedProfileId = profile?.id || userId;
-
-    // Fetch user details before deleting so we can notify them by email
-    let recipientEmail = profile?.email;
-    let fullName = profile?.fullName;
-    let role = profile?.role;
-    if (!recipientEmail || !fullName) {
-      const authUser = await firstValueFrom(
-        this.authClient.send('get_user_by_id', { userId: resolvedAuthUserId }),
-      ).catch(() => null);
-      recipientEmail = recipientEmail || authUser?.email;
-      fullName = fullName || authUser?.fullName || 'Valued User';
-      role = role || authUser?.role || 'User';
-    }
-
-    await Promise.all([
-      firstValueFrom(this.authClient.send('delete_user', { userId: resolvedAuthUserId })).catch(() => null),
-      firstValueFrom(this.usersClient.send('delete_user_profile', { userId: resolvedProfileId })).catch(() => null),
-    ]);
-
-    await firstValueFrom(
-      this.usersClient.send('create_audit_log', {
-        actorId: adminId,
-        actorRole: UserRole.ADMIN,
-        action: AuditAction.USER_DELETED,
-        targetEntity: 'User',
-        targetId: userId,
-        details: { deletedBy: adminId },
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-      }),
-    ).catch(() => null);
-
-    // Send email notification about permanent account deletion
-    if (recipientEmail) {
-      this.mailService
-        .sendAccountDeletedEmail({
-          toEmail: recipientEmail,
-          fullName: fullName || 'Valued User',
-          role,
-        })
-        .catch((err) =>
-          console.error('[AdminController] Error sending account deleted email:', err),
-        );
-    }
-
-    return {
-      success: true,
-      userId,
-      deletedBy: adminId,
-      ipAddress: req.ip,
-    };
+    return this.cascadeDeleteUser(userId, adminId, req);
   }
 
   @Patch('users/:userId/status')
@@ -476,18 +573,19 @@ export class AdminController {
       role = role || authUser?.role || 'User';
     }
 
-    if (recipientEmail) {
-      this.mailService
-        .sendAccountStatusChangedEmail({
+    if (recipientEmail && recipientEmail.includes('@')) {
+      try {
+        await this.mailService.sendAccountStatusChangedEmail({
           toEmail: recipientEmail,
           fullName: fullName || 'Valued User',
           role,
           isActive: Boolean(dto.isActive),
           reason: dto.reason,
-        })
-        .catch((err) =>
-          console.error('[AdminController] Error sending account status changed email:', err),
-        );
+        });
+        console.log(`[AdminController] Account status email dispatched to ${recipientEmail} (isActive: ${dto.isActive})`);
+      } catch (err) {
+        console.error('[AdminController] Error sending account status changed email:', err);
+      }
     }
 
     return {
@@ -536,6 +634,34 @@ export class AdminController {
         userAgent: req.headers['user-agent'],
       }),
     ).catch(() => null);
+
+    // Send email notification confirming security lockout reset and reactivation
+    let recipientEmail = profile?.email;
+    let recipientFullName = profile?.fullName;
+    let role = profile?.role;
+    if ((!recipientEmail || !recipientFullName) && resolvedAuthUserId) {
+      const authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId: resolvedAuthUserId }),
+      ).catch(() => null);
+      recipientEmail = recipientEmail || authUser?.email;
+      recipientFullName = recipientFullName || authUser?.fullName;
+      role = role || authUser?.role;
+    }
+
+    if (recipientEmail && recipientEmail.includes('@')) {
+      try {
+        await this.mailService.sendAccountStatusChangedEmail({
+          toEmail: recipientEmail,
+          fullName: recipientFullName || 'Valued User',
+          role,
+          isActive: true,
+          reason: 'Your account security lockout has been reset by an administrator. You can now log in securely with your credentials.',
+        });
+        console.log(`[AdminController] Account lockout reset email dispatched to ${recipientEmail}`);
+      } catch (err) {
+        console.error('[AdminController] Error sending lockout reset email:', err);
+      }
+    }
 
     return {
       success: true,
@@ -613,19 +739,22 @@ export class AdminController {
       recipientFullName = recipientFullName || authUser?.fullName;
     }
 
-    if (recipientEmail) {
-      this.mailService
-        .sendMerchantVerificationResultEmail({
+    if (recipientEmail && recipientEmail.includes('@')) {
+      try {
+        const sent = await this.mailService.sendMerchantVerificationResultEmail({
           toEmail: recipientEmail,
           fullName: recipientFullName || 'Valued Partner',
           shopName: profile?.shopName,
           isSupplier,
           isApproved: Boolean(dto.isVerified),
           rejectionReason: dto.rejectionReason,
-        })
-        .catch((err) =>
-          console.error('[AdminController] Error sending merchant verification result email:', err),
+        });
+        console.log(
+          `[AdminController] Merchant verification result email sent to ${recipientEmail} (approved: ${dto.isVerified}): ${sent}`,
         );
+      } catch (err) {
+        console.error('[AdminController] Error sending merchant verification result email:', err);
+      }
     }
 
     return profile;
@@ -664,6 +793,34 @@ export class AdminController {
         userAgent: req.headers['user-agent'],
       }),
     );
+
+    // Send email notification to Delivery Rider regarding Approval or Rejection
+    let recipientEmail = profile?.email;
+    let recipientFullName = profile?.fullName;
+    if (!recipientEmail || !recipientFullName) {
+      const authUser = await firstValueFrom(
+        this.authClient.send('get_user_by_id', { userId }),
+      ).catch(() => null);
+      recipientEmail = recipientEmail || authUser?.email;
+      recipientFullName = recipientFullName || authUser?.fullName;
+    }
+
+    if (recipientEmail && recipientEmail.includes('@')) {
+      try {
+        const sent = await this.mailService.sendMerchantVerificationResultEmail({
+          toEmail: recipientEmail,
+          fullName: recipientFullName || 'Delivery Partner',
+          isDelivery: true,
+          isApproved: Boolean(dto.isVerified),
+          rejectionReason: dto.rejectionReason,
+        });
+        console.log(
+          `[AdminController] Delivery verification email sent to ${recipientEmail} (approved: ${dto.isVerified}): ${sent}`,
+        );
+      } catch (err) {
+        console.error('[AdminController] Error sending delivery verification email:', err);
+      }
+    }
 
     return profile;
   }
@@ -887,56 +1044,7 @@ export class AdminController {
     @CurrentUser('id') adminId: string,
     @Req() req: Request,
   ) {
-    const profile = await firstValueFrom(
-      this.usersClient.send('get_profile', { userId }),
-    ).catch(() => null);
-    const resolvedAuthUserId = profile?.userId || userId;
-
-    let recipientEmail = profile?.email;
-    let fullName = profile?.fullName;
-    if (!recipientEmail || !fullName) {
-      const authUser = await firstValueFrom(
-        this.authClient.send('get_user_by_id', { userId: resolvedAuthUserId }),
-      ).catch(() => null);
-      recipientEmail = recipientEmail || authUser?.email;
-      fullName = fullName || authUser?.fullName || 'Delivery Driver';
-    }
-
-    await Promise.all([
-      firstValueFrom(this.authClient.send('delete_user', { userId: resolvedAuthUserId })).catch(() => null),
-      firstValueFrom(this.usersClient.send('delete_user_profile', { userId })).catch(() => null),
-    ]);
-
-    await firstValueFrom(
-      this.usersClient.send('create_audit_log', {
-        actorId: adminId,
-        actorRole: UserRole.ADMIN,
-        action: AuditAction.USER_DELETED,
-        targetEntity: 'DeliveryRider',
-        targetId: userId,
-        details: { deletedBy: adminId, role: UserRole.DELIVERY },
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-      }),
-    ).catch(() => null);
-
-    if (recipientEmail) {
-      this.mailService
-        .sendAccountDeletedEmail({
-          toEmail: recipientEmail,
-          fullName: fullName || 'Delivery Driver',
-          role: 'DELIVERY',
-        })
-        .catch((err) =>
-          console.error('[AdminController] Error sending delivery delete email:', err),
-        );
-    }
-
-    return {
-      success: true,
-      userId,
-      deletedBy: adminId,
-    };
+    return this.cascadeDeleteUser(userId, adminId, req, 'DELIVERY');
   }
 
   @Get('suppliers')

@@ -146,6 +146,14 @@ export class CatalogController {
     return this.catalogService.deleteProductAdmin(payload.id);
   }
 
+  @MessagePattern('delete_seller_catalog_data')
+  deleteSellerCatalogData(@Payload() payload: { sellerIds: string[] | string }) {
+    const ids = Array.isArray(payload.sellerIds)
+      ? payload.sellerIds
+      : [payload.sellerIds];
+    return this.catalogService.deleteSellerCatalogData(ids);
+  }
+
   @MessagePattern('get_catalog_metrics')
   getCatalogMetrics() {
     return this.catalogService.getCatalogMetrics();

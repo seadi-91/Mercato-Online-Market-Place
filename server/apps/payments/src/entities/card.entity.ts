@@ -66,6 +66,12 @@ export class MercatoXCard {
   @Column({ type: 'uuid', nullable: true })
   customerId: string;
 
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  cardPassword?: string;
+
+  @Column({ type: 'boolean', default: false })
+  passwordEmailSent: boolean;
+
   @CreateDateColumn({ type: 'timestamp with time zone' })
   createdAt: Date;
 

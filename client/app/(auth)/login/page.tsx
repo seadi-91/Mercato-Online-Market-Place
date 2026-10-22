@@ -51,6 +51,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [capsLockActive, setCapsLockActive] = useState(false);
   const [identifierError, setIdentifierError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -499,6 +500,7 @@ export default function LoginPage() {
         }
       } catch {}
 
+      setIsGoogleLoading(true);
       toast.loading("Connecting to Google...", { id: "oauth" });
 
       try {
@@ -512,16 +514,27 @@ export default function LoginPage() {
               email: authData.user.email,
               role: userRole,
               phoneNumber: authData.user.phoneNumber,
+              avatar: authData.user.avatar || authData.user.avatarUrl,
               isVerified: true,
             },
-            authData.accessToken
+            authData.accessToken,
+            authData.refreshToken
           );
           toast.success(`Welcome back, ${authData.user.fullName || "Customer"}!`, {
             id: "oauth",
             description: "Signed in with Google successfully.",
           });
-          const finalDest = (userRole === "SELLER" && postLoginDest === "/") ? "/dashboard/seller" : postLoginDest;
-          router.push(finalDest);
+          if (userRole === "ADMIN") {
+            router.push("/dashboard/admin");
+          } else if (userRole === "SUPPLIER") {
+            router.push("/dashboard/supplier");
+          } else if (userRole === "SELLER") {
+            router.push("/dashboard/seller");
+          } else if (userRole === "DRIVER" || (userRole as string) === "DELIVERY") {
+            router.push("/dashboard/driver");
+          } else {
+            router.push(postLoginDest);
+          }
           return;
         }
       } catch (err: unknown) {
@@ -532,6 +545,8 @@ export default function LoginPage() {
           description: message,
         });
         return;
+      } finally {
+        setIsGoogleLoading(false);
       }
 
       return;
@@ -923,22 +938,28 @@ export default function LoginPage() {
       </div>
 
       {/* Social OAuth Buttons */}
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="space-y-2.5">
         <button
           type="button"
           onClick={() => handleOAuth("Google")}
-          className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 px-3 text-xs font-medium text-white transition-all hover:bg-white/[0.08] hover:border-white/20 active:scale-[0.98] cursor-pointer"
+          disabled={isGoogleLoading}
+          className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 px-4 text-xs font-semibold text-white transition-all hover:bg-white/[0.09] hover:border-indigo-500/40 active:scale-[0.99] cursor-pointer shadow-sm disabled:opacity-60 group"
         >
-          <GoogleIcon className="h-4 w-4 shrink-0" />
-          <span>Google</span>
+          {isGoogleLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-indigo-400" />
+          ) : (
+            <GoogleIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+          )}
+          <span>{isGoogleLoading ? "Connecting to Google..." : "Continue with Google account"}</span>
         </button>
         <button
           type="button"
           onClick={() => handleOAuth("GitHub")}
-          className="flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] py-2 px-3 text-xs font-medium text-white transition-all hover:bg-white/[0.08] hover:border-white/20 active:scale-[0.98] cursor-pointer"
+          disabled={isGoogleLoading}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] py-2 px-3 text-xs font-medium text-zinc-300 transition-all hover:bg-white/[0.06] hover:text-white hover:border-white/20 active:scale-[0.99] cursor-pointer disabled:opacity-60"
         >
           <GithubIcon className="h-4 w-4 shrink-0" />
-          <span>GitHub</span>
+          <span>Continue with GitHub</span>
         </button>
       </div>
 

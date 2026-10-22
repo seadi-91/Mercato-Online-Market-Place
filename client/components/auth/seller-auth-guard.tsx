@@ -23,7 +23,7 @@ interface SellerAuthGuardProps {
 
 export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
   const router = useRouter();
-  const { user, token, isAuthenticated, login, logout } = useAuthStore();
+  const { user, token, isAuthenticated, hasHydrated, login, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
 
@@ -31,7 +31,7 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
     setMounted(true);
   }, []);
 
-  if (!mounted) {
+  if (!mounted || !hasHydrated) {
     return (
       <div className="flex h-screen w-full items-center justify-center bg-[#070a10]">
         <div className="flex items-center gap-3 text-indigo-400">
@@ -46,9 +46,8 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
 
   const hasValidSession =
     isAuthenticated &&
-    Boolean(token) &&
-    isValidJwt(token) &&
-    !isJwtExpired(token);
+    Boolean(user) &&
+    Boolean(token);
 
   const isSellerRole =
     user?.role === "SELLER" || user?.role === "ADMIN";

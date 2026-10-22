@@ -168,23 +168,24 @@ export class UsersController {
       }),
     );
 
-    if (profile?.email) {
+    if (profile?.email && profile.email.includes('@')) {
       const isSupplier = Boolean(
         profile.role === UserRole.SUPPLIER ||
         (profile.businessType && profile.businessType.toLowerCase().includes('supplier'))
       );
-      this.mailService
-        .sendMerchantVerificationResultEmail({
+      try {
+        const sent = await this.mailService.sendMerchantVerificationResultEmail({
           toEmail: profile.email,
           fullName: profile.fullName || 'Valued Partner',
           shopName: profile.shopName,
           isSupplier,
           isApproved: Boolean(dto.isVerified),
           rejectionReason: (dto as any)?.rejectionReason,
-        })
-        .catch((err) =>
-          console.error('[UsersController] Error sending merchant verification email:', err),
-        );
+        });
+        console.log(`[UsersController] Merchant verification email sent to ${profile.email}: ${sent}`);
+      } catch (err) {
+        console.error('[UsersController] Error sending merchant verification email:', err);
+      }
     }
 
     return profile;
@@ -193,13 +194,32 @@ export class UsersController {
   @UseGuards(AuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
   @Patch('admin/verify-delivery/:userId')
-  verifyDelivery(
+  async verifyDelivery(
     @Param('userId', new ParseUUIDPipe()) userId: string,
     @Body() dto: VerifyKycDto,
   ) {
-    return this.usersClient.send('verify_delivery', {
-      userId,
-      isVerified: dto.isVerified,
-    });
+    const profile = await firstValueFrom(
+      this.usersClient.send('verify_delivery', {
+        userId,
+        isVerified: dto.isVerified,
+      }),
+    );
+
+    if (profile?.email && profile.email.includes('@')) {
+      try {
+        const sent = await this.mailService.sendMerchantVerificationResultEmail({
+          toEmail: profile.email,
+          fullName: profile.fullName || 'Delivery Partner',
+          isDelivery: true,
+          isApproved: Boolean(dto.isVerified),
+          rejectionReason: (dto as any)?.rejectionReason,
+        });
+        console.log(`[UsersController] Delivery verification email sent to ${profile.email}: ${sent}`);
+      } catch (err) {
+        console.error('[UsersController] Error sending delivery verification email:', err);
+      }
+    }
+
+    return profile;
   }
 }

@@ -39,7 +39,7 @@ import { PasswordResetOtp } from './entities/password-reset-otp.entity';
         return {
           secret,
           signOptions: {
-            expiresIn: config.get<string>('JWT_EXPIRATION') || '15m',
+            expiresIn: config.get<string>('JWT_EXPIRATION') || '7d',
           },
         };
       },

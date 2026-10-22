@@ -16,6 +16,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Payment } from './entities/payment.entity';
 import { Payout } from './entities/payout.entity';
+import { MercatoXCard } from './entities/card.entity';
 import {
   EscrowStatus,
   InitializePaymentDto,
@@ -28,6 +29,7 @@ import {
   UserRole,
   VerifyBankSlipDto,
   VerifyPaymentDto,
+  MailService,
 } from '@app/common';
 
 @Injectable()
@@ -37,7 +39,10 @@ export class PaymentsService {
     private readonly paymentRepository: Repository<Payment>,
     @InjectRepository(Payout)
     private readonly payoutRepository: Repository<Payout>,
+    @InjectRepository(MercatoXCard)
+    private readonly cardRepository: Repository<MercatoXCard>,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
     @Inject('ORDERS_SERVICE')
     private readonly ordersClient: ClientProxy,
   ) {}
@@ -261,6 +266,8 @@ export class PaymentsService {
 
         const savedPayment = await this.paymentRepository.save(payment);
 
+        await this.creditChapaOrderReward(savedPayment);
+
         await firstValueFrom(
           this.ordersClient.send('update_order_payment_status', {
             orderId: payment.orderId,
@@ -350,6 +357,8 @@ export class PaymentsService {
     const savedPayment = await this.paymentRepository.save(payment);
 
     if (savedPayment.status === PaymentTransactionStatus.COMPLETED) {
+      await this.creditChapaOrderReward(savedPayment);
+
       await firstValueFrom(
         this.ordersClient.send('update_order_payment_status', {
           orderId: payment.orderId,
@@ -359,6 +368,101 @@ export class PaymentsService {
     }
 
     return savedPayment;
+  }
+
+  private async creditChapaOrderReward(payment: Payment) {
+    try {
+      if (payment.provider !== PaymentProvider.CHAPA) return;
+      if (payment.metadata?.chapaReward?.credited) return;
+
+      const orderAmount = Number(payment.amount || 0);
+      if (orderAmount <= 0) return;
+
+      const rewardAmount = Math.round(orderAmount * 0.02 * 100) / 100;
+      if (rewardAmount <= 0) return;
+
+      const customerId = payment.customerId;
+      const email = payment.metadata?.email?.toLowerCase?.()?.trim?.();
+      const phone = payment.metadata?.phoneNumber?.trim?.();
+
+      let card = await this.cardRepository.findOne({
+        where: [
+          ...(customerId ? [{ customerId }] : []),
+          ...(email ? [{ email }] : []),
+          ...(phone ? [{ phoneNumber: phone }] : []),
+        ],
+        order: { createdAt: 'DESC' },
+      });
+
+      if (!card) {
+        const cardPin = Math.floor(10000000 + Math.random() * 90000000).toString();
+        const rawDigits = `970144${Math.floor(10 + Math.random() * 90)}${Math.floor(1000 + Math.random() * 9000)}${Math.floor(1000 + Math.random() * 9000)}`;
+        const formattedCardNum = `${rawDigits.slice(0, 4)} ${rawDigits.slice(4, 8)} ${rawDigits.slice(8, 12)} ${rawDigits.slice(12, 16)}`;
+
+        card = this.cardRepository.create({
+          cardNumber: formattedCardNum,
+          cardholderName: payment.metadata?.fullName || 'MercatoX Customer',
+          email: email || 'customer@mercatox.com',
+          phoneNumber: phone || '0911000000',
+          themeId: 'mercatox-signature',
+          balance: rewardAmount,
+          initialAmount: rewardAmount,
+          cardFee: 0,
+          totalPaid: 0,
+          currency: 'ETB',
+          expiryDate: '10/29',
+          cvv: '821',
+          status: 'ACTIVE',
+          paymentMethod: 'CHAPA_REWARD',
+          transactionReference: `REWARD-${payment.transactionReference}`,
+          customerId: customerId || undefined,
+          cardPassword: cardPin,
+          passwordEmailSent: false,
+        });
+        await this.cardRepository.save(card);
+
+        if (email && email.includes('@')) {
+          try {
+            await this.mailService.sendCardPasswordEmail({
+              toEmail: email,
+              cardholderName: card.cardholderName,
+              cardNumber: card.cardNumber,
+              cardPassword: cardPin,
+              balance: Number(card.balance || 0),
+              currency: card.currency,
+              expiryDate: card.expiryDate,
+            });
+            card.passwordEmailSent = true;
+            await this.cardRepository.save(card);
+            console.log(`[PaymentsService] Dispatched 8-digit card password email to ${email}`);
+          } catch (mailErr) {
+            console.error('[PaymentsService] Failed to dispatch card password email:', mailErr);
+          }
+        }
+      } else {
+        card.balance = Number(card.balance || 0) + rewardAmount;
+        await this.cardRepository.save(card);
+      }
+
+      payment.metadata = {
+        ...payment.metadata,
+        chapaReward: {
+          credited: true,
+          rewardPercent: 2,
+          rewardAmount,
+          orderTotal: orderAmount,
+          cardId: card.id,
+          cardNumber: card.cardNumber,
+          creditedAt: new Date().toISOString(),
+        },
+      };
+      await this.paymentRepository.save(payment);
+      console.log(
+        `[PaymentsService] Credited 2% cashback reward (${rewardAmount} ETB) on card ${card.cardNumber} for order ${payment.orderId}`,
+      );
+    } catch (err) {
+      console.error('[PaymentsService] Error crediting Chapa 2% reward:', err);
+    }
   }
 
   async verifyTelebirrWebhook(token: string, payload: any): Promise<Payment> {
@@ -798,5 +902,81 @@ export class PaymentsService {
       await this.paymentRepository.remove(payment);
     }
     return { success: true, id };
+  }
+
+  async deleteUserPaymentsData(payload: {
+    userIds: string[];
+    email?: string;
+    orderIds?: string[];
+  }): Promise<{
+    success: boolean;
+    deletedCards: number;
+    deletedPayments: number;
+    deletedPayouts: number;
+  }> {
+    const validIds = (payload.userIds || []).filter((id) => id && typeof id === 'string');
+    const orderIds = (payload.orderIds || []).filter((id) => id && typeof id === 'string');
+    const email = payload.email?.trim().toLowerCase();
+
+    try {
+      // 1. Delete MercatoX Cards associated with customerId or email
+      let cardQb = this.cardRepository.createQueryBuilder().delete();
+      let cardHasWhere = false;
+      if (validIds.length > 0 && email) {
+        cardQb = cardQb.where('customerId IN (:...validIds) OR LOWER(email) = :email', { validIds, email });
+        cardHasWhere = true;
+      } else if (validIds.length > 0) {
+        cardQb = cardQb.where('customerId IN (:...validIds)', { validIds });
+        cardHasWhere = true;
+      } else if (email) {
+        cardQb = cardQb.where('LOWER(email) = :email', { email });
+        cardHasWhere = true;
+      }
+      const cardRes = cardHasWhere ? await cardQb.execute().catch(() => ({ affected: 0 })) : { affected: 0 };
+
+      // 2. Delete Payments associated with customerId, sellerId, or orderIds
+      let paymentQb = this.paymentRepository.createQueryBuilder().delete();
+      let paymentHasWhere = false;
+      if (validIds.length > 0 && orderIds.length > 0) {
+        paymentQb = paymentQb.where('customerId IN (:...validIds) OR sellerId IN (:...validIds) OR orderId IN (:...orderIds)', { validIds, orderIds });
+        paymentHasWhere = true;
+      } else if (validIds.length > 0) {
+        paymentQb = paymentQb.where('customerId IN (:...validIds) OR sellerId IN (:...validIds)', { validIds });
+        paymentHasWhere = true;
+      } else if (orderIds.length > 0) {
+        paymentQb = paymentQb.where('orderId IN (:...orderIds)', { orderIds });
+        paymentHasWhere = true;
+      }
+      const paymentRes = paymentHasWhere ? await paymentQb.execute().catch(() => ({ affected: 0 })) : { affected: 0 };
+
+      // 3. Delete Payouts associated with sellerId or orderIds
+      let payoutQb = this.payoutRepository.createQueryBuilder().delete();
+      let payoutHasWhere = false;
+      if (validIds.length > 0 && orderIds.length > 0) {
+        payoutQb = payoutQb.where('sellerId IN (:...validIds) OR orderId IN (:...orderIds)', { validIds, orderIds });
+        payoutHasWhere = true;
+      } else if (validIds.length > 0) {
+        payoutQb = payoutQb.where('sellerId IN (:...validIds)', { validIds });
+        payoutHasWhere = true;
+      } else if (orderIds.length > 0) {
+        payoutQb = payoutQb.where('orderId IN (:...orderIds)', { orderIds });
+        payoutHasWhere = true;
+      }
+      const payoutRes = payoutHasWhere ? await payoutQb.execute().catch(() => ({ affected: 0 })) : { affected: 0 };
+
+      return {
+        success: true,
+        deletedCards: cardRes?.affected || 0,
+        deletedPayments: paymentRes?.affected || 0,
+        deletedPayouts: payoutRes?.affected || 0,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        deletedCards: 0,
+        deletedPayments: 0,
+        deletedPayouts: 0,
+      };
+    }
   }
 }

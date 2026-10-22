@@ -119,6 +119,45 @@ export default function CheckoutPage() {
   const [cardPin, setCardPin] = useState("");
   const [pinError, setPinError] = useState("");
   const [showPin, setShowPin] = useState(false);
+  const [isResendingPin, setIsResendingPin] = useState(false);
+
+  const handleResendPin = async () => {
+    const targetEmail =
+      (user?.email && user.email.includes("@") && !user.email.includes("example.com"))
+        ? user.email
+        : (userCard?.email || email.trim() || user?.email);
+    if (!targetEmail) {
+      toast.error("No email address found for this card.");
+      return;
+    }
+    setIsResendingPin(true);
+    toast.loading("Sending 8-digit password to your email...", { id: "resend-pin-checkout" });
+    try {
+      const res = await fetch("/api/card/resend-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail,
+          phoneNumber: userCard?.phoneNumber || phoneNumber || user?.phoneNumber,
+          customerId: user?.id,
+          cardNumber: userCard?.cardNumber,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        toast.success("Card Password Sent to Email!", {
+          id: "resend-pin-checkout",
+          description: `Your 8-digit card password has been sent to ${targetEmail}. Please check your inbox and spam folder.`,
+        });
+      } else {
+        toast.error(data.error || "Failed to send email", { id: "resend-pin-checkout" });
+      }
+    } catch (err: any) {
+      toast.error(err.message || "Network error", { id: "resend-pin-checkout" });
+    } finally {
+      setIsResendingPin(false);
+    }
+  };
 
   const loadUserCard = async () => {
     const queryEmail = email.trim() || user?.email || "";
@@ -325,11 +364,18 @@ export default function CheckoutPage() {
         (user as any)?.sellerId ||
         "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
+      const resolvedCustomerEmail =
+        (email && email.trim().includes("@") && !email.includes("example.com"))
+          ? email.trim()
+          : (user?.email && user.email.includes("@") && !user.email.includes("example.com")
+              ? user.email
+              : (userCard?.email || email.trim() || user?.email || ""));
+
       const res = await initializeChapaCheckout({
         amount: total,
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim(),
-        email: email.trim(),
+        email: resolvedCustomerEmail,
         subcity,
         specificAddress: specificAddress.trim(),
         deliveryNotes: deliveryNotes.trim(),
@@ -362,7 +408,7 @@ export default function CheckoutPage() {
             sellerId: targetSellerId,
             fullName: fullName.trim(),
             phoneNumber: phoneNumber.trim(),
-            email: email.trim() || undefined,
+            email: resolvedCustomerEmail || undefined,
             subcity,
             specificAddress: specificAddress.trim(),
             deliveryNotes: deliveryNotes.trim(),
@@ -419,11 +465,18 @@ export default function CheckoutPage() {
         (user as any)?.sellerId ||
         "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
+      const resolvedCustomerEmail =
+        (email && email.trim().includes("@") && !email.includes("example.com"))
+          ? email.trim()
+          : (user?.email && user.email.includes("@") && !user.email.includes("example.com")
+              ? user.email
+              : (userCard?.email || email.trim() || user?.email || ""));
+
       const res = await initializeChapaCheckout({
         amount: total,
         fullName: fullName.trim(),
         phoneNumber: phoneNumber.trim(),
-        email: email.trim(),
+        email: resolvedCustomerEmail,
         subcity,
         specificAddress: specificAddress.trim(),
         deliveryNotes: deliveryNotes.trim(),
@@ -451,7 +504,7 @@ export default function CheckoutPage() {
             sellerId: targetSellerId,
             fullName: fullName.trim(),
             phoneNumber: phoneNumber.trim(),
-            email: email.trim() || undefined,
+            email: resolvedCustomerEmail || undefined,
             subcity,
             specificAddress: specificAddress.trim(),
             deliveryNotes: deliveryNotes.trim(),
@@ -875,6 +928,9 @@ export default function CheckoutPage() {
                           <CreditCard className="h-3.5 w-3.5" />
                         </div>
                         <span className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300">Chapa Gateway</span>
+                        <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-600 dark:text-amber-300 tracking-wider">
+                          2% BONUS
+                        </span>
                       </div>
                       {paymentMethod === "chapa" && (
                         <CheckCircle2 className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
@@ -919,6 +975,28 @@ export default function CheckoutPage() {
                     </div>
                   </button>
                 </div>
+
+                {/* Dynamic 2% Card Cashback Reward Banner for Chapa */}
+                {paymentMethod === "chapa" && (
+                  <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-cyan-500/10 p-3.5 space-y-1.5 shadow-sm animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <div className="h-6 w-6 rounded-lg bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
+                          <Sparkles className="h-3.5 w-3.5" />
+                        </div>
+                        <span className="text-xs font-bold text-app">
+                          Chapa Payment 2% Card Cashback Reward
+                        </span>
+                      </div>
+                      <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-extrabold text-amber-500 dark:text-amber-300 font-mono">
+                        +{(total * 0.02).toFixed(2)} ETB Card Reward
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-app-muted leading-relaxed">
+                      Pay with Chapa and get <strong className="text-amber-500 dark:text-amber-300 font-bold">2% ({(total * 0.02).toFixed(2)} ETB)</strong> of your total order amount automatically saved to your <strong className="text-cyan-500 dark:text-cyan-300 font-bold">MercatoX Card</strong> as a bonus reward!
+                    </p>
+                  </div>
+                )}
 
                 {/* Dynamic MercatoX Card Status & Guidance Box */}
                 {paymentMethod === "mercatox_card" && (
@@ -1533,13 +1611,35 @@ export default function CheckoutPage() {
               </div>
 
               {pinError ? (
-                <p className="text-[11px] text-rose-500 dark:text-rose-400 font-medium text-center pt-1 animate-in fade-in">
-                  {pinError}
-                </p>
+                <div className="rounded-xl bg-rose-500/10 border border-rose-500/30 p-2.5 text-center animate-in fade-in space-y-1">
+                  <p className="text-xs text-rose-500 dark:text-rose-400 font-bold">
+                    {pinError}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResendPin}
+                    disabled={isResendingPin}
+                    className="text-[11px] font-semibold text-cyan-500 dark:text-cyan-400 hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <Mail className="h-3 w-3" />
+                    <span>{isResendingPin ? "Sending Email..." : "Resend 8-digit password to email"}</span>
+                  </button>
+                </div>
               ) : (
-                <p className="text-[10.5px] text-app-muted text-center pt-1">
-                  (Default Initial Password: <span className="font-mono text-app font-bold">12345678</span>)
-                </p>
+                <div className="space-y-1 pt-1 text-center">
+                  <p className="text-[11px] text-app-muted">
+                    Enter the 8-digit card password sent to your email ({userCard?.email || email || user?.email || "your registered email"})
+                  </p>
+                  <button
+                    type="button"
+                    onClick={handleResendPin}
+                    disabled={isResendingPin}
+                    className="text-[10.5px] font-medium text-cyan-500 hover:underline cursor-pointer inline-flex items-center gap-1"
+                  >
+                    <Mail className="h-3 w-3" />
+                    <span>{isResendingPin ? "Sending..." : "Forgot password? Resend to email"}</span>
+                  </button>
+                </div>
               )}
             </div>
 

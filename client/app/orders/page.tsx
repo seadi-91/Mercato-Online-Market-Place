@@ -36,7 +36,7 @@ function OrdersPageContent() {
   const [orderToDelete, setOrderToDelete] = useState<CustomerOrder | null>(null);
   const [copiedTxRef, setCopiedTxRef] = useState(false);
 
-  const { token, user } = useAuthStore();
+  const { token, user, isAuthenticated, hasHydrated } = useAuthStore();
 
   const loadData = async () => {
     setIsLoading(true);
@@ -61,7 +61,7 @@ function OrdersPageContent() {
       description: "Order temporarily hidden. Click Undo to restore.",
       action: target
         ? {
-            label: "Undo (መልስ)",
+            label: "Undo",
             onClick: () => {
               setOrders((prev) => [target, ...prev]);
               toast.success(`Order #${target.orderNumber} restored!`);
@@ -72,8 +72,13 @@ function OrdersPageContent() {
   };
 
   useEffect(() => {
+    if (!hasHydrated) return;
+    if (!isAuthenticated || !user) {
+      router.replace("/login?redirect=%2Forders");
+      return;
+    }
     loadData();
-  }, [token, user?.id]);
+  }, [hasHydrated, isAuthenticated, router, token, user?.id]);
 
   const handleCopyText = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -115,6 +120,21 @@ function OrdersPageContent() {
         );
     }
   };
+
+  if (!hasHydrated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#070a12]">
+        <div className="flex items-center gap-3 text-cyan-400">
+          <RefreshCw className="h-5 w-5 animate-spin" />
+          <span className="text-sm font-medium text-zinc-300">Loading your orders...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-100 text-zinc-900 dark:bg-[#070a12] dark:text-zinc-100 transition-colors duration-200">
@@ -257,7 +277,7 @@ function OrdersPageContent() {
                           setOrderToDelete(order);
                         }}
                         className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60 transition-colors cursor-pointer shrink-0"
-                        title="Delete Order (ጊዜያዊ ሰርዝ / Remove from list)"
+                        title="Delete Order (Remove from list)"
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -532,7 +552,7 @@ function OrdersPageContent() {
                       setOrderToDelete(selectedOrderForView);
                     }}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
-                    title="Delete Order (ጊዜያዊ ሰርዝ)"
+                    title="Delete Order"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                     <span>Delete</span>
@@ -573,7 +593,7 @@ function OrdersPageContent() {
                   Are you sure you want to delete this order?
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  ይህን ትዕዛዝ በእርግጥ መሰረዝ ይፈልጋሉ? This will temporarily remove the order from your active list.
+                  This will temporarily remove the order from your active list.
                 </p>
               </div>
 
@@ -606,7 +626,7 @@ function OrdersPageContent() {
                   onClick={() => setOrderToDelete(null)}
                   className="px-4 py-2 rounded-xl text-xs font-semibold text-zinc-700 dark:text-zinc-300 bg-zinc-100 dark:bg-white/10 hover:bg-zinc-200 dark:hover:bg-white/15 transition-colors cursor-pointer"
                 >
-                  Cancel (ተው)
+                  Cancel
                 </button>
                 <button
                   type="button"
@@ -618,7 +638,7 @@ function OrdersPageContent() {
                   className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Yes, Delete Order (አዎ ሰርዝ)</span>
+                  <span>Yes, Delete Order</span>
                 </button>
               </div>
             </div>

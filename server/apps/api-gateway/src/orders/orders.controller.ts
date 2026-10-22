@@ -61,7 +61,7 @@ export class OrdersController {
     const order = await firstValueFrom(
       this.ordersClient.send('create_order', { customerId, dto }),
     );
-    this.dispatchOrderNotifications(order).catch((err) =>
+    await this.dispatchOrderNotifications(order).catch((err) =>
       this.logger.error('Error dispatching notifications for created order:', err),
     );
     return order;
@@ -71,19 +71,54 @@ export class OrdersController {
     if (!orderData) return false;
 
     const key = orderData.orderNumber || orderData.id || orderData.orderId || orderData.txRef;
-    if (key && this.sentNotificationKeys.has(key)) {
+
+    // Parse deliveryAddress if string
+    let deliv = orderData.deliveryAddress;
+    if (typeof deliv === 'string') {
+      try {
+        deliv = JSON.parse(deliv);
+      } catch {
+        deliv = {};
+      }
+    }
+    if (!deliv || typeof deliv !== 'object') {
+      deliv = {};
+    }
+
+    // 1. Resolve customer details
+    let customerEmail =
+      deliv.buyerEmail ||
+      deliv.email ||
+      orderData.email ||
+      orderData.customerEmail ||
+      orderData.buyerEmail;
+
+    let customerName =
+      deliv.buyerName ||
+      deliv.recipientName ||
+      orderData.fullName ||
+      orderData.customerName ||
+      orderData.buyerName;
+
+    let customerPhone =
+      deliv.buyerPhone ||
+      deliv.recipientPhone ||
+      deliv.phone ||
+      orderData.phoneNumber ||
+      orderData.customerPhone ||
+      orderData.buyerPhone;
+
+    // If key already sent AND customerEmail was already served, skip
+    if (key && this.sentNotificationKeys.has(key) && customerEmail) {
       this.logger.log(`Order notification for ${key} already dispatched. Skipping duplicate.`);
       return true;
-    }
-    if (key) {
-      this.sentNotificationKeys.add(key);
     }
 
     try {
       // 1. Normalize items list
       const rawItems = Array.isArray(orderData.items) && orderData.items.length > 0
         ? orderData.items
-        : (Array.isArray(orderData.deliveryAddress?.itemsSnapshot) ? orderData.deliveryAddress.itemsSnapshot : []);
+        : (Array.isArray(deliv.itemsSnapshot) ? deliv.itemsSnapshot : []);
 
       const normalizedItems: OrderItemEmailInfo[] = rawItems.map((it: any) => {
         const unitPrice = Number(it.unitPrice || it.price || 0);
@@ -112,30 +147,20 @@ export class OrdersController {
         totalAmount = subtotal + deliveryFee;
       }
 
-      // 3. Resolve customer details
-      let customerEmail =
-        orderData.deliveryAddress?.buyerEmail ||
-        orderData.deliveryAddress?.email ||
-        orderData.email ||
-        orderData.customerEmail;
-      let customerName =
-        orderData.deliveryAddress?.buyerName ||
-        orderData.deliveryAddress?.recipientName ||
-        orderData.fullName ||
-        orderData.customerName;
-      let customerPhone =
-        orderData.deliveryAddress?.buyerPhone ||
-        orderData.deliveryAddress?.phone ||
-        orderData.phoneNumber ||
-        orderData.customerPhone;
+      // If customerEmail is missing, synthetic, or example address, resolve from Profile or Auth service
+      const candidateCustomerId = orderData.customerId || deliv.buyerId;
+      const isInvalidCustomerEmail =
+        !customerEmail ||
+        customerEmail.includes('.mercatox@gmail.com') ||
+        customerEmail.includes('example.com');
 
-      if ((!customerEmail || !customerName) && orderData.customerId) {
+      if ((isInvalidCustomerEmail || !customerName) && candidateCustomerId) {
         try {
           const profile = await firstValueFrom(
-            this.usersClient.send('get_profile', { userId: orderData.customerId }),
+            this.usersClient.send('get_profile', { userId: candidateCustomerId }),
           ).catch(() => null);
-          if (profile) {
-            customerEmail = customerEmail || profile.email;
+          if (profile && profile.email && !profile.email.includes('example.com')) {
+            customerEmail = profile.email;
             customerName = customerName || profile.fullName;
             customerPhone = customerPhone || profile.phoneNumber;
           }
@@ -143,19 +168,46 @@ export class OrdersController {
           // fallback
         }
 
-        if (!customerEmail) {
+        if (!customerEmail || customerEmail.includes('example.com')) {
           try {
             const authUser = await firstValueFrom(
-              this.authClient.send('get_user_by_id', { userId: orderData.customerId }),
+              this.authClient.send('get_user_by_id', { userId: candidateCustomerId }),
             ).catch(() => null);
-            if (authUser) {
-              customerEmail = customerEmail || authUser.email;
+            if (authUser && authUser.email && !authUser.email.includes('example.com')) {
+              customerEmail = authUser.email;
               customerName = customerName || authUser.fullName;
               customerPhone = customerPhone || authUser.phoneNumber;
             }
           } catch {
             // fallback
           }
+        }
+      }
+
+      // Final fallback for email if still missing
+      if (
+        (!customerEmail || customerEmail.includes('.mercatox@gmail.com') || customerEmail.includes('example.com')) &&
+        (candidateCustomerId || orderData.id)
+      ) {
+        // Look up by customer email if order has an associated user
+        try {
+          const allUsers = await firstValueFrom(
+            this.usersClient.send('get_users', { page: 1, limit: 100 }),
+          ).catch(() => null);
+          if (allUsers?.users) {
+            const matched = allUsers.users.find(
+              (u: any) =>
+                (u.id === candidateCustomerId || u.userId === candidateCustomerId) &&
+                u.email &&
+                !u.email.includes('example.com'),
+            );
+            if (matched?.email) {
+              customerEmail = matched.email;
+              customerName = customerName || matched.fullName;
+            }
+          }
+        } catch {
+          // fallback
         }
       }
 
@@ -166,22 +218,62 @@ export class OrdersController {
       const paymentStatus = orderData.paymentStatus || 'PAID';
 
       const deliveryInfo = {
-        recipientName: orderData.deliveryAddress?.recipientName || customerName,
-        phone: orderData.deliveryAddress?.phone || customerPhone,
-        city: orderData.deliveryAddress?.city || 'Addis Ababa',
-        subCity: orderData.deliveryAddress?.subCity || 'Bole',
-        specificLocation: orderData.deliveryAddress?.specificLocation || '',
-        notes: orderData.deliveryAddress?.notes || orderData.notes,
+        recipientName: deliv.recipientName || customerName,
+        phone: deliv.phone || customerPhone,
+        city: deliv.city || 'Addis Ababa',
+        subCity: deliv.subCity || 'Bole',
+        specificLocation: deliv.specificLocation || '',
+        notes: deliv.notes || orderData.notes,
       };
 
+      const emailTasks: Promise<any>[] = [];
+
       // 4. Send Customer Order Confirmation Email
-      if (customerEmail) {
+      if (
+        customerEmail &&
+        customerEmail.includes('@') &&
+        !customerEmail.includes('.mercatox@gmail.com') &&
+        !customerEmail.includes('example.com')
+      ) {
+        this.logger.log(`Dispatching customer order placed email to ${customerEmail} for order ${orderNumber}`);
+        emailTasks.push(
+          this.mailService
+            .sendCustomerOrderPlacedEmail({
+              toEmail: customerEmail,
+              customerName,
+              orderNumber,
+              orderDate: orderData.createdAt,
+              paymentMethod,
+              paymentStatus,
+              deliveryAddress: deliveryInfo,
+              items: normalizedItems,
+              subtotal,
+              deliveryFee,
+              totalAmount,
+            })
+            .then((sent) => {
+              this.logger.log(`Customer order email result for ${customerEmail}: ${sent}`);
+              return sent;
+            })
+            .catch((err) => {
+              this.logger.error(`Failed to send customer order email to ${customerEmail}:`, err);
+              return false;
+            }),
+        );
+      } else {
+        this.logger.warn(`No valid customer email resolved for order ${orderNumber}. Customer email skipped.`);
+      }
+
+      // 5. Send Admin New Order Notification Email
+      emailTasks.push(
         this.mailService
-          .sendCustomerOrderPlacedEmail({
-            toEmail: customerEmail,
-            customerName,
+          .sendAdminNewOrderNotificationEmail({
             orderNumber,
+            orderId: orderData.id || orderData.orderId,
             orderDate: orderData.createdAt,
+            customerName,
+            customerPhone,
+            customerEmail: customerEmail || 'Not provided',
             paymentMethod,
             paymentStatus,
             deliveryAddress: deliveryInfo,
@@ -190,27 +282,15 @@ export class OrdersController {
             deliveryFee,
             totalAmount,
           })
-          .catch((err) => this.logger.error('Failed to send customer order email:', err));
-      }
-
-      // 5. Send Admin New Order Notification Email
-      this.mailService
-        .sendAdminNewOrderNotificationEmail({
-          orderNumber,
-          orderId: orderData.id || orderData.orderId,
-          orderDate: orderData.createdAt,
-          customerName,
-          customerPhone,
-          customerEmail,
-          paymentMethod,
-          paymentStatus,
-          deliveryAddress: deliveryInfo,
-          items: normalizedItems,
-          subtotal,
-          deliveryFee,
-          totalAmount,
-        })
-        .catch((err) => this.logger.error('Failed to send admin order email:', err));
+          .then((sent) => {
+            this.logger.log(`Admin order notification email result for order ${orderNumber}: ${sent}`);
+            return sent;
+          })
+          .catch((err) => {
+            this.logger.error('Failed to send admin order email:', err);
+            return false;
+          }),
+      );
 
       // 6. Group items by Seller and send distinct emails to each seller
       const sellerItemMap = new Map<string, OrderItemEmailInfo[]>();
@@ -265,29 +345,42 @@ export class OrdersController {
         const resolvedSellerName = shopName || sellerName || 'Mercato Merchant Partner';
         const sellerSubtotal = sellerItems.reduce((acc, it) => acc + it.totalPrice, 0);
 
-        this.mailService
-          .sendSellerOrderReceivedEmail({
-            toEmail: recipientSellerEmail,
-            sellerName: resolvedSellerName,
-            shopName,
-            orderNumber,
-            orderId: orderData.id || orderData.orderId,
-            orderDate: orderData.createdAt,
-            buyerName: customerName,
-            buyerPhone: customerPhone,
-            buyerEmail: customerEmail,
-            deliveryCity: deliveryInfo.city,
-            deliverySubCity: deliveryInfo.subCity,
-            deliveryLocation: deliveryInfo.specificLocation,
-            paymentMethod,
-            paymentStatus,
-            sellerItems,
-            sellerSubtotal,
-            isSupplier,
-          })
-          .catch((err) =>
-            this.logger.error(`Failed to send seller order email to ${recipientSellerEmail}:`, err),
-          );
+        emailTasks.push(
+          this.mailService
+            .sendSellerOrderReceivedEmail({
+              toEmail: recipientSellerEmail,
+              sellerName: resolvedSellerName,
+              shopName,
+              orderNumber,
+              orderId: orderData.id || orderData.orderId,
+              orderDate: orderData.createdAt,
+              buyerName: customerName,
+              buyerPhone: customerPhone,
+              buyerEmail: customerEmail,
+              deliveryCity: deliveryInfo.city,
+              deliverySubCity: deliveryInfo.subCity,
+              deliveryLocation: deliveryInfo.specificLocation,
+              paymentMethod,
+              paymentStatus,
+              sellerItems,
+              sellerSubtotal,
+              isSupplier,
+            })
+            .then((sent) => {
+              this.logger.log(`Seller order email result for ${recipientSellerEmail}: ${sent}`);
+              return sent;
+            })
+            .catch((err) => {
+              this.logger.error(`Failed to send seller order email to ${recipientSellerEmail}:`, err);
+              return false;
+            }),
+        );
+      }
+
+      await Promise.allSettled(emailTasks);
+
+      if (key && customerEmail) {
+        this.sentNotificationKeys.add(key);
       }
 
       return true;

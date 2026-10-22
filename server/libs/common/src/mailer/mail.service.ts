@@ -32,6 +32,24 @@ export interface MerchantVerificationEmailParams {
   fullName: string;
   shopName?: string;
   isSupplier?: boolean;
+  isDelivery?: boolean;
+  isApproved: boolean;
+  rejectionReason?: string;
+}
+
+export interface PasswordChangedEmailParams {
+  toEmail: string;
+  fullName?: string;
+  changeDate?: string | Date;
+}
+
+export interface SubscriptionStatusEmailParams {
+  toEmail: string;
+  fullName: string;
+  planName: string;
+  price?: number;
+  billingPeriod?: string;
+  paymentMethod?: string;
   isApproved: boolean;
   rejectionReason?: string;
 }
@@ -48,6 +66,16 @@ export interface AccountDeletedEmailParams {
   toEmail: string;
   fullName: string;
   role?: string;
+}
+
+export interface CardPasswordEmailParams {
+  toEmail: string;
+  cardholderName: string;
+  cardNumber: string;
+  cardPassword: string;
+  balance: number;
+  currency?: string;
+  expiryDate?: string;
 }
 
 export interface OrderItemEmailInfo {
@@ -138,8 +166,8 @@ export class MailService {
   private initTransporter() {
     const host = this.configService.get<string>('MAIL_HOST') || 'smtp.gmail.com';
     const port = Number(this.configService.get<string>('MAIL_PORT')) || 465;
-    const user = this.configService.get<string>('MAIL_USER') || 'muradsada8@gmail.com';
-    const rawPass = this.configService.get<string>('MAIL_PASSWORD') || 'jxpm imvm ttfd csns';
+    const user = this.configService.get<string>('MAIL_USER') || '';
+    const rawPass = this.configService.get<string>('MAIL_PASSWORD') || '';
     const pass = rawPass.replace(/\s+/g, '');
     const secure = port === 465;
 
@@ -151,6 +179,9 @@ export class MailService {
         auth: {
           user,
           pass,
+        },
+        tls: {
+          rejectUnauthorized: false,
         },
       });
       this.logger.log(`MailService initialized with SMTP host: ${host}:${port} (${user})`);
@@ -282,7 +313,7 @@ export class MailService {
 
     const statusBadge = isMerchant
       ? `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #fbbf24;">
-          ⏳ Account Status: Under Review (በግምገማ ላይ)
+          ⏳ Account Status: Under Review
         </div>`
       : `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #34d399;">
           ✅ Account Status: Active & Ready
@@ -484,65 +515,85 @@ export class MailService {
     if (!this.transporter) return false;
 
     const fromAddress = this.getFromAddress();
-    const merchantType = params.isSupplier ? 'Supplier (አቅራቢ)' : 'Seller (ነጋዴ)';
+    const merchantType = params.isDelivery
+      ? 'Delivery Partner'
+      : params.isSupplier
+      ? 'Supplier'
+      : 'Seller';
+
+    const dashboardPath = params.isDelivery
+      ? 'delivery'
+      : params.isSupplier
+      ? 'supplier'
+      : 'seller';
 
     const subject = params.isApproved
-      ? `🎉 Congratulations! Your MercatoX ${params.isSupplier ? 'Supplier' : 'Seller'} Account is Approved! | እንኳን ደስ አለዎት!`
-      : `⚠️ Important: Your MercatoX ${params.isSupplier ? 'Supplier' : 'Seller'} Application Status | የማመልከቻ ውሳኔ ማሳወቂያ`;
+      ? `🎉 Congratulations! Your MercatoX ${merchantType} Account is Approved!`
+      : `⚠️ Important: Your MercatoX ${merchantType} Application Status Update`;
 
     const statusBadge = params.isApproved
       ? `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #34d399;">
-          ✅ Account Approved &amp; Verified | አካውንትዎ ፀድቋል
+          ✅ Account Approved &amp; Verified
         </div>`
       : `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #f87171;">
-          ❌ Application Rejected | ማመልከቻዎ ውድቅ ተደርጓል
+          ❌ Application Rejected
         </div>`;
+
+    const approvalPoints = params.isDelivery
+      ? `<li>Accept delivery dispatches and manage orders in real time.</li>
+         <li>Real-time navigation and optimized route guidance.</li>
+         <li>Instant direct payouts and fulfillment bonuses via MercatoX escrow.</li>`
+      : `<li>Publish products and manage store inventory in real time.</li>
+         <li>Receive quotation requests (RFQs), purchase orders, and direct client contracts.</li>
+         <li>Instant escrow payouts through CBE Birr, Telebirr &amp; Awash Bank transfers.</li>`;
+
+    const approvalSubtitle = params.isDelivery
+      ? `You can now accept assigned deliveries, manage package handovers, and access all MercatoX logistics features.`
+      : `You can now post and manage products, handle wholesale and retail orders, and access all MercatoX merchant platform services.`;
 
     const contentBody = params.isApproved
       ? `<div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 0 12px 12px 0; padding: 16px 18px; margin: 16px 0;">
           <p style="margin: 0 0 10px 0; font-size: 15px; color: #ffffff; line-height: 1.6; font-weight: 700;">
-            እንኳን ደስ አለዎት! የ MercatoX ${merchantType} አካውንትዎ ፀድቋል (Approved)።
+            Congratulations! Your MercatoX ${merchantType} account has been Approved.
           </p>
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-            ከዚህ በኋላ ምርቶችን ፖስት ማድረግ (Post &amp; Manage Products)፣ የጅምላ እና የችርቻሮ ትዕዛዞችን ማስተዳደር እና ሁሉንም የ MercatoX ፕላትፎርም አገልግሎቶች መጠቀም ይችላሉ።
+            ${approvalSubtitle}
           </p>
           <p style="margin: 0; font-size: 13px; color: #34d399; font-weight: 700;">
-            እርስዎ ከዚህ በኋላ ይፋዊ የ MercatoX ${merchantType} አባል (Official Member) ነዎት!
+            You are now officially a verified MercatoX ${merchantType}!
           </p>
         </div>
         <p style="margin: 14px 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-          Great news! The MercatoX Compliance Team has reviewed and <strong style="color: #34d399;">APPROVED</strong> your merchant application for <strong style="color: #ffffff;">${params.shopName || params.fullName}</strong>. You are now officially a verified member of MercatoX!
+          Great news! The MercatoX Compliance Team has reviewed and <strong style="color: #34d399;">APPROVED</strong> your application for <strong style="color: #ffffff;">${params.shopName || params.fullName}</strong>. You are now officially verified on MercatoX!
         </p>
         <ul style="margin: 0 0 16px 0; padding-left: 20px; font-size: 12px; color: #cbd5e1; line-height: 1.6;">
-          <li>Publish products and manage store inventory in real time.</li>
-          <li>Receive quotation requests (RFQs), purchase orders, and direct client contracts.</li>
-          <li>Instant escrow payouts through CBE Birr, Telebirr &amp; Awash Bank transfers.</li>
+          ${approvalPoints}
         </ul>
         <div style="text-align: center; margin: 24px 0;">
-          <a href="http://localhost:3000/dashboard/${params.isSupplier ? 'supplier' : 'seller'}" style="display: inline-block; background: linear-gradient(90deg, #10b981, #059669); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
-            ወደ ${params.isSupplier ? 'Supplier' : 'Seller'} ዳሽቦርድ ይግቡ &rarr;
+          <a href="http://localhost:3000/dashboard/${dashboardPath}" style="display: inline-block; background: linear-gradient(90deg, #10b981, #059669); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+            Open ${merchantType} Dashboard &rarr;
           </a>
         </div>`
       : `<div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; border-radius: 0 12px 12px 0; padding: 16px 18px; margin: 16px 0;">
           <p style="margin: 0 0 10px 0; font-size: 15px; color: #ffffff; line-height: 1.6; font-weight: 700;">
-            ውድ ${params.fullName}፣ ያቀረቡት የ MercatoX ${merchantType} አካውንት ማመልከቻ ለጊዜው ውድቅ ተደርጓል (Application Rejected)።
+            Dear ${params.fullName}, your MercatoX ${merchantType} application has not been approved at this time.
           </p>
           <div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #f87171; margin-bottom: 6px;">
-            የውድቅ የተደረገበት ምክንያት (Rejection Reason):
+            Rejection Reason:
           </div>
           <div style="font-size: 14px; font-weight: 600; color: #fca5a5; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 10px 14px; line-height: 1.5;">
-            ${params.rejectionReason || 'Submitted business documentation was incomplete or could not be verified by compliance.'}
+            ${params.rejectionReason || (params.isDelivery ? 'Submitted driver license or vehicle verification documents could not be validated.' : 'Submitted business documentation was incomplete or could not be verified by compliance.')}
           </div>
         </div>
         <p style="margin: 14px 0 10px 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-          ማብራሪያ፦ የተጠቀሰውን ምክንያት በማስተካከል ሰነዶችዎን እንደገና ማመልከት ወይም የ MercatoX የድጋፍ ቡድንን በ <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a> ማነጋገር ይችላሉ።
+          Explanation: You can update your documentation and re-apply, or contact the MercatoX compliance support team at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
         </p>
         <p style="margin: 0 0 16px 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
-          Thank you for applying to MercatoX. After compliance review, your merchant application for <strong>${params.shopName || params.fullName}</strong> could not be approved at this time for the reason stated above.
+          Thank you for applying to MercatoX. After review, your application for <strong>${params.shopName || params.fullName}</strong> could not be approved at this time for the reason stated above.
         </p>
         <div style="text-align: center; margin: 20px 0;">
           <a href="http://localhost:3000/login" style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 12px; text-decoration: none;">
-            ይግቡና ሰነዶችን እንደገና ያስገቡ (Sign In to Re-apply) &rarr;
+            Sign In to Re-apply &rarr;
           </a>
         </div>`;
 
@@ -563,7 +614,7 @@ export class MailService {
             <td style="padding: 32px 32px 14px 32px; text-align: center;">
               <div style="margin-bottom: 12px;">${statusBadge}</div>
               <h1 style="margin: 12px 0 6px 0; font-size: 21px; font-weight: 800; color: #ffffff;">
-                ${params.isApproved ? 'የአካውንት ማረጋገጫ ተጠናቋል!' : 'የማመልከቻ ውሳኔ ማሳወቂያ'}
+                ${params.isApproved ? 'Account Verification Approved!' : 'Application Status Update'}
               </h1>
               <p style="margin: 0; font-size: 13px; color: #94a3b8;">Hello, ${params.fullName}</p>
             </td>
@@ -612,24 +663,24 @@ export class MailService {
     const userRoleText = params.role ? `(${params.role})` : '';
 
     const subject = params.isActive
-      ? `✅ Notice: Your MercatoX Account has been Reactivated | አካውንትዎ እንደገና ነፃ ሆኗል`
-      : `⚠️ Urgent Security Notice: Your MercatoX Account has been Suspended | የአካውንት መታገድ ማሳወቂያ`;
+      ? `✅ Notice: Your MercatoX Account has been Reactivated`
+      : `⚠️ Urgent Security Notice: Your MercatoX Account has been Suspended`;
 
     const statusBadge = params.isActive
       ? `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #34d399;">
-          ✅ Account Status: Active | ንቁ አካውንት
+          ✅ Account Status: Active
         </div>`
       : `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #f87171;">
-          ⚠️ Account Status: Suspended | አካውንትዎ ታግዷል
+          ⚠️ Account Status: Suspended
         </div>`;
 
     const contentBody = params.isActive
       ? `<div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 0 12px 12px 0; padding: 16px 18px; margin: 16px 0;">
           <p style="margin: 0 0 8px 0; font-size: 15px; color: #ffffff; line-height: 1.6; font-weight: 700;">
-            ውድ ${params.fullName}፣ የእርስዎ የ MercatoX ${userRoleText} አካውንት እንደገና ነፃ ሆኗል / ተከፍቷል (Reactivated)።
+            Dear ${params.fullName}, your MercatoX ${userRoleText} account has been reactivated.
           </p>
           <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-            አሁን እንደተለመደው ወደ ፕላትፎርሙ በመግባት ግብይቶችን እና አገልግሎቶችን ማከናወን ይችላሉ።
+            You can now sign in normally and resume all platform operations and transactions.
           </p>
         </div>
         <p style="margin: 14px 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
@@ -637,17 +688,17 @@ export class MailService {
         </p>
         <div style="text-align: center; margin: 24px 0;">
           <a href="http://localhost:3000/login" style="display: inline-block; background: linear-gradient(90deg, #10b981, #059669); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
-            ወደ MercatoX ይግቡ (Sign In) &rarr;
+            Sign In to MercatoX &rarr;
           </a>
         </div>`
       : `<div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; border-radius: 0 12px 12px 0; padding: 16px 18px; margin: 16px 0;">
           <p style="margin: 0 0 10px 0; font-size: 15px; color: #ffffff; line-height: 1.6; font-weight: 700;">
-            ውድ ${params.fullName}፣ የእርስዎ የ MercatoX ${userRoleText} አካውንት በአስተዳዳሪው ለጊዜው ታግዷል / ተሰናክሏል (Account Suspended / Deactivated)።
+            Dear ${params.fullName}, your MercatoX ${userRoleText} account has been temporarily suspended by administration.
           </p>
           ${
             params.reason
               ? `<div style="font-size: 11px; text-transform: uppercase; font-weight: 700; color: #f87171; margin-bottom: 6px;">
-                  የታገደበት ምክንያት (Suspension Reason):
+                  Suspension Reason:
                 </div>
                 <div style="font-size: 14px; font-weight: 600; color: #fca5a5; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 10px 14px; line-height: 1.5; margin-bottom: 10px;">
                   ${params.reason}
@@ -655,7 +706,7 @@ export class MailService {
               : ''
           }
           <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-            ለጊዜው ወደ ሲስተሙ መግባት ወይም ግብይቶችን ማከናወን አይችሉም። ጥያቄ ካለዎት ወይም አካውንትዎን መልሰው ማስከፈት ከፈለጉ የ MercatoX አስተዳዳሪዎችን በ <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a> ያነጋግሩ።
+            Access to the platform is currently paused. If you have questions or wish to appeal this decision, please contact the MercatoX administration at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
           </p>
         </div>
         <p style="margin: 14px 0; font-size: 13px; color: #94a3b8; line-height: 1.6;">
@@ -663,7 +714,7 @@ export class MailService {
         </p>
         <div style="text-align: center; margin: 20px 0;">
           <a href="mailto:muradsada8@gmail.com?subject=Appeal%20Account%20Suspension" style="display: inline-block; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 12px; text-decoration: none;">
-            የድጋፍ ቡድንን ያነጋግሩ (Contact Support) &rarr;
+            Contact Support &rarr;
           </a>
         </div>`;
 
@@ -684,7 +735,7 @@ export class MailService {
             <td style="padding: 32px 32px 14px 32px; text-align: center;">
               <div style="margin-bottom: 12px;">${statusBadge}</div>
               <h1 style="margin: 12px 0 6px 0; font-size: 21px; font-weight: 800; color: #ffffff;">
-                ${params.isActive ? 'አካውንትዎ ነፃ ሆኗል' : 'የአካውንት መታገድ ማሳወቂያ'}
+                ${params.isActive ? 'Account Reactivated' : 'Account Suspended'}
               </h1>
               <p style="margin: 0; font-size: 13px; color: #94a3b8;">Hello, ${params.fullName}</p>
             </td>
@@ -731,7 +782,7 @@ export class MailService {
 
     const fromAddress = this.getFromAddress();
     const userRoleText = params.role ? `(${params.role})` : '';
-    const subject = `🗑️ Notice: Your MercatoX Account has been Deleted | የአካውንት መሰረዝ ማሳወቂያ`;
+    const subject = `🗑️ Notice: Your MercatoX Account has been Deleted`;
 
     const htmlContent = `
 <!DOCTYPE html>
@@ -749,10 +800,10 @@ export class MailService {
           <tr>
             <td style="padding: 32px 32px 14px 32px; text-align: center;">
               <div style="display: inline-block; padding: 6px 14px; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #f87171; margin-bottom: 12px;">
-                🗑️ Account Status: Permanently Deleted | አካውንትዎ ተሰርዟል
+                🗑️ Account Status: Permanently Deleted
               </div>
               <h1 style="margin: 12px 0 6px 0; font-size: 21px; font-weight: 800; color: #ffffff;">
-                የአካውንት መሰረዝ ማሳወቂያ
+                Account Deletion Notice
               </h1>
               <p style="margin: 0; font-size: 13px; color: #94a3b8;">Hello, ${params.fullName}</p>
             </td>
@@ -761,13 +812,13 @@ export class MailService {
             <td style="padding: 14px 32px 32px 32px;">
               <div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; border-radius: 0 12px 12px 0; padding: 16px 18px; margin: 16px 0;">
                 <p style="margin: 0 0 10px 0; font-size: 15px; color: #ffffff; line-height: 1.6; font-weight: 700;">
-                  ውድ ${params.fullName}፣ የእርስዎ የ MercatoX ${userRoleText} አካውንት ከሲስተማችን በቋሚነት ተሰርዟል (Account Permanently Deleted)።
+                  Dear ${params.fullName}, your MercatoX ${userRoleText} account has been permanently deleted from our platform.
                 </p>
                 <p style="margin: 0 0 8px 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-                  ከዚህ በኋላ ከዚህ አካውንት ጋር የተያያዙ አገልግሎቶች፣ መረጃዎች እና መብቶች በሙሉ ተቋርጠዋል።
+                  All services, records, and permissions associated with this account have been fully terminated.
                 </p>
                 <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.6;">
-                  ይህ እርምጃ የተሳሳተ ነው ብለው ካመኑ ወይም ተጨማሪ መረጃ ከፈለጉ የ MercatoX አስተዳዳሪዎችን በ <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a> ማነጋገር ይችላሉ።
+                  If you believe this action was taken in error or need additional details, please reach out to the MercatoX administration at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
                 </p>
               </div>
               <p style="margin: 14px 0; font-size: 13px; color: #94a3b8; line-height: 1.6;">
@@ -823,7 +874,7 @@ export class MailService {
     if (!this.transporter) return false;
 
     const fromAddress = this.getFromAddress();
-    const subject = `🛍️ የትዕዛዝ ማረጋገጫ | Order #${params.orderNumber} Confirmed (${this.formatEtb(params.totalAmount)})`;
+    const subject = `🛍️ Order #${params.orderNumber} Confirmed (${this.formatEtb(params.totalAmount)})`;
 
     const itemRowsHtml = params.items
       .map(
@@ -869,10 +920,10 @@ export class MailService {
           <tr>
             <td style="padding: 28px 30px 10px 30px; text-align: center;">
               <div style="display: inline-block; padding: 6px 14px; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #34d399; margin-bottom: 12px;">
-                ✅ Order Placed &amp; Confirmed | ትዕዛዝዎ ተረጋግጧል
+                ✅ Order Placed &amp; Confirmed
               </div>
               <h1 style="margin: 8px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">
-                የትዕዛዝ ማረጋገጫ ማሳወቂያ
+                Order Confirmation Notice
               </h1>
               <p style="margin: 0; font-size: 13px; color: #94a3b8;">
                 Order #${params.orderNumber} &bull; ${formattedDate}
@@ -885,10 +936,10 @@ export class MailService {
             <td style="padding: 16px 30px 10px 30px;">
               <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 0 12px 12px 0; padding: 14px 18px; margin-bottom: 16px;">
                 <p style="margin: 0 0 6px 0; font-size: 15px; color: #ffffff; font-weight: 700;">
-                  ውድ ${params.customerName}፣ እናመሰግናለን!
+                  Dear ${params.customerName}, Thank you for your order!
                 </p>
                 <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-                  የትዕዛዝ ቁጥር <strong style="color: #34d399;">#${params.orderNumber}</strong> በተሳካ ሁኔታ ተመዝግቧል። የገዟቸው ዕቃዎች ዝርዝር፣ የተከፈለበት መንገድ እና የማድረሻ አድራሻ ከዚህ በታች ተዘርዝረዋል፦
+                  Order <strong style="color: #34d399;">#${params.orderNumber}</strong> has been successfully received and confirmed. Order items, payment method, and delivery information are detailed below:
                 </p>
               </div>
             </td>
@@ -898,15 +949,15 @@ export class MailService {
           <tr>
             <td style="padding: 0 30px 15px 30px;">
               <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-                የታዘዙ ዕቃዎች ዝርዝር (Ordered Items)
+                Ordered Items
               </div>
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden;">
                 <thead>
                   <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
-                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">ምርት (Product)</th>
-                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">ብዛት (Qty)</th>
-                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ዋጋ (Price)</th>
-                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ድምር (Total)</th>
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">Product</th>
+                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">Qty</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">Price</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -921,27 +972,27 @@ export class MailService {
             <td style="padding: 0 30px 15px 30px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 14px 16px;">
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">የዕቃዎች ድምር (Items Subtotal):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">Items Subtotal:</td>
                   <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 600; padding: 4px 0;">${this.formatEtb(params.subtotal)}</td>
                 </tr>
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">የማጓጓዣ ክፍያ (Delivery Fee):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">Delivery Fee:</td>
                   <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 600; padding: 4px 0;">${this.formatEtb(params.deliveryFee)}</td>
                 </tr>
                 <tr style="border-top: 1px dashed rgba(255, 255, 255, 0.15);">
-                  <td style="font-size: 15px; color: #ffffff; font-weight: 800; padding: 10px 0 4px 0;">አጠቃላይ ድምር (Grand Total):</td>
+                  <td style="font-size: 15px; color: #ffffff; font-weight: 800; padding: 10px 0 4px 0;">Grand Total:</td>
                   <td style="font-size: 16px; color: #34d399; text-align: right; font-weight: 800; padding: 10px 0 4px 0;">${this.formatEtb(params.totalAmount)}</td>
                 </tr>
                 <tr>
-                  <td style="font-size: 12px; color: #94a3b8; padding: 6px 0 0 0;">የክፍያ ዘዴ (Payment Method):</td>
+                  <td style="font-size: 12px; color: #94a3b8; padding: 6px 0 0 0;">Payment Method:</td>
                   <td style="font-size: 12px; color: #60a5fa; text-align: right; font-weight: 700; padding: 6px 0 0 0;">
                     💳 ${params.paymentMethod || 'Chapa Escrow (Telebirr / CBE / Card)'}
                   </td>
                 </tr>
                 <tr>
-                  <td style="font-size: 12px; color: #94a3b8; padding: 3px 0 0 0;">የክፍያ ሁኔታ (Payment Status):</td>
+                  <td style="font-size: 12px; color: #94a3b8; padding: 3px 0 0 0;">Payment Status:</td>
                   <td style="font-size: 12px; color: #34d399; text-align: right; font-weight: 700; padding: 3px 0 0 0;">
-                    ${params.paymentStatus === 'PAID' ? '✅ በስኬት ተከፍሏል (Paid / Escrow Secured)' : '⏳ በዋስትና የተያዘ (Escrow Protected)'}
+                    ${params.paymentStatus === 'PAID' ? '✅ Paid / Escrow Secured' : '⏳ Escrow Protected'}
                   </td>
                 </tr>
               </table>
@@ -952,13 +1003,13 @@ export class MailService {
           <tr>
             <td style="padding: 0 30px 20px 30px;">
               <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-                የማድረሻ አድራሻ (Delivery Information)
+                Delivery Information
               </div>
               <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 14px 16px; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-                <div><strong style="color: #ffffff;">ተቀባይ:</strong> ${params.deliveryAddress?.recipientName || params.customerName}</div>
-                <div><strong style="color: #ffffff;">ስልክ:</strong> ${params.deliveryAddress?.phone || 'Not provided'}</div>
-                <div><strong style="color: #ffffff;">ቦታ:</strong> ${[params.deliveryAddress?.city, params.deliveryAddress?.subCity, params.deliveryAddress?.specificLocation].filter(Boolean).join(', ')}</div>
-                ${params.deliveryAddress?.notes ? `<div><strong style="color: #ffffff;">ማስታወሻ:</strong> ${params.deliveryAddress.notes}</div>` : ''}
+                <div><strong style="color: #ffffff;">Recipient:</strong> ${params.deliveryAddress?.recipientName || params.customerName}</div>
+                <div><strong style="color: #ffffff;">Phone:</strong> ${params.deliveryAddress?.phone || 'Not provided'}</div>
+                <div><strong style="color: #ffffff;">Address:</strong> ${[params.deliveryAddress?.city, params.deliveryAddress?.subCity, params.deliveryAddress?.specificLocation].filter(Boolean).join(', ')}</div>
+                ${params.deliveryAddress?.notes ? `<div><strong style="color: #ffffff;">Notes:</strong> ${params.deliveryAddress.notes}</div>` : ''}
               </div>
             </td>
           </tr>
@@ -967,7 +1018,7 @@ export class MailService {
           <tr>
             <td style="text-align: center; padding: 0 30px 30px 30px;">
               <a href="http://localhost:3000/orders" style="display: inline-block; background: linear-gradient(90deg, #10b981, #059669); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
-                ትዕዛዜን እይ (Track My Order) &rarr;
+                Track My Order &rarr;
               </a>
             </td>
           </tr>
@@ -976,7 +1027,7 @@ export class MailService {
           <tr>
             <td style="background-color: #0a0e17; padding: 18px 30px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
               <p style="margin: 0 0 4px 0; font-size: 12px; color: #94a3b8;">
-                ጥያቄ ካለዎት የ MercatoX የድጋፍ ቡድንን በ <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a> ማነጋገር ይችላሉ።
+                If you have questions, contact the MercatoX Support Team at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
               </p>
               <p style="margin: 0; font-size: 11px; color: #64748b;">MercatoX Marketplace &bull; Addis Ababa, Ethiopia</p>
             </td>
@@ -1013,7 +1064,7 @@ export class MailService {
 
     const fromAddress = this.getFromAddress();
     const adminRecipient = params.adminEmail || this.configService.get<string>('MAIL_USER') || 'muradsada8@gmail.com';
-    const subject = `📦 አዲስ ትዕዛዝ ገብቷል | New Order #${params.orderNumber} Placed (${this.formatEtb(params.totalAmount)})`;
+    const subject = `📦 New Order #${params.orderNumber} Placed (${this.formatEtb(params.totalAmount)})`;
 
     const itemRowsHtml = params.items
       .map(
@@ -1059,10 +1110,10 @@ export class MailService {
           <tr>
             <td style="padding: 28px 30px 10px 30px; text-align: center;">
               <div style="display: inline-block; padding: 6px 14px; background-color: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #818cf8; margin-bottom: 12px;">
-                👑 Platform Administration | አዲስ ትዕዛዝ ማሳወቂያ
+                👑 Platform Administration | New Order Alert
               </div>
               <h1 style="margin: 8px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">
-                አዲስ ትዕዛዝ በሲስተሙ ተመዝግቧል
+                New Order Received in System
               </h1>
               <p style="margin: 0; font-size: 13px; color: #94a3b8;">
                 Order #${params.orderNumber} &bull; ${formattedDate}
@@ -1075,25 +1126,25 @@ export class MailService {
             <td style="padding: 16px 30px 10px 30px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 14px 18px;">
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">ገዢ (Buyer):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">Buyer:</td>
                   <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 700; padding: 4px 0;">
                     ${params.customerName} (${params.customerPhone})
                   </td>
                 </tr>
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">ኢሜይል (Email):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">Email:</td>
                   <td style="font-size: 13px; color: #cbd5e1; text-align: right; padding: 4px 0;">
                     ${params.customerEmail || 'Not provided'}
                   </td>
                 </tr>
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">የክፍያ ዘዴ (Method):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 4px 0;">Payment Method:</td>
                   <td style="font-size: 13px; color: #60a5fa; text-align: right; font-weight: 700; padding: 4px 0;">
                     ${params.paymentMethod || 'Chapa'} (${params.paymentStatus || 'PAID'})
                   </td>
                 </tr>
                 <tr style="border-top: 1px dashed rgba(255, 255, 255, 0.15);">
-                  <td style="font-size: 15px; color: #ffffff; font-weight: 800; padding: 10px 0 4px 0;">ጠቅላላ ክፍያ (Total Amount):</td>
+                  <td style="font-size: 15px; color: #ffffff; font-weight: 800; padding: 10px 0 4px 0;">Total Amount:</td>
                   <td style="font-size: 16px; color: #34d399; text-align: right; font-weight: 800; padding: 10px 0 4px 0;">
                     ${this.formatEtb(params.totalAmount)}
                   </td>
@@ -1106,15 +1157,15 @@ export class MailService {
           <tr>
             <td style="padding: 0 30px 15px 30px;">
               <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-                የትዕዛዝ ዕቃዎች ዝርዝር (Line Items &amp; Sellers)
+                Line Items &amp; Sellers
               </div>
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden;">
                 <thead>
                   <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
-                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">ምርት (Product &amp; Merchant)</th>
-                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">ብዛት</th>
-                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ዋጋ</th>
-                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ድምር</th>
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">Product &amp; Merchant</th>
+                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">Qty</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">Price</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1128,12 +1179,12 @@ export class MailService {
           <tr>
             <td style="padding: 0 30px 20px 30px;">
               <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-                የማድረሻ አድራሻ (Delivery Information)
+                Delivery Information
               </div>
               <div style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-                <div><strong style="color: #ffffff;">ተቀባይ:</strong> ${params.deliveryAddress?.recipientName || params.customerName} (${params.deliveryAddress?.phone || params.customerPhone})</div>
-                <div><strong style="color: #ffffff;">አድራሻ:</strong> ${[params.deliveryAddress?.city, params.deliveryAddress?.subCity, params.deliveryAddress?.specificLocation].filter(Boolean).join(', ')}</div>
-                ${params.deliveryAddress?.notes ? `<div><strong style="color: #ffffff;">ማስታወሻ:</strong> ${params.deliveryAddress.notes}</div>` : ''}
+                <div><strong style="color: #ffffff;">Recipient:</strong> ${params.deliveryAddress?.recipientName || params.customerName} (${params.deliveryAddress?.phone || params.customerPhone})</div>
+                <div><strong style="color: #ffffff;">Address:</strong> ${[params.deliveryAddress?.city, params.deliveryAddress?.subCity, params.deliveryAddress?.specificLocation].filter(Boolean).join(', ')}</div>
+                ${params.deliveryAddress?.notes ? `<div><strong style="color: #ffffff;">Notes:</strong> ${params.deliveryAddress.notes}</div>` : ''}
               </div>
             </td>
           </tr>
@@ -1142,7 +1193,7 @@ export class MailService {
           <tr>
             <td style="text-align: center; padding: 0 30px 30px 30px;">
               <a href="http://localhost:3000/dashboard/admin/orders" style="display: inline-block; background: linear-gradient(90deg, #6366f1, #4f46e5); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.3);">
-                ትዕዛዙን በአድሚን ዳሽቦርድ እይ (Open Admin Console) &rarr;
+                Open Admin Console &rarr;
               </a>
             </td>
           </tr>
@@ -1185,7 +1236,7 @@ export class MailService {
 
     const fromAddress = this.getFromAddress();
     const merchantLabel = params.isSupplier ? 'Supplier' : 'Seller';
-    const subject = `🔔 አዲስ ሽያጭ ተከናውኗል | You Have a New Order #${params.orderNumber} (${this.formatEtb(params.sellerSubtotal)})`;
+    const subject = `🔔 You Have a New Order #${params.orderNumber} (${this.formatEtb(params.sellerSubtotal)})`;
 
     const itemRowsHtml = params.sellerItems
       .map(
@@ -1231,10 +1282,10 @@ export class MailService {
           <tr>
             <td style="padding: 28px 30px 10px 30px; text-align: center;">
               <div style="display: inline-block; padding: 6px 14px; background-color: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #fbbf24; margin-bottom: 12px;">
-                💼 ${merchantLabel} Order Alert | አዲስ የተገዛ ዕቃ ማሳወቂያ
+                💼 ${merchantLabel} Order Alert | New Order Received
               </div>
               <h1 style="margin: 8px 0 6px 0; font-size: 22px; font-weight: 800; color: #ffffff;">
-                እንኳን ደስ አለዎት! አዲስ ሽያጭ ተከናውኗል
+                Congratulations! You Have a New Order
               </h1>
               <p style="margin: 0; font-size: 13px; color: #94a3b8;">
                 Order #${params.orderNumber} &bull; ${formattedDate}
@@ -1247,10 +1298,10 @@ export class MailService {
             <td style="padding: 16px 30px 10px 30px;">
               <div style="background: rgba(245, 158, 11, 0.08); border-left: 4px solid #f59e0b; border-radius: 0 12px 12px 0; padding: 14px 18px; margin-bottom: 16px;">
                 <p style="margin: 0 0 6px 0; font-size: 15px; color: #ffffff; font-weight: 700;">
-                  ውድ ${params.shopName || params.sellerName}፣
+                  Dear ${params.shopName || params.sellerName},
                 </p>
                 <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.5;">
-                  ደንበኛ ከእርስዎ ሱቅ ዕቃዎችን አዟል! ከትዕዛዙ ውስጥ <strong style="color: #fbbf24;">የእርስዎ ምርት ብቻ</strong> ከዚህ በታች ተዘርዝሯል። ለእነዚህ ዕቃዎች የተመደበው የክፍያ ድርሻዎ <strong style="color: #34d399;">${this.formatEtb(params.sellerSubtotal)}</strong> በ MercatoX Escrow በዋስትና ተይዟል።
+                  A customer has placed an order from your store! Below is the list of <strong style="color: #fbbf24;">your sold items</strong>. Your payout allocation of <strong style="color: #34d399;">${this.formatEtb(params.sellerSubtotal)}</strong> is held safely in MercatoX Escrow.
                 </p>
               </div>
             </td>
@@ -1260,19 +1311,19 @@ export class MailService {
           <tr>
             <td style="padding: 0 30px 15px 30px;">
               <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-                የገዢው መረጃ (Buyer Information)
+                Buyer Information
               </div>
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 16px;">
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">የገዢው ስም (Buyer Name):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">Buyer Name:</td>
                   <td style="font-size: 13px; color: #ffffff; text-align: right; font-weight: 700; padding: 3px 0;">${params.buyerName}</td>
                 </tr>
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">ስልክ ቁጥር (Phone):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">Phone:</td>
                   <td style="font-size: 13px; color: #34d399; text-align: right; font-weight: 700; padding: 3px 0;">${params.buyerPhone}</td>
                 </tr>
                 <tr>
-                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">የማድረሻ ከተማ/አድራሻ (Location):</td>
+                  <td style="font-size: 13px; color: #94a3b8; padding: 3px 0;">Location:</td>
                   <td style="font-size: 13px; color: #cbd5e1; text-align: right; padding: 3px 0;">
                     ${[params.deliveryCity, params.deliverySubCity, params.deliveryLocation].filter(Boolean).join(', ') || 'Addis Ababa'}
                   </td>
@@ -1285,15 +1336,15 @@ export class MailService {
           <tr>
             <td style="padding: 0 30px 15px 30px;">
               <div style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px;">
-                ከእርስዎ የተገዙ ዕቃዎች ዝርዝር (Your Sold Items)
+                Your Sold Items
               </div>
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 10px; overflow: hidden;">
                 <thead>
                   <tr style="background: rgba(255, 255, 255, 0.05); border-bottom: 1px solid rgba(255, 255, 255, 0.1);">
-                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">የእርስዎ ምርት (Product)</th>
-                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">የታዘዘው ብዛት</th>
-                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ነጠላ ዋጋ</th>
-                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">ድምር</th>
+                    <th style="padding: 10px; text-align: left; font-size: 11px; font-weight: 700; color: #94a3b8;">Product</th>
+                    <th style="padding: 10px; text-align: center; font-size: 11px; font-weight: 700; color: #94a3b8;">Ordered Qty</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">Unit Price</th>
+                    <th style="padding: 10px; text-align: right; font-size: 11px; font-weight: 700; color: #94a3b8;">Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1308,19 +1359,19 @@ export class MailService {
             <td style="padding: 0 30px 20px 30px;">
               <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 10px; padding: 14px 16px;">
                 <tr>
-                  <td style="font-size: 14px; color: #ffffff; font-weight: 800;">የእርስዎ ክፍያ ድምር (Your Payout):</td>
+                  <td style="font-size: 14px; color: #ffffff; font-weight: 800;">Your Payout:</td>
                   <td style="font-size: 16px; color: #34d399; text-align: right; font-weight: 800;">${this.formatEtb(params.sellerSubtotal)}</td>
                 </tr>
                 <tr>
-                  <td style="font-size: 12px; color: #94a3b8; padding-top: 6px;">የክፍያ ሁኔታ (Escrow Status):</td>
+                  <td style="font-size: 12px; color: #94a3b8; padding-top: 6px;">Escrow Status:</td>
                   <td style="font-size: 12px; color: #34d399; text-align: right; font-weight: 700; padding-top: 6px;">
-                    🛡️ በዋስትና ተይዟል (Secured in Escrow)
+                    🛡️ Secured in Escrow
                   </td>
                 </tr>
                 <tr>
-                  <td style="font-size: 12px; color: #94a3b8; padding-top: 3px;">ክፍያ አከፋፈል (Payout Release):</td>
+                  <td style="font-size: 12px; color: #94a3b8; padding-top: 3px;">Payout Release:</td>
                   <td style="font-size: 12px; color: #cbd5e1; text-align: right; padding-top: 3px;">
-                    ዕቃው ለደንበኛ ሲደርስ በቀጥታ ይለቀቃል
+                    Released automatically upon customer delivery confirmation
                   </td>
                 </tr>
               </table>
@@ -1331,7 +1382,7 @@ export class MailService {
           <tr>
             <td style="text-align: center; padding: 0 30px 30px 30px;">
               <a href="http://localhost:3000/dashboard/${params.isSupplier ? 'supplier' : 'seller'}" style="display: inline-block; background: linear-gradient(90deg, #f59e0b, #d97706); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.3);">
-                ወደ ${merchantLabel} ዳሽቦርድ ይግቡ (Manage Order) &rarr;
+                Open ${merchantLabel} Dashboard &rarr;
               </a>
             </td>
           </tr>
@@ -1361,6 +1412,427 @@ export class MailService {
       return true;
     } catch (err: any) {
       this.logger.error(`Failed to send seller order notification to ${params.toEmail}:`, err);
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 10. Password Changed Confirmation Email
+  // ─────────────────────────────────────────────────────────────
+  async sendPasswordChangedConfirmationEmail(params: PasswordChangedEmailParams): Promise<boolean> {
+    if (!this.transporter) this.initTransporter();
+    if (!this.transporter) return false;
+
+    const fromAddress = this.getFromAddress();
+    const formattedDate = params.changeDate
+      ? new Date(params.changeDate).toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa', dateStyle: 'medium', timeStyle: 'short' })
+      : new Date().toLocaleString('en-US', { timeZone: 'Africa/Addis_Ababa', dateStyle: 'medium', timeStyle: 'short' });
+
+    const subject = `🔐 Security Alert: Your MercatoX Password was Changed`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0b0f19; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 520px; background-color: #111827; border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);">
+          <tr><td style="height: 4px; background: linear-gradient(90deg, #6366f1, #3b82f6, #06b6d4);"></td></tr>
+          <tr>
+            <td style="padding: 32px 32px 14px 32px; text-align: center;">
+              <div style="display: inline-block; padding: 6px 14px; background-color: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #818cf8; letter-spacing: 0.5px;">
+                🔐 MercatoX Security Guard
+              </div>
+              <h1 style="margin: 14px 0 6px 0; font-size: 21px; font-weight: 800; color: #ffffff;">
+                Password Successfully Changed
+              </h1>
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">Hello, ${params.fullName || 'Valued User'}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 14px 32px 28px 32px;">
+              <div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 0 10px 10px 0; padding: 14px 16px; margin-bottom: 20px;">
+                <p style="margin: 0; font-size: 13px; color: #34d399; font-weight: 600;">
+                  ✅ The password for your MercatoX account was updated successfully on ${formattedDate} (East Africa Time).
+                </p>
+              </div>
+
+              <p style="margin: 0 0 14px 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
+                All prior sessions have been secured. You can now use your newly configured password to sign in across all MercatoX web and mobile apps.
+              </p>
+
+              <!-- Security Warning -->
+              <div style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 10px; padding: 14px 16px; margin: 20px 0;">
+                <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #f87171; margin-bottom: 4px;">
+                  ⚠️ Didn't request this change?
+                </div>
+                <p style="margin: 0; font-size: 12px; color: #fca5a5; line-height: 1.5;">
+                  If you did not perform this password update, someone may have accessed your account. Please reset your password immediately or email our emergency security desk at <a href="mailto:muradsada8@gmail.com" style="color: #ffffff; text-decoration: underline;">muradsada8@gmail.com</a>.
+                </p>
+              </div>
+
+              <div style="text-align: center; margin: 24px 0 10px 0;">
+                <a href="http://localhost:3000/login" style="display: inline-block; background: linear-gradient(90deg, #6366f1, #4f46e5); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.35);">
+                  Log In to MercatoX &rarr;
+                </a>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #0a0e17; padding: 18px 32px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748b;">MercatoX Multi-Vendor Marketplace &bull; Addis Ababa, Ethiopia</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      const info = await this.transporter.sendMail({
+        from: fromAddress,
+        to: params.toEmail,
+        subject,
+        text: `Hello ${params.fullName || 'User'},\n\nYour MercatoX account password was successfully changed on ${formattedDate}.\n\nIf you did not make this change, please reset your password immediately or contact muradsada8@gmail.com.\n\nMercatoX Security Team`,
+        html: htmlContent,
+      });
+      this.logger.log(`Password changed confirmation email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send password changed confirmation to ${params.toEmail}:`, err);
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 11. Subscription / Bank Slip Status Email (Approve or Reject)
+  // ─────────────────────────────────────────────────────────────
+  async sendSubscriptionStatusEmail(params: SubscriptionStatusEmailParams): Promise<boolean> {
+    if (!this.transporter) this.initTransporter();
+    if (!this.transporter) return false;
+
+    const fromAddress = this.getFromAddress();
+
+    const subject = params.isApproved
+      ? `🎉 Subscription Activated: Welcome to ${params.planName} Plan on MercatoX!`
+      : `⚠️ Subscription Notice: Update Regarding Your ${params.planName} Plan Application`;
+
+    const statusBadge = params.isApproved
+      ? `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #34d399;">
+          ✅ Subscription Active
+        </div>`
+      : `<div style="display: inline-block; padding: 6px 14px; background-color: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 9999px; font-size: 12px; font-weight: 700; color: #f87171;">
+          ❌ Payment Verification Rejected
+        </div>`;
+
+    const contentBody = params.isApproved
+      ? `<div style="background: rgba(16, 185, 129, 0.08); border-left: 4px solid #10b981; border-radius: 0 10px 10px 0; padding: 14px 16px; margin: 16px 0;">
+          <p style="margin: 0 0 6px 0; font-size: 14px; color: #ffffff; font-weight: 700;">
+            Congratulations! Your payment for the <strong style="color: #34d399;">${params.planName}</strong> plan has been verified.
+          </p>
+          <p style="margin: 0; font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+            Your premium merchant perks, increased product catalog limits, and verified store badge are now live!
+          </p>
+        </div>
+
+        <table width="100%" cellpadding="0" cellspacing="0" style="background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; margin: 16px 0; padding: 12px 16px;">
+          <tr>
+            <td style="font-size: 12px; color: #94a3b8; padding: 4px 0;">Selected Plan:</td>
+            <td style="font-size: 13px; color: #ffffff; font-weight: 700; text-align: right; padding: 4px 0;">${params.planName}</td>
+          </tr>
+          ${params.price ? `<tr>
+            <td style="font-size: 12px; color: #94a3b8; padding: 4px 0;">Amount Paid:</td>
+            <td style="font-size: 13px; color: #34d399; font-weight: 700; text-align: right; padding: 4px 0;">${this.formatEtb(params.price)}</td>
+          </tr>` : ''}
+          ${params.billingPeriod ? `<tr>
+            <td style="font-size: 12px; color: #94a3b8; padding: 4px 0;">Billing Cycle:</td>
+            <td style="font-size: 13px; color: #cbd5e1; text-align: right; text-transform: capitalize; padding: 4px 0;">${params.billingPeriod}</td>
+          </tr>` : ''}
+        </table>
+
+        <div style="text-align: center; margin: 24px 0 10px 0;">
+          <a href="http://localhost:3000/dashboard/seller" style="display: inline-block; background: linear-gradient(90deg, #10b981, #059669); color: #ffffff; padding: 12px 28px; border-radius: 10px; font-weight: 700; font-size: 13px; text-decoration: none; box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);">
+            Access Merchant Dashboard &rarr;
+          </a>
+        </div>`
+      : `<div style="background: rgba(239, 68, 68, 0.08); border-left: 4px solid #ef4444; border-radius: 0 10px 10px 0; padding: 14px 16px; margin: 16px 0;">
+          <p style="margin: 0 0 6px 0; font-size: 14px; color: #ffffff; font-weight: 700;">
+            Subscription Payment Not Verified
+          </p>
+          <p style="margin: 0; font-size: 12px; color: #fca5a5; line-height: 1.5;">
+            Our finance team could not verify the submitted payment slip or transaction reference for your <strong style="color: #ffffff;">${params.planName}</strong> plan application.
+          </p>
+        </div>
+
+        <div style="font-size: 11px; text-transform: uppercase; font-weight: 800; color: #f87171; margin: 14px 0 6px 0;">
+          Rejection / Audit Notes:
+        </div>
+        <div style="font-size: 13px; font-weight: 600; color: #fca5a5; background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 8px; padding: 10px 14px; line-height: 1.5;">
+          ${params.rejectionReason || 'The uploaded payment transfer slip was illegible or the reference number was not recognized in platform accounts.'}
+        </div>
+
+        <p style="margin: 16px 0; font-size: 12px; color: #cbd5e1; line-height: 1.5;">
+          Please log into your merchant account, check your bank statement, and upload a clear screenshot of the completed transfer slip or pay directly via Chapa/Telebirr.
+        </p>
+
+        <div style="text-align: center; margin: 20px 0 10px 0;">
+          <a href="http://localhost:3000/dashboard/seller/billing" style="display: inline-block; background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: #ffffff; padding: 11px 26px; border-radius: 8px; font-weight: 600; font-size: 12px; text-decoration: none;">
+            Re-submit Payment Slip &rarr;
+          </a>
+        </div>`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0b0f19; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table width="100%" style="max-width: 520px; background-color: #111827; border: 1px solid ${params.isApproved ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; border-radius: 16px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);">
+          <tr><td style="height: 4px; background: ${params.isApproved ? 'linear-gradient(90deg, #10b981, #06b6d4, #6366f1)' : 'linear-gradient(90deg, #ef4444, #f59e0b)'};"></td></tr>
+          <tr>
+            <td style="padding: 32px 32px 14px 32px; text-align: center;">
+              <div style="margin-bottom: 12px;">${statusBadge}</div>
+              <h1 style="margin: 12px 0 6px 0; font-size: 21px; font-weight: 800; color: #ffffff;">
+                ${params.isApproved ? 'Subscription Activated!' : 'Payment Verification Notice'}
+              </h1>
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">Hello, ${params.fullName}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 14px 32px 32px 32px;">
+              ${contentBody}
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #0a0e17; padding: 18px 32px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748b;">MercatoX Multi-Vendor Marketplace &bull; Addis Ababa, Ethiopia</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    try {
+      const info = await this.transporter.sendMail({
+        from: fromAddress,
+        to: params.toEmail,
+        subject,
+        text: `Hello ${params.fullName},\n\nYour subscription to the ${params.planName} plan is: ${params.isApproved ? 'ACTIVE' : 'REJECTED'}.\n${!params.isApproved && params.rejectionReason ? `Reason: ${params.rejectionReason}\n` : ''}\nMercatoX Team`,
+        html: htmlContent,
+      });
+      this.logger.log(`Subscription status email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send subscription status email to ${params.toEmail}:`, err);
+      return false;
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────
+  // 12. MercatoX Digital Card 8-Digit Password / PIN Email
+  // ─────────────────────────────────────────────────────────────
+  async sendCardPasswordEmail(params: CardPasswordEmailParams): Promise<boolean> {
+    if (!this.transporter) this.initTransporter();
+    if (!this.transporter) return false;
+
+    const fromAddress = this.getFromAddress();
+    const formattedCardNumber = (params.cardNumber || '').trim();
+    const last4 = formattedCardNumber.replace(/\D/g, '').slice(-4) || '8942';
+    const currency = params.currency || 'ETB';
+    const expiryDate = params.expiryDate || '10/29';
+    const cardPassword = (params.cardPassword || '').trim();
+
+    const subject = `🔐 Your MercatoX Card 8-Digit Password [${cardPassword}] | Security Notice`;
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #070b19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; color: #e2e8f0;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #070b19; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <!-- Main Card Container -->
+        <table width="100%" style="max-width: 580px; background: linear-gradient(180deg, #0f172a 0%, #090d16 100%); border: 1px solid rgba(56, 189, 248, 0.25); border-radius: 20px; overflow: hidden; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+          <!-- Top Accent Ribbon -->
+          <tr>
+            <td style="height: 5px; background: linear-gradient(90deg, #6366f1 0%, #06b6d4 50%, #10b981 100%);"></td>
+          </tr>
+
+          <!-- Header -->
+          <tr>
+            <td style="padding: 32px 32px 16px 32px; text-align: center;">
+              <div style="display: inline-block; padding: 6px 16px; background-color: rgba(6, 182, 212, 0.12); border: 1px solid rgba(6, 182, 212, 0.35); border-radius: 9999px; font-size: 11px; font-weight: 800; color: #38bdf8; letter-spacing: 1.5px; text-transform: uppercase;">
+                Official Digital ATM Card
+              </div>
+              <h1 style="margin: 16px 0 6px 0; font-size: 24px; font-weight: 900; color: #ffffff; letter-spacing: -0.5px;">
+                Mercato<span style="color: #22d3ee;">X</span> Card Password
+              </h1>
+              <p style="margin: 0; font-size: 13px; color: #94a3b8;">
+                Hello <strong style="color: #ffffff;">${params.cardholderName || 'Valued Customer'}</strong>, your official digital card is active!
+              </p>
+            </td>
+          </tr>
+
+          <!-- Digital Card Preview Badge -->
+          <tr>
+            <td style="padding: 12px 32px;">
+              <table width="100%" cellpadding="0" cellspacing="0" style="background: linear-gradient(135deg, #070b19 0%, #0f1738 50%, #042137 100%); border: 1px solid rgba(34, 211, 238, 0.4); border-radius: 16px; padding: 20px 24px; box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);">
+                <tr>
+                  <td>
+                    <div style="font-size: 11px; font-weight: 700; color: #38bdf8; letter-spacing: 1px; text-transform: uppercase;">
+                      MERCATOX CARD
+                    </div>
+                    <div style="font-size: 16px; font-weight: 800; color: #ffffff; letter-spacing: 3px; font-family: monospace; margin: 10px 0 6px 0;">
+                      ${formattedCardNumber}
+                    </div>
+                  </td>
+                  <td align="right" valign="top">
+                    <div style="font-size: 10px; font-weight: 600; color: #94a3b8; text-transform: uppercase;">
+                      Available Balance
+                    </div>
+                    <div style="font-size: 15px; font-weight: 900; color: #34d399; font-family: monospace;">
+                      ${currency} ${Number(params.balance || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding-top: 10px;">
+                    <span style="font-size: 11px; color: #cbd5e1; text-transform: uppercase; font-weight: 600;">
+                      ${params.cardholderName}
+                    </span>
+                  </td>
+                  <td align="right" style="padding-top: 10px;">
+                    <span style="font-size: 11px; color: #94a3b8; font-family: monospace;">
+                      EXP: ${expiryDate}
+                    </span>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- 8-DIGIT PASSWORD HERO BOX -->
+          <tr>
+            <td style="padding: 16px 32px; text-align: center;">
+              <div style="background: linear-gradient(180deg, rgba(15, 23, 42, 0.95), rgba(8, 12, 22, 0.95)); border: 2px dashed rgba(6, 182, 212, 0.5); border-radius: 16px; padding: 24px 20px; box-shadow: 0 8px 30px rgba(6, 182, 212, 0.15);">
+                <p style="margin: 0 0 4px 0; font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: 700;">
+                  YOUR 8-DIGIT CARD PASSWORD
+                </p>
+                <p style="margin: 0 0 12px 0; font-size: 12px; color: #38bdf8; font-weight: 700;">
+                  Card Security Authorization Code
+                </p>
+
+                <!-- 8-DIGIT DISPLAY -->
+                <div style="background: rgba(6, 182, 212, 0.08); border: 1px solid rgba(6, 182, 212, 0.4); border-radius: 12px; display: inline-block; padding: 14px 28px; margin: 6px 0;">
+                  <span style="font-size: 34px; font-weight: 900; letter-spacing: 8px; color: #22d3ee; font-family: 'Courier New', Courier, monospace; text-shadow: 0 0 12px rgba(34, 211, 238, 0.5);">
+                    ${cardPassword}
+                  </span>
+                </div>
+
+                <div style="margin-top: 14px;">
+                  <span style="display: inline-block; background-color: rgba(239, 68, 68, 0.12); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 6px; padding: 4px 14px; font-size: 11px; font-weight: 700; color: #f87171;">
+                    🔒 Keep strictly confidential
+                  </span>
+                </div>
+              </div>
+            </td>
+          </tr>
+
+          <!-- INSTRUCTIONS -->
+          <tr>
+            <td style="padding: 12px 32px 28px 32px;">
+              <div style="background: rgba(30, 41, 59, 0.6); border-left: 4px solid #38bdf8; border-radius: 0 10px 10px 0; padding: 16px 18px; margin-bottom: 18px;">
+                <p style="margin: 0 0 8px 0; font-size: 13.5px; font-weight: 700; color: #38bdf8;">
+                  How to Use Your Card Password:
+                </p>
+                <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
+                  Whenever you purchase goods on MercatoX and choose <strong>MercatoX Digital Card</strong> at checkout, enter this 8-digit password to authorize deduction from your card balance with zero transaction fees (0% fee) and instant confirmation.
+                </p>
+              </div>
+
+              <!-- Security Reminder Notice -->
+              <div style="background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 10px; padding: 12px 16px;">
+                <p style="margin: 0; font-size: 11.5px; color: #94a3b8; line-height: 1.5;">
+                  ⚠️ <strong>Security Notice:</strong> Never share your 8-digit password with anyone. MercatoX support staff will NEVER ask you for your card password or PIN.
+                </p>
+              </div>
+
+              <!-- CTA Button -->
+              <div style="text-align: center; margin-top: 24px;">
+                <a href="http://localhost:3000/marketplace" style="display: inline-block; background: linear-gradient(90deg, #6366f1 0%, #06b6d4 100%); color: #ffffff; padding: 13px 32px; border-radius: 12px; font-weight: 800; font-size: 13px; text-decoration: none; box-shadow: 0 4px 18px rgba(6, 182, 212, 0.35);">
+                  Start Shopping on Marketplace &rarr;
+                </a>
+              </div>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #050811; padding: 18px 32px; border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center;">
+              <p style="margin: 0; font-size: 11px; color: #64748b;">
+                MercatoX National Marketplace &bull; Addis Ababa, Ethiopia &bull; Support: <a href="mailto:muradsada8@gmail.com" style="color: #38bdf8; text-decoration: none;">muradsada8@gmail.com</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+    const plainText = `
+MercatoX Digital Card Issuance
+Hello ${params.cardholderName},
+
+Your official MercatoX Card has been successfully issued and activated!
+
+Card Number: ${formattedCardNumber}
+Available Balance: ${currency} ${Number(params.balance || 0).toLocaleString()}
+
+YOUR 8-DIGIT CARD PASSWORD:
+[ ${cardPassword} ]
+
+How to use:
+Whenever you checkout on MercatoX and choose MercatoX Card, enter this 8-digit password to authorize your order with zero fees.
+
+Security Notice: Never share this password with anyone.
+
+MercatoX Marketplace Team
+`;
+
+    try {
+      const info = await this.transporter.sendMail({
+        from: fromAddress,
+        to: params.toEmail,
+        subject,
+        text: plainText,
+        html: htmlContent,
+      });
+      this.logger.log(`8-digit card password email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
+      return true;
+    } catch (err: any) {
+      this.logger.error(`Failed to send card password email to ${params.toEmail}:`, err);
       return false;
     }
   }

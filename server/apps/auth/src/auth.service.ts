@@ -3,6 +3,7 @@ import {
   ConflictException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
@@ -34,6 +35,8 @@ import {
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
@@ -182,10 +185,11 @@ export class AuthService {
       ).catch(() => null);
 
       // Send email notification to Admin about the new Seller / Supplier
-      this.mailService
-        .sendAdminNewMerchantNotificationEmail({
+      const userEmailForAdmin = (savedUser.email || dto.email || '').trim().toLowerCase();
+      try {
+        await this.mailService.sendAdminNewMerchantNotificationEmail({
           fullName: dto.fullName,
-          email: savedUser.email || dto.email || 'N/A',
+          email: userEmailForAdmin || 'N/A',
           phoneNumber: savedUser.phoneNumber || dto.phoneNumber,
           role: savedUser.role,
           isSupplier,
@@ -196,25 +200,26 @@ export class AuthService {
           specificLocation: dto.specificLocation,
           tradeLicenseNumber: dto.tradeLicenseNumber,
           tinNumber: dto.tinNumber,
-        })
-        .catch((err) =>
-          console.error('[AuthService] Error sending admin notification email:', err),
-        );
+        });
+      } catch (err) {
+        console.error('[AuthService] Error sending admin notification email:', err);
+      }
     }
 
     // Send registration email to the user (if email provided)
-    if (savedUser.email) {
-      this.mailService
-        .sendRegistrationSuccessEmail({
-          toEmail: savedUser.email,
+    const targetRegistrationEmail = (savedUser.email || dto.email || '').trim().toLowerCase();
+    if (targetRegistrationEmail && targetRegistrationEmail.includes('@')) {
+      try {
+        await this.mailService.sendRegistrationSuccessEmail({
+          toEmail: targetRegistrationEmail,
           fullName: dto.fullName,
           role: savedUser.role,
           isSupplier,
           shopName: dto.shopName,
-        })
-        .catch((err) =>
-          console.error('[AuthService] Error sending user registration email:', err),
-        );
+        });
+      } catch (err) {
+        console.error('[AuthService] Error sending user registration email:', err);
+      }
     }
 
     const tokens = await this.generateTokens(
@@ -425,6 +430,32 @@ export class AuthService {
           }),
         ).catch(() => null);
 
+        // Send email alert to user regarding account security suspension
+        if (user.email) {
+          const userRecipientEmail = user.email;
+          const userRecipientRole = user.role;
+          (async () => {
+            let fullName = userRecipientEmail.split('@')[0];
+            try {
+              const profile: any = await firstValueFrom(
+                this.usersClient.send('get_profile', { userId: user.id }),
+              );
+              if (profile?.fullName) fullName = profile.fullName;
+            } catch {
+              // ignore
+            }
+            return this.mailService.sendAccountStatusChangedEmail({
+              toEmail: userRecipientEmail,
+              fullName,
+              role: userRecipientRole,
+              isActive: false,
+              reason: `Account locked after exceeding maximum failed login security cycles (${maxLockoutRounds} cycles of 3 attempts).`,
+            });
+          })().catch((err) =>
+            this.logger.error(`Failed to send lockout suspension email to ${userRecipientEmail}:`, err),
+          );
+        }
+
         throw new RpcException(
           new UnauthorizedException({
             message: `Your account has been permanently blocked because you completed all ${maxLockoutRounds} security lockout cycles (3 failed attempts per cycle). Final ${lockoutDurationSeconds}s cooldown active. Please contact an administrator.`,
@@ -618,6 +649,29 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.newPassword, salt);
     await this.userRepository.update(user.id, { passwordHash });
 
+    // Send confirmation email to the user
+    if (user.email) {
+      const userRecipientEmail = user.email;
+      try {
+        let fullName = userRecipientEmail.split('@')[0];
+        try {
+          const profile: any = await firstValueFrom(
+            this.usersClient.send('get_profile', { userId: user.id }),
+          );
+          if (profile?.fullName) fullName = profile.fullName;
+        } catch {
+          // ignore
+        }
+        await this.mailService.sendPasswordChangedConfirmationEmail({
+          toEmail: userRecipientEmail,
+          fullName,
+          changeDate: new Date(),
+        });
+      } catch (err) {
+        this.logger.error(`Failed to send password changed confirmation to ${userRecipientEmail}:`, err);
+      }
+    }
+
     return { success: true };
   }
 
@@ -718,14 +772,40 @@ export class AuthService {
     return { success: true, userId: user.id, role: user.role, isActive: user.isActive };
   }
 
-  async deleteUser(userId: string) {
-    const user = await this.userRepository.findOne({ where: { id: userId } });
-    if (!user) {
-      throw new RpcException(new NotFoundException('User not found'));
+  async deleteUser(userId: string): Promise<{ success: boolean; userId: string; deletedCount?: number }> {
+    try {
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+      let deletedCount = 0;
+      if (isUuid) {
+        const user = await this.userRepository.findOne({ where: { id: userId } });
+        if (user?.email) {
+          await this.otpRepository
+            .createQueryBuilder()
+            .delete()
+            .where('LOWER(email) = :email', { email: user.email.toLowerCase() })
+            .execute()
+            .catch(() => null);
+        }
+        const delRes = await this.userRepository.delete({ id: userId });
+        deletedCount = delRes.affected || 0;
+      } else {
+        await this.otpRepository
+          .createQueryBuilder()
+          .delete()
+          .where('LOWER(email) = :email', { email: userId.toLowerCase() })
+          .execute()
+          .catch(() => null);
+        const delRes = await this.userRepository.delete([
+          { email: userId },
+          { googleId: userId },
+        ]);
+        deletedCount = delRes.affected || 0;
+      }
+      return { success: true, userId, deletedCount };
+    } catch (err) {
+      this.logger.error(`[AuthService] Error deleting user ${userId}:`, err);
+      return { success: false, userId, deletedCount: 0 };
     }
-
-    await this.userRepository.remove(user);
-    return { success: true, userId };
   }
 
   async validateToken(token: string) {
@@ -779,12 +859,12 @@ export class AuthService {
     const accessToken = await this.jwtService.signAsync(payload, {
       secret,
       expiresIn:
-        this.configService.get<string>('JWT_EXPIRATION') || '15m',
+        this.configService.get<string>('JWT_EXPIRATION') || '7d',
     });
     const refreshToken = await this.jwtService.signAsync(payload, {
       secret,
       expiresIn:
-        this.configService.get<string>('REFRESH_TOKEN_EXPIRATION') || '7d',
+        this.configService.get<string>('REFRESH_TOKEN_EXPIRATION') || '30d',
     });
     return { accessToken, refreshToken };
   }
@@ -812,13 +892,17 @@ export class AuthService {
     idToken?: string;
     accessToken?: string;
     role?: UserRole;
+    isRegistration?: boolean;
   }) {
     const { code, redirectUri, credential, idToken, accessToken } = payload;
 
-    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
-    const clientSecret = this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+    const clientId =
+      this.configService.get<string>('GOOGLE_CLIENT_ID') ||
+      (payload as any)?.clientId;
+    const clientSecret =
+      this.configService.get<string>('GOOGLE_CLIENT_SECRET');
 
-    if (!clientId || !clientSecret) {
+    if (code && (!clientId || !clientSecret)) {
       throw new RpcException(
         new BadRequestException('Google OAuth credentials are not configured on the server.'),
       );
@@ -962,6 +1046,8 @@ export class AuthService {
       ],
     });
 
+    const isNewGoogleUser = !user;
+
     if (user) {
       let needsSave = false;
       if (!user.googleId && googleId) {
@@ -1020,8 +1106,10 @@ export class AuthService {
       // ignore
     }
 
+    let isFirstTimeProfile = false;
     if (!profile) {
       try {
+        isFirstTimeProfile = true;
         profile = await firstValueFrom(
           this.usersClient.send('create_profile', {
             userId: user.id,
@@ -1035,6 +1123,27 @@ export class AuthService {
           '[AuthService] Failed creating user profile for Google login:',
           e,
         );
+      }
+    }
+
+    // Send Welcome Email if this is a newly registered Google user, explicit registration request, or first time profile
+    const shouldSendWelcome = Boolean(
+      (isNewGoogleUser || payload.isRegistration || isFirstTimeProfile) &&
+      user.email &&
+      user.email.includes('@')
+    );
+
+    if (shouldSendWelcome) {
+      try {
+        const resolvedName = profile?.fullName || fullName || user.email.split('@')[0];
+        const sent = await this.mailService.sendRegistrationSuccessEmail({
+          toEmail: user.email,
+          fullName: resolvedName,
+          role: user.role,
+        });
+        this.logger.log(`Google registration welcome email dispatched to ${user.email}: ${sent}`);
+      } catch (err) {
+        this.logger.error(`Failed to send Google registration welcome email to ${user.email}:`, err);
       }
     }
 
@@ -1058,6 +1167,8 @@ export class AuthService {
         phoneNumber: user.phoneNumber,
         fullName: profile?.fullName || fullName,
         role: user.role,
+        avatar: googleUser?.picture,
+        avatarUrl: googleUser?.picture,
         isVerified: true,
         authProvider: 'google',
       },
@@ -1068,10 +1179,33 @@ export class AuthService {
     const email = dto.email.toLowerCase().trim();
 
     // Check if user exists with this email
-    const user = await this.userRepository
+    let user = await this.userRepository
       .createQueryBuilder('user')
       .where('LOWER(TRIM(user.email)) = :email', { email })
       .getOne();
+
+    let userName: string | undefined;
+
+    // Fallback: search profile in users db if auth user does not have this email
+    if (!user) {
+      try {
+        const profile: any = await firstValueFrom(
+          this.usersClient.send('get_profile_by_email', { email }),
+        );
+        if (profile?.userId) {
+          user = await this.userRepository.findOne({
+            where: { id: profile.userId },
+          });
+          if (user) {
+            user.email = email;
+            await this.userRepository.save(user);
+            userName = profile.fullName;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     if (!user) {
       throw new RpcException(
@@ -1106,19 +1240,24 @@ export class AuthService {
     });
     await this.otpRepository.save(otpRecord);
 
-    // Fetch user full name from user service if available
-    let userName: string | undefined;
-    try {
-      const profile = await firstValueFrom(
-        this.usersClient.send('get_profile', { userId: user.id }),
-      );
-      userName = profile?.fullName;
-    } catch {
-      // non-blocking
+    // Fetch user full name from user service if not already fetched
+    if (!userName) {
+      try {
+        const profile = await firstValueFrom(
+          this.usersClient.send('get_profile', { userId: user.id }),
+        );
+        userName = profile?.fullName;
+      } catch {
+        // non-blocking
+      }
     }
 
     // Dispatch the email with OTP
-    await this.mailService.sendPasswordResetOtpEmail(email, otp, userName);
+    try {
+      await this.mailService.sendPasswordResetOtpEmail(email, otp, userName);
+    } catch (mailErr) {
+      this.logger.error(`Failed to send OTP email to ${email}:`, mailErr);
+    }
 
     return {
       success: true,
@@ -1178,11 +1317,31 @@ export class AuthService {
       );
     }
 
-    const user = await this.userRepository
+    let user = await this.userRepository
       .createQueryBuilder('user')
       .addSelect('user.passwordHash')
       .where('LOWER(TRIM(user.email)) = :email', { email })
       .getOne();
+
+    if (!user) {
+      try {
+        const profile: any = await firstValueFrom(
+          this.usersClient.send('get_profile_by_email', { email }),
+        );
+        if (profile?.userId) {
+          user = await this.userRepository
+            .createQueryBuilder('user')
+            .addSelect('user.passwordHash')
+            .where('user.id = :id', { id: profile.userId })
+            .getOne();
+          if (user) {
+            user.email = email;
+          }
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     if (!user) {
       throw new RpcException(
@@ -1206,6 +1365,29 @@ export class AuthService {
     // Mark the OTP as consumed
     otpRecord.isUsed = true;
     await this.otpRepository.save(otpRecord);
+
+    // Send confirmation email to the user
+    const recipientEmail = user.email || email;
+    if (recipientEmail) {
+      try {
+        let fullName = recipientEmail.split('@')[0];
+        try {
+          const profile: any = await firstValueFrom(
+            this.usersClient.send('get_profile', { userId: user.id }),
+          );
+          if (profile?.fullName) fullName = profile.fullName;
+        } catch {
+          // ignore
+        }
+        await this.mailService.sendPasswordChangedConfirmationEmail({
+          toEmail: recipientEmail,
+          fullName,
+          changeDate: new Date(),
+        });
+      } catch (err) {
+        this.logger.error(`Failed to send password reset confirmation to ${recipientEmail}:`, err);
+      }
+    }
 
     return {
       success: true,

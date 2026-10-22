@@ -694,6 +694,105 @@ export class OrdersService {
     };
   }
 
+  async deleteUserOrdersData(userIds: string[]): Promise<{
+    success: boolean;
+    deletedOrderIds: string[];
+    deletedOrdersCount: number;
+    deletedRfqsCount: number;
+    deletedQuotationsCount: number;
+    deletedNegotiationsCount: number;
+  }> {
+    const validIds = (userIds || []).filter((id) => id && typeof id === 'string');
+    if (validIds.length === 0) {
+      return {
+        success: true,
+        deletedOrderIds: [],
+        deletedOrdersCount: 0,
+        deletedRfqsCount: 0,
+        deletedQuotationsCount: 0,
+        deletedNegotiationsCount: 0,
+      };
+    }
+
+    try {
+      // 1. Find all orders where user is customerId or sellerId
+      const orders = await this.orderRepository
+        .createQueryBuilder('order')
+        .where('order.customerId IN (:...validIds) OR order.sellerId IN (:...validIds)', { validIds })
+        .getMany();
+
+      const orderIds = orders.map((o) => o.id);
+
+      if (orderIds.length > 0) {
+        // Delete order items
+        await this.orderItemRepository
+          .createQueryBuilder()
+          .delete()
+          .where('orderId IN (:...orderIds)', { orderIds })
+          .execute()
+          .catch(() => null);
+
+        // Delete orders
+        await this.orderRepository
+          .createQueryBuilder()
+          .delete()
+          .where('id IN (:...orderIds)', { orderIds })
+          .execute();
+      }
+
+      // If user was assigned as carrier (courier), unassign them from active orders
+      await this.orderRepository
+        .createQueryBuilder()
+        .update()
+        .set({ carrierId: () => 'NULL' })
+        .where('carrierId IN (:...validIds)', { validIds })
+        .execute()
+        .catch(() => null);
+
+      // 2. Delete RFQs where user is customerId or sellerId
+      const rfqRes = await this.rfqRepository
+        .createQueryBuilder()
+        .delete()
+        .where('customerId IN (:...validIds) OR sellerId IN (:...validIds)', { validIds })
+        .execute()
+        .catch(() => ({ affected: 0 }));
+
+      // 3. Delete Quotations where user is customerId or sellerId
+      const quoteRes = await this.quotationRepository
+        .createQueryBuilder()
+        .delete()
+        .where('customerId IN (:...validIds) OR sellerId IN (:...validIds)', { validIds })
+        .execute()
+        .catch(() => ({ affected: 0 }));
+
+      // 4. Delete Negotiations where user is customerId or sellerId
+      const negRes = await this.negotiationRepository
+        .createQueryBuilder()
+        .delete()
+        .where('customerId IN (:...validIds) OR sellerId IN (:...validIds)', { validIds })
+        .execute()
+        .catch(() => ({ affected: 0 }));
+
+      return {
+        success: true,
+        deletedOrderIds: orderIds,
+        deletedOrdersCount: orderIds.length,
+        deletedRfqsCount: rfqRes?.affected || 0,
+        deletedQuotationsCount: quoteRes?.affected || 0,
+        deletedNegotiationsCount: negRes?.affected || 0,
+      };
+    } catch (err: any) {
+      return {
+        success: false,
+        deletedOrderIds: [],
+        deletedOrdersCount: 0,
+        deletedRfqsCount: 0,
+        deletedQuotationsCount: 0,
+        deletedNegotiationsCount: 0,
+      };
+    }
+  }
+
   async assignOrderCarrier(payload: {
     orderId: string;
     carrierId?: string | null;

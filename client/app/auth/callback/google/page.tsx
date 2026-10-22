@@ -65,8 +65,12 @@ export default function GoogleCallbackPage() {
           (storedDest && storedDest.startsWith("/") ? storedDest : null) ||
           (role === "ADMIN"
             ? "/dashboard/admin"
+            : role === "SUPPLIER"
+            ? "/dashboard/supplier"
             : role === "SELLER"
             ? "/dashboard/seller"
+            : role === "DRIVER" || (role as string) === "DELIVERY"
+            ? "/dashboard/driver"
             : "/");
 
         if (typeof window !== "undefined") {
@@ -152,8 +156,12 @@ export default function GoogleCallbackPage() {
           (storedDest && storedDest.startsWith("/") ? storedDest : null) ||
           (userRole === "ADMIN"
             ? "/dashboard/admin"
+            : userRole === "SUPPLIER"
+            ? "/dashboard/supplier"
             : userRole === "SELLER"
             ? "/dashboard/seller"
+            : userRole === "DRIVER" || (userRole as string) === "DELIVERY"
+            ? "/dashboard/driver"
             : "/");
 
         if (typeof window !== "undefined") {
