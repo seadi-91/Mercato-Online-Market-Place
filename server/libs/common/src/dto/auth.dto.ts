@@ -105,13 +105,24 @@ export class RegisterDto {
 
 export class LoginDto {
   @IsString()
-  @IsNotEmpty({ message: 'Phone number or email is required' })
-  phoneNumber: string;
+  @IsOptional()
+  phoneNumber?: string;
+
+  @IsString()
+  @IsOptional()
+  email?: string;
+
+  @IsString()
+  @IsOptional()
+  identifier?: string;
 
   @IsString()
   @IsNotEmpty({ message: 'Password is required' })
   @MaxLength(128)
   password: string;
+
+  @IsOptional()
+  rememberMe?: boolean;
 }
 
 export class RefreshTokenDto {

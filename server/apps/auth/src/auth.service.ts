@@ -251,7 +251,13 @@ export class AuthService {
   }
 
   async login(dto: LoginDto) {
-    const identifier = (dto.phoneNumber || '').trim();
+    const rawIdentifier = (dto.phoneNumber || dto.email || (dto as any).identifier || '').trim();
+    if (!rawIdentifier) {
+      throw new RpcException(
+        new BadRequestException('Phone number or email is required.'),
+      );
+    }
+    const identifier = rawIdentifier;
     const isEmail = identifier.includes('@');
     const normalizedPhone = this.normalizePhoneNumber(identifier);
 
@@ -384,6 +390,19 @@ export class AuthService {
       user.lockedUntil = null;
       user.failedLoginAttempts = 0;
       await this.userRepository.save(user);
+    }
+
+    if (!user.passwordHash) {
+      if (user.authProvider === 'google') {
+        throw new RpcException(
+          new UnauthorizedException(
+            'This account was registered with Google. Please use "Sign in with Google" to access your account.',
+          ),
+        );
+      }
+      throw new RpcException(
+        new UnauthorizedException('Invalid credentials. Password not set for this account.'),
+      );
     }
 
     const isPasswordValid = await bcrypt.compare(dto.password, user.passwordHash);
@@ -898,9 +917,11 @@ export class AuthService {
 
     const clientId =
       this.configService.get<string>('GOOGLE_CLIENT_ID') ||
+      process.env.GOOGLE_CLIENT_ID ||
       (payload as any)?.clientId;
     const clientSecret =
-      this.configService.get<string>('GOOGLE_CLIENT_SECRET');
+      this.configService.get<string>('GOOGLE_CLIENT_SECRET') ||
+      process.env.GOOGLE_CLIENT_SECRET;
 
     if (code && (!clientId || !clientSecret)) {
       throw new RpcException(

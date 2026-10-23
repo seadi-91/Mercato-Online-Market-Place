@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Inject,
   Post,
   Req,
@@ -118,7 +119,7 @@ export class AuthController {
       return result;
     } catch (err) {
       // Log failed login attempt (actor unknown, use identifier as targetId)
-      const identifier = dto.phoneNumber || 'unknown';
+      const identifier = dto.phoneNumber || dto.email || (dto as any).identifier || 'unknown';
       this.usersClient
         .send('create_audit_log', {
           actorId: '00000000-0000-0000-0000-000000000000',
@@ -161,6 +162,13 @@ export class AuthController {
     );
 
     return result;
+  }
+
+  @Get('oauth-config')
+  getOAuthConfig() {
+    return {
+      googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+    };
   }
 
   @RateLimit({ limit: 30, ttlMs: 60000 })

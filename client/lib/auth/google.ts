@@ -144,14 +144,28 @@ export async function triggerGoogleSignIn(
 ): Promise<GoogleAuthResponse> {
   await loadGoogleScript();
 
-  const clientId =
+  let clientId =
     API_CONFIG.googleClientId ||
     process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
     "";
 
   if (!clientId) {
+    try {
+      const res = await fetch(`${API_CONFIG.baseURL}/auth/oauth-config`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.googleClientId) {
+          clientId = data.googleClientId;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!clientId) {
     throw new Error(
-      "Google Client ID is not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID."
+      "Google Client ID is not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID or configure it on the server."
     );
   }
 
