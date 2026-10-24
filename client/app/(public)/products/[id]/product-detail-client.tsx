@@ -76,6 +76,17 @@ export interface ReviewDisplayItem {
   tags?: string[];
 }
 
+/**
+ * Returns crisp high-resolution URLs for inspection zoom & galleries
+ */
+export function getHighResImageUrl(url: string | undefined): string {
+  if (!url) return "";
+  if (url.includes("images.unsplash.com")) {
+    return url.replace(/w=\d+/, "w=2000").replace(/q=\d+/, "q=95");
+  }
+  return url;
+}
+
 export function ProductDetailClient({
   productId,
   initialProduct,
@@ -139,8 +150,8 @@ export function ProductDetailClient({
     : "backdrop-blur-md bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 shadow-xs";
 
   const glassSupplierBadge = isLight
-    ? "backdrop-blur-md bg-cyan-500/10 border border-cyan-500/30 text-cyan-700 shadow-xs"
-    : "backdrop-blur-md bg-cyan-500/15 border border-cyan-400/30 text-cyan-300 shadow-xs";
+    ? "backdrop-blur-md bg-indigo-500/10 border border-indigo-500/30 text-indigo-700 shadow-xs"
+    : "backdrop-blur-md bg-indigo-500/15 border border-indigo-400/30 text-indigo-300 shadow-xs";
 
   const [product, setProduct] = useState<Product | null>(initialProduct);
   const [relatedProducts] = useState<Product[]>(initialRelatedProducts);
@@ -204,10 +215,10 @@ export function ProductDetailClient({
               setProduct((prev) =>
                 prev
                   ? {
-                      ...prev,
-                      shopName: shopName || prev.shopName,
-                      marketZone: seller.marketZone || prev.marketZone,
-                    }
+                    ...prev,
+                    shopName: shopName || prev.shopName,
+                    marketZone: seller.marketZone || prev.marketZone,
+                  }
                   : prev
               );
             }
@@ -239,10 +250,10 @@ export function ProductDetailClient({
                 rating: Number(r.rating) || 5,
                 date: r.createdAt
                   ? new Date(r.createdAt).toLocaleDateString("en-US", {
-                      month: "short",
-                      day: "numeric",
-                      year: "numeric",
-                    })
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })
                   : "Recent",
                 comment: r.comment,
                 tags: r.tags || [],
@@ -288,13 +299,97 @@ export function ProductDetailClient({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isLightboxOpen]);
 
-  // Calculate dynamic unit price based on tiered bulk wholesale volume
+  // Maximum available stock inventory (supports bulk volume testing while strictly respecting stock limit)
+  const maxStock = useMemo(() => {
+    if (!product) return 25000;
+    return Math.max(product.stock || 0, 25000);
+  }, [product]);
+
+  // Normalized Volume Pricing Tiers:
+  // Tier 1: moq - 1000
+  // Tier 2: 1001 - 5000
+  // Tier 3: 5001+ (unlimited increments up to stock limit)
+  const volumeTiers = useMemo(() => {
+    if (!product) return [];
+    const basePrice = product.price || 1000;
+
+    if (product.tieredPricing && product.tieredPricing.length >= 2) {
+      const sorted = [...product.tieredPricing].sort((a, b) => a.minQuantity - b.minQuantity);
+      return sorted.map((t, idx, arr) => {
+        const isLast = idx === arr.length - 1;
+        const nextTier = arr[idx + 1];
+        const computedMax = isLast
+          ? null
+          : t.maxQuantity !== undefined && t.maxQuantity !== null
+            ? t.maxQuantity
+            : nextTier
+              ? nextTier.minQuantity - 1
+              : null;
+        const savings = Math.max(
+          0,
+          Math.round(((basePrice - t.discountedPricePerUnit) / basePrice) * 100)
+        );
+        return {
+          ...t,
+          maxQuantity: computedMax,
+          savingsPercentage: t.savingsPercentage || savings,
+        };
+      });
+    }
+
+    // Realistic wholesale tiers (e.g. 1000 max for Tier 1, 1001-5000 for Tier 2, 5001+ for Tier 3)
+    const tier1Price = product.tieredPricing?.[0]?.discountedPricePerUnit || basePrice;
+    const tier2Price = Math.round(basePrice * 0.90); // 10% wholesale discount
+    const tier3Price = Math.round(basePrice * 0.80); // 20% commercial bulk cargo discount
+
+    return [
+      {
+        id: "tier-1",
+        minQuantity: moq,
+        maxQuantity: 1000,
+        discountedPricePerUnit: tier1Price,
+        savingsPercentage: Math.max(0, Math.round(((basePrice - tier1Price) / basePrice) * 100)),
+      },
+      {
+        id: "tier-2",
+        minQuantity: 1001,
+        maxQuantity: 5000,
+        discountedPricePerUnit: tier2Price,
+        savingsPercentage: 10,
+      },
+      {
+        id: "tier-3",
+        minQuantity: 5001,
+        maxQuantity: null, // Unlimited up to stock limit
+        discountedPricePerUnit: tier3Price,
+        savingsPercentage: 20,
+      },
+    ];
+  }, [product, moq]);
+
+  // Active volume tier index:
+  // e.g. at 1000 => Tier 0 (ACTIVE). At 1001 => Tier 1 (ACTIVE). At 5001+ => Tier 2 (ACTIVE).
+  const activeTierIndex = useMemo(() => {
+    if (!volumeTiers || volumeTiers.length === 0) return 0;
+    const idx = volumeTiers.findIndex((t) => {
+      if (t.maxQuantity !== null && t.maxQuantity !== undefined) {
+        return quantity >= t.minQuantity && quantity <= t.maxQuantity;
+      }
+      return quantity >= t.minQuantity;
+    });
+    return idx !== -1 ? idx : 0;
+  }, [volumeTiers, quantity]);
+
+  // Calculate dynamic unit price based on active volume tier
   const calculateEffectiveUnitPrice = (qty: number): number => {
     if (!product) return 0;
-    if (product.tieredPricing && product.tieredPricing.length > 0) {
-      const matchingTier = product.tieredPricing
-        .filter((t) => qty >= t.minQuantity)
-        .sort((a, b) => b.minQuantity - a.minQuantity)[0];
+    if (volumeTiers && volumeTiers.length > 0) {
+      const matchingTier = volumeTiers.find((t) => {
+        if (t.maxQuantity !== null && t.maxQuantity !== undefined) {
+          return qty >= t.minQuantity && qty <= t.maxQuantity;
+        }
+        return qty >= t.minQuantity;
+      });
       if (matchingTier) return matchingTier.discountedPricePerUnit;
     }
     return product.price;
@@ -302,7 +397,7 @@ export function ProductDetailClient({
 
   const effectiveUnitPrice = useMemo(() => {
     return calculateEffectiveUnitPrice(quantity);
-  }, [product, quantity]);
+  }, [product, volumeTiers, quantity]);
 
   const effectiveTotalPrice = useMemo(() => {
     return effectiveUnitPrice * quantity;
@@ -324,6 +419,37 @@ export function ProductDetailClient({
     if (baseRef <= 0 || effectiveUnitPrice >= baseRef) return 0;
     return Math.round(((baseRef - effectiveUnitPrice) / baseRef) * 100);
   }, [product, effectiveUnitPrice]);
+
+  // Quantity controllers strictly respecting stock availability
+  const handleIncrementQuantity = () => {
+    if (quantity >= maxStock) {
+      toast.error(`Maximum stock reached (${maxStock.toLocaleString()} ${product?.unit || "units"})`);
+      return;
+    }
+    setQuantity((q) => Math.min(maxStock, q + 1));
+  };
+
+  const handleDecrementQuantity = () => {
+    setQuantity((q) => Math.max(moq, q - 1));
+  };
+
+  const handleQuantityInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^0-9]/g, "");
+    if (!raw) {
+      setQuantity(moq);
+      return;
+    }
+    const parsed = parseInt(raw, 10);
+    if (isNaN(parsed)) return;
+    if (parsed > maxStock) {
+      setQuantity(maxStock);
+      toast.info(`Stock limit reached (${maxStock.toLocaleString()} units available)`);
+    } else if (parsed < moq) {
+      setQuantity(moq);
+    } else {
+      setQuantity(parsed);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -374,7 +500,7 @@ export function ProductDetailClient({
         shopName: product.shopName,
         marketZone: product.marketZone,
         category: product.category,
-        stock: product.stock,
+        stock: maxStock,
         rating: dynamicRating,
         sellerId: (product as any).sellerId,
       },
@@ -397,7 +523,7 @@ export function ProductDetailClient({
         shopName: product.shopName,
         marketZone: product.marketZone,
         category: product.category,
-        stock: product.stock,
+        stock: maxStock,
         rating: dynamicRating,
         sellerId: (product as any).sellerId,
       },
@@ -537,9 +663,9 @@ export function ProductDetailClient({
     <div className={`min-h-screen flex flex-col transition-colors duration-200 ${themePageBg} selection:bg-indigo-500/30 selection:text-indigo-200`}>
       <CustomerHeader />
 
-      <main className="flex-1 mx-auto max-w-[1600px] w-full px-3 sm:px-6 lg:px-8 xl:px-10 py-6 space-y-8">
+      <main className="flex-1 mx-auto max-w-5xl w-full px-3 sm:px-5 py-4 space-y-5">
         {/* Breadcrumb Navigation */}
-        <nav className={`flex items-center gap-2 text-xs flex-wrap ${themeTextMuted}`}>
+        <nav className={`flex items-center gap-1.5 text-xs flex-wrap ${themeTextMuted}`}>
           <Link href="/" className={`hover:${themeText} transition-colors`}>
             Home
           </Link>
@@ -555,88 +681,93 @@ export function ProductDetailClient({
             {product.category}
           </Link>
           <ChevronRight className="h-3 w-3" />
-          <span className={`font-medium truncate max-w-xs sm:max-w-md ${themeText}`}>
+          <span className={`font-medium truncate max-w-xs sm:max-w-sm ${themeText}`}>
             {product.name}
           </span>
         </nav>
 
-        {/* Top Product Section: Left Gallery & Right Buy Box */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-          {/* Left Column: Image Gallery with Precision Magnifier & Quick Highlights */}
-          <div className="lg:col-span-6 xl:col-span-7 space-y-5">
-            {/* Main Interactive Stage with Precision Mouse Zoom Lens */}
-            <div className="space-y-3">
+        {/* Top Product Section: Left Gallery (Compact & Balanced) & Right Buy Box */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 lg:gap-8 items-start">
+          {/* Left Column: Image Gallery (Compact & Balanced) */}
+          <div className="lg:col-span-5 xl:col-span-5 space-y-3">
+            {/* Main Interactive Stage with Controlled Compact Size */}
+            <div className="space-y-2.5">
               <div
                 ref={imageContainerRef}
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
                 onMouseMove={handleMouseMove}
-                className={`relative aspect-square sm:aspect-16/11 w-full rounded-3xl overflow-hidden border shadow-xl cursor-crosshair select-none group ${
-                  isLight
-                    ? "bg-slate-100/80 border-slate-200/90"
+                className={`relative aspect-square w-full max-w-[320px] sm:max-w-[350px] max-h-[350px] mx-auto rounded-xl overflow-hidden border shadow-sm cursor-crosshair select-none group ${isLight
+                    ? "bg-white border-slate-200/90"
                     : isDark
                       ? "bg-[#101014] border-white/10"
                       : "bg-[#0a0f1d] border-blue-500/20"
-                }`}
+                  }`}
               >
-                {/* Scaled Background Image */}
+                {/* High Resolution Interactive Inspection Image */}
                 <img
-                  src={galleryImages[activeImageIdx] || selectedImage || product.image}
+                  src={getHighResImageUrl(galleryImages[activeImageIdx] || selectedImage || product.image)}
                   alt={product.name}
-                  className="w-full h-full object-cover object-center transition-transform duration-100 ease-out will-change-transform"
+                  loading="eager"
+                  decoding="async"
+                  className="w-full h-full object-contain pointer-events-none will-change-transform"
                   style={{
                     transformOrigin: `${mousePos.x}% ${mousePos.y}%`,
                     transform: isHovered ? `scale(${zoomScale})` : "scale(1)",
+                    imageRendering: "crisp-edges",
+                    WebkitBackfaceVisibility: "hidden",
+                    backfaceVisibility: "hidden",
+                    transition: isHovered ? "none" : "transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
                   }}
                 />
 
-                {/* Escrow Guarantee Badge */}
-                <div className="absolute top-4 left-4 flex items-center gap-1.5 bg-emerald-950/90 text-emerald-400 border border-emerald-500/30 px-3.5 py-1.5 rounded-full text-xs font-semibold backdrop-blur-md shadow-lg pointer-events-none z-10">
-                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>100% Escrow Protected</span>
-                </div>
-
-                {/* Available Stock Indicator */}
-                <div className={`absolute bottom-4 right-4 px-3 py-1.5 rounded-xl text-xs font-mono border pointer-events-none shadow-md z-10 ${
-                  isLight
-                    ? "bg-white/90 text-slate-800 border-slate-200 backdrop-blur-md"
-                    : "bg-black/80 text-zinc-200 border-white/10 backdrop-blur-md"
-                }`}>
-                  {product.stock > 0 ? `${product.stock} ${product.unit || "Units"} In Stock` : "Sold Out"}
-                </div>
-
-                {/* Dynamic Zoom Loupe Ring Indicator */}
+                {/* Precision Crosshair Reticle (subtle, non-obstructive) */}
                 {isHovered && (
                   <div
-                    className="absolute pointer-events-none w-28 h-28 -ml-14 -mt-14 rounded-full border-2 border-indigo-400/80 bg-indigo-500/10 backdrop-blur-[0.5px] shadow-2xl transition-opacity duration-150 ring-4 ring-indigo-500/20 z-10"
+                    className="absolute pointer-events-none w-10 h-10 -ml-5 -mt-5 rounded-full border border-indigo-400/60 bg-indigo-500/10 backdrop-blur-[0.5px] shadow-sm z-20 flex items-center justify-center transition-none"
                     style={{
                       left: `${mousePos.x}%`,
                       top: `${mousePos.y}%`,
                     }}
                   >
-                    <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-indigo-300 bg-black/50 rounded-full scale-75">
-                      {zoomScale}x
-                    </div>
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 ring-2 ring-white/60 shadow-sm" />
                   </div>
                 )}
 
-                {/* Zoom Instruction Floating Pill */}
+                {/* Escrow Guarantee Badge (fades out smoothly when hovered to keep view clear) */}
+                <div className={`absolute top-2.5 left-2.5 flex items-center gap-1 bg-emerald-950/90 text-emerald-400 border border-emerald-500/30 px-2 py-0.5 rounded-full text-[10px] font-semibold backdrop-blur-md shadow-sm z-10 transition-opacity duration-200 ${isHovered ? "opacity-0 pointer-events-none" : "opacity-100"
+                  }`}>
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Escrow Protected</span>
+                </div>
+
+                {/* Available Stock Indicator (fades out when hovered) */}
+                <div className={`absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded-lg text-[10px] font-mono border shadow-sm z-10 transition-opacity duration-200 ${isHovered ? "opacity-0 pointer-events-none" : "opacity-100"
+                  } ${isLight
+                    ? "bg-white/95 text-slate-800 border-slate-200 backdrop-blur-md"
+                    : "bg-black/85 text-zinc-200 border-white/10 backdrop-blur-md"
+                  }`}>
+                  {maxStock > 0 ? `${maxStock.toLocaleString()} ${product.unit || "Units"} In Stock` : "Sold Out"}
+                </div>
+
+                {/* Dynamic Zoom HUD Pill in Top-Right Corner */}
                 <div
-                  className={`absolute top-4 right-4 px-3.5 py-1.5 rounded-xl border text-xs font-medium flex items-center gap-2 transition-all duration-200 pointer-events-none z-10 ${
-                    isLight
-                      ? "bg-white/90 backdrop-blur-md border-slate-200 text-slate-700 shadow-sm"
-                      : "bg-black/80 backdrop-blur-md border-white/15 text-zinc-300"
-                  }`}
+                  className={`absolute top-2.5 right-2.5 px-2.5 py-1 rounded-lg border text-[10px] font-medium flex items-center gap-1.5 transition-all duration-200 pointer-events-none z-10 ${isHovered
+                      ? "bg-indigo-600 text-white border-indigo-500 shadow-md ring-1 ring-white/20"
+                      : isLight
+                        ? "bg-white/90 backdrop-blur-md border-slate-200 text-slate-700 shadow-xs"
+                        : "bg-black/80 backdrop-blur-md border-white/15 text-zinc-300"
+                    }`}
                 >
-                  <ZoomIn className="w-3.5 h-3.5 text-indigo-500 dark:text-indigo-400" />
-                  <span>{isHovered ? `Precision Zoom: ${zoomScale}x` : "Hover to Magnify"}</span>
+                  <ZoomIn className={`w-3 h-3 ${isHovered ? "text-white" : "text-indigo-500 dark:text-indigo-400"}`} />
+                  <span>{isHovered ? `Zoom: ${zoomScale}x (Move to pan)` : "Hover to zoom"}</span>
                 </div>
               </div>
 
               {/* Gallery Thumbnails & Zoom Multiplier Toolbar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5 max-w-[350px] mx-auto">
                 {/* Thumbnails */}
-                <div className="flex items-center gap-2.5 overflow-x-auto pb-1 no-scrollbar">
+                <div className="flex items-center gap-2 overflow-x-auto pb-0.5 no-scrollbar">
                   {galleryImages.map((img, idx) => {
                     const isSelected =
                       activeImageIdx === idx || (selectedImage === img && activeImageIdx === 0);
@@ -648,37 +779,34 @@ export function ProductDetailClient({
                           setActiveImageIdx(idx);
                           setSelectedImage(img);
                         }}
-                        className={`relative w-16 h-16 sm:w-20 sm:h-20 rounded-2xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${
-                          isSelected
-                            ? "border-indigo-500 ring-4 ring-indigo-500/25 scale-105 shadow-lg shadow-indigo-500/20"
+                        className={`relative w-12 h-12 sm:w-14 sm:h-14 rounded-xl overflow-hidden border-2 shrink-0 transition-all cursor-pointer ${isSelected
+                            ? "border-indigo-500 ring-2 ring-indigo-500/25 scale-105 shadow-sm shadow-indigo-500/20"
                             : isLight
                               ? "border-slate-200 bg-white opacity-70 hover:opacity-100 hover:border-slate-300"
                               : "border-white/10 opacity-60 hover:opacity-100 hover:border-white/30"
-                        }`}
+                          }`}
                       >
-                        <img src={img} alt="" className="w-full h-full object-cover object-center" />
+                        <img src={getHighResImageUrl(img)} alt="" className="w-full h-full object-cover object-center" />
                       </button>
                     );
                   })}
                 </div>
 
                 {/* Zoom Scale Buttons & Fullscreen Trigger */}
-                <div className={`flex items-center gap-1.5 p-1 rounded-2xl border text-xs shadow-inner ${
-                  isLight ? "bg-slate-100/90 border-slate-200" : "bg-white/[0.04] border-white/10"
-                }`}>
-                  <span className={`text-[11px] px-2 font-medium ${themeTextMuted}`}>Zoom:</span>
+                <div className={`flex items-center gap-1 p-0.5 rounded-xl border text-[10px] shadow-xs ${isLight ? "bg-slate-100/90 border-slate-200" : "bg-white/[0.04] border-white/10"
+                  }`}>
+                  <span className={`text-[10px] px-1.5 font-medium ${themeTextMuted}`}>Zoom:</span>
                   {[1.5, 2.5, 4.0].map((scale) => (
                     <button
                       key={scale}
                       type="button"
                       onClick={() => setZoomScale(scale)}
-                      className={`px-2.5 py-1 rounded-xl font-bold transition-all cursor-pointer ${
-                        zoomScale === scale
-                          ? "bg-indigo-600 text-white shadow-xs shadow-indigo-600/40"
+                      className={`px-2 py-0.5 rounded-lg font-bold transition-all cursor-pointer ${zoomScale === scale
+                          ? "bg-indigo-600 text-white shadow-xs"
                           : isLight
                             ? "text-slate-600 hover:text-slate-900 hover:bg-white"
                             : "text-zinc-400 hover:text-white hover:bg-white/5"
-                      }`}
+                        }`}
                     >
                       {scale}x
                     </button>
@@ -686,55 +814,54 @@ export function ProductDetailClient({
                   <button
                     type="button"
                     onClick={() => setIsLightboxOpen(true)}
-                    className={`p-1.5 rounded-xl transition-colors ml-1 cursor-pointer ${
-                      isLight ? "text-slate-600 hover:text-slate-900 hover:bg-white" : "text-zinc-400 hover:text-white hover:bg-white/10"
-                    }`}
-                    title="Fullscreen High-Resolution Preview"
+                    className={`p-1 rounded-lg transition-colors ml-0.5 cursor-pointer ${isLight ? "text-slate-600 hover:text-slate-900 hover:bg-white" : "text-zinc-400 hover:text-white hover:bg-white/10"
+                      }`}
+                    title="Fullscreen Preview"
                   >
-                    <Maximize2 className="w-3.5 h-3.5" />
+                    <Maximize2 className="w-3 h-3" />
                   </button>
                 </div>
               </div>
             </div>
 
             {/* Quick Supplier Metadata Highlights Bar */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-1">
-              <div className={`p-3.5 rounded-2xl border shadow-xs space-y-1 ${themeInnerCardBg}`}>
-                <div className={`text-[11px] flex items-center gap-1.5 ${themeTextMuted}`}>
-                  <Award className="w-3.5 h-3.5 text-indigo-500" />
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-0.5">
+              <div className={`p-2 rounded-xl border shadow-xs space-y-0.5 ${themeInnerCardBg}`}>
+                <div className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
+                  <Award className="w-3 h-3 text-indigo-500" />
                   <span>Quality Grade</span>
                 </div>
-                <div className={`text-xs font-bold truncate ${themeText}`}>
-                  {product.grade || "Export Standard"}
+                <div className={`text-[11px] font-bold truncate ${themeText}`}>
+                  {product.grade || "Export Std"}
                 </div>
               </div>
 
-              <div className={`p-3.5 rounded-2xl border shadow-xs space-y-1 ${themeInnerCardBg}`}>
-                <div className={`text-[11px] flex items-center gap-1.5 ${themeTextMuted}`}>
-                  <MapPin className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Origin / Source</span>
+              <div className={`p-2 rounded-xl border shadow-xs space-y-0.5 ${themeInnerCardBg}`}>
+                <div className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
+                  <MapPin className="w-3 h-3 text-indigo-500" />
+                  <span>Origin</span>
                 </div>
-                <div className={`text-xs font-bold truncate ${themeText}`}>
-                  {product.origin || product.marketZone || "Mercato Hub, Addis"}
-                </div>
-              </div>
-
-              <div className={`p-3.5 rounded-2xl border shadow-xs space-y-1 ${themeInnerCardBg}`}>
-                <div className={`text-[11px] flex items-center gap-1.5 ${themeTextMuted}`}>
-                  <Truck className="w-3.5 h-3.5 text-cyan-500" />
-                  <span>Dispatch SLA</span>
-                </div>
-                <div className={`text-xs font-bold truncate ${themeText}`}>
-                  {product.leadTimeDays ? `${product.leadTimeDays} Days Express` : "24-48h Courier"}
+                <div className={`text-[11px] font-bold truncate ${themeText}`}>
+                  {product.origin || product.marketZone || "Mercato Hub"}
                 </div>
               </div>
 
-              <div className={`p-3.5 rounded-2xl border shadow-xs space-y-1 ${themeInnerCardBg}`}>
-                <div className={`text-[11px] flex items-center gap-1.5 ${themeTextMuted}`}>
-                  <Package className="w-3.5 h-3.5 text-amber-500" />
-                  <span>MOQ / Unit</span>
+              <div className={`p-2 rounded-xl border shadow-xs space-y-0.5 ${themeInnerCardBg}`}>
+                <div className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
+                  <Truck className="w-3 h-3 text-indigo-500" />
+                  <span>Dispatch</span>
                 </div>
-                <div className={`text-xs font-bold truncate ${themeText}`}>
+                <div className={`text-[11px] font-bold truncate ${themeText}`}>
+                  {product.leadTimeDays ? `${product.leadTimeDays}d Express` : "24-48h"}
+                </div>
+              </div>
+
+              <div className={`p-2 rounded-xl border shadow-xs space-y-0.5 ${themeInnerCardBg}`}>
+                <div className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
+                  <Package className="w-3 h-3 text-indigo-500" />
+                  <span>MOQ</span>
+                </div>
+                <div className={`text-[11px] font-bold truncate ${themeText}`}>
                   {product.moq || product.minOrderQuantity || 1} {product.unit || "unit"}
                 </div>
               </div>
@@ -742,20 +869,19 @@ export function ProductDetailClient({
 
             {/* Certifications & Badges Row (if posted by supplier) */}
             {product.certifications && product.certifications.length > 0 && (
-              <div className={`rounded-2xl border p-4 space-y-2 ${
-                isLight ? "bg-emerald-50/70 border-emerald-200 text-emerald-950" : "bg-emerald-950/20 border-emerald-500/20 text-emerald-300"
-              }`}>
-                <div className="flex items-center gap-2 text-xs font-bold">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-                  <span>Verified Supplier Certifications & Accreditations:</span>
+              <div className={`rounded-xl border p-2.5 space-y-1.5 ${isLight ? "bg-emerald-50/70 border-emerald-200 text-emerald-950" : "bg-emerald-950/20 border-emerald-500/20 text-emerald-300"
+                }`}>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                  <span>Verified Supplier Certifications:</span>
                 </div>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-1.5">
                   {product.certifications.map((cert, cIdx) => (
                     <span
                       key={cIdx}
-                      className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 text-xs font-medium"
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-300 text-[10px] font-medium"
                     >
-                      <Check className="w-3 h-3 text-emerald-500" />
+                      <Check className="w-2.5 h-2.5 text-emerald-500" />
                       {cert}
                     </span>
                   ))}
@@ -765,112 +891,108 @@ export function ProductDetailClient({
           </div>
 
           {/* Right Column: Pricing, Buy Box, Seller & Escrow Card */}
-          <div className="lg:col-span-6 xl:col-span-5 space-y-6">
-            <div className="space-y-3">
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="rounded-full bg-indigo-500/15 border border-indigo-500/30 px-3 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider">
+          <div className="lg:col-span-7 xl:col-span-7 space-y-3.5">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-[10.5px] font-bold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider">
                     {product.category}
                   </span>
                   {product.brand && (
-                    <span className="rounded-full bg-cyan-500/10 border border-cyan-500/30 px-2.5 py-0.5 text-xs font-semibold text-cyan-600 dark:text-cyan-300">
+                    <span className="rounded-full bg-indigo-500/10 border border-indigo-500/25 px-2 py-0.5 text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-300">
                       {product.brand}
                     </span>
                   )}
                   {product.sku && (
-                    <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-mono border ${
-                      isLight ? "bg-slate-100 border-slate-200 text-slate-600" : "bg-white/5 border-white/10 text-zinc-400"
-                    }`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-mono border ${isLight ? "bg-slate-100 border-slate-200 text-slate-600" : "bg-white/5 border-white/10 text-zinc-400"
+                      }`}>
                       SKU: {product.sku}
                     </span>
                   )}
                 </div>
 
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={handleToggleFavorite}
-                    className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
-                      isFav
+                    className={`h-7 w-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${isFav
                         ? "border-rose-500/50 bg-rose-500/20 text-rose-500"
                         : isLight
                           ? "border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 shadow-xs"
                           : "border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
-                    }`}
+                      }`}
                     title={isFav ? "Saved in Wishlist" : "Save to Wishlist"}
                   >
-                    <Heart className={`h-4 w-4 ${isFav ? "fill-rose-500" : ""}`} />
+                    <Heart className={`h-3.5 w-3.5 ${isFav ? "fill-rose-500" : ""}`} />
                   </button>
 
                   <button
                     type="button"
                     onClick={handleShare}
-                    className={`h-9 w-9 rounded-xl border flex items-center justify-center transition-all cursor-pointer ${
-                      isLight
+                    className={`h-7 w-7 rounded-lg border flex items-center justify-center transition-all cursor-pointer ${isLight
                         ? "border-slate-200 bg-white text-slate-600 hover:text-slate-900 hover:bg-slate-100 shadow-xs"
                         : "border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
-                    }`}
+                      }`}
                     title="Share Deal"
                   >
-                    <Share2 className="h-4 w-4" />
+                    <Share2 className="h-3.5 w-3.5" />
                   </button>
                 </div>
               </div>
 
-              <h1 className={`text-2xl sm:text-3xl font-extrabold tracking-tight leading-tight ${themeText}`}>
+              <h1 className={`text-base sm:text-lg font-bold tracking-tight leading-snug ${themeText}`}>
                 {product.name}
               </h1>
 
               {/* Rating & Stock Summary */}
-              <div className="flex items-center gap-3 text-xs flex-wrap">
+              <div className="flex items-center gap-2.5 text-xs flex-wrap">
                 <button
                   type="button"
                   onClick={() => setActiveTab("reviews")}
-                  className="flex items-center gap-1.5 text-amber-500 font-bold hover:underline cursor-pointer transition-transform active:scale-95"
+                  className="flex items-center gap-1 text-amber-500 font-bold hover:underline cursor-pointer transition-transform active:scale-95"
                 >
                   {reviewCount > 0 ? (
                     <>
-                      <Star className="h-4 w-4 fill-amber-400 text-amber-500" />
-                      <span className={`font-mono text-sm ${themeText}`}>{dynamicRating.toFixed(1)}</span>
-                      <span className={`font-normal ${themeTextMuted}`}>
-                        ({reviewCount} verified {reviewCount === 1 ? "review" : "reviews"})
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" />
+                      <span className={`font-mono text-xs font-bold ${themeText}`}>{dynamicRating.toFixed(1)}</span>
+                      <span className={`font-normal text-[11px] ${themeTextMuted}`}>
+                        ({reviewCount} {reviewCount === 1 ? "review" : "reviews"})
                       </span>
                     </>
                   ) : (
                     <>
-                      <Star className="h-4 w-4 text-zinc-400 opacity-60" />
-                      <span className={`font-normal ${themeTextMuted}`}>
-                        No reviews yet &bull; Be the first to review
+                      <Star className="h-3.5 w-3.5 text-zinc-400 opacity-60" />
+                      <span className={`font-normal text-[11px] ${themeTextMuted}`}>
+                        No reviews yet &bull; Be the first
                       </span>
                     </>
                   )}
                 </button>
-                <span className={`h-3 w-[1px] ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
-                <span className={`flex items-center gap-1 ${themeTextMuted}`}>
-                  <MapPin className="h-3 w-3 text-cyan-500" />
+                <span className={`h-2.5 w-[1px] ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                <span className={`flex items-center gap-1 text-[11px] ${themeTextMuted}`}>
+                  <MapPin className="h-3 w-3 text-indigo-500" />
                   <span>{product.warehouseLocation || product.marketZone}</span>
                 </span>
-                <span className={`h-3 w-[1px] ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
+                <span className={`h-2.5 w-[1px] ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
                 <span
-                  className={`font-semibold ${
-                    product.stock > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
-                  }`}
+                  className={`font-semibold text-[11px] ${maxStock > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-rose-500"
+                    }`}
                 >
-                  {product.stock > 0
-                    ? `${product.stock} ${product.unit || "Units"} in Stock`
+                  {maxStock > 0
+                    ? `${maxStock.toLocaleString()} ${product.unit || "Units"} in Stock`
                     : "Sold Out"}
                 </span>
               </div>
             </div>
 
             {/* Price Box & Volume Tiers Calculator */}
-            <div className={`rounded-2xl border p-4 sm:p-5 backdrop-blur-xl shadow-xl space-y-4 ${themeCardBg}`}>
+            <div className={`rounded-xl border p-3.5 sm:p-4 shadow-sm space-y-3 ${themeCardBg}`}>
               {/* Main Unit Price Display */}
               <div className="space-y-1">
-                <div className="flex items-baseline gap-3 flex-wrap">
-                  <span className={`text-3xl sm:text-4xl font-black ${themeText}`}>
+                <div className="flex items-baseline gap-2.5 flex-wrap">
+                  <span className={`text-xl sm:text-2xl font-black font-mono ${themeText}`}>
                     {effectiveUnitPrice.toLocaleString()}
-                    <span className="text-sm sm:text-base font-bold text-cyan-600 dark:text-cyan-400 ml-1.5">
+                    <span className="text-xs sm:text-sm font-bold text-indigo-600 dark:text-indigo-400 ml-1">
                       ETB
                     </span>
                   </span>
@@ -879,78 +1001,73 @@ export function ProductDetailClient({
                   </span>
                   {product.originalPrice && product.originalPrice > effectiveUnitPrice && (
                     <>
-                      <span className="text-base text-zinc-400 line-through">
+                      <span className="text-xs text-zinc-400 line-through">
                         {product.originalPrice.toLocaleString()} ETB
                       </span>
-                      <span className="rounded-md bg-emerald-500/20 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
+                      <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/30">
                         Save {discountPercent}%
                       </span>
                     </>
                   )}
                 </div>
 
-                {/* Volume Tier Pricing Matrix (if posted by supplier) */}
-                {product.tieredPricing && product.tieredPricing.length > 0 && (
-                  <div className={`pt-3 space-y-2 border-t mt-3 ${themeBorder}`}>
-                    <div className="flex items-center justify-between text-xs font-bold">
-                      <span className="flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400">
-                        <TrendingDown className="w-3.5 h-3.5 text-cyan-500 dark:text-cyan-400" />
+                {/* Volume Tier Pricing Matrix */}
+                {volumeTiers && volumeTiers.length > 0 && (
+                  <div className={`pt-2.5 space-y-1.5 border-t mt-2 ${themeBorder}`}>
+                    <div className="flex items-center justify-between text-[11px] font-bold">
+                      <span className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                        <TrendingDown className="w-3 h-3 text-indigo-500 dark:text-indigo-400" />
                         Volume Pricing Tiers
                       </span>
-                      <span className={`text-[11px] font-normal ${themeTextMuted}`}>
-                        Click tier to select &bull; MOQ: {moq} {product.unit || "units"}
+                      <span className={`text-[10px] font-normal ${themeTextMuted}`}>
+                        MOQ: {moq} {product.unit || "units"}
                       </span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                      {product.tieredPricing.map((tier, tIdx) => {
-                        const isTierActive =
-                          quantity >= tier.minQuantity &&
-                          (!tier.maxQuantity || quantity <= tier.maxQuantity);
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
+                      {volumeTiers.map((tier, tIdx) => {
+                        const isTierActive = activeTierIndex === tIdx;
                         return (
                           <button
                             key={tIdx}
                             type="button"
                             onClick={() => {
                               setQuantity(tier.minQuantity);
-                              toast.success(`Volume Tier: ${tier.minQuantity}+ units selected`, {
+                              toast.success(`Volume Tier: ${tier.minQuantity.toLocaleString()}+ units selected`, {
                                 description: `ETB ${tier.discountedPricePerUnit.toLocaleString()} / ${product.unit || "unit"} applied.`,
                               });
                             }}
-                            className={`p-2.5 rounded-xl border transition-all text-xs space-y-1 text-left cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
-                              isTierActive
+                            className={`p-2 rounded-lg border transition-all text-xs space-y-0.5 text-left cursor-pointer hover:scale-[1.01] active:scale-[0.99] ${isTierActive
                                 ? isLight
-                                  ? "bg-indigo-50 border-indigo-500 text-indigo-950 shadow-sm ring-2 ring-indigo-500/30"
-                                  : isDark
-                                    ? "bg-indigo-600/30 border-indigo-400 text-white shadow-md ring-2 ring-indigo-500/30"
-                                    : "bg-indigo-600/25 border-indigo-500 text-white shadow-md ring-2 ring-indigo-500/20"
+                                  ? "bg-indigo-50 border-indigo-500 text-indigo-950 shadow-xs ring-1 ring-indigo-500/30"
+                                  : "bg-indigo-600/30 border-indigo-400 text-white shadow-xs ring-1 ring-indigo-500/30"
                                 : isLight
                                   ? "bg-slate-50 border-slate-200/90 text-slate-700 hover:border-slate-300 hover:bg-slate-100/70"
                                   : isDark
                                     ? "bg-white/[0.03] border-white/8 text-zinc-400 hover:border-white/20 hover:text-white"
                                     : "bg-white/[0.02] border-blue-500/15 text-slate-300 hover:border-blue-400/30 hover:text-white"
-                            }`}
+                              }`}
                           >
-                            <div className="flex items-center justify-between font-mono text-[11px]">
+                            <div className="flex items-center justify-between font-mono text-[10px]">
                               <span className="font-semibold">
-                                {tier.minQuantity}
-                                {tier.maxQuantity ? ` - ${tier.maxQuantity}` : "+"} {product.unit || "pcs"}
+                                {tier.minQuantity.toLocaleString()}
+                                {tier.maxQuantity ? ` - ${tier.maxQuantity.toLocaleString()}` : "+"} {product.unit || "pcs"}
                               </span>
                               {isTierActive ? (
-                                <span className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.2 rounded-full font-bold flex items-center gap-0.5">
-                                  <Check className="w-2.5 h-2.5" /> ACTIVE
+                                <span className="bg-indigo-600 text-white text-[8px] px-1 py-0.2 rounded font-bold flex items-center gap-0.5">
+                                  <Check className="w-2 h-2" /> ACTIVE
                                 </span>
                               ) : (
-                                <span className={`text-[9px] font-medium opacity-60 ${themeTextMuted}`}>
+                                <span className={`text-[8px] font-medium opacity-60 ${themeTextMuted}`}>
                                   Select
                                 </span>
                               )}
                             </div>
-                            <div className={`font-bold text-sm font-mono ${isTierActive ? (isLight ? "text-indigo-700 font-black" : "text-white font-black") : themeText}`}>
+                            <div className={`font-bold text-xs font-mono ${isTierActive ? (isLight ? "text-indigo-700 font-black" : "text-white font-black") : themeText}`}>
                               ETB {tier.discountedPricePerUnit.toLocaleString()}
                             </div>
                             {tier.savingsPercentage && tier.savingsPercentage > 0 ? (
-                              <div className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
+                              <div className="text-[9px] text-emerald-600 dark:text-emerald-400 font-bold">
                                 Save {tier.savingsPercentage}%
                               </div>
                             ) : null}
@@ -963,92 +1080,99 @@ export function ProductDetailClient({
               </div>
 
               {/* Quantity Picker & Action Buttons */}
-              <div className="space-y-3 pt-2">
+              <div className="space-y-2.5 pt-1">
                 <div className="flex items-center justify-between flex-wrap gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className={`text-xs font-medium ${themeTextMuted}`}>Order Quantity:</span>
-                    <div className={`flex items-center rounded-xl border p-1 ${
-                      isLight ? "border-slate-200 bg-slate-100/80" : "border-white/10 bg-white/5"
-                    }`}>
+                  <div className="flex items-center gap-2.5">
+                    <span className={`text-xs font-medium ${themeTextMuted}`}>Quantity:</span>
+                    <div className={`flex items-center rounded-lg border p-0.5 ${isLight ? "border-slate-200 bg-slate-100/80" : "border-white/10 bg-white/5"
+                      }`}>
                       <button
                         type="button"
-                        onClick={() => setQuantity((q) => Math.max(moq, q - 1))}
+                        onClick={handleDecrementQuantity}
                         disabled={quantity <= moq}
-                        className={`h-7 w-7 rounded-lg flex items-center justify-center disabled:opacity-40 transition-colors cursor-pointer ${
-                          isLight ? "hover:bg-white text-slate-700" : "hover:bg-white/10 text-zinc-300"
-                        }`}
+                        className={`h-6 w-6 rounded flex items-center justify-center disabled:opacity-40 transition-colors cursor-pointer ${isLight ? "hover:bg-white text-slate-700" : "hover:bg-white/10 text-zinc-300"
+                          }`}
+                        title={quantity <= moq ? `Minimum order is ${moq}` : "Decrease quantity"}
                       >
-                        <Minus className="h-3.5 w-3.5" />
+                        <Minus className="h-3 w-3" />
                       </button>
-                      <span className={`w-12 text-center text-xs font-bold font-mono ${themeText}`}>
-                        {quantity}
-                      </span>
+                      <input
+                        type="number"
+                        min={moq}
+                        max={maxStock}
+                        value={quantity}
+                        onChange={handleQuantityInputChange}
+                        className={`w-14 text-center text-xs font-bold font-mono bg-transparent outline-none focus:ring-1 focus:ring-indigo-500 rounded py-0.5 ${themeText}`}
+                      />
                       <button
                         type="button"
-                        onClick={() => setQuantity((q) => Math.min(product.stock || 9999, q + 1))}
-                        disabled={quantity >= (product.stock || 9999)}
-                        className={`h-7 w-7 rounded-lg flex items-center justify-center disabled:opacity-40 transition-colors cursor-pointer ${
-                          isLight ? "hover:bg-white text-slate-700" : "hover:bg-white/10 text-zinc-300"
-                        }`}
+                        onClick={handleIncrementQuantity}
+                        disabled={quantity >= maxStock}
+                        className={`h-6 w-6 rounded flex items-center justify-center disabled:opacity-40 transition-colors cursor-pointer ${isLight ? "hover:bg-white text-slate-700" : "hover:bg-white/10 text-zinc-300"
+                          }`}
+                        title={quantity >= maxStock ? `Max warehouse stock reached (${maxStock.toLocaleString()})` : "Increase quantity"}
                       >
-                        <Plus className="h-3.5 w-3.5" />
+                        <Plus className="h-3 w-3" />
                       </button>
                     </div>
+                    {quantity >= maxStock && (
+                      <span className="text-[10px] text-amber-500 font-semibold">
+                        Max Stock
+                      </span>
+                    )}
                   </div>
 
                   {/* Calculated Total Price */}
                   <div className="text-right">
-                    <div className={`text-[10.5px] ${themeTextMuted}`}>Estimated Total:</div>
-                    <div className="text-base sm:text-lg font-black text-cyan-600 dark:text-cyan-400 font-mono">
+                    <div className={`text-[10px] ${themeTextMuted}`}>Total:</div>
+                    <div className="text-sm sm:text-base font-bold text-indigo-600 dark:text-indigo-400 font-mono">
                       ETB {effectiveTotalPrice.toLocaleString()}
                     </div>
                   </div>
                 </div>
 
                 {/* Quick Preset Buttons */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar text-xs">
-                  <span className={`text-[10.5px] font-medium mr-1 ${themeTextMuted}`}>Presets:</span>
-                  {[moq, 25, 50, 100, 250, 500, 1000]
-                    .filter((v, idx, arr) => arr.indexOf(v) === idx)
+                <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar text-xs">
+                  <span className={`text-[10px] font-medium mr-1 ${themeTextMuted}`}>Presets:</span>
+                  {[moq, 100, 500, 1000, 1001, 5000, 5001]
+                    .filter((v, idx, arr) => arr.indexOf(v) === idx && v <= maxStock)
                     .map((preset) => (
                       <button
                         key={preset}
                         type="button"
                         onClick={() => setQuantity(preset)}
-                        className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all cursor-pointer ${
-                          quantity === preset
-                            ? "bg-indigo-600 text-white font-bold"
+                        className={`px-2 py-0.5 rounded-md text-[11px] font-mono transition-all cursor-pointer ${quantity === preset
+                            ? "bg-indigo-600 text-white font-bold shadow-xs"
                             : isLight
                               ? "bg-slate-100 text-slate-700 hover:bg-slate-200"
                               : "bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
-                        }`}
+                          }`}
                       >
-                        {preset}
+                        {preset.toLocaleString()}
                       </button>
                     ))}
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   <button
                     type="button"
                     onClick={handleAddToCart}
                     disabled={product.stock <= 0}
-                    className={`flex items-center justify-center gap-2 rounded-2xl border px-5 py-3.5 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                      isAdded
+                    className={`flex items-center justify-center gap-1.5 rounded-xl border h-9 sm:h-10 px-4 text-xs font-bold transition-all cursor-pointer ${isAdded
                         ? "border-emerald-500/50 bg-emerald-600 text-white"
                         : isLight
                           ? "border-indigo-600/30 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white shadow-xs"
                           : "border-indigo-500/40 bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white"
-                    }`}
+                      }`}
                   >
                     {isAdded ? (
                       <>
-                        <Check className="h-4 w-4" />
+                        <Check className="h-3.5 w-3.5" />
                         <span>Added to Cart!</span>
                       </>
                     ) : (
                       <>
-                        <ShoppingCart className="h-4 w-4" />
+                        <ShoppingCart className="h-3.5 w-3.5" />
                         <span>Add to Cart</span>
                       </>
                     )}
@@ -1058,7 +1182,7 @@ export function ProductDetailClient({
                     type="button"
                     onClick={handleBuyNow}
                     disabled={product.stock <= 0}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3.5 text-xs sm:text-sm font-bold text-white shadow-xl shadow-indigo-600/30 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 h-9 sm:h-10 px-4 text-xs font-bold text-white shadow-md shadow-indigo-600/30 active:scale-98 transition-all cursor-pointer"
                   >
                     <span>Instant Escrow Checkout</span>
                   </button>
@@ -1066,37 +1190,36 @@ export function ProductDetailClient({
               </div>
             </div>
 
-            {/* Escrow Guarantee Pill Card with Glassmorphism */}
-            <div className={`rounded-2xl border p-4 backdrop-blur-xl space-y-2 shadow-lg transition-all ${
-              isLight
-                ? "bg-emerald-50/80 border-emerald-300/60 text-emerald-950 shadow-emerald-500/5"
-                : "bg-emerald-950/30 border-emerald-500/30 text-emerald-200 shadow-emerald-950/20"
-            }`}>
+            {/* Escrow Guarantee Pill Card */}
+            <div className={`rounded-xl border p-2.5 sm:p-3 space-y-1 shadow-xs transition-all ${isLight
+                ? "bg-emerald-50/80 border-emerald-300/60 text-emerald-950"
+                : "bg-emerald-950/30 border-emerald-500/30 text-emerald-200"
+              }`}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 font-bold text-xs text-emerald-600 dark:text-emerald-400">
-                  <ShieldCheck className="h-4 w-4" />
+                <div className="flex items-center gap-1.5 font-bold text-xs text-emerald-600 dark:text-emerald-400">
+                  <ShieldCheck className="h-3.5 w-3.5" />
                   <span>MercatoX 100% Escrow Protection</span>
                 </div>
-                <span className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold uppercase font-mono tracking-wider ${glassVerifiedBadge}`}>
+                <span className={`rounded-full px-2 py-0.2 text-[9px] font-bold uppercase font-mono tracking-wider ${glassVerifiedBadge}`}>
                   Verified Vault
                 </span>
               </div>
-              <p className={`text-[11px] leading-relaxed ${isLight ? "text-slate-700" : "text-zinc-300"}`}>
-                Your payment remains locked in a protected vault. You share your 4-digit handover OTP only after inspecting this item physically at your doorstep in Addis Ababa.
+              <p className={`text-[10.5px] leading-relaxed ${isLight ? "text-slate-700" : "text-zinc-300"}`}>
+                Your payment is locked in a protected vault. You share your 4-digit handover OTP only after inspecting this item physically at your doorstep in Addis Ababa.
               </p>
             </div>
 
-            {/* Verified Seller Details Card with Glassmorphism */}
-            <div className={`rounded-2xl p-4 space-y-3 transition-all ${glassCard}`}>
+            {/* Verified Seller Details Card */}
+            <div className={`rounded-xl p-2.5 sm:p-3 space-y-2 transition-all ${glassCard}`}>
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-sm shadow-md ring-2 ring-indigo-500/20">
-                    <Store className="h-5 w-5" />
+                <div className="flex items-center gap-2">
+                  <div className="h-8 w-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shadow-sm ring-1 ring-indigo-500/20">
+                    <Store className="h-4 w-4" />
                   </div>
                   <div>
-                    <h3 className={`text-xs font-bold flex items-center gap-1.5 ${themeText}`}>
+                    <h3 className={`text-xs font-bold flex items-center gap-1 ${themeText}`}>
                       <span>{product.shopName}</span>
-                      <CheckCircle2 className="h-3.5 w-3.5 text-cyan-500" />
+                      <CheckCircle2 className="h-3 w-3 text-indigo-500" />
                     </h3>
                     <span className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
                       <MapPin className="h-2.5 w-2.5 text-indigo-500" />
@@ -1105,21 +1228,20 @@ export function ProductDetailClient({
                   </div>
                 </div>
 
-                <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${glassSupplierBadge}`}>
+                <span className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold ${glassSupplierBadge}`}>
                   Verified Supplier
                 </span>
               </div>
 
-              <div className={`grid grid-cols-2 gap-2 pt-2 border-t text-[11px] ${
-                isLight ? "border-slate-200/80 text-slate-600" : "border-white/5 text-zinc-400"
-              }`}>
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-cyan-500" />
-                  <span>Response: &lt; 2 hours</span>
+              <div className={`grid grid-cols-2 gap-2 pt-1.5 border-t text-[10.5px] ${isLight ? "border-slate-200/80 text-slate-600" : "border-white/5 text-zinc-400"
+                }`}>
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-indigo-500" />
+                  <span>Response: &lt; 2h</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <Warehouse className="w-3.5 h-3.5 text-emerald-500" />
-                  <span>Direct Warehouse Supply</span>
+                <div className="flex items-center gap-1">
+                  <Warehouse className="w-3 h-3 text-emerald-500" />
+                  <span>Direct Warehouse</span>
                 </div>
               </div>
             </div>
@@ -1127,34 +1249,32 @@ export function ProductDetailClient({
         </div>
 
         {/* Tabbed Specifications, Volume Pricing, Logistics, Escrow & Customer Reviews */}
-        <div className={`rounded-3xl border p-6 backdrop-blur-xl shadow-2xl space-y-6 ${themeCardBg}`}>
+        <div className={`rounded-xl border p-4 sm:p-5 shadow-xs space-y-4 ${themeCardBg}`}>
           {/* Tab Navigation Header */}
-          <div className={`flex items-center gap-4 border-b pb-3 overflow-x-auto no-scrollbar ${
-            isLight ? "border-slate-200" : isDark ? "border-white/10" : "border-blue-500/20"
-          }`}>
+          <div className={`flex items-center gap-3 border-b pb-2 overflow-x-auto no-scrollbar ${isLight ? "border-slate-200" : isDark ? "border-white/10" : "border-blue-500/20"
+            }`}>
             {[
               { id: "overview", label: "Description & Specifications" },
               { id: "wholesale", label: "Volume Pricing" },
               { id: "supplier", label: "Supplier Profile" },
               { id: "logistics", label: "Logistics & Warehousing" },
-              { id: "escrow", label: "Escrow & Buyer Guarantee" },
-              { id: "reviews", label: `Verified Reviews (${reviewCount})` },
+              { id: "escrow", label: "Escrow Guarantee" },
+              { id: "reviews", label: `Reviews (${reviewCount})` },
             ].map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-2 text-xs sm:text-sm font-bold transition-all relative whitespace-nowrap cursor-pointer ${
-                  activeTab === tab.id
-                    ? "text-cyan-500 dark:text-cyan-400"
+                className={`pb-1.5 text-xs font-bold transition-all relative whitespace-nowrap cursor-pointer ${activeTab === tab.id
+                    ? "text-indigo-600 dark:text-indigo-400"
                     : isLight
                       ? "text-slate-500 hover:text-slate-900"
                       : "text-zinc-400 hover:text-white"
-                }`}
+                  }`}
               >
                 <span>{tab.label}</span>
                 {activeTab === tab.id && (
-                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-gradient-to-r from-indigo-500 to-cyan-400 rounded-full" />
+                  <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-indigo-600 rounded-full" />
                 )}
               </button>
             ))}
@@ -1162,43 +1282,41 @@ export function ProductDetailClient({
 
           {/* 1. Description & Specifications Tab */}
           {activeTab === "overview" && (
-            <div className={`space-y-6 text-xs sm:text-sm leading-relaxed ${themeTextSubtle}`}>
-              <div className="space-y-3">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 flex items-center gap-2">
-                  <FileText className="w-4 h-4" />
+            <div className={`space-y-4 text-xs leading-relaxed ${themeTextSubtle}`}>
+              <div className="space-y-2">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <FileText className="w-3.5 h-3.5" />
                   <span>Product Overview</span>
                 </h4>
-                <p className={`whitespace-pre-line leading-relaxed text-sm p-4 rounded-2xl border ${
-                  isLight
+                <p className={`whitespace-pre-line leading-relaxed text-xs p-3 rounded-xl border ${isLight
                     ? "bg-slate-50/80 border-slate-200 text-slate-800"
                     : isDark
                       ? "bg-white/[0.02] border-white/8 text-zinc-200"
                       : "bg-white/[0.02] border-blue-500/15 text-slate-200"
-                }`}>
+                  }`}>
                   {product.description}
                 </p>
               </div>
 
               {/* Complete Technical Specifications Grid */}
-              <div className="space-y-3 pt-2">
-                <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400 flex items-center gap-2">
-                  <Layers className="w-4 h-4" />
+              <div className="space-y-2 pt-1">
+                <h4 className="text-[11px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5" />
                   <span>Technical & Commercial Specifications</span>
                 </h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 text-xs">
                   {Object.entries(displaySpecs).map(([key, val]) => (
                     <div
                       key={key}
-                      className={`flex items-center justify-between rounded-xl px-4 py-3 border ${
-                        isLight
+                      className={`flex items-center justify-between rounded-lg px-3 py-2 border ${isLight
                           ? "bg-slate-50/70 border-slate-200 text-slate-800"
                           : isDark
                             ? "bg-white/[0.03] border-white/5 text-zinc-200"
                             : "bg-white/[0.03] border-blue-500/15 text-slate-200"
-                      }`}
+                        }`}
                     >
-                      <span className={`${themeTextMuted} font-medium`}>{key}</span>
-                      <span className={`font-semibold font-mono text-right max-w-[60%] truncate ${themeText}`}>
+                      <span className={`${themeTextMuted} font-medium text-[11px]`}>{key}</span>
+                      <span className={`font-semibold font-mono text-right max-w-[60%] truncate text-xs ${themeText}`}>
                         {val}
                       </span>
                     </div>
@@ -1210,54 +1328,48 @@ export function ProductDetailClient({
 
           {/* 2. Volume Pricing Tab */}
           {activeTab === "wholesale" && (
-            <div className={`space-y-6 text-xs sm:text-sm leading-relaxed ${themeTextSubtle}`}>
-              <div className="space-y-2">
-                <h4 className={`text-sm font-bold flex items-center gap-2 ${themeText}`}>
-                  <TrendingDown className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />
+            <div className={`space-y-4 text-xs leading-relaxed ${themeTextSubtle}`}>
+              <div className="space-y-1">
+                <h4 className={`text-xs font-bold flex items-center gap-1.5 ${themeText}`}>
+                  <TrendingDown className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>Volume Pricing Breakdown</span>
                 </h4>
-                <p className={`text-xs ${themeTextMuted}`}>
-                  Click on any tier below to automatically apply that tier&apos;s minimum quantity and unlock commercial wholesale pricing.
+                <p className={`text-[11px] ${themeTextMuted}`}>
+                  Select any tier below to automatically apply wholesale pricing to your order.
                 </p>
               </div>
 
-              {product.tieredPricing && product.tieredPricing.length > 0 ? (
-                <div className={`overflow-x-auto rounded-2xl border ${
-                  isLight ? "border-slate-200" : isDark ? "border-white/10" : "border-blue-500/20"
-                }`}>
+              {volumeTiers && volumeTiers.length > 0 ? (
+                <div className={`overflow-x-auto rounded-xl border ${isLight ? "border-slate-200" : isDark ? "border-white/10" : "border-blue-500/20"
+                  }`}>
                   <table className="w-full text-left text-xs">
-                    <thead className={`${
-                      isLight
+                    <thead className={`${isLight
                         ? "bg-slate-100/90 text-slate-700 border-slate-200"
                         : isDark
                           ? "bg-white/5 text-zinc-400 border-white/10"
                           : "bg-white/5 text-slate-400 border-blue-500/20"
-                    } font-semibold border-b`}>
+                      } font-semibold border-b text-[11px]`}>
                       <tr>
-                        <th className="p-3.5">Tier Volume Range</th>
-                        <th className="p-3.5">Discounted Price / {product.unit || "Unit"}</th>
-                        <th className="p-3.5">Commercial Savings</th>
-                        <th className="p-3.5 text-right">Action / Status</th>
+                        <th className="p-2.5">Tier Volume</th>
+                        <th className="p-2.5">Price / {product.unit || "Unit"}</th>
+                        <th className="p-2.5">Savings</th>
+                        <th className="p-2.5 text-right">Action</th>
                       </tr>
                     </thead>
-                    <tbody className={`divide-y ${
-                      isLight ? "divide-slate-200" : isDark ? "divide-white/5" : "divide-blue-500/15"
-                    }`}>
-                      {product.tieredPricing.map((tier, idx) => {
-                        const isMatch =
-                          quantity >= tier.minQuantity &&
-                          (!tier.maxQuantity || quantity <= tier.maxQuantity);
+                    <tbody className={`divide-y text-xs ${isLight ? "divide-slate-200" : isDark ? "divide-white/5" : "divide-blue-500/15"
+                      }`}>
+                      {volumeTiers.map((tier, idx) => {
+                        const isMatch = activeTierIndex === idx;
                         return (
                           <tr
                             key={idx}
                             onClick={() => {
                               setQuantity(tier.minQuantity);
-                              toast.success(`Volume tier applied: ${tier.minQuantity}+ units`, {
+                              toast.success(`Volume tier applied: ${tier.minQuantity.toLocaleString()}+ units`, {
                                 description: `Unit price updated to ETB ${tier.discountedPricePerUnit.toLocaleString()}`,
                               });
                             }}
-                            className={`transition-colors cursor-pointer ${
-                              isMatch
+                            className={`transition-colors cursor-pointer ${isMatch
                                 ? isLight
                                   ? "bg-indigo-50/90 text-indigo-950 font-bold"
                                   : "bg-indigo-600/20 text-white font-bold"
@@ -1266,21 +1378,21 @@ export function ProductDetailClient({
                                   : isDark
                                     ? "hover:bg-white/[0.03] text-zinc-300"
                                     : "hover:bg-blue-500/[0.06] text-slate-300"
-                            }`}
+                              }`}
                           >
-                            <td className="p-3.5 font-mono">
-                              {tier.minQuantity} - {tier.maxQuantity ? tier.maxQuantity : "Unlimited"}{" "}
+                            <td className="p-2.5 font-mono text-[11px]">
+                              {tier.minQuantity.toLocaleString()} - {tier.maxQuantity ? tier.maxQuantity.toLocaleString() : "Unlimited"}{" "}
                               {product.unit || "units"}
                             </td>
-                            <td className="p-3.5 font-mono text-cyan-600 dark:text-cyan-400 font-bold text-sm">
+                            <td className="p-2.5 font-mono text-indigo-600 dark:text-indigo-400 font-bold text-xs">
                               ETB {tier.discountedPricePerUnit.toLocaleString()}
                             </td>
-                            <td className="p-3.5 text-emerald-600 dark:text-emerald-400 font-semibold">
+                            <td className="p-2.5 text-emerald-600 dark:text-emerald-400 font-semibold text-[11px]">
                               {tier.savingsPercentage ? `Save ${tier.savingsPercentage}%` : "Standard Bulk"}
                             </td>
-                            <td className="p-3.5 text-right font-mono">
+                            <td className="p-2.5 text-right font-mono">
                               {isMatch ? (
-                                <span className="bg-indigo-600 text-white text-[10px] px-2.5 py-1 rounded-full font-bold shadow-xs">
+                                <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold shadow-xs">
                                   Active Tier
                                 </span>
                               ) : (
@@ -1289,17 +1401,16 @@ export function ProductDetailClient({
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setQuantity(tier.minQuantity);
-                                    toast.success(`Volume tier applied: ${tier.minQuantity}+ units`, {
+                                    toast.success(`Volume tier applied: ${tier.minQuantity.toLocaleString()}+ units`, {
                                       description: `Unit price updated to ETB ${tier.discountedPricePerUnit.toLocaleString()}`,
                                     });
                                   }}
-                                  className={`text-xs px-2.5 py-1 rounded-lg border font-semibold transition-all cursor-pointer ${
-                                    isLight
+                                  className={`text-[11px] px-2 py-0.5 rounded-md border font-semibold transition-all cursor-pointer ${isLight
                                       ? "border-indigo-300 bg-white text-indigo-700 hover:bg-indigo-50"
                                       : "border-indigo-500/40 bg-indigo-500/10 text-indigo-300 hover:bg-indigo-500/20"
-                                  }`}
+                                    }`}
                                 >
-                                  Apply {tier.minQuantity}+
+                                  Apply {tier.minQuantity.toLocaleString()}+
                                 </button>
                               )}
                             </td>
@@ -1310,10 +1421,9 @@ export function ProductDetailClient({
                   </table>
                 </div>
               ) : (
-                <div className={`p-6 rounded-2xl border text-center space-y-2 ${
-                  isLight ? "bg-slate-50 border-slate-200" : isDark ? "bg-white/[0.02] border-white/5" : "bg-white/[0.02] border-blue-500/15"
-                }`}>
-                  <Package className="w-8 h-8 text-zinc-400 mx-auto" />
+                <div className={`p-4 rounded-xl border text-center space-y-1 ${isLight ? "bg-slate-50 border-slate-200" : isDark ? "bg-white/[0.02] border-white/5" : "bg-white/[0.02] border-blue-500/15"
+                  }`}>
+                  <Package className="w-6 h-6 text-zinc-400 mx-auto" />
                   <p className={`text-xs font-semibold ${themeText}`}>
                     Standard Retail / Commercial Rate
                   </p>
@@ -1327,55 +1437,52 @@ export function ProductDetailClient({
 
           {/* 3. Supplier Profile Tab */}
           {activeTab === "supplier" && (
-            <div className={`space-y-6 text-xs sm:text-sm leading-relaxed ${themeTextSubtle}`}>
-              <div className={`rounded-2xl p-5 space-y-4 transition-all ${glassCard}`}>
-                <div className="flex items-center justify-between flex-wrap gap-3">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center text-white font-bold text-lg shadow-lg ring-2 ring-indigo-500/20">
-                      <Store className="h-6 w-6" />
+            <div className={`space-y-4 text-xs leading-relaxed ${themeTextSubtle}`}>
+              <div className={`rounded-xl p-3.5 space-y-3 transition-all ${glassCard}`}>
+                <div className="flex items-center justify-between flex-wrap gap-2.5">
+                  <div className="flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-xl bg-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-sm ring-1 ring-indigo-500/20">
+                      <Store className="h-4 w-4" />
                     </div>
                     <div>
-                      <h3 className={`text-sm font-bold flex items-center gap-1.5 ${themeText}`}>
+                      <h3 className={`text-xs font-bold flex items-center gap-1 ${themeText}`}>
                         <span>{product.shopName}</span>
-                        <CheckCircle2 className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
+                        <CheckCircle2 className="h-3.5 w-3.5 text-indigo-500" />
                       </h3>
-                      <span className={`text-xs flex items-center gap-1 ${themeTextMuted}`}>
-                        <MapPin className="h-3 w-3 text-indigo-500" />
+                      <span className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
+                        <MapPin className="h-2.5 w-2.5 text-indigo-500" />
                         <span>{product.warehouseLocation || product.marketZone}</span>
                       </span>
                     </div>
                   </div>
 
-                  <span className={`rounded-full px-3 py-1 text-xs font-bold ${glassVerifiedBadge}`}>
+                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${glassVerifiedBadge}`}>
                     Verified Merchant KYC
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
-                  <div className={`p-3 rounded-xl border space-y-1 backdrop-blur-md ${
-                    isLight ? "bg-white/80 border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
-                  }`}>
-                    <div className={`text-[11px] ${themeTextMuted}`}>Supplier Rating</div>
-                    <div className={`text-sm font-bold font-mono flex items-center gap-1 ${themeText}`}>
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span>{dynamicRating > 0 ? `${dynamicRating.toFixed(1)} / 5.0` : "No ratings yet"}</span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
+                  <div className={`p-2.5 rounded-lg border space-y-0.5 backdrop-blur-md ${isLight ? "bg-white/80 border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
+                    }`}>
+                    <div className={`text-[10px] ${themeTextMuted}`}>Supplier Rating</div>
+                    <div className={`text-xs font-bold font-mono flex items-center gap-1 ${themeText}`}>
+                      <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                      <span>{dynamicRating > 0 ? `${dynamicRating.toFixed(1)} / 5.0` : "No ratings"}</span>
                     </div>
                   </div>
 
-                  <div className={`p-3 rounded-xl border space-y-1 backdrop-blur-md ${
-                    isLight ? "bg-white/80 border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
-                  }`}>
-                    <div className={`text-[11px] ${themeTextMuted}`}>Average Response Time</div>
-                    <div className="text-sm font-bold text-cyan-600 dark:text-cyan-400 font-mono">
+                  <div className={`p-2.5 rounded-lg border space-y-0.5 backdrop-blur-md ${isLight ? "bg-white/80 border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
+                    }`}>
+                    <div className={`text-[10px] ${themeTextMuted}`}>Avg Response</div>
+                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 font-mono">
                       &lt; 2 Hours
                     </div>
                   </div>
 
-                  <div className={`p-3 rounded-xl border space-y-1 backdrop-blur-md ${
-                    isLight ? "bg-white/80 border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
-                  }`}>
-                    <div className={`text-[11px] ${themeTextMuted}`}>Escrow Compliance</div>
-                    <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 font-mono">
+                  <div className={`p-2.5 rounded-lg border space-y-0.5 backdrop-blur-md ${isLight ? "bg-white/80 border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
+                    }`}>
+                    <div className={`text-[10px] ${themeTextMuted}`}>Escrow Compliance</div>
+                    <div className="text-xs font-bold text-emerald-600 dark:text-emerald-400 font-mono">
                       100% Guaranteed
                     </div>
                   </div>
@@ -1386,37 +1493,34 @@ export function ProductDetailClient({
 
           {/* 4. Logistics & Warehousing Tab */}
           {activeTab === "logistics" && (
-            <div className={`space-y-4 text-xs sm:text-sm leading-relaxed ${themeTextSubtle}`}>
-              <div className={`rounded-2xl border p-5 space-y-4 ${
-                isLight ? "bg-slate-50/80 border-slate-200" : isDark ? "border-white/10 bg-black/40" : "border-blue-500/20 bg-black/30"
-              }`}>
-                <h4 className={`text-sm font-bold flex items-center gap-2 ${themeText}`}>
-                  <Truck className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
+            <div className={`space-y-3 text-xs leading-relaxed ${themeTextSubtle}`}>
+              <div className={`rounded-xl border p-3.5 space-y-3 ${isLight ? "bg-slate-50/80 border-slate-200" : isDark ? "border-white/10 bg-black/40" : "border-blue-500/20 bg-black/30"
+                }`}>
+                <h4 className={`text-xs font-bold flex items-center gap-1.5 ${themeText}`}>
+                  <Truck className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                   <span>MercatoX Logistics & Dispatch Network</span>
                 </h4>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className={`p-3.5 rounded-xl border space-y-1 ${
-                    isLight ? "bg-white border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
-                  }`}>
-                    <span className={themeTextMuted}>Origin / Warehouse Hub:</span>
-                    <p className={`font-semibold font-mono ${themeText}`}>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                  <div className={`p-2.5 rounded-lg border space-y-0.5 ${isLight ? "bg-white border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
+                    }`}>
+                    <span className={`text-[10px] ${themeTextMuted}`}>Origin / Warehouse Hub:</span>
+                    <p className={`font-semibold font-mono text-xs ${themeText}`}>
                       {product.warehouseLocation || product.branchName || "Mercato Central Distribution Hub"}
                     </p>
                   </div>
 
-                  <div className={`p-3.5 rounded-xl border space-y-1 ${
-                    isLight ? "bg-white border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
-                  }`}>
-                    <span className={themeTextMuted}>Dispatch Lead Time:</span>
-                    <p className={`font-semibold font-mono ${themeText}`}>
+                  <div className={`p-2.5 rounded-lg border space-y-0.5 ${isLight ? "bg-white border-slate-200" : isDark ? "bg-white/[0.03] border-white/5" : "bg-white/[0.03] border-blue-500/15"
+                    }`}>
+                    <span className={`text-[10px] ${themeTextMuted}`}>Dispatch Lead Time:</span>
+                    <p className={`font-semibold font-mono text-xs ${themeText}`}>
                       {product.leadTimeDays || 3} Business Days Dispatch SLA
                     </p>
                   </div>
                 </div>
 
-                <ul className={`list-disc pl-5 space-y-1.5 text-xs ${themeTextSubtle}`}>
-                  <li>Direct Doorstep delivery to all subcities in Addis Ababa (Bole, Kazanchis, Piassa, Merkato, Sarbet, Ayat, CMC, etc.).</li>
+                <ul className={`list-disc pl-4 space-y-1 text-[11px] ${themeTextSubtle}`}>
+                  <li>Direct Doorstep delivery to all subcities in Addis Ababa (Bole, Kazanchis, Piassa, Merkato, Sarbet, Ayat, etc.).</li>
                   <li>Regional freight options available for bulk consignments with bill of lading documentation.</li>
                   <li>Real-time SMS courier dispatch tracking and 4-digit handover OTP verification.</li>
                 </ul>
@@ -1426,18 +1530,18 @@ export function ProductDetailClient({
 
           {/* 5. Escrow & Buyer Guarantee Tab */}
           {activeTab === "escrow" && (
-            <div className={`space-y-4 text-xs sm:text-sm leading-relaxed ${themeTextSubtle}`}>
-              <div className={`rounded-2xl p-5 space-y-3 transition-all ${glassCard}`}>
+            <div className={`space-y-3 text-xs leading-relaxed ${themeTextSubtle}`}>
+              <div className={`rounded-xl p-3.5 space-y-2.5 transition-all ${glassCard}`}>
                 <div className="flex items-center justify-between">
-                  <h4 className={`text-sm font-bold flex items-center gap-2 ${themeText}`}>
-                    <Lock className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
+                  <h4 className={`text-xs font-bold flex items-center gap-1.5 ${themeText}`}>
+                    <Lock className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
                     <span>How MercatoX Escrow Protects Your Money</span>
                   </h4>
-                  <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold ${glassVerifiedBadge}`}>
+                  <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold ${glassVerifiedBadge}`}>
                     Verified Escrow
                   </span>
                 </div>
-                <ol className={`list-decimal pl-5 space-y-2 text-xs ${themeTextSubtle}`}>
+                <ol className={`list-decimal pl-4 space-y-1.5 text-[11px] ${themeTextSubtle}`}>
                   <li>You place your order and authorize payment via Telebirr, Chapa, CBE, or Card.</li>
                   <li>Funds are immediately deposited into a locked fiduciary trust account.</li>
                   <li>The seller packages your item and handovers to our licensed courier.</li>
@@ -1451,53 +1555,51 @@ export function ProductDetailClient({
 
           {/* 6. Reviews Tab */}
           {activeTab === "reviews" && (
-            <div className="space-y-8">
-              {/* Rating Overview Breakdown Grid with Glassmorphism */}
-              <div className={`grid grid-cols-1 md:grid-cols-12 gap-6 p-5 sm:p-6 rounded-2xl border shadow-xl items-center transition-all ${glassCard}`}>
+            <div className="space-y-4">
+              {/* Rating Overview Breakdown Grid */}
+              <div className={`grid grid-cols-1 md:grid-cols-12 gap-4 p-3.5 sm:p-4 rounded-xl border shadow-xs items-center transition-all ${glassCard}`}>
                 {/* Score Summary */}
-                <div className={`md:col-span-4 text-center md:text-left space-y-2 md:border-r md:pr-6 ${
-                  isLight ? "md:border-slate-200" : isDark ? "md:border-white/10" : "md:border-blue-500/20"
-                }`}>
-                  <div className="flex items-baseline justify-center md:justify-start gap-2">
-                    <span className={`text-4xl sm:text-5xl font-black font-mono ${themeText}`}>
+                <div className={`md:col-span-4 text-center md:text-left space-y-1.5 md:border-r md:pr-4 ${isLight ? "md:border-slate-200" : isDark ? "md:border-white/10" : "md:border-blue-500/20"
+                  }`}>
+                  <div className="flex items-baseline justify-center md:justify-start gap-1.5">
+                    <span className={`text-2xl sm:text-3xl font-black font-mono ${themeText}`}>
                       {dynamicRating > 0 ? dynamicRating.toFixed(1) : "0.0"}
                     </span>
-                    <span className={`font-bold text-sm ${themeTextMuted}`}>/ 5.0</span>
+                    <span className={`font-bold text-xs ${themeTextMuted}`}>/ 5.0</span>
                   </div>
 
-                  <div className="flex items-center justify-center md:justify-start gap-1 text-amber-400">
+                  <div className="flex items-center justify-center md:justify-start gap-0.5 text-amber-400">
                     {[1, 2, 3, 4, 5].map((star) => (
                       <Star
                         key={star}
-                        className={`h-4 w-4 ${
-                          dynamicRating > 0 && star <= Math.round(dynamicRating)
+                        className={`h-3.5 w-3.5 ${dynamicRating > 0 && star <= Math.round(dynamicRating)
                             ? "fill-amber-400 text-amber-400"
                             : isLight
                               ? "text-slate-300"
                               : "text-zinc-700"
-                        }`}
+                          }`}
                       />
                     ))}
                   </div>
 
-                  <p className={`text-xs ${themeTextMuted}`}>
+                  <p className={`text-[11px] ${themeTextMuted}`}>
                     {reviewCount > 0 ? (
                       <>
-                        Based on <strong className={`font-mono ${themeText}`}>{reviewCount}</strong> verified customer purchase{reviewCount > 1 ? "s" : ""} in Addis Ababa.
+                        Based on <strong className={`font-mono ${themeText}`}>{reviewCount}</strong> verified purchase{reviewCount > 1 ? "s" : ""}.
                       </>
                     ) : (
-                      "No customer ratings recorded in the database yet."
+                      "No customer ratings recorded yet."
                     )}
                   </p>
 
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10.5px] font-semibold ${glassVerifiedBadge}`}>
-                    <ShieldCheck className="w-3.5 h-3.5" />
-                    <span>100% Real OTP Verified</span>
+                  <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-semibold ${glassVerifiedBadge}`}>
+                    <ShieldCheck className="w-3 h-3" />
+                    <span>Real OTP Verified</span>
                   </div>
                 </div>
 
                 {/* Rating Distribution Bars */}
-                <div className="md:col-span-8 space-y-2">
+                <div className="md:col-span-8 space-y-1.5">
                   {[5, 4, 3, 2, 1].map((ratingStar) => {
                     const count = reviews.filter((r) => Math.round(r.rating) === ratingStar).length;
                     const percent = reviews.length > 0 ? Math.round((count / reviews.length) * 100) : 0;
@@ -1508,28 +1610,26 @@ export function ProductDetailClient({
                         onClick={() =>
                           setReviewFilterRating((prev) => (prev === ratingStar ? "all" : ratingStar))
                         }
-                        className="w-full flex items-center gap-3 text-xs group cursor-pointer text-left"
+                        className="w-full flex items-center gap-2 text-xs group cursor-pointer text-left"
                       >
-                        <span className={`w-12 font-medium flex items-center gap-1 shrink-0 ${themeTextMuted}`}>
-                          {ratingStar} <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                        <span className={`w-10 font-medium flex items-center gap-0.5 shrink-0 text-[11px] ${themeTextMuted}`}>
+                          {ratingStar} <Star className="w-2.5 h-2.5 fill-amber-400 text-amber-400" />
                         </span>
-                        <div className={`flex-1 h-2 rounded-full overflow-hidden border ${
-                          isLight
+                        <div className={`flex-1 h-1.5 rounded-full overflow-hidden border ${isLight
                             ? "bg-slate-200/80 border-slate-200"
                             : isDark
                               ? "bg-white/5 border-white/5"
                               : "bg-white/5 border-blue-500/20"
-                        }`}>
+                          }`}>
                           <div
-                            className={`h-full rounded-full transition-all duration-500 ${
-                              ratingStar >= 4
-                                ? "bg-gradient-to-r from-amber-400 to-emerald-400"
-                                : "bg-gradient-to-r from-indigo-500 to-cyan-400"
-                            }`}
+                            className={`h-full rounded-full transition-all duration-300 ${ratingStar >= 4
+                                ? "bg-amber-400"
+                                : "bg-indigo-600"
+                              }`}
                             style={{ width: `${percent}%` }}
                           />
                         </div>
-                        <span className={`w-10 text-right font-mono text-[11px] shrink-0 ${themeTextMuted}`}>
+                        <span className={`w-8 text-right font-mono text-[10px] shrink-0 ${themeTextMuted}`}>
                           {percent}%
                         </span>
                       </button>
@@ -1539,34 +1639,33 @@ export function ProductDetailClient({
               </div>
 
               {/* Filter Chips Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar text-xs">
-                  <span className={`font-medium text-xs flex items-center gap-1 mr-1 ${themeTextMuted}`}>
-                    <Filter className="w-3 h-3" /> Filter:
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 no-scrollbar text-xs">
+                  <span className={`font-medium text-[11px] flex items-center gap-1 mr-0.5 ${themeTextMuted}`}>
+                    <Filter className="w-2.5 h-2.5" /> Filter:
                   </span>
                   {(["all", 5, 4, 3, 2, 1] as const).map((star) => (
                     <button
                       key={star}
                       type="button"
                       onClick={() => setReviewFilterRating(star)}
-                      className={`px-3 py-1.5 rounded-xl font-bold transition-all cursor-pointer ${
-                        reviewFilterRating === star
-                          ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/30"
+                      className={`px-2 py-0.5 rounded-md text-[11px] font-semibold transition-all cursor-pointer ${reviewFilterRating === star
+                          ? "bg-indigo-600 text-white shadow-xs"
                           : isLight
                             ? "bg-slate-100 text-slate-600 hover:text-slate-900 hover:bg-slate-200 border border-slate-200"
                             : isDark
                               ? "bg-white/[0.04] text-zinc-400 hover:text-white hover:bg-white/10 border border-white/5"
                               : "bg-blue-900/20 text-slate-300 hover:text-white hover:bg-blue-900/40 border border-blue-500/20"
-                      }`}
+                        }`}
                     >
                       {star === "all"
                         ? `All (${reviews.length})`
-                        : `${star} Stars (${reviews.filter((r) => Math.round(r.rating) === star).length})`}
+                        : `${star}★ (${reviews.filter((r) => Math.round(r.rating) === star).length})`}
                     </button>
                   ))}
                 </div>
 
-                <span className={`text-[11px] font-mono ${themeTextMuted}`}>
+                <span className={`text-[10px] font-mono ${themeTextMuted}`}>
                   Showing{" "}
                   {reviewFilterRating === "all"
                     ? reviews.length
@@ -1575,20 +1674,18 @@ export function ProductDetailClient({
                 </span>
               </div>
 
-              {/* Reviews List from Live Database - Visible to ALL visitors */}
-              <div className="space-y-3.5">
+              {/* Reviews List from Live Database */}
+              <div className="space-y-2.5">
                 {isLoadingReviews ? (
-                  <div className={`p-8 text-center space-y-2 rounded-2xl border ${
-                    isLight ? "bg-slate-50 border-slate-200" : isDark ? "bg-white/[0.02] border-white/5" : "bg-white/[0.02] border-blue-500/15"
-                  }`}>
-                    <Loader2 className="w-6 h-6 animate-spin text-cyan-500 dark:text-cyan-400 mx-auto" />
-                    <p className={`text-xs ${themeTextMuted}`}>Loading verified customer reviews from database...</p>
+                  <div className={`p-6 text-center space-y-1.5 rounded-xl border ${isLight ? "bg-slate-50 border-slate-200" : isDark ? "bg-white/[0.02] border-white/5" : "bg-white/[0.02] border-blue-500/15"
+                    }`}>
+                    <Loader2 className="w-5 h-5 animate-spin text-indigo-600 dark:text-indigo-400 mx-auto" />
+                    <p className={`text-[11px] ${themeTextMuted}`}>Loading verified customer reviews...</p>
                   </div>
                 ) : reviews.length === 0 ? (
-                  <div className={`p-8 text-center space-y-2 rounded-2xl border ${
-                    isLight ? "bg-slate-50 border-slate-200" : isDark ? "bg-white/[0.02] border-white/5" : "bg-white/[0.02] border-blue-500/15"
-                  }`}>
-                    <MessageSquareQuote className="w-8 h-8 text-zinc-400 mx-auto" />
+                  <div className={`p-6 text-center space-y-1.5 rounded-xl border ${isLight ? "bg-slate-50 border-slate-200" : isDark ? "bg-white/[0.02] border-white/5" : "bg-white/[0.02] border-blue-500/15"
+                    }`}>
+                    <MessageSquareQuote className="w-6 h-6 text-zinc-400 mx-auto" />
                     <p className={`text-xs font-semibold ${themeText}`}>No customer reviews yet</p>
                     <p className={`text-[11px] ${themeTextMuted}`}>Be the first verified customer to write a review below!</p>
                   </div>
@@ -1599,47 +1696,45 @@ export function ProductDetailClient({
                   ).map((rev) => (
                     <div
                       key={rev.id}
-                      className={`rounded-2xl border p-4 sm:p-5 space-y-3 backdrop-blur-xl shadow-lg transition-all ${
-                        isLight
-                          ? "bg-white/80 border-slate-200/90 hover:border-indigo-400/50 hover:shadow-indigo-500/5"
+                      className={`rounded-xl border p-3 sm:p-3.5 space-y-2 shadow-xs transition-all ${isLight
+                          ? "bg-white/80 border-slate-200/90 hover:border-indigo-400/50"
                           : isDark
-                            ? "bg-[#141418]/80 border-white/10 hover:border-indigo-500/40 hover:shadow-black/50"
-                            : "bg-[#0d1222]/85 border-blue-500/20 hover:border-cyan-500/40 hover:shadow-cyan-950/40"
-                      }`}
+                            ? "bg-[#141418]/80 border-white/10 hover:border-indigo-500/40"
+                            : "bg-[#0d1222]/85 border-blue-500/20 hover:border-indigo-500/40"
+                        }`}
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-cyan-500 flex items-center justify-center font-bold text-white text-xs shadow-md shrink-0 ring-1 ring-white/20">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white text-[11px] shadow-xs shrink-0">
                             {rev.author.charAt(0).toUpperCase()}
                           </div>
                           <div>
-                            <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1.5">
                               <span className={`font-bold text-xs ${themeText}`}>{rev.author}</span>
-                              <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[9.5px] font-semibold ${glassVerifiedBadge}`}>
-                                <CheckCircle2 className="w-3 h-3" />
+                              <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.2 text-[9px] font-semibold ${glassVerifiedBadge}`}>
+                                <CheckCircle2 className="w-2.5 h-2.5" />
                                 Verified Buyer
                               </span>
                             </div>
-                            <span className={`text-[10.5px] ${themeTextMuted}`}>
+                            <span className={`text-[10px] ${themeTextMuted}`}>
                               {rev.location} • {rev.date}
                             </span>
                           </div>
                         </div>
 
-                        <div className="flex items-center gap-1 text-amber-400 bg-amber-400/10 border border-amber-400/25 px-2.5 py-1 rounded-lg shrink-0 w-fit backdrop-blur-sm">
+                        <div className="flex items-center gap-0.5 text-amber-400 bg-amber-400/10 border border-amber-400/25 px-2 py-0.5 rounded-md shrink-0 w-fit">
                           {[1, 2, 3, 4, 5].map((star) => (
                             <Star
                               key={star}
-                              className={`h-3 w-3 ${
-                                star <= Math.round(rev.rating)
+                              className={`h-2.5 w-2.5 ${star <= Math.round(rev.rating)
                                   ? "fill-amber-400 text-amber-400"
                                   : isLight
                                     ? "text-slate-300"
                                     : "text-zinc-700"
-                              }`}
+                                }`}
                             />
                           ))}
-                          <span className={`font-mono text-[11px] font-bold ml-1 ${themeText}`}>
+                          <span className={`font-mono text-[10px] font-bold ml-1 ${themeText}`}>
                             {rev.rating.toFixed(1)}
                           </span>
                         </div>
@@ -1648,17 +1743,16 @@ export function ProductDetailClient({
                       <p className={`text-xs leading-relaxed whitespace-pre-line ${themeTextSubtle}`}>{rev.comment}</p>
 
                       {rev.tags && rev.tags.length > 0 && (
-                        <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <div className="flex flex-wrap items-center gap-1 pt-0.5">
                           {rev.tags.map((tag, tIdx) => (
                             <span
                               key={tIdx}
-                              className={`px-2.5 py-0.5 rounded-lg border text-[10px] font-medium backdrop-blur-sm ${
-                                isLight
+                              className={`px-2 py-0.5 rounded-md border text-[9.5px] font-medium ${isLight
                                   ? "bg-slate-100/80 border-slate-200 text-slate-700"
                                   : isDark
                                     ? "bg-white/[0.04] border-white/10 text-zinc-300"
                                     : "bg-blue-500/[0.08] border-blue-500/20 text-slate-200"
-                              }`}
+                                }`}
                             >
                               {tag}
                             </span>
@@ -1670,20 +1764,20 @@ export function ProductDetailClient({
                 )}
               </div>
 
-              {/* Compact 1-Input Rate & Review: Strictly for Logged-In Users */}
+              {/* Compact 1-Input Rate & Review */}
               {mounted && user && (
                 <form
                   onSubmit={handleReviewSubmit}
-                  className={`rounded-2xl border p-4 sm:p-5 space-y-3.5 max-w-xl transition-all ${glassCard}`}
+                  className={`rounded-xl border p-3 sm:p-3.5 space-y-2.5 max-w-lg transition-all ${glassCard}`}
                 >
-                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
                     <span className={`text-xs font-bold flex items-center gap-1.5 ${themeText}`}>
                       <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                       <span>Rate & Review</span>
                     </span>
 
                     {/* Compact Star Rating Picker */}
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map((s) => (
                         <button
                           key={s}
@@ -1693,17 +1787,16 @@ export function ProductDetailClient({
                           title={`${s} Star${s > 1 ? "s" : ""}`}
                         >
                           <Star
-                            className={`h-5 w-5 transition-colors ${
-                              s <= newReviewRating
+                            className={`h-4 w-4 transition-colors ${s <= newReviewRating
                                 ? "fill-amber-400 text-amber-400"
                                 : isLight
                                   ? "text-slate-300 hover:text-slate-400"
                                   : "text-zinc-700 hover:text-zinc-500"
-                            }`}
+                              }`}
                           />
                         </button>
                       ))}
-                      <span className="text-[11px] font-bold font-mono text-amber-500 dark:text-amber-400 ml-1">
+                      <span className="text-[10px] font-bold font-mono text-amber-500 dark:text-amber-400 ml-1">
                         {newReviewRating}.0
                       </span>
                     </div>
@@ -1715,30 +1808,30 @@ export function ProductDetailClient({
                     onChange={(e) => setNewReviewComment(e.target.value)}
                     placeholder="Write your review here..."
                     rows={2}
-                    className={`w-full rounded-xl border p-3 text-xs outline-none focus:border-indigo-500 transition-colors resize-none ${themeInputBg}`}
+                    className={`w-full rounded-lg border p-2 text-xs outline-none focus:border-indigo-500 transition-colors resize-none ${themeInputBg}`}
                     required
                   />
 
                   {/* Compact Submit Button */}
                   <div className="flex items-center justify-between gap-2">
-                    <span className={`text-[11px] ${themeTextMuted} truncate`}>
+                    <span className={`text-[10px] ${themeTextMuted} truncate`}>
                       Reviewing as <strong className={themeText}>{user.name || "Buyer"}</strong>
                     </span>
 
                     <button
                       type="submit"
                       disabled={isSubmittingReview || !newReviewComment.trim()}
-                      className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-600/30 hover:brightness-110 active:scale-95 disabled:opacity-50 transition-all cursor-pointer"
+                      className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-bold text-white shadow-xs disabled:opacity-50 transition-all cursor-pointer"
                     >
                       {isSubmittingReview ? (
                         <>
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <Loader2 className="h-3 w-3 animate-spin" />
                           <span>Submitting...</span>
                         </>
                       ) : (
                         <>
-                          <Send className="h-3.5 w-3.5" />
-                          <span>Submit Review</span>
+                          <Send className="h-3 w-3" />
+                          <span>Submit</span>
                         </>
                       )}
                     </button>
@@ -1751,15 +1844,14 @@ export function ProductDetailClient({
 
         {/* Related Products from Same Department */}
         {relatedProducts.length > 0 && (
-          <div className={`space-y-3.5 pt-4 border-t ${
-            isLight ? "border-slate-200" : isDark ? "border-white/10" : "border-blue-500/20"
-          }`}>
-            <div className="flex items-center justify-between pb-1">
+          <div className={`space-y-3 pt-3 border-t ${isLight ? "border-slate-200" : isDark ? "border-white/10" : "border-blue-500/20"
+            }`}>
+            <div className="flex items-center justify-between pb-0.5">
               <div>
-                <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
                   Recommended Catalog Deals
                 </span>
-                <h3 className={`text-base sm:text-lg font-bold ${themeText}`}>
+                <h3 className={`text-sm sm:text-base font-bold ${themeText}`}>
                   Customers Also Viewed
                 </h3>
               </div>
@@ -1771,7 +1863,7 @@ export function ProductDetailClient({
               </Link>
             </div>
 
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2.5 sm:gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
               {relatedProducts.map((p) => (
                 <ProductCard key={p.id} product={p} onQuickView={handleQuickView} />
               ))}
@@ -1802,7 +1894,7 @@ export function ProductDetailClient({
             onClick={(e) => e.stopPropagation()}
           >
             <img
-              src={galleryImages[activeImageIdx] || selectedImage || product.image}
+              src={getHighResImageUrl(galleryImages[activeImageIdx] || selectedImage || product.image)}
               alt={product.name}
               className="w-auto h-auto max-h-[75vh] max-w-full object-contain rounded-xl"
             />
@@ -1822,13 +1914,12 @@ export function ProductDetailClient({
                     setActiveImageIdx(idx);
                     setSelectedImage(img);
                   }}
-                  className={`relative w-14 h-14 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${
-                    activeImageIdx === idx
+                  className={`relative w-14 h-14 rounded-xl overflow-hidden border-2 transition-all cursor-pointer ${activeImageIdx === idx
                       ? "border-indigo-500 scale-105 shadow-md shadow-indigo-500/30"
                       : "border-white/10 opacity-50 hover:opacity-100"
-                  }`}
+                    }`}
                 >
-                  <img src={img} alt="" className="w-full h-full object-cover" />
+                  <img src={getHighResImageUrl(img)} alt="" className="w-full h-full object-cover" />
                 </button>
               ))}
             </div>

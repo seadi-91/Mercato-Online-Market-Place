@@ -1,6 +1,21 @@
 import type { NextConfig } from "next";
 
-const cspHeader = `
+const isDev = process.env.NODE_ENV === "development";
+
+const devCspHeader = `
+    default-src 'self' 'unsafe-eval' 'unsafe-inline' data: blob:;
+    script-src 'self' 'unsafe-eval' 'unsafe-inline' https://accounts.google.com/gsi/client;
+    style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style;
+    img-src 'self' blob: data: http: https:;
+    font-src 'self' data: https://fonts.gstatic.com;
+    object-src 'none';
+    base-uri 'self';
+    form-action 'self' https://accounts.google.com;
+    frame-src https://accounts.google.com;
+    connect-src * 'self' http: https: ws: wss: data: blob:;
+`.replace(/\s{2,}/g, ' ').trim();
+
+const prodCspHeader = `
     default-src 'self';
     script-src 'self' 'unsafe-eval' 'unsafe-inline' https://accounts.google.com/gsi/client;
     style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com/gsi/style;
@@ -11,8 +26,10 @@ const cspHeader = `
     form-action 'self' https://accounts.google.com;
     frame-src https://accounts.google.com;
     frame-ancestors 'none';
-    connect-src 'self' http://localhost:3000 http://localhost:3001 http://127.0.0.1:3000 http://127.0.0.1:3001 https://api.chapa.co https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com;
+    connect-src 'self' http://localhost:3000 http://localhost:3001 http://127.0.0.1:3000 http://127.0.0.1:3001 ws: wss: https://api.chapa.co https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com;
 `.replace(/\s{2,}/g, ' ').trim();
+
+const cspHeader = isDev ? devCspHeader : prodCspHeader;
 
 const nextConfig: NextConfig = {
   images: {

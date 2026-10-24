@@ -47,8 +47,7 @@ export async function fetchCustomerProfile(
 
     const data = await res.json();
     return data;
-  } catch (err) {
-    console.error("fetchCustomerProfile network error:", err);
+  } catch {
     return null;
   }
 }
@@ -83,7 +82,6 @@ export async function updateCustomerAddress(
     const updatedProfile = await res.json();
     return { success: true, data: updatedProfile };
   } catch (err: any) {
-    console.error("updateCustomerAddress error:", err);
-    return { success: false, error: err.message || "Network error" };
+    return { success: false, error: err?.message || "Network error" };
   }
 }

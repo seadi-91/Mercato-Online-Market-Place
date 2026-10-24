@@ -73,6 +73,7 @@ export const useAdminUIStore = create<AdminUIState>((set) => ({
 
 export type SellerTab =
   | "overview"
+  | "wholesale-sourcing"
   | "products"
   | "add-product"
   | "orders"

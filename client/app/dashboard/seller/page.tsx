@@ -10,39 +10,46 @@ import { SellerPayouts } from "./components/seller-payouts";
 import { SellerReviews } from "./components/seller-reviews";
 import { SellerSettings } from "./components/seller-settings";
 import { SellerSubscriptions } from "./components/seller-subscriptions";
+import { SellerWholesaleSourcing } from "./components/seller-wholesale-sourcing";
+import { Boxes, ArrowRight, ShieldCheck } from "lucide-react";
 
 export default function SellerDashboardPage() {
-  const { activeTab } = useSellerUIStore();
+  const { activeTab, setActiveTab } = useSellerUIStore();
 
   return (
-    <div className="w-full transition-all duration-150">
-      {/* Enterprise B2B Supplier Portal Quick Switch Banner */}
-      <div className="mb-4 rounded-xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/60 via-indigo-900/30 to-slate-900 p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-md">
-        <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-indigo-600 flex items-center justify-center font-bold text-white shadow-xs shrink-0">
-            MX
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-white text-sm">MercatoX Enterprise B2B Supplier Portal</span>
-              <span className="rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 text-[10px] font-bold">
-                ENTERPRISE WORKSPACE
-              </span>
+    <div className="w-full transition-all duration-150 space-y-4">
+      {/* Merchant Wholesale Cargo Sourcing Quick Banner (Displayed on Overview) */}
+      {activeTab === "overview" && (
+        <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-r from-indigo-950/70 via-slate-900 to-indigo-950/50 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-md">
+          <div className="flex items-center gap-3">
+            <div className="h-10 w-10 rounded-xl bg-indigo-600 flex items-center justify-center font-bold text-white shadow-xs shrink-0">
+              <Boxes className="w-5 h-5" />
             </div>
-            <p className="text-zinc-300 text-xs mt-0.5">
-              Manage wholesale tier pricing, RFQs, commercial quotations, negotiations, multi-depot warehouse stock, and Escrow treasury.
-            </p>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-white text-sm">Need to Restock Your Merchant Inventory?</span>
+                <span className="rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 text-[10px] font-bold">
+                  B2B WHOLESALE SOURCING
+                </span>
+              </div>
+              <p className="text-zinc-300 text-xs mt-0.5">
+                Buy wholesale cartons, sacks, and container cargo directly from verified suppliers & importers with volume discounts and CBE & Telebirr Escrow protection.
+              </p>
+            </div>
           </div>
+          <button
+            type="button"
+            onClick={() => setActiveTab("wholesale-sourcing")}
+            className="rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 font-bold text-white transition-all text-center whitespace-nowrap shadow-xs cursor-pointer flex items-center justify-center gap-1.5 self-start sm:self-auto"
+          >
+            <span>Buy Wholesale Cargo</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
         </div>
-        <a
-          href="/dashboard/supplier"
-          className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 font-bold text-white transition-colors text-center whitespace-nowrap shadow-xs cursor-pointer"
-        >
-          Open B2B Supplier Dashboard →
-        </a>
-      </div>
+      )}
 
       {activeTab === "overview" && <SellerStats />}
+      {activeTab === "wholesale-sourcing" && <SellerWholesaleSourcing />}
       {activeTab === "products" && <SellerProducts />}
       {activeTab === "add-product" && <SellerAddProduct />}
       {activeTab === "orders" && <SellerOrders />}

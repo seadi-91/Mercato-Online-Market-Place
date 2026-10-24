@@ -47,10 +47,10 @@ export async function initializeChapaCheckout(
     const result = await res.json();
     return result;
   } catch (err: any) {
-    console.error("Failed to call /api/payments/chapa:", err);
+    console.warn("Failed to call /api/payments/chapa:", err?.message || err);
     return {
       success: false,
-      error: err.message || "Network error communicating with payment service",
+      error: err?.message || "Network error communicating with payment service",
     };
   }
 }

@@ -17,6 +17,7 @@ import {
   BadgeCheck,
   PlusCircle,
   Sparkles,
+  Boxes,
 } from "lucide-react";
 import { useSellerUIStore, SellerTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
@@ -27,7 +28,7 @@ interface NavItem {
   id: SellerTab;
   label: string;
   icon: React.ElementType;
-  badge?: number;
+  badge?: number | string;
   badgeColor?: string;
 }
 
@@ -66,6 +67,18 @@ export function SellerSidebar() {
           id: "overview",
           label: "Dashboard & Sales",
           icon: LayoutDashboard,
+        },
+      ],
+    },
+    {
+      title: "Wholesale Sourcing",
+      items: [
+        {
+          id: "wholesale-sourcing",
+          label: "Buy Wholesale Cargo",
+          icon: Boxes,
+          badge: "B2B",
+          badgeColor: "bg-indigo-500/25 text-indigo-300 border-indigo-500/35",
         },
       ],
     },
@@ -204,28 +217,34 @@ export function SellerSidebar() {
 
         {/* Navigation Groups */}
         <div className="flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-5">
-          {/* Direct Link to B2B Supplier Portal */}
+          {/* Quick Wholesale Sourcing Pill */}
           {!isSidebarCollapsed || isMobileSidebarOpen ? (
-            <a
-              href="/dashboard/supplier"
-              className="flex items-center justify-between rounded-xl bg-indigo-500/15 border border-indigo-500/30 px-3 py-2 text-xs font-bold text-indigo-300 hover:bg-indigo-500/25 transition-all cursor-pointer shadow-xs"
+            <button
+              onClick={() => {
+                setActiveTab("wholesale-sourcing");
+                setMobileSidebarOpen(false);
+              }}
+              className="w-full flex items-center justify-between rounded-xl bg-gradient-to-r from-indigo-600/20 via-indigo-500/15 to-cyan-500/20 border border-indigo-500/30 px-3 py-2 text-xs font-bold text-indigo-300 hover:bg-indigo-500/25 transition-all cursor-pointer shadow-xs text-left"
             >
               <div className="flex items-center gap-2 truncate">
                 <span className="flex h-5 w-5 items-center justify-center rounded-md bg-indigo-600 text-white text-[10px]">
                   B2B
                 </span>
-                <span className="truncate">B2B Supplier Portal</span>
+                <span className="truncate">Source Wholesale Cargo</span>
               </div>
               <ChevronRight className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-            </a>
+            </button>
           ) : (
-            <a
-              href="/dashboard/supplier"
-              title="MercatoX B2B Supplier Portal"
-              className="flex justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/30 p-2 text-indigo-300 hover:bg-indigo-500/25 transition-all cursor-pointer"
+            <button
+              onClick={() => {
+                setActiveTab("wholesale-sourcing");
+                setMobileSidebarOpen(false);
+              }}
+              title="Buy Wholesale Cargo (B2B Sourcing)"
+              className="flex w-full justify-center rounded-xl bg-indigo-500/15 border border-indigo-500/30 p-2 text-indigo-300 hover:bg-indigo-500/25 transition-all cursor-pointer"
             >
-              <span className="font-bold text-xs">B2B</span>
-            </a>
+              <Boxes className="h-4 w-4" />
+            </button>
           )}
 
           {navGroups.map((group, groupIdx) => (
@@ -261,7 +280,7 @@ export function SellerSidebar() {
                     {showExpanded && (
                       <>
                         <span className="truncate flex-1 text-left">{item.label}</span>
-                        {item.badge !== undefined && item.badge > 0 && (
+                        {item.badge !== undefined && (typeof item.badge === "string" ? Boolean(item.badge) : item.badge > 0) && (
                           <span
                             className={`rounded-full px-2 py-0.5 text-[9.5px] font-bold border ${isActive
                                 ? "bg-indigo-500/30 text-indigo-200 border-indigo-500/40"
@@ -275,7 +294,7 @@ export function SellerSidebar() {
                     )}
 
                     {/* Collapsed Badge Dot */}
-                    {isSidebarCollapsed && item.badge !== undefined && item.badge > 0 && (
+                    {isSidebarCollapsed && item.badge !== undefined && (typeof item.badge === "number" ? item.badge > 0 : Boolean(item.badge)) && (
                       <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-indigo-400 ring-2 ring-[#090d16]" />
                     )}
                   </button>

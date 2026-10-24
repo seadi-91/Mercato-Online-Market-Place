@@ -6,16 +6,10 @@ import { useRouter } from "next/navigation";
 import {
   ShoppingCart,
   Heart,
-  Eye,
-  Star,
-  MapPin,
   Check,
-  ShieldCheck,
-  Package,
 } from "lucide-react";
 import { Product } from "@/constants/mock-data";
 import { useCartStore } from "@/store";
-import { useThemeStore } from "@/store/theme-store";
 import { toast } from "sonner";
 import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 
@@ -31,15 +25,8 @@ export function HorizontalProductCard({
   product,
   onQuickView,
   tradeView = "ALL",
-  hideBadges = false,
-  transparentCartButton = false,
 }: HorizontalProductCardProps) {
   const router = useRouter();
-  const { theme } = useThemeStore();
-  const isLight = theme === "light";
-  const isDark = theme === "dark";
-  const isSystem = theme === "system";
-
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const isFavorite = useCartStore((state) => state.isFavorite);
@@ -77,7 +64,7 @@ export function HorizontalProductCard({
 
     setIsAdded(true);
     toast.success("Added to cart", {
-      description: `${product.name} (${qty} ${tradeInfo.unit}) added to cart.`,
+      description: `${product.name} (${qty} ${tradeInfo.unit}) added.`,
     });
     setTimeout(() => setIsAdded(false), 1400);
   };
@@ -118,16 +105,18 @@ export function HorizontalProductCard({
         ? (product as any).images[1]
         : null;
 
+  const displayPrice =
+    tradeView === "WHOLESALE" && tradeInfo.wholesalePrice
+      ? tradeInfo.wholesalePrice
+      : product.price;
+
   return (
     <div
       onClick={handleCardClick}
-      className="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between rounded-xl sm:rounded-2xl border border-app bg-app-card text-app hover:border-indigo-500/50 hover:shadow-md transition-all duration-200 p-2.5 sm:p-3.5 gap-3 sm:gap-4 cursor-pointer overflow-hidden w-full"
+      className="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between rounded-2xl border border-slate-200/90 dark:border-white/10 bg-white dark:bg-[#11131c] text-slate-900 dark:text-slate-100 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-200 p-3 sm:p-4 gap-3 sm:gap-4 cursor-pointer overflow-hidden w-full"
     >
       {/* Left: Product Image Thumbnail */}
-      <div className={`relative w-full sm:w-28 sm:h-28 md:w-36 md:h-36 shrink-0 aspect-square sm:aspect-auto rounded-lg sm:rounded-xl overflow-hidden transition-colors ${
-        isLight ? "bg-slate-100/90" : isDark ? "bg-[#101014]" : "bg-[#0a0f1d]"
-      }`}>
-        {/* Primary Image */}
+      <div className="relative w-full sm:w-28 sm:h-28 md:w-32 md:h-32 shrink-0 aspect-square sm:aspect-auto rounded-xl overflow-hidden bg-slate-50 dark:bg-[#0c0e17]">
         <img
           src={primaryImage}
           alt={product.name}
@@ -137,7 +126,6 @@ export function HorizontalProductCard({
           loading="lazy"
         />
 
-        {/* Secondary Image on Hover (if available) */}
         {secondaryImage && (
           <img
             src={secondaryImage}
@@ -147,186 +135,53 @@ export function HorizontalProductCard({
           />
         )}
 
-        {/* Optional product-specific badge */}
-        {!hideBadges && (
-          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
-            {product.badge && (
-              <span
-                className={`rounded px-1.5 py-0.5 text-[8px] font-bold border backdrop-blur-xs shadow-xs transition-colors ${
-                  isLight
-                    ? product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-300/80"
-                      : product.badge === "Trending" || product.badge === "Best Seller"
-                        ? "bg-amber-50 text-amber-900 border-amber-300/80"
-                        : "bg-indigo-50 text-indigo-700 border-indigo-200/90"
-                    : isDark
-                      ? product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
-                        ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/30"
-                        : product.badge === "Trending" || product.badge === "Best Seller"
-                          ? "bg-amber-950/80 text-amber-300 border-amber-500/30"
-                          : "bg-[#18181c]/90 text-indigo-300 border-white/10"
-                      : product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
-                        ? "bg-emerald-950/70 text-emerald-300 border-emerald-500/30"
-                        : product.badge === "Trending" || product.badge === "Best Seller"
-                          ? "bg-amber-950/70 text-amber-300 border-amber-500/30"
-                          : "bg-[#0d1222]/90 text-cyan-300 border-blue-500/30"
-                }`}
-              >
-                {product.badge}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Centered Quick View Button (Visible ONLY on Hover, hidden when not hovering) */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none group-hover:pointer-events-auto z-20">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              handleCardClick();
-            }}
-            className={`flex items-center gap-1.5 px-2.5 py-1 sm:px-3 sm:py-1.5 rounded-full backdrop-blur-md shadow-xl text-[10px] sm:text-[11px] font-bold tracking-wide transform scale-90 group-hover:scale-100 transition-all duration-200 cursor-pointer active:scale-95 ${
-              isLight
-                ? "bg-white/95 hover:bg-white text-slate-800 hover:text-indigo-600 border border-slate-200/90 shadow-md hover:border-indigo-400"
-                : isDark
-                  ? "bg-[#141418]/90 hover:bg-black text-white hover:text-cyan-300 border border-white/20 hover:border-cyan-400"
-                  : "bg-[#0d1222]/90 hover:bg-[#070d1e] text-white hover:text-cyan-300 border border-blue-500/30 hover:border-cyan-400"
-            }`}
-          >
-            <Eye className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${isLight ? "text-indigo-600" : "text-cyan-400"}`} />
-            <span>Quick View</span>
-          </button>
-        </div>
-
-        {/* Wishlist Button on Top Right (Eye icon removed from here so no Eye icon appears when not hovered) */}
-        <div className="absolute right-1.5 top-1.5 flex items-center gap-1 z-10">
+        <div className="absolute right-1.5 top-1.5 z-10">
           <button
             type="button"
             onClick={handleToggleFav}
             title={fav ? "Remove from wishlist" : "Add to wishlist"}
-            className={`flex items-center justify-center p-1.5 rounded-full backdrop-blur-xs hover:scale-110 transition-transform cursor-pointer border outline-none ${
-              isLight
-                ? "bg-white/90 hover:bg-white text-slate-700 border-slate-200/90 shadow-xs hover:border-rose-300"
-                : isDark
-                  ? "bg-black/40 hover:bg-black/60 text-white border-white/10"
-                  : "bg-[#0d1222]/80 hover:bg-[#070d1e] text-white border-blue-500/25"
-            }`}
+            className="flex items-center justify-center p-1.5 rounded-full bg-white/90 dark:bg-slate-900/90 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-white/10 hover:scale-110 transition-transform cursor-pointer"
           >
             <Heart
-              className={`h-3 w-3 sm:h-3.5 sm:w-3.5 transition-colors ${
-                fav
-                  ? "fill-rose-500 text-rose-500"
-                  : isLight
-                    ? "text-slate-600 hover:text-rose-500"
-                    : "text-white hover:text-rose-400"
+              className={`h-3 w-3 sm:h-3.5 sm:w-3.5 ${
+                fav ? "fill-indigo-600 text-indigo-600" : "hover:text-indigo-600"
               }`}
             />
           </button>
         </div>
       </div>
 
-      {/* Center: Details & Information */}
-      <div className="flex-1 min-w-0 space-y-1">
-        {/* Category & Rating */}
-        <div className="flex items-center justify-between sm:justify-start gap-2 text-[10px]">
-          <span className="uppercase tracking-wider font-semibold text-indigo-500 truncate">
-            {product.category}
-          </span>
-          <span className="text-app-muted opacity-50 hidden sm:inline">•</span>
-          <div className="flex items-center gap-1 text-amber-500 font-bold shrink-0">
-            <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
-            <span>{product.rating}</span>
-            <span className="text-app-muted font-normal">({product.reviewCount} reviews)</span>
-          </div>
-        </div>
-
-        {/* Title */}
+      {/* Center: ONLY Product Name */}
+      <div className="flex-1 min-w-0">
         <Link
           href={`/products/${product.id}`}
           onClick={(e) => e.stopPropagation()}
-          className="block text-sm sm:text-base font-bold text-app hover:text-indigo-500 transition-colors line-clamp-1 leading-snug"
+          className="block text-sm sm:text-base font-bold text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors line-clamp-2 leading-snug"
           title={product.name}
         >
           {product.name}
         </Link>
-
-        {/* Location & Merchant Info */}
-        <div className="flex items-center gap-3 pt-1 text-[11px] text-app-muted flex-wrap">
-          <div className="flex items-center gap-1">
-            <MapPin className="h-3 w-3 text-cyan-500 shrink-0" />
-            <span className="truncate">{product.marketZone || product.shopName}</span>
-          </div>
-          {product.isVerifiedSeller && (
-            <div className="flex items-center gap-1 text-emerald-500 font-medium">
-              <ShieldCheck className="h-3 w-3 shrink-0" />
-              <span>Verified Merchant</span>
-            </div>
-          )}
-          <div className="flex items-center gap-1">
-            <Package className="h-3 w-3 text-app-muted shrink-0" />
-            <span className={product.stock > 0 ? "text-emerald-500 font-medium" : "text-rose-500"}>
-              {product.stock > 0 ? `In Stock (${product.stock} units)` : "Out of Stock"}
-            </span>
-          </div>
-        </div>
       </div>
 
-      {/* Right: Pricing & Cart Action */}
-      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-2.5 shrink-0 sm:border-l sm:border-app sm:pl-4 sm:min-w-[150px] pt-2 sm:pt-0 border-t border-app sm:border-t-0">
+      {/* Right: ONLY Price & Transparent Cart Action (NO background color on Cart button) */}
+      <div className="flex sm:flex-col items-center sm:items-end justify-between sm:justify-center gap-2 sm:gap-2.5 shrink-0 sm:border-l sm:border-slate-100 dark:sm:border-white/10 sm:pl-4 sm:min-w-[140px] pt-2 sm:pt-0 border-t border-slate-100 dark:border-white/10 sm:border-t-0">
         <div className="text-left sm:text-right">
-          {tradeView === "WHOLESALE" && tradeInfo.wholesalePrice ? (
-            <div>
-              <div className="text-base sm:text-lg font-black tracking-tight font-mono text-amber-500">
-                {tradeInfo.wholesalePrice.toLocaleString()}{" "}
-                <span className="text-[10px] font-bold opacity-85">ETB</span>
-              </div>
-              <div className="flex items-center gap-1.5 justify-start sm:justify-end text-[10px] text-app-muted font-mono">
-                <span className="line-through">{tradeInfo.retailPrice.toLocaleString()} ETB</span>
-                {tradeInfo.savingsPercent > 0 && (
-                  <span className="text-emerald-500 font-bold bg-emerald-500/10 px-1 rounded">
-                    -{tradeInfo.savingsPercent}%
-                  </span>
-                )}
-              </div>
-            </div>
-          ) : tradeInfo.wholesalePrice && tradeInfo.classification === "dual" ? (
-            <div>
-              <div className="text-base sm:text-lg font-black tracking-tight font-mono text-app">
-                {product.price.toLocaleString()}{" "}
-                <span className="text-[10px] font-bold text-indigo-500">ETB</span>
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div className="text-base sm:text-lg font-black tracking-tight font-mono text-app">
-                {product.price.toLocaleString()}{" "}
-                <span className="text-[10px] font-bold text-indigo-500">ETB</span>
-              </div>
-            </div>
-          )}
+          <div className="text-base sm:text-lg font-black tracking-tight font-mono text-indigo-600 dark:text-indigo-400">
+            {displayPrice.toLocaleString()}{" "}
+            <span className="text-[10px] font-bold">ETB</span>
+          </div>
         </div>
 
         <button
           type="button"
           onClick={handleAddToCart}
-          className={`flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer ${transparentCartButton
-              ? "bg-transparent text-white shadow-none"
-              : isAdded
-                ? "bg-transparent text-emerald-600 shadow-none"
-                : "bg-transparent text-indigo-600 shadow-none hover:text-indigo-500"
-            }`}
+          title={isAdded ? "Added to cart" : "Add to cart"}
+          className="flex items-center justify-center p-1.5 rounded-lg bg-transparent text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all active:scale-90 cursor-pointer shadow-none"
         >
           {isAdded ? (
-            <>
-              <Check className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
-              <span>Added</span>
-            </>
+            <Check className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           ) : (
-            <>
-              <ShoppingCart className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
-              <span>Add to Cart</span>
-            </>
+            <ShoppingCart className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
           )}
         </button>
       </div>

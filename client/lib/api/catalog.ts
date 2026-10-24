@@ -248,6 +248,68 @@ export function adaptBackendProduct(p: BackendProduct): Product {
   };
 }
 
+let cachedCategories: CategoryItem[] = [];
+let cachedProducts: Product[] = [];
+
+/**
+ * Resilient fetch helper that:
+ * 1. Has timeout protection (8s) via AbortController.
+ * 2. Tries 127.0.0.1 if localhost fails on Windows / Node 18+ dual-stack.
+ * 3. Retries on temporary network connection drops (e.g. backend booting).
+ * 4. Never passes raw Error objects to console.error, preventing Next.js Turbopack dev error modals from popping up on the client.
+ */
+async function safeFetch(
+  url: string,
+  options: RequestInit = {},
+  retries = 2,
+): Promise<Response | null> {
+  const timeoutMs = 8000;
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      const res = await fetch(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return res;
+    } catch {
+      clearTimeout(timeoutId);
+
+      // On localhost connection failure, automatically attempt 127.0.0.1
+      if (url.includes("://localhost:")) {
+        try {
+          const altUrl = url.replace("://localhost:", "://127.0.0.1:");
+          const altController = new AbortController();
+          const altTimeoutId = setTimeout(() => altController.abort(), timeoutMs);
+          const altRes = await fetch(altUrl, {
+            ...options,
+            signal: altController.signal,
+          });
+          clearTimeout(altTimeoutId);
+          return altRes;
+        } catch {
+          // continue to next retry
+        }
+      }
+
+      if (attempt < retries) {
+        // Exponential backoff wait (300ms, 600ms)
+        await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+      } else {
+        // Log clean warning message only - no Error object to avoid Turbopack modal popup
+        if (typeof window !== "undefined") {
+          console.warn(`[MercatoX Catalog] Backend service at ${url} is unreachable. Displaying fallback state.`);
+        }
+      }
+    }
+  }
+  return null;
+}
+
 /**
  * Fetch real categories from API Gateway
  */
@@ -262,18 +324,20 @@ export interface CreateCategoryInput {
 
 export async function fetchCategories(tree = true): Promise<CategoryItem[]> {
   try {
-    const res = await fetch(
-      `${API_CONFIG.baseURL}/catalog/categories?tree=${tree}`,
-      { cache: "no-store" },
-    );
-    if (!res.ok) {
-      throw new Error(`Failed to fetch categories: ${res.statusText}`);
+    const url = `${API_CONFIG.baseURL}/catalog/categories?tree=${tree}`;
+    const res = await safeFetch(url, { cache: "no-store" });
+    if (!res || !res.ok) {
+      if (cachedCategories.length > 0) return cachedCategories;
+      return [];
     }
     const data: BackendCategory[] = await res.json();
-    return data.map(adaptBackendCategory);
-  } catch (err) {
-    console.error("fetchCategories error:", err);
-    return [];
+    const adapted = data.map(adaptBackendCategory);
+    if (adapted.length > 0) {
+      cachedCategories = adapted;
+    }
+    return adapted;
+  } catch {
+    return cachedCategories.length > 0 ? cachedCategories : [];
   }
 }
 
@@ -321,26 +385,42 @@ export async function fetchProducts(params: ProductFilterParams = {}): Promise<{
     const queryString = query.toString();
     const url = `${API_CONFIG.baseURL}/catalog/products${queryString ? `?${queryString}` : ""}`;
 
-    const res = await fetch(url, {
-      cache: "no-store",
-    });
-    if (!res.ok) {
-      throw new Error(`Failed to fetch products: ${res.statusText}`);
+    const res = await safeFetch(url, { cache: "no-store" });
+    if (!res || !res.ok) {
+      if (cachedProducts.length > 0) {
+        return {
+          products: cachedProducts.slice(0, safeLimit),
+          total: cachedProducts.length,
+          page: safePage,
+          totalPages: Math.max(Math.ceil(cachedProducts.length / safeLimit), 1),
+        };
+      }
+      return {
+        products: [],
+        total: 0,
+        page: safePage,
+        totalPages: 1,
+      };
     }
+
     const result = await res.json();
     const backendItems: BackendProduct[] = result.data || [];
+    const adapted = backendItems.map(adaptBackendProduct);
+
+    if (adapted.length > 0) {
+      cachedProducts = adapted;
+    }
 
     return {
-      products: backendItems.map(adaptBackendProduct),
+      products: adapted,
       total: result.total || backendItems.length,
       page: result.page || safePage,
       totalPages: result.totalPages || 1,
     };
-  } catch (err) {
-    console.error("fetchProducts error:", err);
+  } catch {
     return {
-      products: [],
-      total: 0,
+      products: cachedProducts.length > 0 ? cachedProducts.slice(0, safeLimit) : [],
+      total: cachedProducts.length,
       page: safePage,
       totalPages: 1,
     };
@@ -377,17 +457,13 @@ export async function fetchSellerProfile(userId: string): Promise<SellerProfile 
   if (!userId) return null;
 
   try {
-    const res = await fetch(`${API_CONFIG.baseURL}/users/profile/${encodeURIComponent(userId)}`, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
+    const url = `${API_CONFIG.baseURL}/users/profile/${encodeURIComponent(userId)}`;
+    const res = await safeFetch(url, { cache: "no-store" });
+    if (!res || !res.ok) {
       return null;
     }
-
     return (await res.json()) as SellerProfile;
-  } catch (err) {
-    console.error(`fetchSellerProfile(${userId}) error:`, err);
+  } catch {
     return null;
   }
 }
@@ -397,16 +473,14 @@ export async function fetchSellerProfile(userId: string): Promise<SellerProfile 
  */
 export async function fetchProductById(id: string): Promise<Product | null> {
   try {
-    const res = await fetch(`${API_CONFIG.baseURL}/catalog/products/${id}`, {
-      cache: "no-store",
-    });
-    if (!res.ok) {
+    const url = `${API_CONFIG.baseURL}/catalog/products/${id}`;
+    const res = await safeFetch(url, { cache: "no-store" });
+    if (!res || !res.ok) {
       return null;
     }
     const data: BackendProduct = await res.json();
     return adaptBackendProduct(data);
-  } catch (err) {
-    console.error(`fetchProductById(${id}) error:`, err);
+  } catch {
     return null;
   }
 }

@@ -14,7 +14,6 @@ import {
   AlertCircle,
   ArrowRight,
   Sparkles,
-  Eye,
 } from "lucide-react";
 
 interface SupplierAuthGuardProps {
@@ -26,7 +25,6 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
   const { user, token, isAuthenticated, hasHydrated, login, logout } = useAuthStore();
   const [mounted, setMounted] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [previewMode, setPreviewMode] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -45,11 +43,6 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
     );
   }
 
-  // Allow explicit preview mode
-  if (previewMode) {
-    return <>{children}</>;
-  }
-
   const hasValidSession =
     isAuthenticated &&
     Boolean(user) &&
@@ -58,10 +51,9 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
   const isSupplierRole =
     user?.role === "SUPPLIER" ||
     (user as any)?.role === "supplier" ||
-    user?.role === "ADMIN" ||
-    Boolean((user as any)?.isSupplier);
+    user?.role === "ADMIN";
 
-  // Quick connect function for easy testing
+  // Quick connect function for authenticated supplier login
   const handleQuickConnect = async () => {
     setIsConnecting(true);
     const toastId = toast.loading("Authenticating supplier credentials...");
@@ -92,12 +84,11 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
         return;
       }
     } catch {
-      // Fallback to local session
+      // Fallback
     } finally {
       setIsConnecting(false);
     }
 
-    // Local fallback supplier session
     const demoUser = {
       id: "supplier-demo-id",
       name: "Ethiopian B2B Supplier Enterprise",
@@ -111,55 +102,46 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
     toast.success("Connected to B2B Supplier Workspace!", { id: toastId });
   };
 
-  // ✅ Authenticated as Supplier or Seller or Admin — show full layout
+  // ✅ Authenticated as Supplier or Admin — grant access
   if (hasValidSession && isSupplierRole) {
     return <>{children}</>;
   }
 
-  // ⚠️ Logged in with different role (e.g. Customer)
+  // ⚠️ Strictly Denied: User is logged in as a non-supplier (e.g. SELLER or CUSTOMER)
   if (hasValidSession && !isSupplierRole) {
-    const roleRedirectMap: Record<string, string> = {
-      SELLER: "/dashboard/seller",
-      CUSTOMER: "/marketplace",
-      DELIVERY: "/dashboard/driver",
-      DRIVER: "/dashboard/driver",
-      ADMIN: "/dashboard/admin",
-    };
-    const redirectTo = user?.role ? roleRedirectMap[user.role] ?? "/marketplace" : "/marketplace";
+    const isSeller = user?.role === "SELLER";
+    const redirectTo = isSeller ? "/dashboard/seller" : "/marketplace";
 
     return (
       <div className="flex min-h-[85vh] w-full items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-indigo-500/20 bg-[#0d121f] p-6 shadow-2xl text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 mb-4">
-            <Building2 className="h-6 w-6" />
+        <div className="w-full max-w-md rounded-2xl border border-rose-500/30 bg-[#0d121f] p-6 shadow-2xl text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-4">
+            <Lock className="h-6 w-6" />
           </div>
-          <h2 className="text-lg font-bold text-white">B2B Supplier Portal</h2>
-          <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-            Currently logged in as <span className="font-semibold text-indigo-300">{user?.role}</span> ({user?.name}).
-            You can switch to Supplier mode or explore the complete dashboard.
+          <h2 className="text-lg font-bold text-white">Supplier Enterprise Portal — Access Denied</h2>
+          <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
+            You are signed in as a <span className="font-semibold text-rose-300">{user?.role}</span> ({user?.name}).
+            {isSeller
+              ? " Merchant Sellers are strictly restricted from the Supplier Enterprise Portal. You can source and buy wholesale cargo directly from the Wholesale Sourcing section in your Seller Dashboard."
+              : " This portal is restricted exclusively to verified Enterprise Suppliers & Importers."}
           </p>
           <div className="mt-6 flex flex-col gap-2.5">
             <button
-              onClick={() => setPreviewMode(true)}
+              onClick={() => router.push(redirectTo)}
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg hover:bg-indigo-500 transition-colors cursor-pointer"
             >
-              <Eye className="h-4 w-4" />
-              <span>Explore Supplier Dashboard (Preview Mode)</span>
+              <ArrowRight className="h-4 w-4" />
+              <span>{isSeller ? "Go to Seller Dashboard" : "Return to Marketplace"}</span>
             </button>
             <button
-              onClick={handleQuickConnect}
-              disabled={isConnecting}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20 transition-colors cursor-pointer"
+              onClick={() => {
+                logout();
+                router.push("/login");
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.08] transition-colors cursor-pointer"
             >
-              <Sparkles className="h-3.5 w-3.5" />
-              <span>Switch to Verified Supplier Account</span>
-            </button>
-            <button
-              onClick={() => router.push(redirectTo)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-zinc-400 hover:text-white transition-colors cursor-pointer"
-            >
-              <ArrowRight className="h-3.5 w-3.5" />
-              <span>Return to My Dashboard</span>
+              <LogIn className="h-3.5 w-3.5" />
+              <span>Sign In with Supplier Account</span>
             </button>
           </div>
         </div>
@@ -195,14 +177,6 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
               <Sparkles className="h-4 w-4 text-cyan-200" />
               <span>Quick Connect: B2B Supplier Account</span>
               <ArrowRight className="h-4 w-4 text-cyan-200 transition-transform group-hover:translate-x-0.5" />
-            </button>
-
-            <button
-              onClick={() => setPreviewMode(true)}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
-            >
-              <Eye className="h-4 w-4 text-indigo-400" />
-              <span>Explore Dashboard (Demo Mode)</span>
             </button>
 
             <button

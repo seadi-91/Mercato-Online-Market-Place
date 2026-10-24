@@ -7,13 +7,10 @@ import {
   ShoppingCart,
   Heart,
   Eye,
-  Star,
-  MapPin,
   Check,
 } from "lucide-react";
 import { Product } from "@/constants/mock-data";
 import { useCartStore } from "@/store";
-import { useThemeStore } from "@/store/theme-store";
 import { toast } from "sonner";
 import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 
@@ -29,15 +26,8 @@ export function ProductCard({
   product,
   onQuickView,
   tradeView = "ALL",
-  hideBadges = false,
-  transparentCartButton = false,
 }: ProductCardProps) {
   const router = useRouter();
-  const { theme } = useThemeStore();
-  const isLight = theme === "light";
-  const isDark = theme === "dark";
-  const isSystem = theme === "system";
-
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const isFavorite = useCartStore((state) => state.isFavorite);
@@ -116,16 +106,18 @@ export function ProductCard({
         ? (product as any).images[1]
         : null;
 
+  const displayPrice =
+    tradeView === "WHOLESALE" && tradeInfo.wholesalePrice
+      ? tradeInfo.wholesalePrice
+      : product.price;
+
   return (
     <div
       onClick={handleCardClick}
-      className="product-card-surface group relative flex flex-col justify-between rounded-xl border border-app bg-app-card text-app transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md cursor-pointer overflow-hidden h-full"
+      className="group relative flex flex-col justify-between rounded-xl border border-slate-200/90 dark:border-white/10 bg-white dark:bg-[#11131c] text-slate-900 dark:text-slate-100 transition-all duration-200 hover:-translate-y-1 hover:shadow-lg hover:shadow-indigo-500/10 hover:border-indigo-400 dark:hover:border-indigo-500/50 cursor-pointer overflow-hidden h-full"
     >
-      {/* Product Image: Ultra-compact aspect-square */}
-      <div className={`relative aspect-square w-full overflow-hidden transition-colors ${
-        isLight ? "bg-slate-100/90" : isDark ? "bg-[#101014]" : "bg-[#0a0f1d]"
-      }`}>
-        {/* Primary Image */}
+      {/* Product Image */}
+      <div className="relative aspect-square w-full overflow-hidden bg-slate-50 dark:bg-[#0c0e17]">
         <img
           src={primaryImage}
           alt={product.name}
@@ -137,7 +129,6 @@ export function ProductCard({
           loading="lazy"
         />
 
-        {/* Secondary Image on Hover (if available) */}
         {secondaryImage && (
           <img
             src={secondaryImage}
@@ -147,38 +138,7 @@ export function ProductCard({
           />
         )}
 
-        {/* Optional product-specific badge */}
-        {!hideBadges && (
-          <div className="absolute left-1.5 top-1.5 flex flex-col gap-1 z-10 pointer-events-none">
-            {product.badge && (
-              <span
-                className={`rounded px-1.5 py-0.5 text-[8px] font-bold border backdrop-blur-xs shadow-xs transition-colors ${
-                  isLight
-                    ? product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
-                      ? "bg-emerald-50 text-emerald-800 border-emerald-300/80"
-                      : product.badge === "Trending" || product.badge === "Best Seller"
-                        ? "bg-amber-50 text-amber-900 border-amber-300/80"
-                        : "bg-indigo-50 text-indigo-700 border-indigo-200/90"
-                    : isDark
-                      ? product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
-                        ? "bg-emerald-950/80 text-emerald-300 border-emerald-500/30"
-                        : product.badge === "Trending" || product.badge === "Best Seller"
-                          ? "bg-amber-950/80 text-amber-300 border-amber-500/30"
-                          : "bg-[#18181c]/90 text-indigo-300 border-white/10"
-                      : product.badge === "Verified Merchant" || product.badge === "Escrow Verified"
-                        ? "bg-emerald-950/70 text-emerald-300 border-emerald-500/30"
-                        : product.badge === "Trending" || product.badge === "Best Seller"
-                          ? "bg-amber-950/70 text-amber-300 border-amber-500/30"
-                          : "bg-[#0d1222]/90 text-cyan-300 border-blue-500/30"
-                }`}
-              >
-                {product.badge}
-              </span>
-            )}
-          </div>
-        )}
-
-        {/* Centered Quick View Button (Visible ONLY on Hover, hidden when not hovering) */}
+        {/* Quick View Button on Hover */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-200 pointer-events-none group-hover:pointer-events-auto z-20">
           <button
             type="button"
@@ -186,127 +146,61 @@ export function ProductCard({
               e.stopPropagation();
               handleCardClick();
             }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md shadow-xl text-[11px] font-bold tracking-wide transform scale-90 group-hover:scale-100 transition-all duration-200 cursor-pointer active:scale-95 ${
-              isLight
-                ? "bg-white/95 hover:bg-white text-slate-800 hover:text-indigo-600 border border-slate-200/90 shadow-md hover:border-indigo-400"
-                : isDark
-                  ? "bg-[#141418]/90 hover:bg-black text-white hover:text-cyan-300 border border-white/20 hover:border-cyan-400"
-                  : "bg-[#0d1222]/90 hover:bg-[#070d1e] text-white hover:text-cyan-300 border border-blue-500/30 hover:border-cyan-400"
-            }`}
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/95 dark:bg-slate-900/95 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 shadow-md text-[10px] font-bold transform scale-95 group-hover:scale-100 transition-all active:scale-90 cursor-pointer"
           >
-            <Eye className={`h-3.5 w-3.5 ${isLight ? "text-indigo-600" : "text-cyan-400"}`} />
+            <Eye className="h-3 w-3" />
             <span>Quick View</span>
           </button>
         </div>
 
-        {/* Wishlist Button on Top Right (Eye icon removed from here so no Eye icon appears when not hovered) */}
-        <div className="absolute right-1.5 top-1.5 flex items-center gap-1 z-10">
+        {/* Wishlist Button */}
+        <div className="absolute right-1.5 top-1.5 z-10">
           <button
             type="button"
             onClick={handleToggleFav}
             title={fav ? "Remove from wishlist" : "Add to wishlist"}
-            className={`flex items-center justify-center p-1.5 rounded-full backdrop-blur-xs hover:scale-110 transition-transform cursor-pointer border outline-none ${
-              isLight
-                ? "bg-white/90 hover:bg-white text-slate-700 border-slate-200/90 shadow-xs hover:border-rose-300"
-                : isDark
-                  ? "bg-black/40 hover:bg-black/60 text-white border-white/10"
-                  : "bg-[#0d1222]/80 hover:bg-[#070d1e] text-white border-blue-500/25"
-            }`}
+            className="flex items-center justify-center p-1.5 rounded-full bg-white/85 dark:bg-slate-900/85 hover:bg-white dark:hover:bg-slate-900 text-slate-600 dark:text-slate-300 border border-slate-200/80 dark:border-white/10 hover:scale-110 transition-all shadow-xs cursor-pointer"
           >
             <Heart
               className={`h-3.5 w-3.5 transition-colors ${
                 fav
-                  ? "fill-rose-500 text-rose-500"
-                  : isLight
-                    ? "text-slate-600 hover:text-rose-500"
-                    : "text-white hover:text-rose-400"
+                  ? "fill-indigo-600 text-indigo-600"
+                  : "text-slate-600 dark:text-slate-300 hover:text-indigo-600"
               }`}
             />
           </button>
         </div>
       </div>
 
-      {/* Card Content */}
-      <div className="flex flex-col justify-between flex-1 p-2">
-        <div className="space-y-0.5">
-          {/* Category & Star Rating */}
-          <div className="flex items-center justify-between gap-1 text-[9px]">
-            <span className="uppercase tracking-wider font-semibold truncate text-app-muted">
-              {product.category}
-            </span>
-            <div className="flex items-center gap-0.5 text-amber-500 shrink-0 font-bold">
-              <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-500" />
-              <span>{product.rating}</span>
-            </div>
-          </div>
+      {/* Card Body: ONLY Product Name & Price, with NO background color for cart */}
+      <div className="p-2 sm:p-2.5 flex flex-col justify-between flex-1 gap-1.5">
+        {/* Product Name */}
+        <Link
+          href={`/products/${product.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="block text-xs font-bold leading-snug line-clamp-2 transition-colors text-slate-900 dark:text-slate-100 hover:text-indigo-600 dark:hover:text-indigo-400"
+          title={product.name}
+        >
+          {product.name}
+        </Link>
 
-          {/* Title */}
-          <Link
-            href={`/products/${product.id}`}
-            onClick={(e) => e.stopPropagation()}
-            className="block text-[11.5px] sm:text-xs font-bold leading-snug line-clamp-1 transition-colors text-app hover:opacity-80"
-            title={product.name}
-          >
-            {product.name}
-          </Link>
-
-          {/* Location & Shop */}
-          <div className="flex items-center gap-1 text-[9.5px] text-app-muted truncate">
-            <MapPin className="h-2.5 w-2.5 shrink-0 opacity-70" />
-            <span className="truncate">{product.marketZone || product.shopName}</span>
-          </div>
-        </div>
-
-        {/* Price & Compact Cart Action */}
-        <div className="mt-1.5 pt-1.5 border-t border-app flex items-center justify-between gap-1">
-          <div className="min-w-0">
-            {/* Show the selected trade-view price when available */}
-            {tradeView === "WHOLESALE" && tradeInfo.wholesalePrice ? (
-              <div className="flex flex-col">
-                <div className="flex items-baseline gap-1">
-                  <span className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-amber-500">
-                    {tradeInfo.wholesalePrice.toLocaleString()}{" "}
-                    <span className="text-[9px] font-bold opacity-80">ETB</span>
-                  </span>
-                  {tradeInfo.savingsPercent > 0 && (
-                    <span className="text-[8px] font-bold text-emerald-500 bg-emerald-500/10 px-1 py-0.2 rounded shrink-0">
-                      -{tradeInfo.savingsPercent}%
-                    </span>
-                  )}
-                </div>
-              </div>
-            ) : tradeInfo.wholesalePrice && tradeInfo.classification === "dual" ? (
-              <div className="flex flex-col">
-                <div className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-app">
-                  {product.price.toLocaleString()}{" "}
-                  <span className="text-[9px] font-bold opacity-80">ETB</span>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col">
-                <div className="text-xs sm:text-[12.5px] font-black tracking-tight font-mono truncate text-app">
-                  {product.price.toLocaleString()}{" "}
-                  <span className="text-[9px] font-bold opacity-80">ETB</span>
-                </div>
-              </div>
-            )}
+        {/* Price & Transparent Cart Action (NO background color on Cart button) */}
+        <div className="flex items-center justify-between gap-1 pt-1 border-t border-slate-100 dark:border-white/10">
+          <div className="text-xs sm:text-sm font-black tracking-tight font-mono text-indigo-600 dark:text-indigo-400">
+            {displayPrice.toLocaleString()}{" "}
+            <span className="text-[9px] font-bold">ETB</span>
           </div>
 
           <button
             type="button"
             onClick={handleAddToCart}
-            title={isAdded ? "Added" : "Add to cart"}
-            className={`flex h-6.5 w-6.5 items-center justify-center rounded-lg transition-all active:scale-90 cursor-pointer shrink-0 ${transparentCartButton
-                ? "bg-transparent text-white shadow-none hover:scale-105"
-                : isAdded
-                  ? "bg-transparent text-emerald-600 shadow-none"
-                  : "bg-transparent text-indigo-600 shadow-none hover:text-indigo-500 hover:scale-105"
-              }`}
+            title={isAdded ? "Added to cart" : "Add to cart"}
+            className="flex items-center justify-center p-1 rounded-lg bg-transparent text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-all active:scale-90 cursor-pointer shadow-none"
           >
             {isAdded ? (
-              <Check className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
+              <Check className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
             ) : (
-              <ShoppingCart className={`h-3.5 w-3.5 ${transparentCartButton ? "text-white" : ""}`} />
+              <ShoppingCart className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
             )}
           </button>
         </div>

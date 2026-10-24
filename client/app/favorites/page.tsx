@@ -40,7 +40,7 @@ export default function FavoritesPage() {
     setMounted(true);
     fetchProducts({ limit: 6 }).then((res) => {
       setRecommendedProducts(res.products);
-    }).catch(console.error);
+    }).catch(() => {});
   }, []);
 
   const handleAddToCart = (e: React.MouseEvent, product: any) => {

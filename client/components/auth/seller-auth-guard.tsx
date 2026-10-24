@@ -97,6 +97,7 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
 
   // If user is authenticated with a non-merchant role (e.g. CUSTOMER, SUPPLIER)
   if (hasValidSession && !isSellerRole) {
+    const isSupplier = user?.role === "SUPPLIER" || (user as any)?.role === "supplier";
     const roleRedirectMap: Record<string, string> = {
       SUPPLIER: "/dashboard/supplier",
       CUSTOMER: "/marketplace",
@@ -107,14 +108,16 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
 
     return (
       <div className="flex min-h-[80vh] items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-amber-500/20 bg-[#0d121f] p-6 shadow-2xl text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20 mb-4">
-            <AlertCircle className="h-6 w-6" />
+        <div className="w-full max-w-md rounded-2xl border border-rose-500/25 bg-[#0d121f] p-6 shadow-2xl text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-4">
+            <Lock className="h-6 w-6" />
           </div>
           <h2 className="text-lg font-bold text-white">Seller Portal — Access Denied</h2>
-          <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-            You are signed in as a <span className="font-semibold text-amber-300">{user?.role}</span>.
-            The Seller Portal is only accessible to verified merchant accounts.
+          <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
+            You are signed in as a <span className="font-semibold text-rose-300">{user?.role}</span> {user?.name ? `(${user.name})` : ""}.
+            {isSupplier
+              ? " Enterprise Suppliers are strictly restricted from the Retail Merchant Console. Please use your dedicated Supplier Enterprise Portal to manage catalog, orders, and commercial cargo."
+              : " The Seller Console is restricted exclusively to verified retail merchants."}
           </p>
           <div className="mt-6 flex flex-col gap-2.5">
             <button
@@ -122,7 +125,7 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
               className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg hover:bg-indigo-500 transition-colors cursor-pointer"
             >
               <ArrowRight className="h-4 w-4" />
-              <span>Go to My Dashboard</span>
+              <span>{isSupplier ? "Go to Supplier Dashboard" : "Return to Marketplace"}</span>
             </button>
             <button
               onClick={() => {

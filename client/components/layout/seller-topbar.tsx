@@ -49,6 +49,7 @@ export function SellerTopbar() {
 
   const tabLabels: Record<SellerTab, string> = {
     overview: "Store Dashboard & Sales",
+    "wholesale-sourcing": "Buy Wholesale Cargo & Restock",
     products: "Catalog & Inventory",
     "add-product": "Add New Catalog Product",
     orders: "Orders & Courier Dispatch",

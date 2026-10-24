@@ -48,8 +48,8 @@ export default function SellersPage() {
         setSellerProfile(profileResult);
         setProducts(productsResult.products);
         setProductCount(productsResult.total || productsResult.products.length);
-      } catch (error) {
-        console.error("Failed to load seller profile or products:", error);
+      } catch (error: any) {
+        console.warn("Failed to load seller profile or products:", error?.message || error);
         setProducts([]);
         setSellerProfile(null);
         setProductCount(0);

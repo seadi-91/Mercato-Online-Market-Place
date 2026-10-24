@@ -41,9 +41,26 @@ async function bootstrap() {
     origin: (origin, callback) => {
       if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
         callback(null, true);
-      } else {
-        callback(new Error('Blocked by CORS policy'));
+        return;
       }
+      try {
+        const url = new URL(origin);
+        const host = url.hostname;
+        if (
+          host === 'localhost' ||
+          host === '127.0.0.1' ||
+          host.startsWith('192.168.') ||
+          host.startsWith('10.') ||
+          host.startsWith('172.') ||
+          host.endsWith('.local')
+        ) {
+          callback(null, true);
+          return;
+        }
+      } catch {
+        // invalid URL
+      }
+      callback(null, false);
     },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
@@ -58,8 +75,8 @@ async function bootstrap() {
   });
 
   const port = process.env.API_GATEWAY_PORT || 3001;
-  await app.listen(port);
-  console.log(`[ApiGateway] Listening on port ${port}`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`[ApiGateway] Listening on 0.0.0.0:${port}`);
 }
 bootstrap();
 

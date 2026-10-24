@@ -37,8 +37,8 @@ function CategoriesContent() {
           setCategories(cats);
           setProducts(prodsResult.products);
         }
-      } catch (e) {
-        console.error("Failed to load categories page data:", e);
+      } catch (e: any) {
+        console.warn("Categories page data waiting for backend:", e?.message || e);
       } finally {
         if (isMounted) setIsLoading(false);
       }
