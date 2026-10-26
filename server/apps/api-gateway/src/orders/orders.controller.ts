@@ -341,7 +341,7 @@ export class OrdersController {
           }
         }
 
-        const recipientSellerEmail = sellerEmail || 'muradsada8@gmail.com';
+        const recipientSellerEmail = sellerEmail || 'support@mercatox.et';
         const resolvedSellerName = shopName || sellerName || 'Mercato Merchant Partner';
         const sellerSubtotal = sellerItems.reduce((acc, it) => acc + it.totalPrice, 0);
 

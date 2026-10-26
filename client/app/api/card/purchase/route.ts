@@ -135,9 +135,7 @@ export async function POST(req: Request) {
     const callbackUrl = `${reqOrigin}/payments/webhook/chapa`;
 
     // Chapa credentials
-    const chapaSecretKey =
-      process.env.CHAPA_SECRET_KEY ||
-      "CHASECK_TEST-kWkkoI6YlIJm6m5zR6Z2ERwmuqKWanPQ";
+    const chapaSecretKey = process.env.CHAPA_SECRET_KEY || "";
     const chapaBaseUrl =
       process.env.CHAPA_BASE_URL || "https://api.chapa.co/v1";
 

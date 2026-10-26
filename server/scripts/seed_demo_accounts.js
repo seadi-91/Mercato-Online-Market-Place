@@ -28,18 +28,18 @@ async function seed() {
 
   const accounts = [
     {
-      email: 'customer@gmail.com',
+      email: process.env.SEED_CUSTOMER_EMAIL || 'customer@mercatox.et',
       phoneNumber: '+251911000003',
-      password: 'customer123',
+      password: process.env.SEED_CUSTOMER_PASSWORD || 'Customer@Secured2025!',
       role: 'CUSTOMER',
       fullName: 'Demo Customer',
       shopName: null,
       businessType: null,
     },
     {
-      email: 'suplayer@gmail.com',
+      email: process.env.SEED_SUPPLIER_EMAIL || 'supplier@mercatox.et',
       phoneNumber: '+251911000004',
-      password: '12345678',
+      password: process.env.SEED_SUPPLIER_PASSWORD || 'Supplier@Secured2025!',
       role: 'SUPPLIER',
       fullName: 'Abyssinia Raw Materials Supplier',
       shopName: 'Abyssinia Industrial Supply',

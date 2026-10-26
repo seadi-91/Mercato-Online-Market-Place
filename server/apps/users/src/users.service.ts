@@ -705,18 +705,12 @@ export class UsersService implements OnModuleInit {
       );
     }
 
-    if (
-      staff.password &&
-      password &&
-      staff.password !== password &&
-      password !== 'staff123' &&
-      password !== 'manager123' &&
-      password !== 'driver123' &&
-      password !== '12345678'
-    ) {
-      throw new RpcException(
-        new UnauthorizedException('Incorrect password for staff credentials.'),
-      );
+    if (staff.password) {
+      if (!password || staff.password !== password) {
+        throw new RpcException(
+          new UnauthorizedException('Incorrect password for staff credentials.'),
+        );
+      }
     }
 
     return staff;

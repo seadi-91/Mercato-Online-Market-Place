@@ -218,7 +218,7 @@ export function AdminHeader({
               </div>
               <div className="text-left hidden sm:block">
                 <p className="text-[11px] font-semibold leading-tight text-white">
-                  {user?.email === "admin@gmail.com" ? "System Admin" : user?.name || "Admin"}
+                  {user?.name || "System Admin"}
                 </p>
                 <p className="text-[9px] font-mono text-indigo-400 leading-none">
                   SUPER_ADMIN
@@ -234,7 +234,7 @@ export function AdminHeader({
                     {user?.name || "Super Administrator"}
                   </p>
                   <p className="text-[10.5px] font-mono text-zinc-400 truncate">
-                    {user?.email || "admin@gmail.com"}
+                    {user?.email || "admin@mercatox.et"}
                   </p>
                 </div>
 

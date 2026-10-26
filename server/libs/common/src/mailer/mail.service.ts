@@ -191,7 +191,7 @@ export class MailService {
   }
 
   private getFromAddress(): string {
-    const mailUser = this.configService.get<string>('MAIL_USER') || 'muradsada8@gmail.com';
+    const mailUser = this.configService.get<string>('MAIL_USER') || 'support@mercatox.et';
     return `"MercatoX Marketplace" <${mailUser}>`;
   }
 
@@ -199,7 +199,7 @@ export class MailService {
     return (
       this.configService.get<string>('ADMIN_EMAIL') ||
       this.configService.get<string>('MAIL_USER') ||
-      'muradsada8@gmail.com'
+      'support@mercatox.et'
     );
   }
 
@@ -335,7 +335,7 @@ export class MailService {
           </ul>
         </div>
         <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
-          If you have urgent inquiries, please contact our merchant onboarding team at <a href="mailto:muradsada8@gmail.com" style="color: #6366f1; text-decoration: none;">muradsada8@gmail.com</a>.
+          If you have urgent inquiries, please contact our merchant onboarding team at <a href="mailto:support@mercatox.et" style="color: #6366f1; text-decoration: none;">support@mercatox.et</a>.
         </p>`
       : `<p style="margin: 0 0 14px 0; font-size: 14px; color: #cbd5e1; line-height: 1.6;">
           Welcome aboard! Your MercatoX account has been registered successfully.
@@ -586,7 +586,7 @@ export class MailService {
           </div>
         </div>
         <p style="margin: 14px 0 10px 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-          Explanation: You can update your documentation and re-apply, or contact the MercatoX compliance support team at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
+          Explanation: You can update your documentation and re-apply, or contact the MercatoX compliance support team at <a href="mailto:support@mercatox.et" style="color: #818cf8; text-decoration: none;">support@mercatox.et</a>.
         </p>
         <p style="margin: 0 0 16px 0; font-size: 12px; color: #94a3b8; line-height: 1.5;">
           Thank you for applying to MercatoX. After review, your application for <strong>${params.shopName || params.fullName}</strong> could not be approved at this time for the reason stated above.
@@ -706,14 +706,14 @@ export class MailService {
               : ''
           }
           <p style="margin: 0; font-size: 13px; color: #cbd5e1; line-height: 1.6;">
-            Access to the platform is currently paused. If you have questions or wish to appeal this decision, please contact the MercatoX administration at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
+            Access to the platform is currently paused. If you have questions or wish to appeal this decision, please contact the MercatoX administration at <a href="mailto:support@mercatox.et" style="color: #818cf8; text-decoration: none;">support@mercatox.et</a>.
           </p>
         </div>
         <p style="margin: 14px 0; font-size: 13px; color: #94a3b8; line-height: 1.6;">
           Your MercatoX user account has been temporarily suspended by system governance. While suspended, access to your portal and API operations is blocked. If you believe this action was taken in error or wish to appeal, please contact support.
         </p>
         <div style="text-align: center; margin: 20px 0;">
-          <a href="mailto:muradsada8@gmail.com?subject=Appeal%20Account%20Suspension" style="display: inline-block; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 12px; text-decoration: none;">
+          <a href="mailto:support@mercatox.et?subject=Appeal%20Account%20Suspension" style="display: inline-block; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.35); color: #fca5a5; padding: 10px 24px; border-radius: 8px; font-weight: 600; font-size: 12px; text-decoration: none;">
             Contact Support &rarr;
           </a>
         </div>`;
@@ -762,7 +762,7 @@ export class MailService {
         from: fromAddress,
         to: params.toEmail,
         subject,
-        text: `Hello ${params.fullName},\n\nYour MercatoX account status changed: ${params.isActive ? 'ACTIVE' : 'SUSPENDED'}.\n${params.reason ? `Reason: ${params.reason}\n` : ''}\nContact: muradsada8@gmail.com\nMercatoX Team`,
+        text: `Hello ${params.fullName},\n\nYour MercatoX account status changed: ${params.isActive ? 'ACTIVE' : 'SUSPENDED'}.\n${params.reason ? `Reason: ${params.reason}\n` : ''}\nContact: support@mercatox.et\nMercatoX Team`,
         html: htmlContent,
       });
       this.logger.log(`Account status email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
@@ -818,7 +818,7 @@ export class MailService {
                   All services, records, and permissions associated with this account have been fully terminated.
                 </p>
                 <p style="margin: 0; font-size: 12px; color: #94a3b8; line-height: 1.6;">
-                  If you believe this action was taken in error or need additional details, please reach out to the MercatoX administration at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
+                  If you believe this action was taken in error or need additional details, please reach out to the MercatoX administration at <a href="mailto:support@mercatox.et" style="color: #818cf8; text-decoration: none;">support@mercatox.et</a>.
                 </p>
               </div>
               <p style="margin: 14px 0; font-size: 13px; color: #94a3b8; line-height: 1.6;">
@@ -843,7 +843,7 @@ export class MailService {
         from: fromAddress,
         to: params.toEmail,
         subject,
-        text: `Hello ${params.fullName},\n\nYour MercatoX account (${params.role || 'User'}) has been permanently deleted from our platform.\nIf you have any questions, contact: muradsada8@gmail.com\n\nMercatoX Team`,
+        text: `Hello ${params.fullName},\n\nYour MercatoX account (${params.role || 'User'}) has been permanently deleted from our platform.\nIf you have any questions, contact: support@mercatox.et\n\nMercatoX Team`,
         html: htmlContent,
       });
       this.logger.log(`Account deleted email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
@@ -1027,7 +1027,7 @@ export class MailService {
           <tr>
             <td style="background-color: #0a0e17; padding: 18px 30px; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center;">
               <p style="margin: 0 0 4px 0; font-size: 12px; color: #94a3b8;">
-                If you have questions, contact the MercatoX Support Team at <a href="mailto:muradsada8@gmail.com" style="color: #818cf8; text-decoration: none;">muradsada8@gmail.com</a>.
+                If you have questions, contact the MercatoX Support Team at <a href="mailto:support@mercatox.et" style="color: #818cf8; text-decoration: none;">support@mercatox.et</a>.
               </p>
               <p style="margin: 0; font-size: 11px; color: #64748b;">MercatoX Marketplace &bull; Addis Ababa, Ethiopia</p>
             </td>
@@ -1063,7 +1063,7 @@ export class MailService {
     if (!this.transporter) return false;
 
     const fromAddress = this.getFromAddress();
-    const adminRecipient = params.adminEmail || this.configService.get<string>('MAIL_USER') || 'muradsada8@gmail.com';
+    const adminRecipient = params.adminEmail || this.configService.get<string>('MAIL_USER') || 'support@mercatox.et';
     const subject = `📦 New Order #${params.orderNumber} Placed (${this.formatEtb(params.totalAmount)})`;
 
     const itemRowsHtml = params.items
@@ -1472,7 +1472,7 @@ export class MailService {
                   ⚠️ Didn't request this change?
                 </div>
                 <p style="margin: 0; font-size: 12px; color: #fca5a5; line-height: 1.5;">
-                  If you did not perform this password update, someone may have accessed your account. Please reset your password immediately or email our emergency security desk at <a href="mailto:muradsada8@gmail.com" style="color: #ffffff; text-decoration: underline;">muradsada8@gmail.com</a>.
+                  If you did not perform this password update, someone may have accessed your account. Please reset your password immediately or email our emergency security desk at <a href="mailto:support@mercatox.et" style="color: #ffffff; text-decoration: underline;">support@mercatox.et</a>.
                 </p>
               </div>
 
@@ -1500,7 +1500,7 @@ export class MailService {
         from: fromAddress,
         to: params.toEmail,
         subject,
-        text: `Hello ${params.fullName || 'User'},\n\nYour MercatoX account password was successfully changed on ${formattedDate}.\n\nIf you did not make this change, please reset your password immediately or contact muradsada8@gmail.com.\n\nMercatoX Security Team`,
+        text: `Hello ${params.fullName || 'User'},\n\nYour MercatoX account password was successfully changed on ${formattedDate}.\n\nIf you did not make this change, please reset your password immediately or contact support@mercatox.et.\n\nMercatoX Security Team`,
         html: htmlContent,
       });
       this.logger.log(`Password changed confirmation email dispatched to ${params.toEmail} (MessageId: ${info.messageId})`);
@@ -1790,7 +1790,7 @@ export class MailService {
           <tr>
             <td style="background-color: #050811; padding: 18px 32px; border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748b;">
-                MercatoX National Marketplace &bull; Addis Ababa, Ethiopia &bull; Support: <a href="mailto:muradsada8@gmail.com" style="color: #38bdf8; text-decoration: none;">muradsada8@gmail.com</a>
+                MercatoX National Marketplace &bull; Addis Ababa, Ethiopia &bull; Support: <a href="mailto:support@mercatox.et" style="color: #38bdf8; text-decoration: none;">support@mercatox.et</a>
               </p>
             </td>
           </tr>

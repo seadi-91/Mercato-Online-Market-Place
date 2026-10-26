@@ -421,7 +421,7 @@ export function AdminTopbar() {
               A
             </div>
             <span className="text-[11px] font-medium hidden sm:inline text-zinc-200">
-              {user?.email === "admin@gmail.com" ? "System Admin" : user?.name || "Admin"}
+              {user?.name || "System Admin"}
             </span>
             <ChevronDown className="h-3 w-3 text-zinc-400" />
           </button>
@@ -431,7 +431,7 @@ export function AdminTopbar() {
               <div className="px-2 py-1.5 border-b border-white/10 mb-1">
                 <p className="text-xs font-semibold text-white">System Admin</p>
                 <p className="text-[10px] font-mono text-zinc-400 truncate">
-                  {user?.email || "admin@gmail.com"}
+                  {user?.email || "admin@mercatox.et"}
                 </p>
               </div>
               <button

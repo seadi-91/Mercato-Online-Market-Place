@@ -62,9 +62,9 @@ export async function sendCardPasswordEmail(
     const cleanPassword = String(cardPassword || "").replace(/\D/g, "");
     const validPassword = cleanPassword.length >= 8
       ? cleanPassword.slice(0, 8)
-      : (cleanPassword + "12345678").slice(0, 8);
+      : cleanPassword.padEnd(8, "0");
 
-    const mailUser = process.env.MAIL_USER || "muradsada8@gmail.com";
+    const mailUser = process.env.MAIL_USER || "support@mercatox.et";
     const fromAddress = `"MercatoX Marketplace" <${mailUser}>`;
 
     const formattedCardNumber = cardNumber.trim();
@@ -205,7 +205,7 @@ export async function sendCardPasswordEmail(
           <tr>
             <td style="background-color: #050811; padding: 18px 32px; border-top: 1px solid rgba(255, 255, 255, 0.06); text-align: center;">
               <p style="margin: 0; font-size: 11px; color: #64748b;">
-                MercatoX National Marketplace &bull; Addis Ababa, Ethiopia &bull; Support: <a href="mailto:muradsada8@gmail.com" style="color: #38bdf8; text-decoration: none;">muradsada8@gmail.com</a>
+                MercatoX National Marketplace &bull; Addis Ababa, Ethiopia &bull; Support: <a href="mailto:support@mercatox.et" style="color: #38bdf8; text-decoration: none;">support@mercatox.et</a>
               </p>
             </td>
           </tr>
@@ -302,9 +302,9 @@ export async function sendOrderEmailsDirectly(
   params: DirectOrderEmailParams
 ): Promise<{ customerSent: boolean; adminSent: boolean; sellerSentCount: number }> {
   const transport = getTransporter();
-  const mailUser = process.env.MAIL_USER || "muradsada8@gmail.com";
+  const mailUser = process.env.MAIL_USER || "support@mercatox.et";
   const fromAddress = `"MercatoX Marketplace" <${mailUser}>`;
-  const adminEmail = process.env.ADMIN_EMAIL || "muradsada8@gmail.com";
+  const adminEmail = process.env.ADMIN_EMAIL || "support@mercatox.et";
 
   const {
     orderNumber,
@@ -432,7 +432,7 @@ export async function sendOrderEmailsDirectly(
           </tr>
           <tr>
             <td style="padding: 16px 28px; background: #070b19; border-top: 1px solid rgba(255, 255, 255, 0.05); text-align: center; font-size: 11px; color: #64748b;">
-              MercatoX National Marketplace &bull; Addis Ababa, Ethiopia &bull; Support: muradsada8@gmail.com
+              MercatoX National Marketplace &bull; Addis Ababa, Ethiopia &bull; Support: support@mercatox.et
             </td>
           </tr>
         </table>
@@ -530,7 +530,7 @@ export async function sendOrderEmailsDirectly(
   }
 
   for (const [sKey, sItems] of sellerMap.entries()) {
-    const recipientSeller = sKey.includes("@") ? sKey : (sItems[0]?.sellerEmail || "muradsada8@gmail.com");
+    const recipientSeller = sKey.includes("@") ? sKey : (sItems[0]?.sellerEmail || "support@mercatox.et");
     const sellerShopName = sItems[0]?.sellerName || "Mercato Merchant Store";
     const sellerSubtotal = sItems.reduce((acc, it) => acc + (it.totalPrice || (it.unitPrice || it.price || 0) * (it.quantity || 1)), 0);
 

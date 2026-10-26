@@ -52,44 +52,6 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
   const isSellerRole =
     user?.role === "SELLER" || user?.role === "ADMIN";
 
-  // Quick connect function to sign in as the default seeded merchant
-  const handleQuickConnect = async () => {
-    setIsConnecting(true);
-    const toastId = toast.loading("Authenticating merchant credentials with backend...");
-    try {
-      const res = await fetch(`${API_CONFIG.baseURL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber: "seller@gmail.com",
-          password: "seller123",
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data?.message || "Failed to authenticate seller credentials");
-      }
-
-      const userData = {
-        id: data?.user?.id || "seller-id",
-        name: data?.user?.fullName || "Bole Electronics Hub",
-        email: data?.user?.email || "seller@gmail.com",
-        phoneNumber: data?.user?.phoneNumber || "+251900000002",
-        role: (data?.user?.role || "SELLER") as "SELLER",
-        isVerified: true,
-      };
-
-      login(userData, data.accessToken, data.refreshToken);
-      toast.success("Merchant session authenticated successfully!", { id: toastId });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to connect to authentication gateway", { id: toastId });
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
   // If user has a valid seller or admin session, render children
   if (hasValidSession && isSellerRole) {
     return <>{children}</>;
@@ -163,33 +125,14 @@ export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
           </p>
 
           <div className="mt-6 w-full space-y-3">
-            {/* Quick Connect Button */}
-            <button
-              onClick={handleQuickConnect}
-              disabled={isConnecting}
-              className="group relative flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
-            >
-              {isConnecting ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Authenticating Merchant Session...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 text-cyan-200" />
-                  <span>Quick Connect as Merchant (seller@gmail.com)</span>
-                  <ArrowRight className="h-4 w-4 text-cyan-200 transition-transform group-hover:translate-x-0.5" />
-                </>
-              )}
-            </button>
-
             {/* Standard Login Navigation */}
             <button
-              onClick={() => router.push("/login")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
+              onClick={() => router.push("/login?redirect=/dashboard/seller")}
+              className="group relative flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40 active:scale-[0.99] cursor-pointer"
             >
-              <LogIn className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Go to Sign In Page</span>
+              <LogIn className="h-4 w-4" />
+              <span>Sign In to Merchant Console</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
 

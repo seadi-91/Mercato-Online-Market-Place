@@ -322,7 +322,7 @@ export function AdminSidebar() {
               {!isSidebarCollapsed && (
                 <div className="truncate">
                   <p className="text-xs font-semibold text-white leading-tight truncate">
-                    {user?.email === "admin@gmail.com" ? "System Admin" : user?.name || "Admin"}
+                    {user?.name || "System Admin"}
                   </p>
                   <p className="text-[10px] font-mono text-indigo-400 leading-none mt-0.5">
                     SUPER_ADMIN

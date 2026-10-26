@@ -82,7 +82,7 @@ export function SupplierTeamView() {
   // Add Staff Form State
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("staff123");
+  const [password, setPassword] = useState("");
   const [phone, setPhone] = useState("+251 9");
   const [role, setRole] = useState<StaffRole>("branch_manager");
   const [branchId, setBranchId] = useState(warehouses[0]?.id || "");
@@ -151,7 +151,7 @@ export function SupplierTeamView() {
   const handleOpenAddStaff = (presetRole?: StaffRole) => {
     setFullName("");
     setEmail("");
-    setPassword("driver123");
+    setPassword("");
     setPhone("+251 9");
     const finalRole: StaffRole = isBranchManager ? "driver" : (presetRole || "branch_manager");
     const finalBranch = isBranchManager && userBranchId ? userBranchId : (warehouses[0]?.id || "");
@@ -165,8 +165,8 @@ export function SupplierTeamView() {
 
   const handleSaveNewStaff = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!fullName.trim() || !email.trim()) {
-      toast.error("Please enter the employee full name and email.");
+    if (!fullName.trim() || !email.trim() || !password.trim()) {
+      toast.error("Please enter the employee full name, email, and password.");
       return;
     }
 
@@ -182,7 +182,7 @@ export function SupplierTeamView() {
       await addStaff({
         fullName: fullName.trim(),
         email: email.trim(),
-        password: password || "driver123",
+        password: password.trim(),
         phone: phone.trim(),
         role: finalRole,
         branchId: finalBranchId,
@@ -803,11 +803,6 @@ export function SupplierTeamView() {
                       onChange={(e) => {
                         const newRole = e.target.value as StaffRole;
                         setRole(newRole);
-                        if (newRole === "driver") {
-                          setPassword("driver123");
-                        } else {
-                          setPassword("manager123");
-                        }
                       }}
                       className="w-full rounded-xl border border-white/10 bg-[#161a2b] px-3 py-2 text-white focus:border-indigo-500 focus:outline-hidden"
                     >

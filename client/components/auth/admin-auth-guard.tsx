@@ -54,44 +54,6 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
 
   const isAdminRole = user?.role === "ADMIN";
 
-  // Quick connect function to sign in as the seeded super-administrator
-  const handleQuickConnect = async () => {
-    setIsConnecting(true);
-    const toastId = toast.loading("Verifying administrator security clearance...");
-    try {
-      const res = await fetch(`${API_CONFIG.baseURL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber: "admin@gmail.com",
-          password: "admin123",
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (!res.ok || !data?.accessToken) {
-        throw new Error(data?.message || "Failed to authenticate administrator credentials");
-      }
-
-      const adminUser = {
-        id: data?.user?.id || "admin-system-id",
-        name: data?.user?.fullName || "System Administrator",
-        email: data?.user?.email || "admin@gmail.com",
-        phoneNumber: data?.user?.phoneNumber || "+251900000000",
-        role: "ADMIN" as const,
-        isVerified: true,
-      };
-
-      login(adminUser, data.accessToken, data.refreshToken);
-      toast.success("Administrator session verified & activated!", { id: toastId });
-    } catch (err: any) {
-      toast.error(err.message || "Failed to connect to authentication gateway", { id: toastId });
-    } finally {
-      setIsConnecting(false);
-    }
-  };
-
   // ✅ Authenticated as Admin with a valid JWT session -> render children
   if (hasValidSession && isAdminRole) {
     return <>{children}</>;
@@ -126,12 +88,14 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
 
           <div className="mt-6 flex flex-col gap-3">
             <button
-              onClick={handleQuickConnect}
-              disabled={isConnecting}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-4 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all cursor-pointer disabled:opacity-50"
+              onClick={() => {
+                logout();
+                router.push("/login?redirect=/dashboard/admin");
+              }}
+              className="w-full flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-4 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 hover:shadow-indigo-500/40 transition-all cursor-pointer"
             >
-              <Sparkles className="h-4 w-4 text-cyan-200" />
-              <span>Switch to System Admin (admin@gmail.com)</span>
+              <LogIn className="h-4 w-4" />
+              <span>Sign In with Administrator Account</span>
             </button>
 
             <button
@@ -140,17 +104,6 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
             >
               <ArrowRight className="h-4 w-4" />
               <span>Return to My Portal ({user?.role})</span>
-            </button>
-
-            <button
-              onClick={() => {
-                logout();
-                router.push("/login?redirect=/dashboard/admin");
-              }}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/5 bg-transparent px-4 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              <span>Sign In with Different Account</span>
             </button>
           </div>
         </div>
@@ -181,33 +134,14 @@ export function AdminAuthGuard({ children }: AdminAuthGuardProps) {
           </p>
 
           <div className="mt-7 w-full space-y-3">
-            {/* Quick Connect Button */}
-            <button
-              onClick={handleQuickConnect}
-              disabled={isConnecting}
-              className="group relative flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40 active:scale-[0.99] disabled:opacity-60 cursor-pointer"
-            >
-              {isConnecting ? (
-                <>
-                  <RefreshCw className="h-4 w-4 animate-spin" />
-                  <span>Verifying Administrator Token...</span>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="h-4 w-4 text-cyan-200" />
-                  <span>Quick Connect as Administrator (admin@gmail.com)</span>
-                  <ArrowRight className="h-4 w-4 text-cyan-200 transition-transform group-hover:translate-x-0.5" />
-                </>
-              )}
-            </button>
-
             {/* Standard Login */}
             <button
               onClick={() => router.push("/login?redirect=/dashboard/admin")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-xs font-semibold text-zinc-200 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
+              className="group relative flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40 active:scale-[0.99] cursor-pointer"
             >
-              <LogIn className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Sign In with Custom Administrator Credentials</span>
+              <LogIn className="h-4 w-4" />
+              <span>Sign In to Governance Console</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
 

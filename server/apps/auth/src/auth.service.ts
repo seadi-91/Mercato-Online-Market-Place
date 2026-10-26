@@ -327,7 +327,7 @@ export class AuthService {
       }
 
       throw new RpcException(
-        new UnauthorizedException('Invalid credentials. Please verify your phone/email and password.'),
+        new UnauthorizedException('Account not found. No user exists with these credentials in the database. Please check your phone/email or register an account.'),
       );
     }
 
@@ -1097,6 +1097,14 @@ export class AuthService {
         user = await this.userRepository.save(user);
       }
     } else {
+      if (!payload.isRegistration) {
+        throw new RpcException(
+          new UnauthorizedException(
+            'Account not found. No user exists with this Google account in the database. Please register an account first.',
+          ),
+        );
+      }
+
       // New user registering via Google: create user with role from payload or CUSTOMER
       const registrationRole =
         payload.role && Object.values(UserRole).includes(payload.role)

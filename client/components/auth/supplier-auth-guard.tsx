@@ -53,55 +53,6 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
     (user as any)?.role === "supplier" ||
     user?.role === "ADMIN";
 
-  // Quick connect function for authenticated supplier login
-  const handleQuickConnect = async () => {
-    setIsConnecting(true);
-    const toastId = toast.loading("Authenticating supplier credentials...");
-    try {
-      const res = await fetch(`${API_CONFIG.baseURL}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          phoneNumber: "suplayer@gmail.com",
-          password: "12345678",
-        }),
-      });
-
-      const data = await res.json().catch(() => ({}));
-
-      if (res.ok && data?.accessToken) {
-        const userData = {
-          id: data?.user?.id || "fb3a29e6-1d93-4621-ba45-1e6e59f72dc3",
-          name: data?.user?.fullName || "Abyssinia Agro Supply",
-          email: data?.user?.email || "suplayer@gmail.com",
-          phoneNumber: data?.user?.phoneNumber || "+251911987654",
-          role: "SUPPLIER" as const,
-          isVerified: true,
-          shopName: data?.user?.shopName || "Abyssinia Agri-Commodities PLC",
-        };
-        login(userData, data.accessToken, data.refreshToken);
-        toast.success("Supplier session authenticated successfully!", { id: toastId });
-        return;
-      }
-    } catch {
-      // Fallback
-    } finally {
-      setIsConnecting(false);
-    }
-
-    const demoUser = {
-      id: "supplier-demo-id",
-      name: "Ethiopian B2B Supplier Enterprise",
-      email: "supplier@mercatox.et",
-      phoneNumber: "+251 91 123 4567",
-      role: "SUPPLIER" as const,
-      isVerified: true,
-      shopName: "Abyssinia Agri-Commodities & Industrial Supply PLC",
-    };
-    login(demoUser, `supplier-token-${Date.now()}`);
-    toast.success("Connected to B2B Supplier Workspace!", { id: toastId });
-  };
-
   // ✅ Authenticated as Supplier or Admin — grant access
   if (hasValidSession && isSupplierRole) {
     return <>{children}</>;
@@ -170,21 +121,12 @@ export function SupplierAuthGuard({ children }: SupplierAuthGuardProps) {
 
           <div className="mt-6 w-full space-y-3">
             <button
-              onClick={handleQuickConnect}
-              disabled={isConnecting}
-              className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40 active:scale-[0.99] disabled:opacity-50 cursor-pointer"
+              onClick={() => router.push("/login?redirect=/dashboard/supplier")}
+              className="group flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40 active:scale-[0.99] cursor-pointer"
             >
-              <Sparkles className="h-4 w-4 text-cyan-200" />
-              <span>Quick Connect: B2B Supplier Account</span>
-              <ArrowRight className="h-4 w-4 text-cyan-200 transition-transform group-hover:translate-x-0.5" />
-            </button>
-
-            <button
-              onClick={() => router.push("/login")}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-white/5 bg-transparent px-4 py-2 text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors cursor-pointer"
-            >
-              <Lock className="h-3.5 w-3.5" />
-              <span>Sign In with Custom Credentials</span>
+              <LogIn className="h-4 w-4" />
+              <span>Sign In to Supplier Portal</span>
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </button>
           </div>
         </div>

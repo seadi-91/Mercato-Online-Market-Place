@@ -254,7 +254,7 @@ export function AdminDelivery() {
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
   const [newEmail, setNewEmail] = useState("");
-  const [newPassword, setNewPassword] = useState("Delivery@123");
+  const [newPassword, setNewPassword] = useState("");
   const [newNationalId, setNewNationalId] = useState("");
   const [newVehicleType, setNewVehicleType] = useState<string>("Motorcycle");
   const [newVehicleModel, setNewVehicleModel] = useState("");
@@ -310,7 +310,7 @@ export function AdminDelivery() {
             isActive: item.isActive ?? true,
             registeredDate: item.createdAt ? new Date(item.createdAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
             rejectionReason: item.deliveryRejectionReason,
-            defaultPassword: "Delivery@123",
+            defaultPassword: "",
           };
         });
         setRiders(mapped);
@@ -522,7 +522,8 @@ export function AdminDelivery() {
 
   // Copy driver login credentials helper
   const handleCopyCredentials = (rider: DeliveryRider) => {
-    const text = `MercatoX Driver Login:\nEmail: ${rider.email || rider.phone}\nPhone: ${rider.phone}\nDefault Password: ${rider.defaultPassword || "Delivery@123"}\nRole: DELIVERY\nVehicle: ${rider.vehicleType} (${rider.plateNumber})`;
+    const passwordLine = rider.defaultPassword ? `\nDefault Password: ${rider.defaultPassword}` : "";
+    const text = `MercatoX Driver Login:\nEmail: ${rider.email || rider.phone}\nPhone: ${rider.phone}${passwordLine}\nRole: DELIVERY\nVehicle: ${rider.vehicleType} (${rider.plateNumber})`;
     navigator.clipboard.writeText(text);
     setCopiedId(rider.id);
     toast.success("Driver login credentials copied to clipboard!", {
@@ -559,7 +560,7 @@ export function AdminDelivery() {
     try {
       const email = newEmail.trim() || `driver.${Date.now().toString().slice(-5)}@mercatox.et`;
       const phone = newPhone.trim();
-      const password = newPassword.trim() || "Delivery@123";
+      const password = newPassword.trim();
 
       const payload = {
         fullName: newName.trim(),
@@ -632,7 +633,7 @@ export function AdminDelivery() {
       setNewName("");
       setNewPhone("");
       setNewEmail("");
-      setNewPassword("Delivery@123");
+      setNewPassword("");
       setNewNationalId("");
       setNewVehicleModel("");
       setNewPlateNumber("");
@@ -2157,7 +2158,7 @@ export function AdminDelivery() {
                       setNewPassword(e.target.value);
                       if (addErrors.password) setAddErrors((prev) => ({ ...prev, password: undefined }));
                     }}
-                    placeholder="e.g. Delivery@123"
+                    placeholder="Enter courier login password (min 6 characters)"
                     className={`mt-1 w-full rounded-lg border px-2.5 py-1.5 text-xs font-mono font-bold text-cyan-300 placeholder-zinc-500 outline-none transition-colors ${
                       addErrors.password
                         ? "border-rose-500 bg-rose-500/10 focus:border-rose-400"
@@ -2410,7 +2411,9 @@ export function AdminDelivery() {
                 <div className="text-[11px] font-mono text-zinc-200">
                   <p>Email: <span className="text-white font-semibold">{inspectingRider.email || inspectingRider.phone}</span></p>
                   <p>Phone: <span className="text-white font-semibold">{inspectingRider.phone}</span></p>
-                  <p>Default Password: <span className="text-cyan-300 font-bold">{inspectingRider.defaultPassword || "Delivery@123"}</span></p>
+                  {inspectingRider.defaultPassword && (
+                    <p>Default Password: <span className="text-cyan-300 font-bold">{inspectingRider.defaultPassword}</span></p>
+                  )}
                   <p>Assigned Role: <span className="text-emerald-300 font-bold">DELIVERY</span></p>
                 </div>
               </div>

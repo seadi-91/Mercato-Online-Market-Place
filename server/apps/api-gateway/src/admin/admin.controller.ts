@@ -18,6 +18,7 @@ import { firstValueFrom } from 'rxjs';
 import { Request } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as crypto from 'crypto';
 import {
   AnalyticsTimeRangeDto,
   AuditAction,
@@ -846,7 +847,7 @@ export class AdminController {
     @Req() req: Request,
   ) {
     const rawPhone = dto.phoneNumber || `0911${Math.floor(100000 + Math.random() * 900000)}`;
-    const password = dto.password || 'MercatoX@123';
+    const password = dto.password || `Mx#${crypto.randomBytes(4).toString('hex')}!`;
     const email = dto.email ? dto.email.toLowerCase().trim() : `driver.${Date.now()}@mercatox.et`;
 
     // 1. Create User in Auth service with role DELIVERY and default password

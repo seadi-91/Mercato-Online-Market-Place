@@ -20,7 +20,6 @@ import {
 import { toast } from "sonner";
 
 import { useAuthStore } from "@/store";
-import { useSupplierStore } from "@/store/supplier-store";
 import { API_CONFIG } from "@/config/api.config";
 import { loadGoogleScript, triggerGoogleSignIn } from "@/lib/auth/google";
 
@@ -66,9 +65,6 @@ export default function LoginPage() {
     isBlocked: boolean;
   } | null>(null);
 
-  React.useEffect(() => {
-    useSupplierStore.getState().hydrateStore();
-  }, []);
 
   React.useEffect(() => {
     loadGoogleScript().catch(() => {
@@ -110,58 +106,6 @@ export default function LoginPage() {
     }
   };
 
-  const fillAdminCredentials = () => {
-    setIdentifier("admin@gmail.com");
-    setPassword("admin123");
-    setIdentifierError("");
-    setPasswordError("");
-    toast.info("Admin credentials loaded", { description: "Click Sign In to access Admin Console" });
-  };
-
-  const fillSellerCredentials = () => {
-    setIdentifier("seller@gmail.com");
-    setPassword("seller123");
-    setIdentifierError("");
-    setPasswordError("");
-    toast.info("Seller credentials loaded", { description: "Click Sign In to access Seller Portal" });
-  };
-
-  const fillSupplierCredentials = () => {
-    setIdentifier("suplayer@gmail.com");
-    setPassword("12345678");
-    setIdentifierError("");
-    setPasswordError("");
-    toast.info("Supplier credentials loaded", { description: "Click Sign In to access B2B Supplier Dashboard" });
-  };
-
-  const fillBranchManagerCredentials = () => {
-    setIdentifier("abebe.w@abyssiniasupply.et");
-    setPassword("manager123");
-    setIdentifierError("");
-    setPasswordError("");
-    toast.info("Branch Manager credentials loaded", {
-      description: "Click Sign In to access Addis Ababa Branch Hub",
-    });
-  };
-
-  const fillDriverCredentials = () => {
-    setIdentifier("mulugeta.t@abyssiniasupply.et");
-    setPassword("driver123");
-    setIdentifierError("");
-    setPasswordError("");
-    toast.info("Fleet Driver credentials loaded", {
-      description: "Click Sign In to access Driver Dashboard (/dashboard/driver)",
-    });
-  };
-
-  const fillCustomerCredentials = () => {
-    setIdentifier("customer@gmail.com");
-    setPassword("customer123");
-    setIdentifierError("");
-    setPasswordError("");
-    toast.info("Customer credentials loaded", { description: "Click Sign In to access Home page" });
-  };
-
   const validate = () => {
     let isValid = true;
     setIdentifierError("");
@@ -197,105 +141,13 @@ export default function LoginPage() {
       formattedIdentifier = clean.startsWith("0") ? `+251${clean.slice(1)}` : `+251${clean}`;
     }
 
+    const isEmail = identifier.includes("@");
     const payload = {
-      phoneNumber: formattedIdentifier,
+      phoneNumber: !isEmail ? formattedIdentifier : undefined,
+      email: isEmail ? identifier.trim().toLowerCase() : undefined,
+      identifier: identifier.trim(),
       password,
     };
-
-    const cleanId = identifier.trim().toLowerCase();
-
-    // 1. Staff authentication for registered Fleet Drivers & Branch Managers
-    const staffList = useSupplierStore.getState().staffList;
-    const staffMember = staffList.find(
-      (s) =>
-        s.email.toLowerCase() === cleanId ||
-        s.phone.replace(/[\s\-\+]/g, "").includes(cleanId.replace(/[\s\-\+]/g, "")) ||
-        s.employeeId.toLowerCase() === cleanId
-    );
-
-    if (staffMember) {
-      if (
-        staffMember.password &&
-        password !== staffMember.password &&
-        password !== "12345678" &&
-        password !== "manager123" &&
-        password !== "driver123" &&
-        password !== "staff123"
-      ) {
-        setPasswordError("Incorrect password for staff credentials.");
-        toast.error("Incorrect password for staff member.");
-        setIsLoading(false);
-        return;
-      }
-
-      if (staffMember.role === "driver") {
-        const driverUser = {
-          id: staffMember.id,
-          name: staffMember.fullName,
-          email: staffMember.email,
-          phoneNumber: staffMember.phone,
-          role: "DRIVER" as const,
-          staffRole: "driver" as const,
-          branchId: staffMember.branchId,
-          branchName: staffMember.branchName,
-          assignedVehiclePlate: staffMember.assignedVehiclePlate,
-          assignedVehicleType: staffMember.assignedVehicleType,
-          driverLicenseNumber: staffMember.driverLicenseNumber,
-          isVerified: true,
-        };
-
-        login(driverUser, "jwt-driver-session-" + Date.now());
-        toast.success(`Welcome, Driver ${staffMember.fullName}!`, {
-          description: `Assigned Truck: ${staffMember.assignedVehiclePlate || "Freight Truck"} · Opening Driver Dashboard`,
-        });
-        router.push("/dashboard/driver");
-        setIsLoading(false);
-        return;
-      }
-
-      if (staffMember.role === "branch_manager") {
-        const managerUser = {
-          id: staffMember.id,
-          name: staffMember.fullName,
-          email: staffMember.email,
-          phoneNumber: staffMember.phone,
-          role: "SUPPLIER" as const,
-          staffRole: "branch_manager" as const,
-          branchId: staffMember.branchId,
-          branchName: staffMember.branchName,
-          isVerified: true,
-        };
-
-        login(managerUser, "jwt-manager-session-" + Date.now());
-        toast.success(`Welcome, ${staffMember.fullName}!`, {
-          description: `Signed in as Branch Manager for ${staffMember.branchName}`,
-        });
-        router.push(`/dashboard/supplier?branch=${staffMember.branchId}`);
-        setIsLoading(false);
-        return;
-      }
-
-      // Warehouse lead or operations
-      const operationsUser = {
-        id: staffMember.id,
-        name: staffMember.fullName,
-        email: staffMember.email,
-        phoneNumber: staffMember.phone,
-        role: "SUPPLIER" as const,
-        staffRole: staffMember.role,
-        branchId: staffMember.branchId,
-        branchName: staffMember.branchName,
-        isVerified: true,
-      };
-
-      login(operationsUser, "jwt-staff-session-" + Date.now());
-      toast.success(`Welcome, ${staffMember.fullName}!`, {
-        description: `Signed in to ${staffMember.branchName}`,
-      });
-      router.push(`/dashboard/supplier?branch=${staffMember.branchId}`);
-      setIsLoading(false);
-      return;
-    }
 
 
     try {
@@ -552,27 +404,11 @@ export default function LoginPage() {
       return;
     }
 
-    toast.loading(`Connecting to ${provider}...`, { id: "oauth" });
-    setTimeout(() => {
-      login(
-        {
-          id: `oauth-${provider.toLowerCase()}`,
-          name: `${provider} User`,
-          email: `user@${provider.toLowerCase()}.com`,
-          role: "CUSTOMER",
-        },
-        `jwt-oauth-${provider.toLowerCase()}-${Date.now()}`
-      );
-      toast.success(`Signed in with ${provider}!`, {
-        id: "oauth",
-        description: "Welcome back to MercatoX. Redirecting to home...",
-      });
-      router.push(getPostLoginDestination());
-    }, 900);
+    toast.error(`${provider} sign-in is not supported. Please sign in with your phone/email or Google.`);
   };
 
   return (
-    <div className="relative rounded-2xl border border-white/10 bg-[#0d121f]/95 p-4 sm:p-7 shadow-2xl shadow-indigo-950/40 backdrop-blur-xl">
+    <div className="relative w-full max-w-[400px] sm:max-w-[415px] mx-auto rounded-2xl border border-white/10 bg-[#0d121f]/95 p-4 sm:p-6 shadow-2xl shadow-indigo-950/40 backdrop-blur-xl">
       {/* Top gradient highlight */}
       <div className="absolute inset-x-0 top-0 h-[2px] bg-gradient-to-r from-transparent via-indigo-500/80 to-transparent" />
 
@@ -617,104 +453,7 @@ export default function LoginPage() {
         </p>
       </div>
 
-      {/* Demo Credentials Helper */}
-      <div className="mb-4 rounded-xl border border-white/10 bg-white/[0.02] p-2.5 space-y-2 text-[11px]">
-        {/* Customer Demo */}
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
-            <span className="text-zinc-400 font-medium shrink-0">Customer:</span>
-            <span className="text-cyan-300 font-mono text-[10.5px] truncate">customer@gmail.com</span>
-          </div>
-          <button
-            type="button"
-            onClick={fillCustomerCredentials}
-            className="shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-cyan-300 bg-cyan-500/20 hover:bg-cyan-500/35 hover:text-white transition-colors cursor-pointer"
-          >
-            Auto-fill
-          </button>
-        </div>
 
-        {/* Seller Demo */}
-        <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400" />
-            <span className="text-zinc-400 font-medium shrink-0">Seller:</span>
-            <span className="text-amber-300 font-mono text-[10.5px] truncate">seller@gmail.com</span>
-          </div>
-          <button
-            type="button"
-            onClick={fillSellerCredentials}
-            className="shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-amber-300 bg-amber-500/20 hover:bg-amber-500/35 hover:text-white transition-colors cursor-pointer"
-          >
-            Auto-fill
-          </button>
-        </div>
-
-        {/* Supplier Owner Demo */}
-        <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-500 shadow-sm shadow-emerald-500/50" />
-            <span className="text-zinc-400 font-medium shrink-0">Supplier HQ:</span>
-            <span className="text-emerald-300 font-mono text-[10.5px] truncate">suplayer@gmail.com</span>
-          </div>
-          <button
-            type="button"
-            onClick={fillSupplierCredentials}
-            className="shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-emerald-300 bg-emerald-500/20 hover:bg-emerald-500/35 hover:text-white transition-colors cursor-pointer"
-          >
-            Auto-fill
-          </button>
-        </div>
-
-        {/* Branch Manager Demo */}
-        <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-blue-400 shadow-sm shadow-blue-400/50" />
-            <span className="text-zinc-400 font-medium shrink-0">Branch Manager:</span>
-            <span className="text-blue-300 font-mono text-[10.5px] truncate">abebe.w@abyssiniasupply.et</span>
-          </div>
-          <button
-            type="button"
-            onClick={fillBranchManagerCredentials}
-            className="shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-blue-300 bg-blue-500/20 hover:bg-blue-500/35 hover:text-white transition-colors cursor-pointer"
-          >
-            Auto-fill
-          </button>
-        </div>
-
-        {/* Fleet Driver Demo */}
-        <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-teal-400 shadow-sm shadow-teal-400/50" />
-            <span className="text-zinc-400 font-medium shrink-0">Fleet Driver:</span>
-            <span className="text-teal-300 font-mono text-[10.5px] truncate">mulugeta.t@abyssiniasupply.et</span>
-          </div>
-          <button
-            type="button"
-            onClick={fillDriverCredentials}
-            className="shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-teal-300 bg-teal-500/20 hover:bg-teal-500/35 hover:text-white transition-colors cursor-pointer"
-          >
-            Auto-fill
-          </button>
-        </div>
-
-        {/* Admin Demo */}
-        <div className="flex items-center justify-between gap-2 border-t border-white/5 pt-1.5">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-400" />
-            <span className="text-zinc-400 font-medium shrink-0">Admin:</span>
-            <span className="text-indigo-300 font-mono text-[10.5px] truncate">admin@gmail.com</span>
-          </div>
-          <button
-            type="button"
-            onClick={fillAdminCredentials}
-            className="shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-semibold text-indigo-300 bg-indigo-500/20 hover:bg-indigo-500/35 hover:text-white transition-colors cursor-pointer"
-          >
-            Auto-fill
-          </button>
-        </div>
-      </div>
 
       {/* Clean Login Form */}
       <form onSubmit={handleSubmit} className="space-y-4">

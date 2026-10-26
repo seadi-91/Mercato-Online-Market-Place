@@ -110,7 +110,7 @@ export const SAMPLE_MISSIONS: DriverMission[] = [
     buyerName: "W/ro Selamawit Hailu",
     buyerPhone: "+251 91 144 7722",
     buyerAlternatePhone: "+251 92 333 1188",
-    buyerEmail: "selamawit.boutique@gmail.com",
+    buyerEmail: "buyer@mercatox.et",
     buyerNotes: "Deliver to 2nd-floor shop. Service elevator available on side entrance.",
     cargoDescription: "Commercial Fabric & Textile Bales (Import Grade)",
     weightSummary: "350 KG · Packaged Bales",

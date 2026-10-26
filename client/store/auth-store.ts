@@ -44,7 +44,11 @@ export const useAuthStore = create<AuthState>()(
       hasHydrated: false,
       setHasHydrated: (hasHydrated: boolean) => set({ hasHydrated }),
       login: (user: User, token?: string, refreshToken?: string) => {
-        const validToken = token || "jwt-session-token-" + Date.now();
+        if (!token) {
+          console.error("[AuthStore] Refusing login: Server JWT token required.");
+          return;
+        }
+        const validToken = token;
         set({
           user,
           token: validToken,
@@ -89,9 +93,6 @@ export const useAuthStore = create<AuthState>()(
       onRehydrateStorage: () => (state) => {
         if (state) {
           if (state.user && state.token) {
-            state.isAuthenticated = true;
-          } else if (state.user && !state.token) {
-            state.token = "jwt-session-token-" + Date.now();
             state.isAuthenticated = true;
           } else {
             state.user = null;

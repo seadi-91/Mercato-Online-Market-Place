@@ -134,7 +134,7 @@ export async function triggerOrderEmailNotifications(payload: any) {
       enrichedItems.push({
         ...it,
         sellerId: sId,
-        sellerEmail: sEmail || "muradsada8@gmail.com",
+        sellerEmail: sEmail || "support@mercatox.et",
         sellerName: sName || "Mercato Wholesale Merchant",
       });
     }

@@ -1180,26 +1180,7 @@ function RegisterPageContent() {
       return;
     }
 
-    toast.loading(`Connecting to ${provider}...`, { id: "oauth-reg" });
-    setTimeout(() => {
-      login(
-        {
-          id: `oauth-${provider.toLowerCase()}-${Date.now()}`,
-          name: `${provider} Customer`,
-          email: `user@${provider.toLowerCase()}.com`,
-          role: "CUSTOMER",
-          isVerified: true,
-        },
-        `oauth-token-${Date.now()}`
-      );
-      toast.success(`Account registered with ${provider}!`, {
-        id: "oauth-reg",
-        description: "Welcome to MercatoX! Redirecting to home page...",
-      });
-      setTimeout(() => {
-        router.push("/");
-      }, 1000);
-    }, 1000);
+    toast.error(`${provider} registration is not currently supported. Please register using your email/phone or Google.`);
   };
 
   if (supplierUnderReview && submittedSupplierData) {
@@ -2605,7 +2586,7 @@ function RegisterPageContent() {
                           if (errors.email)
                             setErrors((prev) => ({ ...prev, email: "" }));
                         }}
-                        placeholder="e.g. customer@gmail.com"
+                        placeholder="e.g. yourname@domain.com"
                         className={`w-full rounded-xl border bg-black/40 py-2 pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-cyan-500 ${errors.email ? "border-rose-500/60 ring-1 ring-rose-500/20" : "border-white/10 hover:border-white/20"
                           }`}
                       />
