@@ -19,7 +19,6 @@ import {
   ShieldCheck,
   CreditCard,
   Headphones,
-  Zap,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -364,45 +363,6 @@ export function HomePageClient({
                 No departments are available right now.
               </p>
             )}
-          </section>
-
-          {/* Curated Spotlight Banner (ZiiMarket Style) */}
-          <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8">
-            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-8 md:p-10 shadow-xl">
-              <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
-              <div className="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
-
-              <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
-                <div className="space-y-3 text-center md:text-left max-w-2xl">
-                  <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/20 px-3 py-1 text-[10px] sm:text-xs font-bold text-indigo-300 backdrop-blur-md">
-                    <Zap className="h-3.5 w-3.5" />
-                    <span>Direct Ethiopian Trade · Authentic Brands</span>
-                  </div>
-                  <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug">
-                    Source Directly from Ethiopia&apos;s Best Producers & Merchants
-                  </h3>
-                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
-                    Enjoy transparent prices, verified product authenticity, fast delivery across Addis Ababa, and safe escrow checkout.
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
-                  <Link
-                    href="/marketplace"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
-                  >
-                    <span>Shop Marketplace</span>
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                  <Link
-                    href="/categories"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold backdrop-blur-md transition-all active:scale-95"
-                  >
-                    <span>Browse All Categories</span>
-                  </Link>
-                </div>
-              </div>
-            </div>
           </section>
 
           {/* Live products grouped by backend category (ZiiMarket Style) */}

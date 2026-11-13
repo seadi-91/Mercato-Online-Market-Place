@@ -51,11 +51,23 @@ export function CustomerBottomNav() {
       isActive: pathname === "/orders",
     },
     {
-      label: isUserLoggedIn ? (user?.role === "ADMIN" ? "Admin" : "Profile") : "Login",
+      label: isUserLoggedIn
+        ? user?.role === "ADMIN"
+          ? "Admin"
+          : user?.role === "SUPPLIER"
+            ? "Supplier"
+            : user?.role === "SELLER"
+              ? "Seller"
+              : "Profile"
+        : "Login",
       href: isUserLoggedIn
         ? user?.role === "ADMIN"
           ? "/dashboard/admin"
-          : "/profile"
+          : user?.role === "SUPPLIER"
+            ? "/dashboard/supplier"
+            : user?.role === "SELLER"
+              ? "/dashboard/seller"
+              : "/profile"
         : "/login",
       icon: User,
       isActive:

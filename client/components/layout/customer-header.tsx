@@ -38,7 +38,9 @@ import {
   Wallet,
 } from "lucide-react";
 import { useAuthStore, useCartStore, usePlatformStore } from "@/store";
-import { useSellerUIStore, type SellerTab } from "@/store/ui-store";
+import { useSellerUIStore, type SellerTab, useAdminUIStore, type AdminTab } from "@/store/ui-store";
+import { useSupplierStore } from "@/store/supplier-store";
+import type { SupplierTab } from "@/types/supplier";
 import { useThemeStore, ThemeMode } from "@/store/theme-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { toast } from "sonner";
@@ -56,6 +58,8 @@ export function CustomerHeader({
   const router = useRouter();
   const { user, isAuthenticated, hasHydrated, logout } = useAuthStore();
   const setSellerActiveTab = useSellerUIStore((state) => state.setActiveTab);
+  const setSupplierActiveTab = useSupplierStore((state) => state.setActiveTab);
+  const setAdminActiveTab = useAdminUIStore((state) => state.setActiveTab);
   const { settings: platformSettings } = usePlatformStore();
   const { theme, setTheme } = useThemeStore();
   const cartItemsCount = useCartStore((state) => state.getItemCount());
@@ -168,24 +172,45 @@ export function CustomerHeader({
     router.push("/login");
   };
 
+  const isAdminAccount = mounted && hasHydrated && user?.role === "ADMIN";
   const isSellerAccount = mounted && hasHydrated && user?.role === "SELLER";
+  const isSupplierAccount = mounted && hasHydrated && user?.role === "SUPPLIER";
   const displayName =
-    user?.name || (isSellerAccount ? user?.shopName || "Merchant" : "Customer");
+    user?.name ||
+    (isAdminAccount
+      ? "System Administrator"
+      : isSupplierAccount
+        ? user?.shopName || "Supplier"
+        : isSellerAccount
+          ? user?.shopName || "Merchant"
+          : "Customer");
 
   const isHomePage = transparentOverlay || pathname === "/" || pathname === "";
   const useLightProfileDropdown = theme === "light" && !(isHomePage && !isScrolled);
 
-  const navLinks = isSellerAccount
+  const navLinks = isAdminAccount
     ? [
-        { name: "Seller Dashboard", href: "/dashboard/seller" },
+        { name: "Admin Dashboard", href: "/dashboard/admin" },
         { name: "Marketplace", href: "/marketplace" },
         { name: "Categories", href: "/categories" },
       ]
-    : [
-        { name: "Home", href: "/" },
-        { name: "Marketplace", href: "/marketplace" },
-        { name: "Categories", href: "/categories" },
-      ];
+    : isSupplierAccount
+      ? [
+          { name: "Supplier Dashboard", href: "/dashboard/supplier" },
+          { name: "Marketplace", href: "/marketplace" },
+          { name: "Categories", href: "/categories" },
+        ]
+      : isSellerAccount
+        ? [
+            { name: "Seller Dashboard", href: "/dashboard/seller" },
+            { name: "Marketplace", href: "/marketplace" },
+            { name: "Categories", href: "/categories" },
+          ]
+        : [
+            { name: "Home", href: "/" },
+            { name: "Marketplace", href: "/marketplace" },
+            { name: "Categories", href: "/categories" },
+          ];
 
   const accountMenuItems: Array<{
     label: string;
@@ -193,7 +218,113 @@ export function CustomerHeader({
     icon: React.ComponentType<{ className?: string }>;
     iconClassName: string;
     sellerTab?: SellerTab;
-  }> = isSellerAccount
+    supplierTab?: SupplierTab;
+    adminTab?: AdminTab;
+  }> = isAdminAccount
+    ? [
+        {
+          label: "Admin Dashboard",
+          href: "/dashboard/admin?tab=overview",
+          icon: LayoutDashboard,
+          iconClassName: "text-purple-400",
+          adminTab: "overview",
+        },
+        {
+          label: "Products Catalog",
+          href: "/dashboard/admin?tab=catalog",
+          icon: Package,
+          iconClassName: "text-indigo-400",
+          adminTab: "catalog",
+        },
+        {
+          label: "Users & Accounts",
+          href: "/dashboard/admin?tab=users",
+          icon: User,
+          iconClassName: "text-cyan-400",
+          adminTab: "users",
+        },
+        {
+          label: "Suppliers & Fleet",
+          href: "/dashboard/admin?tab=suppliers",
+          icon: Boxes,
+          iconClassName: "text-amber-400",
+          adminTab: "suppliers",
+        },
+        {
+          label: "Orders & Escrow",
+          href: "/dashboard/admin?tab=orders",
+          icon: ShoppingCart,
+          iconClassName: "text-emerald-400",
+          adminTab: "orders",
+        },
+        {
+          label: "Payment Slips Audit",
+          href: "/dashboard/admin?tab=slips",
+          icon: Wallet,
+          iconClassName: "text-sky-400",
+          adminTab: "slips",
+        },
+        {
+          label: "Platform Settings",
+          href: "/dashboard/admin?tab=settings",
+          icon: Settings,
+          iconClassName: "text-zinc-400",
+          adminTab: "settings",
+        },
+      ]
+    : isSupplierAccount
+    ? [
+        {
+          label: "Supplier Dashboard",
+          href: "/dashboard/supplier?tab=dashboard",
+          icon: LayoutDashboard,
+          iconClassName: "text-emerald-400",
+          supplierTab: "dashboard",
+        },
+        {
+          label: "Supplier Products",
+          href: "/dashboard/supplier?tab=products",
+          icon: Package,
+          iconClassName: "text-indigo-400",
+          supplierTab: "products",
+        },
+        {
+          label: "Inventory & Stock",
+          href: "/dashboard/supplier?tab=inventory",
+          icon: Boxes,
+          iconClassName: "text-amber-400",
+          supplierTab: "inventory",
+        },
+        {
+          label: "Supplier Orders",
+          href: "/dashboard/supplier?tab=orders",
+          icon: ShoppingCart,
+          iconClassName: "text-emerald-400",
+          supplierTab: "orders",
+        },
+        {
+          label: "RFQs & Quotations",
+          href: "/dashboard/supplier?tab=rfqs",
+          icon: Layers,
+          iconClassName: "text-cyan-400",
+          supplierTab: "rfqs",
+        },
+        {
+          label: "Payments & Escrow",
+          href: "/dashboard/supplier?tab=payments",
+          icon: Wallet,
+          iconClassName: "text-sky-400",
+          supplierTab: "payments",
+        },
+        {
+          label: "Supplier Settings",
+          href: "/dashboard/supplier?tab=settings",
+          icon: Settings,
+          iconClassName: "text-zinc-400",
+          supplierTab: "settings",
+        },
+      ]
+    : isSellerAccount
     ? [
         {
           label: "Seller Dashboard",
@@ -352,7 +483,10 @@ export function CustomerHeader({
             </button>
 
             {/* 2. Brand Logo & Title */}
-            <Link href={isSellerAccount ? "/dashboard/seller" : "/"} className="flex items-center gap-2.5 group">
+            <Link
+              href={isAdminAccount ? "/dashboard/admin" : isSupplierAccount ? "/dashboard/supplier" : isSellerAccount ? "/dashboard/seller" : "/"}
+              className="flex items-center gap-2.5 group"
+            >
               <div className="h-9 w-9 rounded-xl bg-[#090d16] border border-white/10 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
                 {platformSettings.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -544,7 +678,7 @@ export function CustomerHeader({
                   >
                     <div className={`px-3 py-2 border-b ${useLightProfileDropdown ? "border-slate-100" : theme === "dark" ? "border-white/5" : "border-blue-500/15"}` }>
                       <p className={`customer-profile-label text-xs font-semibold truncate ${useLightProfileDropdown ? "text-slate-900" : "text-white"}`}>{displayName}</p>
-                      <p className={`customer-profile-label text-[10px] font-mono truncate ${useLightProfileDropdown ? "text-slate-500" : theme === "dark" ? "text-zinc-400" : "text-blue-200/80"}`}>{user?.email || (isSellerAccount ? "merchant@mercatox.com" : "customer@mercatox.com")}</p>
+                      <p className={`customer-profile-label text-[10px] font-mono truncate ${useLightProfileDropdown ? "text-slate-500" : theme === "dark" ? "text-zinc-400" : "text-blue-200/80"}`}>{user?.email || (isAdminAccount ? "admin@mercatox.com" : isSupplierAccount ? "supplier@mercatox.com" : isSellerAccount ? "merchant@mercatox.com" : "customer@mercatox.com")}</p>
                       <span className={`customer-profile-role inline-block mt-1 rounded px-1.5 py-0.5 text-[9px] font-semibold ${useLightProfileDropdown ? "bg-indigo-500/20 text-indigo-500" : "bg-indigo-500/20 text-indigo-200"}`}>
                         {user?.role || "CUSTOMER"}
                       </span>
@@ -557,8 +691,14 @@ export function CustomerHeader({
                           key={item.href}
                           href={item.href}
                           onClick={() => {
+                            if (item.adminTab) {
+                              setAdminActiveTab(item.adminTab);
+                            }
                             if (item.sellerTab) {
                               setSellerActiveTab(item.sellerTab);
+                            }
+                            if (item.supplierTab) {
+                              setSupplierActiveTab(item.supplierTab);
                             }
                             setProfileDropdownOpen(false);
                           }}
@@ -797,7 +937,7 @@ export function CustomerHeader({
             >
               {/* Logo & Project Title */}
               <Link
-                href={isSellerAccount ? "/dashboard/seller" : "/"}
+                href={isAdminAccount ? "/dashboard/admin" : isSupplierAccount ? "/dashboard/supplier" : isSellerAccount ? "/dashboard/seller" : "/"}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-2.5 min-w-0 group"
               >
@@ -1164,7 +1304,7 @@ export function CustomerHeader({
                         : "text-blue-300/70"
                       }`}
                   >
-                    {isSellerAccount ? "Seller Console" : "My Account"}
+                    {isAdminAccount ? "System Admin Console" : isSupplierAccount ? "Supplier Portal" : isSellerAccount ? "Seller Console" : "My Account"}
                   </span>
                   {accountMenuItems.map((item) => {
                     const ItemIcon = item.icon;
@@ -1173,8 +1313,14 @@ export function CustomerHeader({
                         key={item.href}
                         href={item.href}
                         onClick={() => {
+                          if (item.adminTab) {
+                            setAdminActiveTab(item.adminTab);
+                          }
                           if (item.sellerTab) {
                             setSellerActiveTab(item.sellerTab);
+                          }
+                          if (item.supplierTab) {
+                            setSupplierActiveTab(item.supplierTab);
                           }
                           setMobileMenuOpen(false);
                         }}
