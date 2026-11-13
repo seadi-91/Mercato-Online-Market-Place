@@ -155,7 +155,7 @@ export default function DriverDashboardPage() {
     }));
 
     const sub = Number(o.subtotalAmount || o.totalAmount || 0);
-    const fee = Number(o.deliveryFee || 2500);
+    const fee = Number(o.deliveryFee ?? 0);
     const total = Number(o.totalAmount || sub + fee);
 
     return {

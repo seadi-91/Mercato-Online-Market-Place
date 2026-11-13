@@ -77,6 +77,39 @@ async function bootstrap() {
   const port = process.env.API_GATEWAY_PORT || 3001;
   await app.listen(port, '0.0.0.0');
   console.log(`[ApiGateway] Listening on 0.0.0.0:${port}`);
+
+  // Support legacy GITHUB_CALLBACK_URL on port 8000 by forwarding to frontend /github-callback
+  try {
+    const http = await import('http');
+    const proxyServer = http.createServer((req: any, res: any) => {
+      if (
+        req.url?.startsWith('/api/auth/github/callback') ||
+        req.url?.startsWith('/auth/github/callback')
+      ) {
+        const parsed = new URL(req.url, 'http://localhost:8000');
+        const code = parsed.searchParams.get('code') || '';
+        const state = parsed.searchParams.get('state') || '';
+        res.writeHead(302, {
+          Location: `http://localhost:3000/github-callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state)}`,
+        });
+        res.end();
+        return;
+      }
+      res.writeHead(404);
+      res.end('Not found');
+    });
+    proxyServer.listen(8000, '0.0.0.0', () => {
+      console.log('[ApiGateway] OAuth callback helper listening on 0.0.0.0:8000');
+    });
+    proxyServer.on('error', (err: any) => {
+      console.log(
+        '[ApiGateway] Port 8000 helper not started (port likely in use or restricted):',
+        err.message,
+      );
+    });
+  } catch (err: any) {
+    // harmless if port 8000 cannot be bound
+  }
 }
 bootstrap();
 

@@ -4,11 +4,13 @@ import {
   Get,
   Inject,
   Post,
+  Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
 import { ClientProxy } from '@nestjs/microservices';
-import { Request } from 'express';
+import { Request, Response } from 'express';
 import { firstValueFrom } from 'rxjs';
 import {
   AuditAction,
@@ -164,10 +166,53 @@ export class AuthController {
     return result;
   }
 
+  @RateLimit({ limit: 100, ttlMs: 60000 })
+  @Post('github')
+  async githubLogin(@Body() body: any, @Req() req: Request) {
+    const result = await firstValueFrom(
+      this.authClient.send('github_login', body),
+    );
+
+    const actorRole = ((result.user as any).actualRole || result.user.role) as UserRole;
+
+    this.auditLog(
+      {
+        actorId: result.user.id,
+        actorRole,
+        action: AuditAction.USER_LOGIN,
+        targetEntity: 'User',
+        targetId: result.user.id,
+        details: {
+          email: result.user.email,
+          role: result.user.role,
+          authProvider: 'github',
+        },
+      },
+      req,
+    );
+
+    return result;
+  }
+
+  @Get('github/callback')
+  async githubCallback(
+    @Query('code') code: string,
+    @Query('state') state: string,
+    @Res() res: Response,
+  ) {
+    const clientBase = process.env.CLIENT_URL || 'http://localhost:3000';
+    const redirectUrl = new URL(`${clientBase}/github-callback`);
+    if (code) redirectUrl.searchParams.set('code', code);
+    if (state) redirectUrl.searchParams.set('state', state);
+    return res.redirect(redirectUrl.toString());
+  }
+
   @Get('oauth-config')
   getOAuthConfig() {
     return {
       googleClientId: process.env.GOOGLE_CLIENT_ID || '',
+      githubClientId: process.env.GITHUB_CLIENT_ID || 'Ov23liTNWyMsHJuhwQ6i',
+      githubCallbackUrl: process.env.GITHUB_CALLBACK_URL || '',
     };
   }
 

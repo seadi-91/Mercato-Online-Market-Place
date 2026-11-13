@@ -131,11 +131,12 @@ export default function DriverOrderDetailPage() {
             sku: it.sku || `SKU-${it.id?.slice(0, 4) || "MX"}`,
           }));
 
-          const sub = backendOrder.totalAmount || backendOrder.total || 150000;
+          const sub = Number(backendOrder.subtotalAmount || backendOrder.totalAmount || 0);
+          const fee = Number(backendOrder.deliveryFee || 0);
 
           const constructedMission: DriverMission = {
             id: backendOrder.id || orderId,
-            waybillNumber: `WB-ETH-${backendOrder.orderNumber?.replace(/[^0-9]/g, "") || "8810"}`,
+            waybillNumber: `WB-ETH-${backendOrder.orderNumber?.replace(/[^0-9]/g, "") || "0000"}`,
             orderNumber: backendOrder.orderNumber || `ORD-${orderId.slice(0, 8)}`,
             priority: (backendOrder.priority || "express") as "urgent" | "express" | "standard",
             origin: "Mercato Central Freight Hub",
@@ -149,34 +150,22 @@ export default function DriverOrderDetailPage() {
               backendOrder.customerName ||
               backendOrder.user?.fullName ||
               backendOrder.customer?.name ||
-              "Mercato Verified Buyer",
+              "Verified Buyer",
             buyerPhone:
               backendOrder.customerPhone ||
               backendOrder.shippingPhone ||
               backendOrder.user?.phoneNumber ||
-              "+251 91 144 2200",
-            buyerAlternatePhone: "+251 92 100 3344",
-            buyerEmail: backendOrder.user?.email || "buyer.dispatch@mercatox.et",
-            buyerNotes:
-              backendOrder.deliveryNotes || "Gate entrance at rear parking. Receiver has offloading forklift.",
+              "",
+            buyerAlternatePhone: "",
+            buyerEmail: backendOrder.user?.email || "",
+            buyerNotes: backendOrder.deliveryNotes || "",
             cargoDescription:
-              itemsArr.length > 0 ? itemsArr[0].productTitle : "Wholesale Consignment Freight",
-            weightSummary: "1,450 KG · Palletized",
-            items:
-              itemsArr.length > 0
-                ? itemsArr
-                : [
-                    {
-                      productTitle: "Wholesale Packaged Commercial Goods",
-                      quantity: 50,
-                      unitPrice: sub / 50,
-                      totalPrice: sub,
-                      sku: "MX-COMM-50",
-                    },
-                  ],
+              itemsArr.length > 0 ? itemsArr[0].productTitle : "Order Items",
+            weightSummary: "",
+            items: itemsArr,
             subtotal: sub,
-            deliveryFee: 4500,
-            amount: sub + 4500,
+            deliveryFee: fee,
+            amount: Number(backendOrder.totalAmount || sub + fee),
             paymentStatus: "PAID (ESCROW SECURED)",
             paymentMethod: "Electronic Escrow Custody",
             escrowStatus: "IN_CUSTODY",

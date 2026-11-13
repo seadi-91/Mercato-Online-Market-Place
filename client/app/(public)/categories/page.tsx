@@ -8,15 +8,17 @@ import {
   X,
   Package,
   Loader2,
+  Truck,
+  ShieldCheck,
+  CreditCard,
+  Headphones,
+  Sparkles,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { Product, CategoryItem } from "@/constants/mock-data";
 import { fetchCategories, fetchProducts } from "@/lib/api/catalog";
-import {
-  getCuratedHomeSections,
-  getQuadProductsForCategory,
-} from "@/constants/curated-home-data";
+import { CategoryCard } from "@/components/categories/category-card";
 
 function CategoriesContent() {
   const [searchQuery, setSearchQuery] = useState("");
@@ -31,7 +33,7 @@ function CategoriesContent() {
       try {
         const [cats, prodsResult] = await Promise.all([
           fetchCategories(),
-          fetchProducts({ limit: 50 }),
+          fetchProducts({ limit: 100 }),
         ]);
         if (isMounted) {
           setCategories(cats);
@@ -62,65 +64,59 @@ function CategoriesContent() {
     );
   }, [categories, searchQuery]);
 
-  const curatedSections = useMemo(() => {
-    return getCuratedHomeSections(products);
-  }, [products]);
-
-  // Helper to retrieve up to 4 distinct products strictly belonging to this category.
-  const getQuadProducts = (catSlug: string): (Product | null)[] => {
-    const curated = getQuadProductsForCategory(catSlug, curatedSections, products);
-    if (curated && curated.some((p) => p !== null)) return curated;
-    const matching = products.filter((p) => p.categorySlug === catSlug);
-    return [
-      matching[0] || null,
-      matching[1] || null,
-      matching[2] || null,
-      matching[3] || null,
-    ];
-  };
-
   const getCatCount = (category: CategoryItem) => {
-    return products.filter((p) => p.categorySlug === category.slug).length;
+    return products.filter(
+      (p) =>
+        p.categorySlug === category.slug ||
+        (category.name && p.category?.toLowerCase() === category.name.toLowerCase())
+    ).length;
   };
 
   return (
     <div className="relative min-h-screen flex flex-col bg-app text-app transition-colors duration-200 overflow-x-clip">
       <CustomerHeader />
 
-      <main className="flex-1 mx-auto max-w-[1600px] w-full px-3 sm:px-6 lg:px-8 py-6 sm:py-8 space-y-6">
-        {/* Top Header & Breadcrumb */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-app pb-4">
-          <div>
+      <main className="flex-1 mx-auto max-w-[1600px] w-full px-3 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-6">
+        {/* Top Header & Breadcrumb (ZiiMarket Style) */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-app/60 pb-5">
+          <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-app-muted">
               <Link href="/" className="hover:text-app transition-colors">
                 Home
               </Link>
-              <span>/</span>
+              <ChevronRight className="w-3 h-3 text-app-muted/60" />
               <span className="text-app font-semibold">Categories</span>
             </div>
-            <h1 className="mt-1 text-xl sm:text-2xl font-extrabold tracking-tight text-app">
-              Shop by Category
-            </h1>
-            <p className="text-xs text-app-muted mt-0.5">
-              Select any department to view all verified products in the marketplace
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-app">
+                Shop by Department & Category
+              </h1>
+              <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
+                <Sparkles className="w-3 h-3 text-indigo-500" />
+                {categories.length} Departments
+              </span>
+            </div>
+            <p className="text-xs text-app-muted">
+              Select any verified department to view live products and wholesale catalogs
             </p>
           </div>
 
-          {/* Search bar */}
+          {/* Search bar with quick clear */}
           <div className="relative w-full sm:w-80">
-            <Search className="absolute left-3.5 top-2.5 h-3.5 w-3.5 text-app-muted pointer-events-none" />
+            <Search className="absolute left-3.5 top-3 h-3.5 w-3.5 text-app-muted pointer-events-none" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search category..."
-              className="w-full rounded-lg border border-app bg-app-card py-2 pl-9 pr-8 text-xs text-app placeholder:text-app-muted/60 outline-none focus:border-app-hover transition-colors shadow-xs"
+              placeholder="Search by department name..."
+              className="w-full rounded-xl border border-app bg-app-card py-2.5 pl-9 pr-8 text-xs text-app placeholder:text-app-muted/60 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-xs"
             />
             {searchQuery && (
               <button
                 type="button"
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-2.5 text-app-muted hover:text-app cursor-pointer"
+                className="absolute right-2.5 top-3 text-app-muted hover:text-app cursor-pointer"
+                title="Clear Search"
               >
                 <X className="h-3.5 w-3.5" />
               </button>
@@ -128,92 +124,95 @@ function CategoriesContent() {
           </div>
         </div>
 
-        {/* Categories Grid */}
+        {/* Value & Trust Features Strip (ZiiMarket Style) */}
+        <section className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+          <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+              <Truck className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">Fast Delivery</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Addis Ababa & Regional</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">100% Authentic</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Vetted Merchant Sourcing</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+              <CreditCard className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">Local Payments</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Telebirr, CBE, Chapa</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3 shadow-xs hover:shadow-md transition-all">
+            <div className="flex h-8 w-8 sm:h-9 sm:w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+              <Headphones className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">Escrow Protected</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">4-Digit Handover OTP</p>
+            </div>
+          </div>
+        </section>
+
+        {/* Categories Grid (ZiiMarket Style with 2x2 Quad, Zoom & Shimmer) */}
         {isLoading ? (
           <div className="space-y-4">
             <div className="flex items-center justify-center py-8 gap-3 text-app-muted">
-              <Loader2 className="h-5 w-5 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin text-indigo-500" />
               <span className="text-xs font-medium">
-                Loading categories...
+                Loading verified departments...
               </span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
-              {[...Array(6)].map((_, i) => (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4.5">
+              {[...Array(5)].map((_, i) => (
                 <div
                   key={i}
-                  className="rounded-xl border border-app bg-app-card overflow-hidden animate-pulse flex flex-col justify-between shadow-xs"
+                  className="rounded-2xl sm:rounded-3xl border border-app bg-app-card overflow-hidden animate-pulse flex flex-col justify-between shadow-xs"
                 >
-                  <div className="w-full aspect-square bg-black/5 dark:bg-white/5 border-b border-app" />
-                  <div className="p-2 sm:p-2.5 space-y-1.5">
-                    <div className="h-3.5 w-3/4 bg-black/10 dark:bg-white/10 rounded" />
-                    <div className="h-2.5 w-1/2 bg-black/5 dark:bg-white/5 rounded" />
+                  <div className="w-full aspect-[13/14] bg-slate-200/60 dark:bg-white/5 border-b border-app" />
+                  <div className="px-3.5 py-3.5 sm:py-4 space-y-2">
+                    <div className="h-4 w-3/4 bg-slate-200/80 dark:bg-white/10 rounded-md" />
+                    <div className="h-3 w-1/2 bg-slate-200/50 dark:bg-white/5 rounded-md" />
                   </div>
                 </div>
               ))}
             </div>
           </div>
         ) : filteredCategories.length > 0 ? (
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-2 sm:gap-2.5">
-            {filteredCategories.map((category) => {
-              const quadProducts = getQuadProducts(category.slug);
-              const count = getCatCount(category);
-
-              return (
-                <Link
-                  key={category.id}
-                  href={`/marketplace?category=${encodeURIComponent(category.slug)}`}
-                  className="group relative flex flex-col justify-between rounded-xl border border-app bg-app-card hover:border-app-hover hover:-translate-y-0.5 hover:shadow-md transition-all duration-200 overflow-hidden cursor-pointer shadow-xs"
-                >
-                  {/* 2x2 Quad of 4 Distinct Slots - Starts Flush from the Card Outer Edges */}
-                  <div className="grid grid-cols-2 gap-0 w-full aspect-square overflow-hidden bg-black/5 dark:bg-black/40 border-b border-app">
-                    {quadProducts.map((prod, idx) => (
-                      <div
-                        key={`${category.id}-slot-${idx}`}
-                        className="relative aspect-square w-full overflow-hidden bg-black/5 dark:bg-white/[0.02] border-b border-r border-app/40 [&:nth-child(2n)]:border-r-0 [&:nth-child(n+3)]:border-b-0"
-                      >
-                        {prod ? (
-                          <img
-                            src={prod.image}
-                            alt={prod.name}
-                            className="h-full w-full object-cover object-center group-hover:scale-106 transition-transform duration-300 ease-out"
-                            loading="lazy"
-                          />
-                        ) : (
-                          <div className="h-full w-full flex items-center justify-center bg-black/[0.02] dark:bg-white/[0.015]">
-                            <Package className="h-3.5 w-3.5 text-app-muted/20 stroke-[1.2]" />
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Title & Count Underneath Flush Image Grid */}
-                  <div className="p-2 sm:p-2.5 flex items-center justify-between gap-1 bg-app-card">
-                    <div className="min-w-0">
-                      <h3 className="text-[11.5px] sm:text-xs font-semibold text-app group-hover:text-primary transition-colors truncate leading-tight">
-                        {category.name}
-                      </h3>
-                      <p className="text-[10px] text-app-muted mt-0.5 truncate">
-                        {count}+ items
-                      </p>
-                    </div>
-                    <ChevronRight className="h-3.5 w-3.5 text-app-muted/40 group-hover:text-app group-hover:translate-x-0.5 transition-all shrink-0" />
-                  </div>
-                </Link>
-              );
-            })}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4.5">
+            {filteredCategories.map((category) => (
+              <CategoryCard
+                key={category.id}
+                category={category}
+                itemCount={getCatCount(category)}
+                products={products}
+              />
+            ))}
           </div>
         ) : (
-          <div className="rounded-xl border border-app bg-app-card p-12 text-center space-y-3 shadow-xs">
+          <div className="rounded-2xl border border-app bg-app-card p-12 text-center space-y-3 shadow-xs">
             <Package className="h-10 w-10 text-app-muted/40 mx-auto" />
-            <h3 className="text-sm font-semibold text-app">No categories found</h3>
+            <h3 className="text-sm font-semibold text-app">No departments found</h3>
             <p className="text-xs text-app-muted max-w-sm mx-auto">
               We couldn&apos;t find any departments matching &ldquo;{searchQuery}&rdquo;.
             </p>
             <button
               type="button"
               onClick={() => setSearchQuery("")}
-              className="rounded-lg bg-app text-app-card px-4 py-2 text-xs font-semibold hover:opacity-90 transition-opacity cursor-pointer shadow-xs"
+              className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-xs font-semibold hover:bg-indigo-500 transition-colors cursor-pointer shadow-md"
             >
               Clear Search
             </button>

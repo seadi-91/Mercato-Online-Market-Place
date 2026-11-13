@@ -16,6 +16,8 @@ import {
   Send,
   Sparkles,
   CreditCard,
+  Loader2,
+  XCircle,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -66,6 +68,8 @@ function PaymentSuccessContent() {
   const { user } = useAuthStore();
 
   const [orderInfo, setOrderInfo] = useState<PendingOrderInfo | null>(null);
+  const [verificationStatus, setVerificationStatus] = useState<"verifying" | "verified" | "failed">("verifying");
+  const [verificationError, setVerificationError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [showOrderDetails, setShowOrderDetails] = useState(false);
 
@@ -90,168 +94,171 @@ function PaymentSuccessContent() {
   } | null>(null);
 
   useEffect(() => {
-    // 1. Clear cart now that payment has succeeded
-    clearCart();
+    let isCancelled = false;
 
-    // 2. Load order snapshot from checkout
+    // 1. Read pending order snapshot (without clearing cart or saving any order yet)
     let parsed: PendingOrderInfo | null = null;
     try {
-      const savedRaw = localStorage.getItem("mercatox_last_checkout_order");
+      const savedRaw =
+        localStorage.getItem("mercatox_pending_chapa_order") ||
+        localStorage.getItem("mercatox_last_checkout_order");
       if (savedRaw) {
         parsed = JSON.parse(savedRaw);
-        setOrderInfo(parsed);
+        if (!isCancelled) {
+          setOrderInfo(parsed);
+        }
       }
     } catch (e) {
       console.warn("Could not read order from localStorage", e);
     }
 
-    // 3. Save order into PostgreSQL database and sync localStorage completed orders
-    const tx = txRefFromQuery || parsed?.txRef || `MX-CHAPA-${Date.now()}`;
+    const tx = txRefFromQuery || parsed?.txRef;
     const custId = user?.id || parsed?.customerId;
-    const resolvedSeller = parsed?.sellerId || parsed?.items?.[0]?.sellerId || "59972f9f-49ec-4592-9113-ba70a0aa3a52";
+    const resolvedSeller =
+      parsed?.sellerId ||
+      parsed?.items?.[0]?.sellerId ||
+      "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
-    if (parsed) {
-      const buyerEmail =
-        (user?.email && user.email.includes("@") && !user.email.includes("example.com"))
-          ? user.email
-          : ((parsed.email && !parsed.email.includes(".mercatox@gmail.com") && !parsed.email.includes("example.com"))
-              ? parsed.email
-              : (user?.email || (user as any)?.user?.email || parsed.email));
-      const buyerPhone = parsed.phoneNumber || (user as any)?.phoneNumber || (user as any)?.phone;
-      const buyerName = parsed.fullName || user?.name || (user as any)?.fullName || "Customer";
-
-      // Save completed order record in localStorage
-      try {
-        const existingCompletedRaw = localStorage.getItem("mercatox_completed_orders");
-        const existingCompleted = existingCompletedRaw ? JSON.parse(existingCompletedRaw) : [];
-        const completedOrderRecord = {
-          id: parsed.orderId || tx,
-          orderNumber: parsed.orderNumber || `MX-${tx.slice(-6)}`,
-          customerId: custId,
-          sellerId: resolvedSeller,
-          status: "CONFIRMED",
-          paymentStatus: "PAID",
-          paymentMethod: parsed.paymentMethod || "Chapa (Telebirr / CBE / Card)",
-          txRef: tx,
-          subtotalAmount: Number(parsed.amount) - 150,
-          deliveryFee: 150,
-          totalAmount: Number(parsed.amount),
-          deliveryAddress: {
-            recipientName: parsed.fullName || buyerName,
-            phone: parsed.phoneNumber || buyerPhone,
-            buyerName,
-            buyerPhone,
-            buyerEmail,
-            email: buyerEmail,
-            city: "Addis Ababa",
-            subCity: parsed.subcity,
-            specificLocation: parsed.specificAddress,
-            notes: parsed.deliveryNotes,
-          },
-          notes: parsed.deliveryNotes,
-          items: (parsed.items || []).map((it) => ({
-            id: it.id,
-            productId: it.id,
-            productTitle: it.name,
-            unitPrice: it.price,
-            quantity: it.quantity,
-            totalPrice: it.price * it.quantity,
-            image: it.image || getAccurateProductImage(it.name),
-            sellerId: it.sellerId || resolvedSeller,
-          })),
-          createdAt: new Date().toISOString(),
-        };
-
-        const filteredExisting = Array.isArray(existingCompleted)
-          ? existingCompleted.filter((o: any) => o.txRef !== tx && o.id !== completedOrderRecord.id)
-          : [];
-        localStorage.setItem("mercatox_completed_orders", JSON.stringify([completedOrderRecord, ...filteredExisting]));
-      } catch (storageErr) {
-        console.warn("Error updating mercatox_completed_orders in localStorage:", storageErr);
-      }
-
-      saveOrderToDatabase({
-        orderId: parsed.orderId,
-        customerId: custId,
-        sellerId: resolvedSeller,
-        txRef: tx,
-        items: parsed.items || [],
-        deliveryAddress: {
-          recipientName: parsed.fullName || buyerName,
-          phone: parsed.phoneNumber || buyerPhone,
-          buyerName,
-          buyerPhone,
-          buyerEmail,
-          email: buyerEmail,
-          city: "Addis Ababa",
-          subCity: parsed.subcity,
-          specificLocation: parsed.specificAddress,
-          notes: parsed.deliveryNotes,
-        },
-        deliveryFee: 150,
-        subtotalAmount: Number(parsed.amount) - 150,
-        totalAmount: Number(parsed.amount),
-        notes: parsed.deliveryNotes,
-        paymentMethod: parsed.paymentMethod || "CHAPA",
-      }).then((res) => {
-        if (res.success) {
-          setOrderPersistedInDb(true);
-          console.log("[PaymentSuccess] Order persisted in PostgreSQL:", res);
-        }
-      });
-
-      // Verify payment with payment service and process 2% Card Cashback Reward
-      if (tx) {
-        fetch(`/api/payments/verify?tx_ref=${encodeURIComponent(tx)}`)
-          .then((r) => r.json())
-          .then((res) => {
-            if (res.reward && res.reward.rewardApplied) {
-              setRewardInfo({
-                rewardApplied: true,
-                rewardPercent: res.reward.rewardPercent || 2,
-                rewardAmount: res.reward.rewardAmount,
-                newBalance: res.reward.newBalance,
-                cardNumber: res.reward.card?.cardNumber,
-                isNewCard: res.reward.isNewCard,
-              });
-            } else if (parsed && !String(parsed.paymentMethod || "").toLowerCase().includes("mercatox_card")) {
-              fetch("/api/payments/chapa/reward", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  txRef: tx,
-                  amount: Number(parsed.amount),
-                  orderId: parsed.orderId,
-                  orderNumber: parsed.orderNumber,
-                  customerId: custId,
-                  email: parsed.email || (user as any)?.email,
-                  phoneNumber: parsed.phoneNumber || (user as any)?.phoneNumber,
-                  cardholderName: parsed.fullName || (user as any)?.name,
-                  paymentMethod: parsed.paymentMethod || "CHAPA",
-                }),
-              })
-                .then((rr) => rr.json())
-                .then((rData) => {
-                  if (rData.rewardApplied) {
-                    setRewardInfo({
-                      rewardApplied: true,
-                      rewardPercent: rData.rewardPercent || 2,
-                      rewardAmount: rData.rewardAmount,
-                      newBalance: rData.newBalance,
-                      cardNumber: rData.card?.cardNumber,
-                      isNewCard: rData.isNewCard,
-                    });
-                  }
-                })
-                .catch(() => {});
-            }
-          })
-          .catch(() => {});
-      }
+    if (!tx) {
+      setVerificationStatus("failed");
+      setVerificationError(
+        "No transaction reference found. Payment could not be verified."
+      );
+      return;
     }
+
+    // 2. Strictly verify payment completion BEFORE clearing cart or persisting any order
+    (async () => {
+      try {
+        const res = await fetch(
+          `/api/payments/verify?tx_ref=${encodeURIComponent(tx)}`,
+          { cache: "no-store" }
+        );
+        const data = await res.json().catch(() => ({}));
+
+        if (isCancelled) return;
+
+        if (!res.ok || !data?.verified) {
+          setVerificationStatus("failed");
+          setVerificationError(
+            data?.error ||
+              data?.message ||
+              "Payment has not been completed or could not be verified by Chapa."
+          );
+          return;
+        }
+
+        // Payment confirmed successful! Now clear cart and record completed order.
+        setVerificationStatus("verified");
+        clearCart();
+
+        try {
+          localStorage.removeItem("mercatox_pending_chapa_order");
+          localStorage.removeItem("mercatox_last_checkout_order");
+        } catch {
+          // ignore
+        }
+
+        if (parsed) {
+          const finalOrderId = data.orderId || parsed.orderId || tx;
+          const finalOrderNumber =
+            data.orderNumber || parsed.orderNumber || `MX-${tx.slice(-6)}`;
+
+          setOrderInfo({
+            ...parsed,
+            orderId: finalOrderId,
+            orderNumber: finalOrderNumber,
+          });
+
+          const buyerEmail =
+            user?.email &&
+            user.email.includes("@") &&
+            !user.email.includes("example.com")
+              ? user.email
+              : parsed.email &&
+                !parsed.email.includes(".mercatox@gmail.com") &&
+                !parsed.email.includes("example.com")
+              ? parsed.email
+              : user?.email || (user as any)?.user?.email || parsed.email;
+          const buyerPhone =
+            parsed.phoneNumber ||
+            (user as any)?.phoneNumber ||
+            (user as any)?.phone;
+          const buyerName =
+            parsed.fullName ||
+            user?.name ||
+            (user as any)?.fullName ||
+            "Customer";
+
+          if (data.orderPersisted) {
+            setOrderPersistedInDb(true);
+          } else {
+            saveOrderToDatabase({
+              orderId: finalOrderId,
+              customerId: custId,
+              sellerId: resolvedSeller,
+              txRef: tx,
+              items: parsed.items || [],
+              deliveryAddress: {
+                recipientName: parsed.fullName || buyerName,
+                phone: parsed.phoneNumber || buyerPhone,
+                buyerName,
+                buyerPhone,
+                buyerEmail,
+                email: buyerEmail,
+                city: "Addis Ababa",
+                subCity: parsed.subcity,
+                specificLocation: parsed.specificAddress,
+                notes: parsed.deliveryNotes,
+              },
+              deliveryFee: 150,
+              subtotalAmount: Number(parsed.amount) - 150,
+              totalAmount: Number(parsed.amount),
+              notes: parsed.deliveryNotes,
+              paymentMethod: parsed.paymentMethod || "CHAPA",
+            }).then((saveRes) => {
+              if (!isCancelled && saveRes.success) {
+                setOrderPersistedInDb(true);
+                console.log(
+                  "[PaymentSuccess] Order persisted in PostgreSQL:",
+                  saveRes
+                );
+              }
+            });
+          }
+        } else if (data.orderPersisted) {
+          setOrderPersistedInDb(true);
+        }
+
+        // Only show 2% Card Cashback Reward when backend confirms user has an eligible MercatoX Card
+        if (data.reward && data.reward.rewardApplied === true) {
+          setRewardInfo({
+            rewardApplied: true,
+            rewardPercent: data.reward.rewardPercent || 2,
+            rewardAmount: data.reward.rewardAmount,
+            newBalance: data.reward.newBalance,
+            cardNumber: data.reward.card?.cardNumber,
+            isNewCard: false,
+          });
+        } else {
+          setRewardInfo(null);
+        }
+      } catch (err: any) {
+        if (!isCancelled) {
+          setVerificationStatus("failed");
+          setVerificationError(
+            err?.message || "Network error while verifying payment with Chapa."
+          );
+        }
+      }
+    })();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [clearCart, txRefFromQuery, user?.id]);
 
-  const displayTxRef = txRefFromQuery || orderInfo?.txRef || "MX-CHAPA-ESCROW";
+  const displayTxRef = txRefFromQuery || orderInfo?.txRef || "";
   const displayAmount =
     amountFromQuery ||
     (orderInfo?.amount ? orderInfo.amount.toLocaleString() : "Confirmed");
@@ -319,6 +326,79 @@ function PaymentSuccessContent() {
       setIsSubmittingReview(false);
     }
   };
+
+  if (verificationStatus === "verifying") {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-100 text-zinc-900 dark:bg-[#070a12] dark:text-zinc-100 transition-colors duration-200">
+        <CustomerHeader />
+        <main className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md rounded-3xl border bg-white dark:bg-[#0b101f] border-zinc-200/90 dark:border-white/10 shadow-2xl p-7 text-center space-y-4">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-cyan-500/10 border border-cyan-500/25 flex items-center justify-center">
+              <Loader2 className="h-9 w-9 text-cyan-500 animate-spin" />
+            </div>
+            <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-900 dark:text-white">
+              Verifying Chapa Payment...
+            </h1>
+            <p className="text-xs sm:text-sm text-zinc-500 dark:text-zinc-400 leading-relaxed">
+              Please wait while we verify your payment status directly with Chapa before saving your order.
+            </p>
+            {(txRefFromQuery || orderInfo?.txRef) && (
+              <div className="rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/5 px-3 py-2 text-xs font-mono text-zinc-600 dark:text-zinc-300 truncate">
+                Ref: {txRefFromQuery || orderInfo?.txRef}
+              </div>
+            )}
+          </div>
+        </main>
+        <CustomerFooter />
+      </div>
+    );
+  }
+
+  if (verificationStatus === "failed") {
+    return (
+      <div className="min-h-screen flex flex-col bg-zinc-100 text-zinc-900 dark:bg-[#070a12] dark:text-zinc-100 transition-colors duration-200">
+        <CustomerHeader />
+        <main className="flex-1 flex items-center justify-center px-4 py-12">
+          <div className="w-full max-w-md rounded-3xl border bg-white dark:bg-[#0b101f] border-rose-200 dark:border-rose-500/20 shadow-2xl p-7 text-center space-y-5">
+            <div className="mx-auto h-16 w-16 rounded-2xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center">
+              <XCircle className="h-9 w-9 text-rose-500" />
+            </div>
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/25 text-rose-600 dark:text-rose-400 text-[11px] font-bold tracking-wide uppercase">
+                Payment Not Completed
+              </span>
+              <h1 className="text-xl sm:text-2xl font-extrabold text-zinc-900 dark:text-white">
+                Order Was Not Saved
+              </h1>
+              <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-300 leading-relaxed">
+                {verificationError ||
+                  "Your Chapa payment was not completed or could not be verified."}
+              </p>
+            </div>
+            <div className="rounded-xl bg-zinc-50 dark:bg-white/[0.03] border border-zinc-200/80 dark:border-white/5 p-3 text-xs text-zinc-500 dark:text-zinc-400">
+              No order has been recorded in your account, and your cart items remain untouched so you can retry payment cleanly.
+            </div>
+            <div className="space-y-2 pt-1">
+              <Link
+                href="/checkout"
+                className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 py-3 text-xs sm:text-sm font-bold text-white shadow-lg transition-all"
+              >
+                <span>Return to Checkout &amp; Pay</span>
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/cart"
+                className="w-full inline-flex items-center justify-center rounded-xl border border-zinc-200 dark:border-white/10 py-2.5 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-white/5 transition-colors"
+              >
+                Back to Shopping Cart
+              </Link>
+            </div>
+          </div>
+        </main>
+        <CustomerFooter />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col bg-zinc-100 text-zinc-900 dark:bg-[#070a12] dark:text-zinc-100 transition-colors duration-200">

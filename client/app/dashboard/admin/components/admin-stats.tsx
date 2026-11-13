@@ -71,17 +71,17 @@ const PROVIDER_METADATA: Record<
 
 const DEFAULT_ANALYTICS: AnalyticsState = {
   overview: {
-    totalProducts: 17,
-    totalOrders: 7,
-    totalUsers: 2,
-    totalSellers: 2,
-    totalGmv: 578800,
-    platformCommission: 20258,
-    totalPaymentVolume: 1309724,
+    totalProducts: 0,
+    totalOrders: 0,
+    totalUsers: 0,
+    totalSellers: 0,
+    totalGmv: 0,
+    platformCommission: 0,
+    totalPaymentVolume: 0,
   },
   statusBreakdown: {
     PENDING: { count: 0, totalAmount: 0 },
-    CONFIRMED: { count: 7, totalAmount: 578800 },
+    CONFIRMED: { count: 0, totalAmount: 0 },
     PROCESSING: { count: 0, totalAmount: 0 },
     READY_FOR_PICKUP: { count: 0, totalAmount: 0 },
     IN_TRANSIT: { count: 0, totalAmount: 0 },
@@ -92,9 +92,9 @@ const DEFAULT_ANALYTICS: AnalyticsState = {
     {
       provider: "CHAPA",
       name: "Chapa Gateway (Cards/Awash)",
-      share: 100,
-      amount: 1309724,
-      count: 9,
+      share: 0,
+      amount: 0,
+      count: 0,
       color: "#10b981",
       glowColor: "rgba(16, 185, 129, 0.4)",
     },
@@ -131,18 +131,18 @@ const DEFAULT_ANALYTICS: AnalyticsState = {
       { label: "Mon", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Tue", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Wed", volume: 0, revenue: 0, orderCount: 0 },
-      { label: "Thu", volume: 107000, revenue: 3745, orderCount: 4 },
+      { label: "Thu", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Fri", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Sat", volume: 0, revenue: 0, orderCount: 0 },
-      { label: "Sun", volume: 471800, revenue: 16513, orderCount: 3 },
+      { label: "Sun", volume: 0, revenue: 0, orderCount: 0 },
     ],
     "30D": [
       { label: "Day 1-5", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Day 6-10", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Day 11-15", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Day 16-20", volume: 0, revenue: 0, orderCount: 0 },
-      { label: "Day 21-25", volume: 107000, revenue: 3745, orderCount: 4 },
-      { label: "Day 26-30", volume: 471800, revenue: 16513, orderCount: 3 },
+      { label: "Day 21-25", volume: 0, revenue: 0, orderCount: 0 },
+      { label: "Day 26-30", volume: 0, revenue: 0, orderCount: 0 },
     ],
     "12M": [
       { label: "Jan", volume: 0, revenue: 0, orderCount: 0 },
@@ -153,11 +153,11 @@ const DEFAULT_ANALYTICS: AnalyticsState = {
       { label: "Jun", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Jul", volume: 0, revenue: 0, orderCount: 0 },
       { label: "Aug", volume: 0, revenue: 0, orderCount: 0 },
-      { label: "Sep", volume: 578800, revenue: 20258, orderCount: 7 },
+      { label: "Sep", volume: 0, revenue: 0, orderCount: 0 },
     ],
   },
   sparklines: {
-    gmv: [15, 20, 15, 65, 15, 15, 100],
+    gmv: [0, 0, 0, 0, 0, 0, 0],
   },
 };
 
@@ -263,7 +263,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
             paymentProviders: mappedProviders,
             trends: trendsData,
             sparklines: {
-              gmv: [15, 20, 15, 65, 15, 15, 100],
+              gmv: [0, 0, 0, 0, 0, 0, 0],
             },
           });
 

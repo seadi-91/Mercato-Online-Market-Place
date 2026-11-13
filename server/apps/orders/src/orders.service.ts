@@ -375,7 +375,13 @@ export class OrdersService {
     const queryBuilder = this.orderRepository
       .createQueryBuilder('order')
       .leftJoinAndSelect('order.items', 'items')
-      .where('order.customerId = :customerId', { customerId });
+      .where('order.customerId = :customerId', { customerId })
+      .andWhere('order.paymentStatus = :paidStatus', {
+        paidStatus: PaymentStatus.PAID,
+      })
+      .andWhere(
+        "COALESCE(order.deliveryAddress->>'customerHidden', 'false') != 'true'",
+      );
 
     if (dto.status) {
       queryBuilder.andWhere('order.status = :status', { status: dto.status });
@@ -844,44 +850,48 @@ export class OrdersService {
   }
 
   async getCustomerOverview(customerId: string) {
-    const totalOrders = await this.orderRepository.count({
-      where: { customerId },
-    });
+    const baseCustomerWhere = () =>
+      this.orderRepository
+        .createQueryBuilder('order')
+        .where('order.customerId = :customerId', { customerId })
+        .andWhere('order.paymentStatus = :paidStatus', {
+          paidStatus: PaymentStatus.PAID,
+        })
+        .andWhere(
+          "COALESCE(order.deliveryAddress->>'customerHidden', 'false') != 'true'",
+        );
 
-    const activeOrders = await this.orderRepository.count({
-      where: {
-        customerId,
-        status: In([
+    const totalOrders = await baseCustomerWhere().getCount();
+
+    const activeOrders = await baseCustomerWhere()
+      .andWhere('order.status IN (:...activeStatuses)', {
+        activeStatuses: [
           OrderStatus.PENDING,
           OrderStatus.CONFIRMED,
           OrderStatus.PROCESSING,
           OrderStatus.READY_FOR_PICKUP,
           OrderStatus.IN_TRANSIT,
-        ]),
-      },
-    });
+        ],
+      })
+      .getCount();
 
-    const deliveredOrders = await this.orderRepository.count({
-      where: {
-        customerId,
-        status: OrderStatus.DELIVERED,
-      },
-    });
+    const deliveredOrders = await baseCustomerWhere()
+      .andWhere('order.status = :deliveredStatus', {
+        deliveredStatus: OrderStatus.DELIVERED,
+      })
+      .getCount();
 
-    const spentRaw = await this.orderRepository
-      .createQueryBuilder('order')
+    const spentRaw = await baseCustomerWhere()
       .select('SUM(order.totalAmount)', 'totalSpent')
-      .where('order.customerId = :customerId', { customerId })
       .andWhere('order.status != :cancelled', {
         cancelled: OrderStatus.CANCELLED,
       })
       .getRawOne();
 
-    const recentOrders = await this.orderRepository.find({
-      where: { customerId },
-      order: { createdAt: 'DESC' },
-      take: 5,
-    });
+    const recentOrders = await baseCustomerWhere()
+      .orderBy('order.createdAt', 'DESC')
+      .take(5)
+      .getMany();
 
     return {
       totalOrders,

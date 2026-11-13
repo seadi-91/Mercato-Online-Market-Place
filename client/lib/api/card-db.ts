@@ -220,10 +220,30 @@ export async function getCardsByUser(userFilter: {
     }
 
     const res = await client.query(
-      `SELECT * FROM mercatox_cards WHERE ${conditions.join(" OR ")} ORDER BY "createdAt" DESC`,
+      `SELECT * FROM mercatox_cards WHERE (${conditions.join(" OR ")}) AND status = 'ACTIVE' AND ("paymentMethod" IS NULL OR "paymentMethod" != 'CHAPA_REWARD') ORDER BY "createdAt" DESC`,
       values
     );
     return res.rows;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * Finds a card record by its Chapa transaction reference.
+ */
+export async function getCardByTxRef(
+  txRef: string
+): Promise<MercatoXCardRecord | null> {
+  await ensureCardsTable();
+  const pool = getPaymentDbPool();
+  const client = await pool.connect();
+  try {
+    const res = await client.query(
+      `SELECT * FROM mercatox_cards WHERE "transactionReference" = $1 LIMIT 1`,
+      [txRef]
+    );
+    return res.rows[0] || null;
   } finally {
     client.release();
   }
@@ -597,11 +617,11 @@ export async function creditChapaOrderRewardToCard(params: {
     }
 
     let targetCard: MercatoXCardRecord | null = null;
-    let isNewCard = false;
+    const isNewCard = false;
 
     if (conds.length > 0) {
       const cardRes = await client.query(
-        `SELECT * FROM mercatox_cards WHERE (${conds.join(" OR ")}) AND status = 'ACTIVE' ORDER BY balance DESC, "createdAt" DESC LIMIT 1 FOR UPDATE`,
+        `SELECT * FROM mercatox_cards WHERE (${conds.join(" OR ")}) AND status = 'ACTIVE' AND ("paymentMethod" IS NULL OR "paymentMethod" != 'CHAPA_REWARD') ORDER BY balance DESC, "createdAt" DESC LIMIT 1 FOR UPDATE`,
         vals
       );
       if (cardRes.rows.length > 0) {
@@ -609,74 +629,33 @@ export async function creditChapaOrderRewardToCard(params: {
       }
     }
 
-    // 3. If customer does not have a card, generate a new digital MercatoX Card for them!
+    // 3. Strictly only credit 2% cashback reward if the customer ALREADY owns a purchased MercatoX Card!
     if (!targetCard) {
-      const newCardId = crypto.randomUUID();
-      const rawDigits = `970144${Math.floor(10 + Math.random() * 90)}${Math.floor(1000 + Math.random() * 9000)}${Math.floor(1000 + Math.random() * 9000)}`;
-      const formattedCardNum = `${rawDigits.slice(0, 4)} ${rawDigits.slice(4, 8)} ${rawDigits.slice(8, 12)} ${rawDigits.slice(12, 16)}`;
-      const cardPin = Math.floor(10000000 + Math.random() * 90000000).toString();
-
-      const insertCardRes = await client.query(
-        `
-        INSERT INTO mercatox_cards (
-          id,
-          "cardNumber",
-          "cardholderName",
-          email,
-          "phoneNumber",
-          "themeId",
-          balance,
-          "initialAmount",
-          "cardFee",
-          "totalPaid",
-          currency,
-          "expiryDate",
-          cvv,
-          status,
-          "paymentMethod",
-          "transactionReference",
-          "chapaCheckoutUrl",
-          "customerId",
-          "cardPassword",
-          "passwordEmailSent",
-          "createdAt",
-          "updatedAt"
-        ) VALUES (
-          $1, $2, $3, $4, $5, 'mercatox-signature', $6, $6, 0, 0, 'ETB', '10/29', '821', 'ACTIVE', 'CHAPA_REWARD', $7, NULL, $8, $9, FALSE, NOW(), NOW()
-        )
-        RETURNING *
-        `,
-        [
-          newCardId,
-          formattedCardNum,
-          params.cardholderName || "MercatoX Customer",
-          (params.email || "customer.mercatox@gmail.com").toLowerCase().trim(),
-          params.phoneNumber || "0911000000",
-          rewardAmount,
-          `REWARD-${params.txRef}`,
-          params.customerId || null,
-          cardPin,
-        ]
-      );
-
-      targetCard = insertCardRes.rows[0];
-      isNewCard = true;
-    } else {
-      // 4. Atomically Credit 2% reward to the existing card
-      const creditRes = await client.query(
-        `
-        UPDATE mercatox_cards
-        SET balance = balance + $1, "updatedAt" = NOW()
-        WHERE id = $2
-        RETURNING *
-        `,
-        [rewardAmount, targetCard.id]
-      );
-      targetCard = creditRes.rows[0];
+      await client.query("ROLLBACK");
+      return {
+        success: true,
+        rewardApplied: false,
+        rewardPercent: 0,
+        rewardAmount: 0,
+        isNewCard: false,
+        message: "No active MercatoX Card owned. 2% cashback reward is exclusively for MercatoX Cardholders.",
+      };
     }
 
+    // 4. Atomically Credit 2% reward to the customer's existing MercatoX Card
+    const creditRes = await client.query(
+      `
+      UPDATE mercatox_cards
+      SET balance = balance + $1, "updatedAt" = NOW()
+      WHERE id = $2
+      RETURNING *
+      `,
+      [rewardAmount, targetCard.id]
+    );
+    targetCard = creditRes.rows[0];
+
     if (!targetCard) {
-      throw new Error("Failed to find or create MercatoX Card for reward.");
+      throw new Error("Failed to find or update MercatoX Card for reward.");
     }
 
     // 5. Update payment metadata to guarantee idempotency
@@ -712,27 +691,6 @@ export async function creditChapaOrderRewardToCard(params: {
     console.log(
       `[Chapa Reward] Successfully credited 2% reward (${rewardAmount} ETB) on card ${targetCard.cardNumber}. New balance: ${targetCard.balance} ETB (Order: ${params.orderNumber || params.txRef})`
     );
-
-    // If a new card was auto-generated for the reward, dispatch the 8-digit password email
-    if (isNewCard && targetCard?.email && targetCard?.cardPassword) {
-      try {
-        const { sendCardPasswordEmail } = await import("@/lib/mailer");
-        const { markCardPasswordEmailSent } = await import("@/lib/api/card-db");
-        await sendCardPasswordEmail({
-          toEmail: targetCard.email,
-          cardholderName: targetCard.cardholderName,
-          cardNumber: targetCard.cardNumber,
-          cardPassword: targetCard.cardPassword,
-          balance: Number(targetCard.balance || 0),
-          currency: targetCard.currency || "ETB",
-          expiryDate: targetCard.expiryDate,
-        });
-        await markCardPasswordEmailSent(targetCard.id);
-        console.log(`[Chapa Reward] Dispatched 8-digit card password email for new reward card to ${targetCard.email}`);
-      } catch (mailErr) {
-        console.warn("[Chapa Reward] Failed to dispatch card password email for new reward card:", mailErr);
-      }
-    }
 
     return {
       success: true,

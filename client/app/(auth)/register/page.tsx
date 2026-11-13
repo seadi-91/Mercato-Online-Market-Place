@@ -42,6 +42,7 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store";
 import { API_CONFIG } from "@/config/api.config";
 import { loadGoogleScript, triggerGoogleSignIn } from "@/lib/auth/google";
+import { startGitHubOAuth } from "@/lib/auth/github";
 
 // Account Roles available for registration: Customer / Buyer, Merchant / Seller, or Wholesale Supplier
 type BackendRole = "CUSTOMER" | "SELLER" | "SUPPLIER";
@@ -515,6 +516,7 @@ function RegisterPageContent() {
   const [agreed, setAgreed] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isGitHubLoading, setIsGitHubLoading] = useState(false);
 
   useEffect(() => {
     loadGoogleScript().catch(() => {});
@@ -1132,7 +1134,7 @@ function RegisterPageContent() {
       toast.loading("Connecting to Google...", { id: "oauth-reg" });
 
       try {
-        const authData = await triggerGoogleSignIn(targetRole as any, true);
+        const authData = await triggerGoogleSignIn(targetRole as any, true, postLoginDest);
         if (authData && authData.accessToken) {
           const userRole = authData.user.role || targetRole;
           login(
@@ -1178,6 +1180,49 @@ function RegisterPageContent() {
       }
 
       return;
+    }
+
+    if (provider === "GitHub") {
+      const targetRole = selectedRole || "CUSTOMER";
+      const roleStr = String(targetRole);
+      const postLoginDest =
+        roleStr === "SELLER"
+          ? "/dashboard/seller"
+          : roleStr === "SUPPLIER"
+          ? "/dashboard/supplier"
+          : roleStr === "ADMIN"
+          ? "/dashboard/admin"
+          : roleStr === "DRIVER" || roleStr === "DELIVERY"
+          ? "/dashboard/driver"
+          : "/";
+
+      try {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("mercatox_auth_redirect", postLoginDest);
+        }
+      } catch {}
+
+      setIsGitHubLoading(true);
+      toast.loading("Connecting to GitHub...", { id: "oauth-reg" });
+
+      try {
+        await startGitHubOAuth({
+          role: targetRole as any,
+          isRegistration: true,
+          postLoginDest,
+        });
+        return;
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "GitHub registration could not be started.";
+        toast.error("GitHub registration failed", {
+          id: "oauth-reg",
+          description: message,
+        });
+        return;
+      } finally {
+        setIsGitHubLoading(false);
+      }
     }
 
     toast.error(`${provider} registration is not currently supported. Please register using your email/phone or Google.`);
@@ -1376,7 +1421,7 @@ function RegisterPageContent() {
               <button
                 type="button"
                 onClick={() => handleOAuthRegister("Google")}
-                disabled={isGoogleLoading}
+                disabled={isGoogleLoading || isGitHubLoading}
                 className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 px-4 text-xs font-semibold text-white transition-all hover:bg-white/[0.09] hover:border-cyan-500/40 active:scale-[0.99] cursor-pointer shadow-sm disabled:opacity-60 group"
               >
                 {isGoogleLoading ? (
@@ -1389,16 +1434,20 @@ function RegisterPageContent() {
               <button
                 type="button"
                 onClick={() => handleOAuthRegister("GitHub")}
-                disabled={isGoogleLoading}
-                className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] py-2 px-3 text-xs font-medium text-zinc-300 transition-all hover:bg-white/[0.06] hover:text-white hover:border-white/20 active:scale-[0.99] cursor-pointer disabled:opacity-60"
+                disabled={isGoogleLoading || isGitHubLoading}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] py-2 px-3 text-xs font-medium text-zinc-300 transition-all hover:bg-white/[0.06] hover:text-white hover:border-white/20 active:scale-[0.99] cursor-pointer disabled:opacity-60 group"
               >
-                <GithubIcon className="h-4 w-4 shrink-0" />
-                <span>Continue with GitHub</span>
+                {isGitHubLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin text-white" />
+                ) : (
+                  <GithubIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+                )}
+                <span>{isGitHubLoading ? "Connecting to GitHub..." : "Continue with GitHub account"}</span>
               </button>
             </div>
             <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span>Registers directly with Google as</span>
+              <span>Registers directly with Google or GitHub as</span>
               <span className="font-semibold text-cyan-300">
                 {selectedRole === "SELLER" ? "Merchant / Seller" : selectedRole === "SUPPLIER" ? "B2B Supplier" : "Customer"}
               </span>

@@ -8,6 +8,7 @@ export interface WholesaleCartItem {
   originalPrice: number;
   image?: string;
   supplierShopName: string;
+  sellerId?: string;
   category: string;
   moq: number;
   unit: string;

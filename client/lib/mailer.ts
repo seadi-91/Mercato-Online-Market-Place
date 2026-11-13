@@ -1,4 +1,6 @@
 import nodemailer from "nodemailer";
+import fs from "fs";
+import path from "path";
 
 export interface SendCardPasswordEmailParams {
   toEmail: string;
@@ -11,31 +13,119 @@ export interface SendCardPasswordEmailParams {
   expiryDate?: string;
 }
 
+interface SmtpConfig {
+  host: string;
+  port: number;
+  user: string;
+  pass: string;
+  from: string;
+  adminEmail: string;
+}
+
 let transporter: any = null;
+let cachedTransporterKey = "";
 
-function getTransporter(): any {
-  if (transporter) return transporter;
+function parseEnvFile(filePath: string): Record<string, string> {
+  const result: Record<string, string> = {};
+  try {
+    if (!fs.existsSync(filePath)) return result;
+    const content = fs.readFileSync(filePath, "utf-8");
+    for (const rawLine of content.split(/\r?\n/)) {
+      const line = rawLine.trim();
+      if (!line || line.startsWith("#")) continue;
+      const eqIdx = line.indexOf("=");
+      if (eqIdx <= 0) continue;
+      const key = line.slice(0, eqIdx).trim();
+      let val = line.slice(eqIdx + 1).trim();
+      if (
+        (val.startsWith('"') && val.endsWith('"')) ||
+        (val.startsWith("'") && val.endsWith("'"))
+      ) {
+        val = val.slice(1, -1);
+      }
+      result[key] = val;
+    }
+  } catch {
+    // ignore file read failure
+  }
+  return result;
+}
 
-  const host = process.env.MAIL_HOST || "smtp.gmail.com";
-  const port = Number(process.env.MAIL_PORT) || 465;
-  const user = process.env.MAIL_USER || "";
-  const rawPass = process.env.MAIL_PASSWORD || "";
-  const pass = rawPass.replace(/\s+/g, "");
+function resolveSmtpConfig(): SmtpConfig {
+  let host = process.env.MAIL_HOST || "";
+  let port = Number(process.env.MAIL_PORT) || 0;
+  let user = process.env.MAIL_USER || "";
+  let rawPass = process.env.MAIL_PASSWORD || "";
+  let from = process.env.MAIL_FROM || "";
+  let adminEmail = process.env.ADMIN_EMAIL || "";
 
-  transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    auth: {
-      user,
-      pass,
-    },
-    tls: {
-      rejectUnauthorized: false,
-    },
-  });
+  if (!user || !rawPass) {
+    const candidates = [
+      path.resolve(process.cwd(), "..", "server", ".env"),
+      path.resolve(process.cwd(), "server", ".env"),
+    ];
+    for (const envPath of candidates) {
+      const parsed = parseEnvFile(envPath);
+      if (parsed.MAIL_USER && parsed.MAIL_PASSWORD) {
+        host = host || parsed.MAIL_HOST || "smtp.gmail.com";
+        port = port || Number(parsed.MAIL_PORT) || 465;
+        user = user || parsed.MAIL_USER;
+        rawPass = rawPass || parsed.MAIL_PASSWORD;
+        from = from || parsed.MAIL_FROM || parsed.MAIL_USER;
+        adminEmail = adminEmail || parsed.ADMIN_EMAIL || parsed.MAIL_USER;
+        break;
+      }
+    }
+  }
 
-  return transporter;
+  return {
+    host: host || "smtp.gmail.com",
+    port: port || 465,
+    user: user.trim(),
+    pass: rawPass.replace(/\s+/g, ""),
+    from: (from || user || "support@mercatox.et").trim(),
+    adminEmail: (adminEmail || user || "support@mercatox.et").trim(),
+  };
+}
+
+export function isDeliverableEmail(email?: string | null): boolean {
+  if (!email) return false;
+  const clean = email.trim().toLowerCase();
+  if (!clean || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(clean)) return false;
+  if (
+    clean.includes("example.com") ||
+    clean.includes(".mercatox@gmail.com") ||
+    clean.includes("@users.noreply.")
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function getTransporter(): { transport: any; smtp: SmtpConfig } | null {
+  const smtp = resolveSmtpConfig();
+  if (!smtp.user || !smtp.pass) {
+    return null;
+  }
+
+  const key = `${smtp.host}:${smtp.port}:${smtp.user}:${smtp.pass}`;
+  if (!transporter || cachedTransporterKey !== key) {
+    transporter = nodemailer.createTransport({
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.port === 465,
+      auth: {
+        user: smtp.user,
+        pass: smtp.pass,
+      },
+      tls: {
+        rejectUnauthorized: false,
+      },
+    });
+    cachedTransporterKey = key;
+  }
+
+  return { transport: transporter, smtp };
 }
 
 /**
@@ -55,17 +145,27 @@ export async function sendCardPasswordEmail(
       expiryDate = "10/29",
     } = params;
 
-    if (!toEmail || !toEmail.includes("@")) {
-      return { success: false, error: "Invalid recipient email address" };
+    if (!isDeliverableEmail(toEmail)) {
+      return { success: false, error: "A valid real recipient email address is required." };
     }
+
+    const cleanRecipient = toEmail.trim().toLowerCase();
 
     const cleanPassword = String(cardPassword || "").replace(/\D/g, "");
     const validPassword = cleanPassword.length >= 8
       ? cleanPassword.slice(0, 8)
       : cleanPassword.padEnd(8, "0");
 
-    const mailUser = process.env.MAIL_USER || "support@mercatox.et";
-    const fromAddress = `"MercatoX Marketplace" <${mailUser}>`;
+    const clientBundle = getTransporter();
+    if (!clientBundle) {
+      return {
+        success: false,
+        error: "SMTP email credentials (MAIL_USER / MAIL_PASSWORD) are not configured.",
+      };
+    }
+
+    const { transport, smtp } = clientBundle;
+    const fromAddress = `"MercatoX Marketplace" <${smtp.user}>`;
 
     const formattedCardNumber = cardNumber.trim();
     const last4 = formattedCardNumber.replace(/\D/g, "").slice(-4) || "8942";
@@ -236,17 +336,16 @@ Security Notice: Never share this password with anyone.
 MercatoX Marketplace
 `;
 
-    const transport = getTransporter();
     const info = await transport.sendMail({
       from: fromAddress,
-      to: toEmail,
+      to: cleanRecipient,
       subject,
       text: plainText,
       html: htmlContent,
     });
 
     console.log(
-      `[Mailer] 8-digit card password email dispatched to ${toEmail} for card ${formattedCardNumber} (MessageId: ${info.messageId})`
+      `[Mailer] 8-digit card password email dispatched to ${cleanRecipient} for card ${formattedCardNumber} (MessageId: ${info.messageId})`
     );
 
     return {
@@ -301,10 +400,14 @@ export interface DirectOrderEmailParams {
 export async function sendOrderEmailsDirectly(
   params: DirectOrderEmailParams
 ): Promise<{ customerSent: boolean; adminSent: boolean; sellerSentCount: number }> {
-  const transport = getTransporter();
-  const mailUser = process.env.MAIL_USER || "support@mercatox.et";
-  const fromAddress = `"MercatoX Marketplace" <${mailUser}>`;
-  const adminEmail = process.env.ADMIN_EMAIL || "support@mercatox.et";
+  const clientBundle = getTransporter();
+  if (!clientBundle) {
+    console.warn("[Mailer] Skipping order emails: SMTP credentials not configured.");
+    return { customerSent: false, adminSent: false, sellerSentCount: 0 };
+  }
+  const { transport, smtp } = clientBundle;
+  const fromAddress = `"MercatoX Marketplace" <${smtp.user}>`;
+  const adminEmail = smtp.adminEmail || smtp.user;
 
   const {
     orderNumber,

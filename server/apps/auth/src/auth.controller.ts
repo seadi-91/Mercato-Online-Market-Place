@@ -80,6 +80,11 @@ export class AuthController {
     return this.authService.googleLogin(payload);
   }
 
+  @MessagePattern('github_login')
+  githubLogin(@Payload() payload: any) {
+    return this.authService.githubLogin(payload);
+  }
+
   @MessagePattern('forgot_password')
   forgotPassword(@Payload() payload: any) {
     return this.authService.forgotPassword(payload);

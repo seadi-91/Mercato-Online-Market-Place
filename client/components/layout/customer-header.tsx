@@ -33,8 +33,12 @@ import {
   Home,
   Layers,
   CreditCard,
+  PlusCircle,
+  Boxes,
+  Wallet,
 } from "lucide-react";
 import { useAuthStore, useCartStore, usePlatformStore } from "@/store";
+import { useSellerUIStore, type SellerTab } from "@/store/ui-store";
 import { useThemeStore, ThemeMode } from "@/store/theme-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { toast } from "sonner";
@@ -51,6 +55,7 @@ export function CustomerHeader({
   const pathname = usePathname();
   const router = useRouter();
   const { user, isAuthenticated, hasHydrated, logout } = useAuthStore();
+  const setSellerActiveTab = useSellerUIStore((state) => state.setActiveTab);
   const { settings: platformSettings } = usePlatformStore();
   const { theme, setTheme } = useThemeStore();
   const cartItemsCount = useCartStore((state) => state.getItemCount());
@@ -163,16 +168,109 @@ export function CustomerHeader({
     router.push("/login");
   };
 
-  const displayName = user?.name || "Customer";
+  const isSellerAccount = mounted && hasHydrated && user?.role === "SELLER";
+  const displayName =
+    user?.name || (isSellerAccount ? user?.shopName || "Merchant" : "Customer");
 
   const isHomePage = transparentOverlay || pathname === "/" || pathname === "";
   const useLightProfileDropdown = theme === "light" && !(isHomePage && !isScrolled);
 
-  const navLinks = [
-    { name: "Home", href: "/" },
-    { name: "Marketplace", href: "/marketplace" },
-    { name: "Categories", href: "/categories" },
-  ];
+  const navLinks = isSellerAccount
+    ? [
+        { name: "Seller Dashboard", href: "/dashboard/seller" },
+        { name: "Marketplace", href: "/marketplace" },
+        { name: "Categories", href: "/categories" },
+      ]
+    : [
+        { name: "Home", href: "/" },
+        { name: "Marketplace", href: "/marketplace" },
+        { name: "Categories", href: "/categories" },
+      ];
+
+  const accountMenuItems: Array<{
+    label: string;
+    href: string;
+    icon: React.ComponentType<{ className?: string }>;
+    iconClassName: string;
+    sellerTab?: SellerTab;
+  }> = isSellerAccount
+    ? [
+        {
+          label: "Seller Dashboard",
+          href: "/dashboard/seller?tab=overview",
+          icon: LayoutDashboard,
+          iconClassName: "text-emerald-400",
+          sellerTab: "overview",
+        },
+        {
+          label: "My Products",
+          href: "/dashboard/seller?tab=products",
+          icon: Package,
+          iconClassName: "text-indigo-400",
+          sellerTab: "products",
+        },
+        {
+          label: "Add New Product",
+          href: "/dashboard/seller?tab=add-product",
+          icon: PlusCircle,
+          iconClassName: "text-cyan-400",
+          sellerTab: "add-product",
+        },
+        {
+          label: "Source Wholesale Cargo",
+          href: "/dashboard/seller?tab=wholesale-sourcing",
+          icon: Boxes,
+          iconClassName: "text-amber-400",
+          sellerTab: "wholesale-sourcing",
+        },
+        {
+          label: "Seller Orders",
+          href: "/dashboard/seller?tab=orders",
+          icon: ShoppingCart,
+          iconClassName: "text-emerald-400",
+          sellerTab: "orders",
+        },
+        {
+          label: "Escrow & Payouts",
+          href: "/dashboard/seller?tab=payouts",
+          icon: Wallet,
+          iconClassName: "text-sky-400",
+          sellerTab: "payouts",
+        },
+        {
+          label: "Store Settings",
+          href: "/dashboard/seller?tab=settings",
+          icon: Settings,
+          iconClassName: "text-zinc-400",
+          sellerTab: "settings",
+        },
+      ]
+    : [
+        {
+          label: "My Profile",
+          href: "/profile",
+          icon: User,
+          iconClassName: "text-cyan-500",
+        },
+        {
+          label: "My Orders",
+          href: "/orders",
+          icon: Package,
+          iconClassName: "text-emerald-500",
+        },
+        {
+          label: "My Card",
+          href: "/card",
+          icon: CreditCard,
+          iconClassName: "text-indigo-400",
+        },
+        {
+          label: "Account Settings",
+          href: "/settings",
+          icon: Settings,
+          iconClassName: "text-zinc-400",
+        },
+      ];
 
   const isAuthPage =
     Boolean(pathname) &&
@@ -254,7 +352,7 @@ export function CustomerHeader({
             </button>
 
             {/* 2. Brand Logo & Title */}
-            <Link href="/" className="flex items-center gap-2.5 group">
+            <Link href={isSellerAccount ? "/dashboard/seller" : "/"} className="flex items-center gap-2.5 group">
               <div className="h-9 w-9 rounded-xl bg-[#090d16] border border-white/10 flex items-center justify-center font-bold text-white shadow-md shadow-indigo-500/25 group-hover:scale-105 transition-transform overflow-hidden shrink-0">
                 {platformSettings.logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -446,79 +544,39 @@ export function CustomerHeader({
                   >
                     <div className={`px-3 py-2 border-b ${useLightProfileDropdown ? "border-slate-100" : theme === "dark" ? "border-white/5" : "border-blue-500/15"}` }>
                       <p className={`customer-profile-label text-xs font-semibold truncate ${useLightProfileDropdown ? "text-slate-900" : "text-white"}`}>{displayName}</p>
-                      <p className={`customer-profile-label text-[10px] font-mono truncate ${useLightProfileDropdown ? "text-slate-500" : theme === "dark" ? "text-zinc-400" : "text-blue-200/80"}`}>{user?.email || "customer@mercatox.com"}</p>
+                      <p className={`customer-profile-label text-[10px] font-mono truncate ${useLightProfileDropdown ? "text-slate-500" : theme === "dark" ? "text-zinc-400" : "text-blue-200/80"}`}>{user?.email || (isSellerAccount ? "merchant@mercatox.com" : "customer@mercatox.com")}</p>
                       <span className={`customer-profile-role inline-block mt-1 rounded px-1.5 py-0.5 text-[9px] font-semibold ${useLightProfileDropdown ? "bg-indigo-500/20 text-indigo-500" : "bg-indigo-500/20 text-indigo-200"}`}>
                         {user?.role || "CUSTOMER"}
                       </span>
                     </div>
 
-                    <Link
-                      href="/profile"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
-                        theme === "light"
-                          ? isHomePage && !isScrolled
-                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
-                            : "text-black hover:bg-slate-100 hover:text-black"
-                          : theme === "dark"
-                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
-                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
-                      }`}
-                    >
-                      <User className="h-3.5 w-3.5 text-cyan-500" />
-                      <span>My Profile</span>
-                    </Link>
-
-                    <Link
-                      href="/orders"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
-                        theme === "light"
-                          ? isHomePage && !isScrolled
-                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
-                            : "text-black hover:bg-slate-100 hover:text-black"
-                          : theme === "dark"
-                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
-                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
-                      }`}
-                    >
-                      <Package className="h-3.5 w-3.5 text-emerald-500" />
-                      <span>My Orders</span>
-                    </Link>
-
-                    <Link
-                      href="/card"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
-                        theme === "light"
-                          ? isHomePage && !isScrolled
-                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
-                            : "text-black hover:bg-slate-100 hover:text-black"
-                          : theme === "dark"
-                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
-                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
-                      }`}
-                    >
-                      <CreditCard className="h-3.5 w-3.5 text-indigo-400" />
-                      <span>My Card</span>
-                    </Link>
-
-                    <Link
-                      href="/settings"
-                      onClick={() => setProfileDropdownOpen(false)}
-                      className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
-                        theme === "light"
-                          ? isHomePage && !isScrolled
-                            ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
-                            : "text-black hover:bg-slate-100 hover:text-black"
-                          : theme === "dark"
-                            ? "text-zinc-300 hover:bg-white/5 hover:text-white"
-                            : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
-                      }`}
-                    >
-                      <Settings className="h-3.5 w-3.5 text-zinc-400" />
-                      <span>Account Settings</span>
-                    </Link>
+                    {accountMenuItems.map((item) => {
+                      const ItemIcon = item.icon;
+                      return (
+                        <Link
+                          key={item.href}
+                          href={item.href}
+                          onClick={() => {
+                            if (item.sellerTab) {
+                              setSellerActiveTab(item.sellerTab);
+                            }
+                            setProfileDropdownOpen(false);
+                          }}
+                          className={`flex items-center gap-2 rounded-xl px-3 py-2 text-xs transition-colors ${
+                            theme === "light"
+                              ? isHomePage && !isScrolled
+                                ? "bg-white/90 text-slate-950 hover:bg-white hover:text-black"
+                                : "text-black hover:bg-slate-100 hover:text-black"
+                              : theme === "dark"
+                                ? "text-zinc-300 hover:bg-white/5 hover:text-white"
+                                : "text-slate-200 hover:bg-blue-600/25 hover:text-white"
+                          }`}
+                        >
+                          <ItemIcon className={`h-3.5 w-3.5 ${item.iconClassName}`} />
+                          <span>{item.label}</span>
+                        </Link>
+                      );
+                    })}
 
                     <div className={`border-t pt-1 ${useLightProfileDropdown ? "border-slate-100" : theme === "dark" ? "border-white/5" : "border-blue-500/15"}`}>
                       <button
@@ -739,7 +797,7 @@ export function CustomerHeader({
             >
               {/* Logo & Project Title */}
               <Link
-                href="/"
+                href={isSellerAccount ? "/dashboard/seller" : "/"}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center gap-2.5 min-w-0 group"
               >
@@ -1106,60 +1164,32 @@ export function CustomerHeader({
                         : "text-blue-300/70"
                       }`}
                   >
-                    My Account
+                    {isSellerAccount ? "Seller Console" : "My Account"}
                   </span>
-                  <Link
-                    href="/profile"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs transition-colors ${theme === "light"
-                      ? "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      : theme === "dark"
-                        ? "border-zinc-800/80 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                        : "border-blue-500/20 bg-blue-950/40 text-blue-200 hover:bg-blue-900/40 hover:text-white"
-                      }`}
-                  >
-                    <User className="h-3.5 w-3.5 text-cyan-400" />
-                    <span>My Profile</span>
-                  </Link>
-                  <Link
-                    href="/orders"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs transition-colors ${theme === "light"
-                      ? "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      : theme === "dark"
-                        ? "border-zinc-800/80 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                        : "border-blue-500/20 bg-blue-950/40 text-blue-200 hover:bg-blue-900/40 hover:text-white"
-                      }`}
-                  >
-                    <Package className="h-3.5 w-3.5 text-emerald-400" />
-                    <span>My Orders</span>
-                  </Link>
-                  <Link
-                    href="/card"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs transition-colors ${theme === "light"
-                      ? "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      : theme === "dark"
-                        ? "border-zinc-800/80 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                        : "border-blue-500/20 bg-blue-950/40 text-blue-200 hover:bg-blue-900/40 hover:text-white"
-                      }`}
-                  >
-                    <CreditCard className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>My Card</span>
-                  </Link>
-                  <Link
-                    href="/settings"
-                    onClick={() => setMobileMenuOpen(false)}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs transition-colors ${theme === "light"
-                      ? "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
-                      : theme === "dark"
-                        ? "border-zinc-800/80 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
-                        : "border-blue-500/20 bg-blue-950/40 text-blue-200 hover:bg-blue-900/40 hover:text-white"
-                      }`}
-                  >
-                    <Settings className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>Account Settings</span>
-                  </Link>
+                  {accountMenuItems.map((item) => {
+                    const ItemIcon = item.icon;
+                    return (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => {
+                          if (item.sellerTab) {
+                            setSellerActiveTab(item.sellerTab);
+                          }
+                          setMobileMenuOpen(false);
+                        }}
+                        className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 text-xs transition-colors ${theme === "light"
+                          ? "border-slate-200 bg-slate-50 text-slate-700 hover:bg-slate-100 hover:text-slate-900"
+                          : theme === "dark"
+                            ? "border-zinc-800/80 bg-zinc-900/60 text-zinc-300 hover:bg-zinc-800 hover:text-white"
+                            : "border-blue-500/20 bg-blue-950/40 text-blue-200 hover:bg-blue-900/40 hover:text-white"
+                          }`}
+                      >
+                        <ItemIcon className={`h-3.5 w-3.5 ${item.iconClassName}`} />
+                        <span>{item.label}</span>
+                      </Link>
+                    );
+                  })}
 
                   <button
                     type="button"

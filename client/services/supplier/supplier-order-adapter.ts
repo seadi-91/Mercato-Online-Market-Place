@@ -192,11 +192,16 @@ export function mapBackendOrderToB2B(order: any, filterSellerId?: string): B2BOr
     contactPerson: recipientName,
     buyerLocation,
     buyerEmail:
+      order.customerEmail ||
+      deliveryAddr.buyerEmail ||
       order.customer?.email ||
       order.buyerEmail ||
       deliveryAddr.email ||
       `${recipientName.toLowerCase().replace(/[^a-z0-9]/g, "") || "buyer"}@mercatox.et`,
-    buyerPhone: recipientPhone,
+    buyerPhone:
+      order.customerPhone ||
+      deliveryAddr.buyerPhone ||
+      recipientPhone,
     productName,
     quantity: totalQty,
     unit,
@@ -210,9 +215,10 @@ export function mapBackendOrderToB2B(order: any, filterSellerId?: string): B2BOr
     deliveryStatus,
     orderStatus,
     paymentTerms:
-      order.paymentStatus === "HELD_IN_ESCROW" || order.paymentStatus === "PAID"
+      order.paymentMethod ||
+      (order.paymentStatus === "HELD_IN_ESCROW" || order.paymentStatus === "PAID"
         ? "CBE Escrow 100% Secured (Telebirr / CBE / Card)"
-        : "Commercial Wire Transfer / RTGS",
+        : "Commercial Wire Transfer / RTGS"),
     orderDate,
     expectedDelivery,
     sellerNotes: order.notes || deliveryAddr.notes,
@@ -228,6 +234,18 @@ export function mapBackendOrderToB2B(order: any, filterSellerId?: string): B2BOr
     buyerRepresentativeTitle: "Authorized Purchasing Agent",
     escrowReferenceNumber:
       order.txRef || `CBE-ESC-${String(order.orderNumber || order.id).slice(0, 8).toUpperCase()}`,
+    paymentId: order.paymentId || deliveryAddr.paymentId,
+    paymentMethod: order.paymentMethod || deliveryAddr.paymentProvider || deliveryAddr.paymentMethod,
+    txRef: order.txRef,
+    providerReference: order.providerReference || deliveryAddr.providerReference,
+    maskedCardNumber: order.maskedCardNumber,
+    bankName: order.bankName,
+    depositorName: order.depositorName,
+    assignedDriverId: order.assignedDriver?.id || order.carrierId || undefined,
+    assignedDriverName: order.assignedDriver?.name || undefined,
+    assignedDriverPhone: order.assignedDriver?.phone || undefined,
+    assignedVehiclePlate: order.assignedDriver?.vehiclePlate || undefined,
+    assignedVehicleType: order.assignedDriver?.vehicleType || undefined,
     branchId: order.branchId || "",
     branchName: order.branchName || "Central Logistics Hub",
     orderItems,

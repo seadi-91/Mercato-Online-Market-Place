@@ -1,12 +1,18 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { Loader2, CheckCircle2, AlertCircle, UserPlus, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store";
 import type { UserRole } from "@/store/auth-store";
 import { API_CONFIG } from "@/config/api.config";
+import {
+  clearStoredGoogleOAuthIntent,
+  getStoredGoogleOAuthIntent,
+} from "@/lib/auth/google";
+import { resolvePostLoginRoute } from "@/lib/auth/role-routing";
 
 function isUserRole(role: string | null): role is UserRole {
   return (
@@ -24,11 +30,17 @@ export default function GoogleCallbackPage() {
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
 
-  const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
+  const [status, setStatus] = useState<"loading" | "success" | "error" | "unregistered">("loading");
   const [errorMessage, setErrorMessage] = useState("");
+  const executedRef = useRef(false);
 
   useEffect(() => {
+    if (executedRef.current) return;
+    executedRef.current = true;
+
     async function handleCallback() {
+      const intent = getStoredGoogleOAuthIntent();
+
       // 1. Direct tokens in query parameters (from API Gateway redirect)
       const accessToken = searchParams.get("accessToken");
       const refreshToken = searchParams.get("refreshToken");
@@ -36,7 +48,11 @@ export default function GoogleCallbackPage() {
       const email = searchParams.get("email");
       const fullName = searchParams.get("name");
       const roleParam = searchParams.get("role");
-      const role: UserRole = isUserRole(roleParam) ? roleParam : "CUSTOMER";
+      const role: UserRole = isUserRole(roleParam)
+        ? roleParam
+        : intent?.role && isUserRole(intent.role)
+        ? intent.role
+        : "CUSTOMER";
 
       if (accessToken && userId) {
         login(
@@ -47,7 +63,8 @@ export default function GoogleCallbackPage() {
             role,
             isVerified: true,
           },
-          accessToken
+          accessToken,
+          refreshToken || undefined
         );
 
         setStatus("success");
@@ -60,22 +77,18 @@ export default function GoogleCallbackPage() {
             ? sessionStorage.getItem("mercatox_auth_redirect")
             : null;
         const stateDest = searchParams.get("state");
-        const targetUrl =
+        const candidateDest =
           (stateDest && stateDest.startsWith("/") ? stateDest : null) ||
-          (storedDest && storedDest.startsWith("/") ? storedDest : null) ||
-          (role === "ADMIN"
-            ? "/dashboard/admin"
-            : role === "SUPPLIER"
-            ? "/dashboard/supplier"
-            : role === "SELLER"
-            ? "/dashboard/seller"
-            : role === "DRIVER" || (role as string) === "DELIVERY"
-            ? "/dashboard/driver"
-            : "/");
+          (intent?.postLoginDest && intent.postLoginDest.startsWith("/")
+            ? intent.postLoginDest
+            : null) ||
+          (storedDest && storedDest.startsWith("/") ? storedDest : null);
+        const targetUrl = resolvePostLoginRoute(candidateDest, role);
 
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("mercatox_auth_redirect");
         }
+        clearStoredGoogleOAuthIntent();
 
         setTimeout(() => {
           router.push(targetUrl);
@@ -98,6 +111,7 @@ export default function GoogleCallbackPage() {
         }
         setErrorMessage(friendlyMsg);
         toast.error(friendlyMsg, { duration: 6000 });
+        clearStoredGoogleOAuthIntent();
         setTimeout(() => router.push("/login"), 4500);
         return;
       }
@@ -105,24 +119,32 @@ export default function GoogleCallbackPage() {
       if (!code) {
         setStatus("error");
         setErrorMessage("No authorization code received from Google");
+        clearStoredGoogleOAuthIntent();
         setTimeout(() => router.push("/login"), 3000);
         return;
       }
 
       try {
-        const callbackUrl = `${window.location.origin}/auth/callback/google`;
+        const callbackUrl =
+          intent?.redirectUri || `${window.location.origin}/auth/callback/google`;
+        const isRegistration = Boolean(intent?.isRegistration);
         const res = await fetch(`${API_CONFIG.baseURL}/auth/google`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             code,
             redirectUri: callbackUrl,
+            role: intent?.role || "CUSTOMER",
+            isRegistration,
           }),
         });
 
-        const data = await res.json();
+        const data = await res.json().catch(() => ({}));
         if (!res.ok) {
-          throw new Error(data?.message || "Failed to authenticate with Google");
+          const msg = Array.isArray(data?.message)
+            ? data.message[0]
+            : data?.message || data?.error || "Failed to authenticate with Google";
+          throw new Error(msg);
         }
 
         const userRole: UserRole = isUserRole(data?.user?.role)
@@ -135,38 +157,42 @@ export default function GoogleCallbackPage() {
             email: data.user.email,
             role: userRole,
             phoneNumber: data.user.phoneNumber,
-            avatar: data.user.avatarUrl,
+            avatar: data.user.avatar || data.user.avatarUrl,
             isVerified: true,
           },
-          data.accessToken
+          data.accessToken,
+          data.refreshToken
         );
 
         setStatus("success");
-        toast.success(`Welcome back, ${data.user.fullName}!`, {
-          description: "Signed in with Google successfully",
-        });
+        toast.success(
+          isRegistration
+            ? "Google Account Registered Successfully!"
+            : `Welcome back, ${data.user.fullName || "Customer"}!`,
+          {
+            description: isRegistration
+              ? "Your Google account is now registered with MercatoX."
+              : "Signed in with Google successfully",
+          }
+        );
 
         const storedDest =
           typeof window !== "undefined"
             ? sessionStorage.getItem("mercatox_auth_redirect")
             : null;
         const stateDest = searchParams.get("state");
-        const targetUrl =
+        const candidateDest =
           (stateDest && stateDest.startsWith("/") ? stateDest : null) ||
-          (storedDest && storedDest.startsWith("/") ? storedDest : null) ||
-          (userRole === "ADMIN"
-            ? "/dashboard/admin"
-            : userRole === "SUPPLIER"
-            ? "/dashboard/supplier"
-            : userRole === "SELLER"
-            ? "/dashboard/seller"
-            : userRole === "DRIVER" || (userRole as string) === "DELIVERY"
-            ? "/dashboard/driver"
-            : "/");
+          (intent?.postLoginDest && intent.postLoginDest.startsWith("/")
+            ? intent.postLoginDest
+            : null) ||
+          (storedDest && storedDest.startsWith("/") ? storedDest : null);
+        const targetUrl = resolvePostLoginRoute(candidateDest, userRole);
 
         if (typeof window !== "undefined") {
           sessionStorage.removeItem("mercatox_auth_redirect");
         }
+        clearStoredGoogleOAuthIntent();
 
         setTimeout(() => {
           router.push(targetUrl);
@@ -174,6 +200,19 @@ export default function GoogleCallbackPage() {
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Authentication failed";
+        clearStoredGoogleOAuthIntent();
+
+        if (
+          message.toLowerCase().includes("not found") ||
+          message.toLowerCase().includes("not registered") ||
+          message.toLowerCase().includes("register an account first")
+        ) {
+          setStatus("unregistered");
+          setErrorMessage(message);
+          toast.error("Google account not registered", { description: message });
+          return;
+        }
+
         setStatus("error");
         setErrorMessage(message);
         toast.error(message);
@@ -206,6 +245,32 @@ export default function GoogleCallbackPage() {
             <p className="text-xs text-zinc-400">
               Redirecting you to your account...
             </p>
+          </div>
+        )}
+
+        {status === "unregistered" && (
+          <div className="flex flex-col items-center justify-center space-y-4">
+            <AlertCircle className="h-10 w-10 text-amber-400" />
+            <h2 className="text-lg font-bold text-amber-300">
+              Google Account Not Registered
+            </h2>
+            <p className="text-xs text-zinc-300 leading-relaxed">{errorMessage}</p>
+            <div className="flex w-full flex-col gap-2 pt-2">
+              <Link
+                href="/register"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 py-2.5 px-4 text-xs font-semibold text-white hover:opacity-95 transition-all"
+              >
+                <UserPlus className="h-4 w-4" />
+                <span>Register with Google Account</span>
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] py-2 px-4 text-xs font-medium text-zinc-300 hover:bg-white/[0.08] transition-all"
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Back to Sign In</span>
+              </Link>
+            </div>
           </div>
         )}
 

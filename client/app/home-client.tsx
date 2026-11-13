@@ -15,12 +15,19 @@ import {
   Wheat,
   Home,
   Smartphone,
+  Truck,
+  ShieldCheck,
+  CreditCard,
+  Headphones,
+  Zap,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { HeroCarousel } from "@/components/home/hero-carousel";
 import { ProductCard } from "@/components/products/product-card";
+import { QuickViewModal } from "@/components/products/quick-view-modal";
+import { CategoryCard } from "@/components/categories/category-card";
 import { useRouter } from "next/navigation";
 import { MercatoXCardPromo } from "@/components/home/mercatox-card-promo";
 import type { Product, CategoryItem } from "@/constants/mock-data";
@@ -95,7 +102,7 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
   const scroll = (direction: "left" | "right") => {
     if (!rowRef.current) return;
     const container = rowRef.current;
-    const scrollAmount = container.clientWidth * 0.65;
+    const scrollAmount = container.clientWidth * 0.7;
     container.scrollBy({
       left: direction === "left" ? -scrollAmount : scrollAmount,
       behavior: "smooth",
@@ -103,54 +110,56 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
   };
 
   const categoryIcons: Record<string, React.ReactNode> = {
-    "agricultural-commodities": <Wheat className="h-3.5 w-3.5 text-app-muted" />,
-    "kids-children": <Baby className="h-3.5 w-3.5 text-app-muted" />,
-    "cosmetics-skincare": <Sparkles className="h-3.5 w-3.5 text-app-muted" />,
-    "computers-electronics": <Laptop className="h-3.5 w-3.5 text-app-muted" />,
-    "smartphones-mobile": <Smartphone className="h-3.5 w-3.5 text-app-muted" />,
-    "home-kitchen-appliances": <Home className="h-3.5 w-3.5 text-app-muted" />,
+    "agricultural-commodities": <Wheat className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+    "kids-children": <Baby className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+    "cosmetics-skincare": <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+    "computers-electronics": <Laptop className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+    "smartphones-mobile": <Smartphone className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+    "home-kitchen-appliances": <Home className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
   };
 
   return (
-    <div className="space-y-2.5">
-      {/* Row Header */}
-      <div className="flex items-center justify-between gap-2 border-b border-app pb-2">
+    <div className="space-y-3">
+      {/* Row Header (ZiiMarket Style) */}
+      <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-app text-[10px] font-black text-app-card shrink-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="flex h-5.5 w-5.5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white shrink-0 shadow-xs">
               {section.order}
             </span>
             <div className="flex items-center gap-1.5 min-w-0">
               {categoryIcons[section.categorySlug] || (
-                <Package className="h-3.5 w-3.5 text-app-muted" />
+                <Package className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
               )}
-              <h3 className="text-xs sm:text-sm md:text-base font-bold truncate text-app">
+              <h3 className="text-sm sm:text-base md:text-lg font-bold truncate text-foreground tracking-tight">
                 {section.title}
               </h3>
             </div>
-            <span className="text-[10px] font-mono hidden md:inline text-app-muted">
-              ({section.products.length} items)
+            <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground hidden sm:inline">
+              {section.products.length} items
             </span>
           </div>
         </div>
 
-        {/* Scroll Controls */}
-        <div className="flex items-center gap-1 shrink-0">
+        {/* Action & Smooth Scroll Controls */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <Link
             href={section.viewAllLink}
-            className="text-[11px] font-semibold text-app hover:underline flex items-center gap-0.5 mr-1"
+            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-0.5 mr-1 transition-colors"
           >
             <span>See All</span>
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-3.5 w-3.5" />
           </Link>
           <button
             type="button"
             onClick={() => scroll("left")}
             disabled={!canScrollLeft}
-            className={`h-6.5 w-6.5 rounded border border-app bg-app-card flex items-center justify-center transition-all cursor-pointer ${canScrollLeft
-                ? "text-app hover:border-app-hover shadow-xs"
-                : "opacity-25 cursor-not-allowed text-app-muted"
-              }`}
+            aria-label="Scroll left"
+            className={`h-7 w-7 rounded-full border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#11131c] flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+              canScrollLeft
+                ? "text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 hover:scale-105 active:scale-95"
+                : "opacity-30 cursor-not-allowed text-slate-400"
+            }`}
             title="Scroll Left"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
@@ -159,10 +168,12 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
             type="button"
             onClick={() => scroll("right")}
             disabled={!canScrollRight}
-            className={`h-6.5 w-6.5 rounded border border-app bg-app-card flex items-center justify-center transition-all cursor-pointer ${canScrollRight
-                ? "text-app hover:border-app-hover shadow-xs"
-                : "opacity-25 cursor-not-allowed text-app-muted"
-              }`}
+            aria-label="Scroll right"
+            className={`h-7 w-7 rounded-full border border-slate-200/80 dark:border-white/10 bg-white dark:bg-[#11131c] flex items-center justify-center transition-all cursor-pointer shadow-xs ${
+              canScrollRight
+                ? "text-slate-800 dark:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 hover:scale-105 active:scale-95"
+                : "opacity-30 cursor-not-allowed text-slate-400"
+            }`}
             title="Scroll Right"
           >
             <ChevronRight className="h-3.5 w-3.5" />
@@ -170,17 +181,17 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
         </div>
       </div>
 
-      {/* Compact Horizontal Scroll Track */}
+      {/* Horizontal Scroll Track */}
       <div
         ref={rowRef}
         onScroll={checkScroll}
-        className="flex overflow-x-auto snap-x snap-mandatory gap-2 sm:gap-2.5 scroll-smooth no-scrollbar pb-1 -mx-3 px-3 sm:mx-0 sm:px-0"
+        className="flex overflow-x-auto snap-x snap-mandatory gap-2.5 sm:gap-3 scroll-smooth no-scrollbar pb-1 -mx-3 px-3 sm:mx-0 sm:px-0"
         style={{ WebkitOverflowScrolling: "touch" }}
       >
         {section.products.map((product) => (
           <div
             key={product.id}
-            className="w-[130px] xs:w-[145px] sm:w-[160px] md:w-[175px] lg:w-[185px] xl:w-[195px] shrink-0 snap-start h-full"
+            className="w-[136px] xs:w-[150px] sm:w-[165px] md:w-[180px] lg:w-[195px] shrink-0 snap-start h-full"
           >
             <ProductCard product={product} onQuickView={onQuickView} />
           </div>
@@ -195,6 +206,7 @@ export function HomePageClient({
   initialCategories,
 }: HomePageClientProps) {
   const router = useRouter();
+  const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   // Filter products for the home page sections (strictly exclude products from excluded categories)
   const homeProducts = useMemo(() => {
@@ -205,7 +217,7 @@ export function HomePageClient({
     });
   }, [initialProducts]);
 
-  // ALL active categories displayed in "Shop by Department" (6 columns)
+  // ALL active categories displayed in "Shop by Department" (5 columns)
   const departments = useMemo(
     () => initialCategories.filter((category) => category.isActive !== false),
     [initialCategories],
@@ -236,19 +248,12 @@ export function HomePageClient({
       .slice(0, 5);
   }, [productSectionCategories, homeProducts]);
 
-  const getQuadProducts = (catSlug: string): (Product | null)[] => {
-    const matchingProducts = initialProducts
-      .filter((product) => product.categorySlug === catSlug)
-      .slice(0, 4);
-    return [0, 1, 2, 3].map((index) => matchingProducts[index] || null);
-  };
-
   const getCatCount = (slug: string) => {
     return initialProducts.filter((product) => product.categorySlug === slug).length;
   };
 
   const handleQuickView = (product: Product) => {
-    router.push(`/products/${product.id}`);
+    setQuickViewProduct(product);
   };
 
   return (
@@ -265,18 +270,78 @@ export function HomePageClient({
           <HeroCarousel products={homeProducts} />
         </section>
 
-        <div className="space-y-7 sm:space-y-10 pt-7 sm:pt-10">
-          {/* Departments are loaded from active backend categories */}
-          <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8 space-y-2.5">
-            <div className="flex items-center justify-between border-b border-app pb-2">
+        <div className="space-y-7 sm:space-y-10 pt-5 sm:pt-8">
+          {/* Value & Trust Features Strip (ZiiMarket Style) */}
+          <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
+              <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <Truck className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">Fast Delivery</h4>
+                    <span className="hidden sm:inline-block rounded-md bg-indigo-100 dark:bg-indigo-900/50 px-1.5 py-0.2 text-[9px] font-bold text-indigo-700 dark:text-indigo-300">Express</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Across Addis Ababa & beyond</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">100% Authentic</h4>
+                    <span className="hidden sm:inline-block rounded-md bg-emerald-100 dark:bg-emerald-900/50 px-1.5 py-0.2 text-[9px] font-bold text-emerald-700 dark:text-emerald-300">Verified</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Direct from vetted suppliers</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">Local Payments</h4>
+                    <span className="hidden sm:inline-block rounded-md bg-cyan-100 dark:bg-cyan-900/50 px-1.5 py-0.2 text-[9px] font-bold text-cyan-700 dark:text-cyan-300">Telebirr</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Telebirr, CBE & Cards</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                  <Headphones className="h-4 w-4 sm:h-5 sm:w-5" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-1.5">
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">Dedicated Support</h4>
+                    <span className="hidden sm:inline-block rounded-md bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.2 text-[9px] font-bold text-purple-700 dark:text-purple-300">24/7</span>
+                  </div>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Escrow & buyer guarantee</p>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Departments are loaded from active backend categories (ZiiMarket Category Card Style) */}
+          <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8 space-y-3">
+            <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
               <div>
-                <h2 className="text-xs sm:text-sm md:text-base font-bold tracking-tight text-app">
+                <h2 className="text-sm sm:text-base md:text-lg font-bold tracking-tight text-foreground">
                   Shop by Department
                 </h2>
+                <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                  Explore top categories and direct marketplace departments
+                </p>
               </div>
               <Link
                 href="/categories"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-app hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
               >
                 <span>View All</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -284,60 +349,15 @@ export function HomePageClient({
             </div>
 
             {departments.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 sm:gap-2.5">
-                {departments.map((category) => {
-                const count = getCatCount(category.slug);
-                const quadProducts = getQuadProducts(category.slug);
-
-                return (
-                  <Link
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
+                {departments.map((category) => (
+                  <CategoryCard
                     key={category.id}
-                    href={`/marketplace?category=${encodeURIComponent(category.slug)}`}
-                    className="group relative flex flex-col justify-between rounded-xl border border-app bg-app-card hover:border-app-hover transition-all duration-200 overflow-hidden cursor-pointer shadow-xs"
-                  >
-                    {/* 2x2 Quad of 4 Distinct Slots */}
-                    <div className="grid grid-cols-2 gap-0 w-full aspect-square overflow-hidden bg-black/5 dark:bg-black/40 border-b border-app">
-                      {quadProducts.map((prod, idx) => (
-                        <div
-                          key={`${category.id}-slot-${idx}`}
-                          className="relative aspect-square w-full overflow-hidden bg-black/5 dark:bg-white/[0.02] border-b border-r border-app/40 [&:nth-child(2n)]:border-r-0 [&:nth-child(n+3)]:border-b-0"
-                        >
-                          {prod ? (
-                            <Image
-                              src={prod.image}
-                              alt={prod.name}
-                              fill
-                              unoptimized
-                              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 16vw"
-                              className="object-cover object-center group-hover:scale-106 transition-transform duration-300 ease-out"
-                            />
-                          ) : (
-                            <div className="h-full w-full flex items-center justify-center bg-black/[0.02] dark:bg-white/[0.015]">
-                              <Package className="h-3.5 w-3.5 text-app-muted/20 stroke-[1.2]" />
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-
-                    {/* Category Name Underneath */}
-                    <div className="p-2 sm:p-2.5 flex items-center justify-between gap-1 bg-app-card">
-                      <div className="min-w-0">
-                        <h3 className="text-xs sm:text-[12.5px] font-bold text-app group-hover:opacity-80 transition-colors truncate">
-                          {category.name}
-                        </h3>
-                        <p className="text-[9.5px] text-app-muted mt-0.5 truncate">
-                          {count} shown
-                        </p>
-                      </div>
-
-                      <div className="h-5.5 w-5.5 rounded border border-app flex items-center justify-center text-app group-hover:translate-x-0.5 transition-transform shrink-0">
-                        <ChevronRight className="h-2.5 w-2.5" />
-                      </div>
-                    </div>
-                  </Link>
-                );
-                })}
+                    category={category}
+                    itemCount={getCatCount(category.slug)}
+                    products={initialProducts}
+                  />
+                ))}
               </div>
             ) : (
               <p className="rounded-xl border border-app bg-app-card p-6 text-center text-sm text-app-muted">
@@ -346,19 +366,61 @@ export function HomePageClient({
             )}
           </section>
 
-          {/* Live products grouped by backend category */}
+          {/* Curated Spotlight Banner (ZiiMarket Style) */}
+          <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8">
+            <div className="relative overflow-hidden rounded-2xl sm:rounded-3xl border border-slate-200/80 dark:border-white/10 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-8 md:p-10 shadow-xl">
+              <div className="absolute -right-20 -top-20 w-80 h-80 rounded-full bg-indigo-500/10 blur-3xl pointer-events-none" />
+              <div className="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-cyan-500/10 blur-3xl pointer-events-none" />
+
+              <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
+                <div className="space-y-3 text-center md:text-left max-w-2xl">
+                  <div className="inline-flex items-center gap-2 rounded-full border border-indigo-400/30 bg-indigo-500/20 px-3 py-1 text-[10px] sm:text-xs font-bold text-indigo-300 backdrop-blur-md">
+                    <Zap className="h-3.5 w-3.5" />
+                    <span>Direct Ethiopian Trade · Authentic Brands</span>
+                  </div>
+                  <h3 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight leading-snug">
+                    Source Directly from Ethiopia&apos;s Best Producers & Merchants
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+                    Enjoy transparent prices, verified product authenticity, fast delivery across Addis Ababa, and safe escrow checkout.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-3 shrink-0">
+                  <Link
+                    href="/marketplace"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-bold shadow-lg shadow-indigo-600/30 transition-all active:scale-95"
+                  >
+                    <span>Shop Marketplace</span>
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                  <Link
+                    href="/categories"
+                    className="inline-flex items-center justify-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/20 text-white px-5 sm:px-6 py-2.5 sm:py-3 text-xs sm:text-sm font-semibold backdrop-blur-md transition-all active:scale-95"
+                  >
+                    <span>Browse All Categories</span>
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Live products grouped by backend category (ZiiMarket Style) */}
           <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8 space-y-4 sm:space-y-5">
             {/* Section Toolbar */}
-            <div className="flex items-center justify-between border-b border-app pb-2.5">
+            <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
               <div>
-                <h2 className="text-sm sm:text-base md:text-xl font-bold tracking-tight text-app">
-                  Latest Products
+                <h2 className="text-sm sm:text-base md:text-xl font-bold tracking-tight text-foreground">
+                  Latest Products & Department Feeds
                 </h2>
+                <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
+                  Fresh arrivals, top sellers, and authentic products updated daily
+                </p>
               </div>
 
               <Link
                 href="/marketplace"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-app hover:underline"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
               >
                 <span>Explore All</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -385,7 +447,7 @@ export function HomePageClient({
             <div className="pt-2 flex justify-center">
               <Link
                 href="/marketplace"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-app bg-app-card hover:bg-app text-app px-4 py-2 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-[#11131c] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-5 py-2.5 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs"
               >
                 <span>Explore Marketplace Catalog</span>
                 <ArrowRight className="h-3.5 w-3.5" />

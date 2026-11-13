@@ -1,154 +1,21 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/store/auth-store";
-import { API_CONFIG } from "@/config/api.config";
-import { isValidJwt, isJwtExpired } from "@/services/api/interceptors";
-import { toast } from "sonner";
-import {
-  Lock,
-  Store,
-  ArrowRight,
-  Sparkles,
-  LogIn,
-  RefreshCw,
-  ShieldCheck,
-  AlertCircle,
-} from "lucide-react";
+import React from "react";
+import { RoleAuthGuard } from "@/components/auth/role-auth-guard";
 
 interface SellerAuthGuardProps {
   children: React.ReactNode;
 }
 
 export function SellerAuthGuard({ children }: SellerAuthGuardProps) {
-  const router = useRouter();
-  const { user, token, isAuthenticated, hasHydrated, login, logout } = useAuthStore();
-  const [mounted, setMounted] = useState(false);
-  const [isConnecting, setIsConnecting] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted || !hasHydrated) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#070a10]">
-        <div className="flex items-center gap-3 text-indigo-400">
-          <RefreshCw className="h-5 w-5 animate-spin" />
-          <span className="text-sm font-medium text-zinc-300">
-            Initializing merchant security context...
-          </span>
-        </div>
-      </div>
-    );
-  }
-
-  const hasValidSession =
-    isAuthenticated &&
-    Boolean(user) &&
-    Boolean(token);
-
-  const isSellerRole =
-    user?.role === "SELLER" || user?.role === "ADMIN";
-
-  // If user has a valid seller or admin session, render children
-  if (hasValidSession && isSellerRole) {
-    return <>{children}</>;
-  }
-
-  // If user is authenticated with a non-merchant role (e.g. CUSTOMER, SUPPLIER)
-  if (hasValidSession && !isSellerRole) {
-    const isSupplier = user?.role === "SUPPLIER" || (user as any)?.role === "supplier";
-    const roleRedirectMap: Record<string, string> = {
-      SUPPLIER: "/dashboard/supplier",
-      CUSTOMER: "/marketplace",
-      DELIVERY: "/dashboard/driver",
-      DRIVER: "/dashboard/driver",
-    };
-    const redirectTo = user?.role ? roleRedirectMap[user.role] ?? "/marketplace" : "/marketplace";
-
-    return (
-      <div className="flex min-h-[80vh] items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-2xl border border-rose-500/25 bg-[#0d121f] p-6 shadow-2xl text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20 mb-4">
-            <Lock className="h-6 w-6" />
-          </div>
-          <h2 className="text-lg font-bold text-white">Seller Portal — Access Denied</h2>
-          <p className="text-xs text-zinc-300 mt-2 leading-relaxed">
-            You are signed in as a <span className="font-semibold text-rose-300">{user?.role}</span> {user?.name ? `(${user.name})` : ""}.
-            {isSupplier
-              ? " Enterprise Suppliers are strictly restricted from the Retail Merchant Console. Please use your dedicated Supplier Enterprise Portal to manage catalog, orders, and commercial cargo."
-              : " The Seller Console is restricted exclusively to verified retail merchants."}
-          </p>
-          <div className="mt-6 flex flex-col gap-2.5">
-            <button
-              onClick={() => router.push(redirectTo)}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg hover:bg-indigo-500 transition-colors cursor-pointer"
-            >
-              <ArrowRight className="h-4 w-4" />
-              <span>{isSupplier ? "Go to Supplier Dashboard" : "Return to Marketplace"}</span>
-            </button>
-            <button
-              onClick={() => {
-                logout();
-                router.push("/login");
-              }}
-              className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.08] transition-colors cursor-pointer"
-            >
-              <LogIn className="h-3.5 w-3.5" />
-              <span>Sign In with Merchant Account</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // Not authenticated screen with Quick Connect button
   return (
-    <div className="flex min-h-[85vh] items-center justify-center p-4">
-      <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-white/10 bg-[#0d121f] p-8 shadow-2xl backdrop-blur-2xl">
-        <div className="absolute -top-24 -right-24 h-48 w-48 rounded-full bg-indigo-500/15 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-24 -left-24 h-48 w-48 rounded-full bg-cyan-500/15 blur-3xl pointer-events-none" />
-
-        <div className="relative flex flex-col items-center text-center">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white shadow-lg shadow-indigo-500/25 mb-4">
-            <Store className="h-7 w-7" />
-          </div>
-
-          <h2 className="text-xl font-bold tracking-tight text-white">
-            Merchant Authentication Required
-          </h2>
-          <p className="mt-2 text-xs text-zinc-400 leading-relaxed max-w-sm">
-            To view live inventory, process courier pickup OTPs, and settle escrow balances, you must be signed in with an active merchant security token.
-          </p>
-
-          <div className="mt-6 w-full space-y-3">
-            {/* Standard Login Navigation */}
-            <button
-              onClick={() => router.push("/login?redirect=/dashboard/seller")}
-              className="group relative flex w-full items-center justify-center gap-2.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-5 py-3 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 transition-all hover:scale-[1.01] hover:shadow-indigo-500/40 active:scale-[0.99] cursor-pointer"
-            >
-              <LogIn className="h-4 w-4" />
-              <span>Sign In to Merchant Console</span>
-              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </button>
-          </div>
-
-          <div className="mt-6 flex items-center justify-center gap-4 text-[11px] text-zinc-500">
-            <span className="flex items-center gap-1">
-              <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-              PostgreSQL DB Verified
-            </span>
-            <span>•</span>
-            <span className="flex items-center gap-1">
-              <Lock className="h-3.5 w-3.5 text-indigo-400" />
-              NestJS JWT Guarded
-            </span>
-          </div>
-        </div>
-      </div>
-    </div>
+    <RoleAuthGuard
+      allowedRoles={["SELLER"]}
+      loginRedirectPath="/dashboard/seller"
+      portalName="Seller Dashboard"
+      loadingMessage="Initializing merchant security context..."
+    >
+      {children}
+    </RoleAuthGuard>
   );
 }

@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { getCardsByUser } from "@/lib/api/card-db";
-import { getPaymentDbPool } from "@/lib/db";
 
 export async function GET(req: Request) {
   try {
@@ -22,33 +21,11 @@ export async function GET(req: Request) {
       customerId,
     });
 
-    // Ensure all existing user cards are marked ACTIVE in database and response
-    if (cards.length > 0 && cards.some((c) => c.status !== "ACTIVE")) {
-      try {
-        const pool = getPaymentDbPool();
-        const client = await pool.connect();
-        try {
-          const ids = cards.map((c) => c.id);
-          await client.query(
-            `UPDATE mercatox_cards SET status = 'ACTIVE' WHERE id = ANY($1::uuid[])`,
-            [ids]
-          );
-        } finally {
-          client.release();
-        }
-      } catch (dbErr) {
-        console.warn("[My Cards] Could not batch update card status:", dbErr);
-      }
-    }
-
-    const normalizedCards = cards.map((c) => ({
-      ...c,
-      status: "ACTIVE" as const,
-    }));
+    const activeCards = cards.filter((c) => c.status === "ACTIVE");
 
     return NextResponse.json({
       success: true,
-      cards: normalizedCards,
+      cards: activeCards,
     });
   } catch (err: any) {
     console.error("[My Cards API Error]", err);

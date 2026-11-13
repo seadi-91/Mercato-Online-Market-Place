@@ -22,6 +22,10 @@ export const API_CONFIG = {
     return getApiBaseUrl();
   },
   googleClientId: process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "",
+  githubClientId: process.env.NEXT_PUBLIC_GITHUB_CLIENT_ID || "Ov23liTNWyMsHJuhwQ6i",
+  githubCallbackUrl:
+    process.env.NEXT_PUBLIC_GITHUB_CALLBACK_URL ||
+    "http://localhost:8000/api/auth/github/callback",
   timeout: 15000,
   headers: {
     "Content-Type": "application/json",

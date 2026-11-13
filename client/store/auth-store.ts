@@ -48,6 +48,17 @@ export const useAuthStore = create<AuthState>()(
           console.error("[AuthStore] Refusing login: Server JWT token required.");
           return;
         }
+        if (typeof window !== "undefined") {
+          try {
+            const lastRaw = localStorage.getItem("mercatox_last_checkout_order");
+            if (lastRaw) {
+              const parsed = JSON.parse(lastRaw);
+              if (parsed?.customerId && parsed.customerId !== user.id) {
+                localStorage.removeItem("mercatox_last_checkout_order");
+              }
+            }
+          } catch {}
+        }
         const validToken = token;
         set({
           user,
@@ -64,6 +75,7 @@ export const useAuthStore = create<AuthState>()(
             sessionStorage.removeItem("mercatox-auth-storage");
             localStorage.removeItem("mercatox_token");
             localStorage.removeItem("token");
+            localStorage.removeItem("mercatox_last_checkout_order");
           } catch {
             // ignore storage access errors
           }

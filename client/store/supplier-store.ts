@@ -655,6 +655,9 @@ interface SupplierState {
   shipments: Shipment[];
   invoices: Invoice[];
   transactions: PaymentTransaction[];
+  isLoadingTransactions: boolean;
+  transactionsError: string | null;
+  fetchTransactions: () => Promise<void>;
   promotions: PromotionCampaign[];
   addPromotion: (promoData: Omit<PromotionCampaign, "id" | "views" | "conversions" | "generatedRevenue" | "usageCount">) => PromotionCampaign;
   updatePromotion: (id: string, updates: Partial<PromotionCampaign>) => void;
@@ -870,6 +873,8 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   shipments: [],
   invoices: [],
   transactions: [],
+  isLoadingTransactions: false,
+  transactionsError: null,
   promotions: [],
   returns: [],
   disputes: [],
@@ -1094,6 +1099,147 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
       modalData: null,
     }));
     toast.info("Delivery modification request submitted to buyer.");
+  },
+
+  fetchTransactions: async () => {
+    set({ isLoadingTransactions: true, transactionsError: null });
+    try {
+      const user = useAuthStore.getState().user;
+      const targetSellerId = (user as any)?.sellerId || user?.id;
+
+      if (!targetSellerId) {
+        set({ transactions: [], isLoadingTransactions: false });
+        return;
+      }
+
+      const res = await fetch(
+        `/api/payments?sellerId=${encodeURIComponent(targetSellerId)}`,
+        {
+          credentials: "include",
+          cache: "no-store",
+        }
+      );
+
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || "Failed to fetch supplier payments");
+      }
+
+      const data = await res.json();
+      const rawPayments: any[] = Array.isArray(data?.payments) ? data.payments : [];
+
+      const mappedTransactions: PaymentTransaction[] = rawPayments.map((p: any) => {
+        const rawAmount = Number(p.amount || 0);
+        const feeETB = Math.round(rawAmount * 0.015);
+        const netAmountETB = Math.max(0, rawAmount - feeETB);
+
+        const rawStatus = String(p.status || "").toUpperCase();
+        const rawEscrow = String(p.escrowStatus || "").toUpperCase();
+        const rawOrderStatus = String(p.orderStatus || "").toUpperCase();
+
+        let txStatus: PaymentTransaction["status"] = "pending";
+        if (rawStatus === "FAILED" || rawStatus === "CANCELLED") {
+          txStatus = "failed";
+        } else if (rawStatus === "REFUNDED") {
+          txStatus = "refunded";
+        } else if (rawEscrow === "HELD") {
+          txStatus = "escrow_held";
+        } else if (rawStatus === "SUCCESS" || rawStatus === "PAID" || rawStatus === "COMPLETED") {
+          txStatus = rawEscrow === "RELEASED" || rawOrderStatus === "DELIVERED" ? "completed" : "escrow_held";
+        }
+
+        let escrowMilestone: PaymentTransaction["escrowMilestone"] = "deposit_confirmed";
+        if (txStatus === "completed" || rawEscrow === "RELEASED") {
+          escrowMilestone = "funds_released";
+        } else if (rawOrderStatus === "DELIVERED") {
+          escrowMilestone = "inspection_pending";
+        } else if (rawOrderStatus === "SHIPPED") {
+          escrowMilestone = "goods_in_transit";
+        }
+
+        const providerRaw = String(p.provider || "CHAPA");
+        const providerUpper = providerRaw.toUpperCase();
+        let methodLabel = providerRaw;
+        if (p.maskedCardNumber) {
+          methodLabel = `MercatoX Card (${p.maskedCardNumber})`;
+        } else if (providerUpper.includes("TELEBIRR")) {
+          methodLabel = "Telebirr Business";
+        } else if (providerUpper.includes("CBE") && !providerUpper.includes("CHAPA")) {
+          methodLabel = p.bankName ? `${p.bankName} Escrow` : "CBE Commercial Escrow";
+        } else if (providerUpper === "CHAPA") {
+          methodLabel = "Chapa Hosted Gateway (CBE / Telebirr / Card)";
+        } else if (p.bankName) {
+          methodLabel = `${p.bankName} (${providerRaw})`;
+        }
+
+        const deliv = p.deliveryAddress;
+        const deliveryAddrText =
+          typeof deliv === "string"
+            ? deliv
+            : deliv && typeof deliv === "object"
+              ? [deliv.streetAddress, deliv.city, deliv.subCity, deliv.region, deliv.address]
+                  .filter(Boolean)
+                  .join(", ")
+              : "";
+
+        const timestampSrc = p.verifiedAt || p.createdAt;
+        const formattedDate = timestampSrc
+          ? new Date(timestampSrc).toISOString().slice(0, 16).replace("T", " ")
+          : new Date().toISOString().slice(0, 10);
+
+        return {
+          id: String(p.id),
+          paymentId: String(p.id),
+          transactionNumber:
+            p.transactionReference || `TXN-${String(p.id).slice(0, 8).toUpperCase()}`,
+          buyerCompany: p.customerName || "MercatoX Customer",
+          payerName: p.customerName || "MercatoX Customer",
+          payerPhone: p.customerPhone || "",
+          payerEmail: p.customerEmail || "",
+          deliveryAddress: deliveryAddrText,
+          orderId: p.orderId ? String(p.orderId) : undefined,
+          orderNumber:
+            p.orderNumber || `ORD-${String(p.orderId || p.id).slice(0, 8).toUpperCase()}`,
+          orderStatus: p.orderStatus || "PENDING",
+          itemsSummary: p.itemsSummary || "",
+          itemsCount: Number(p.itemsCount || (Array.isArray(p.items) ? p.items.length : 0)),
+          items: Array.isArray(p.items) ? p.items : [],
+          subtotalAmount: p.subtotalAmount != null ? Number(p.subtotalAmount) : undefined,
+          deliveryFee: p.deliveryFee != null ? Number(p.deliveryFee) : undefined,
+          amount: rawAmount,
+          feeETB,
+          netAmountETB,
+          paymentMethod: methodLabel,
+          provider: providerRaw,
+          status: txStatus,
+          escrowStatus: p.escrowStatus || "",
+          date: formattedDate,
+          createdAt: p.createdAt || "",
+          verifiedAt: p.verifiedAt || null,
+          referenceNumber:
+            p.providerReference ||
+            p.bankTransactionRef ||
+            p.transactionReference ||
+            String(p.id),
+          providerReference: p.providerReference || null,
+          maskedCardNumber: p.maskedCardNumber || null,
+          bankName: p.bankName || null,
+          depositorName: p.depositorName || null,
+          bankTransactionRef: p.bankTransactionRef || null,
+          paymentReceiptUrl: p.paymentReceiptUrl || null,
+          notes: p.orderNotes || "",
+          escrowMilestone,
+        };
+      });
+
+      set({ transactions: mappedTransactions, isLoadingTransactions: false });
+    } catch (err: any) {
+      console.error("[SupplierStore] Error fetching transactions:", err);
+      set({
+        transactionsError: err?.message || "Failed to fetch supplier payments",
+        isLoadingTransactions: false,
+      });
+    }
   },
 
   fetchProducts: async (branchFilter?: string) => {

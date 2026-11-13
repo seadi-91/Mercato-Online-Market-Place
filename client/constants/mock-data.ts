@@ -26,6 +26,7 @@ export interface Product {
   badge?: "Trending" | "Best Seller" | "Escrow Verified" | "Verified Merchant" | "New Arrival";
   description: string;
   image: string;
+  hasOwnImage?: boolean;
   gallery?: string[];
   specifications?: Record<string, string>;
   warranty?: string;

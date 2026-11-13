@@ -33,6 +33,7 @@ import {
   UserPlus,
   Lock,
   RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
@@ -405,6 +406,8 @@ function BuyCardPageContent() {
   const [isLoadingCards, setIsLoadingCards] = useState(true);
   const [redirectCheckoutUrl, setRedirectCheckoutUrl] = useState<string>("");
   const [isResendingPin, setIsResendingPin] = useState(false);
+  const [isVerifyingPayment, setIsVerifyingPayment] = useState(false);
+  const [paymentVerificationError, setPaymentVerificationError] = useState<string | null>(null);
 
   const expiryDate = CARD_EXPIRY_DATE;
   const selectedTheme = CARD_THEMES.find((t) => t.id === selectedThemeId) || CARD_THEMES[0];
@@ -412,7 +415,8 @@ function BuyCardPageContent() {
   const totalAmountToPay = adminCardPrice + loadedAmount;
 
   const userOwnsCard = Boolean(
-    isCardGenerated || activeCardData || (myCards && myCards.length > 0)
+    (isCardGenerated && activeCardData?.status === "ACTIVE") ||
+      (myCards && myCards.some((c: any) => c.status === "ACTIVE"))
   );
 
   const currentCard =
@@ -428,10 +432,24 @@ function BuyCardPageContent() {
   const displayCardholderName =
     currentCard?.cardholderName || cardholderName || user?.name || "Official Member";
 
-  const displayEmail =
-    (user?.email && user.email.includes("@") && !user.email.includes("example.com"))
-      ? user.email
-      : ((currentCard?.email && !currentCard.email.includes("example.com")) ? currentCard.email : (email || user?.email || ""));
+  const isRealEmail = (val?: string | null) => {
+    if (!val) return false;
+    const clean = val.trim().toLowerCase();
+    return (
+      clean.includes("@") &&
+      !clean.includes("example.com") &&
+      !clean.includes(".mercatox@gmail.com") &&
+      !clean.includes("@users.noreply.")
+    );
+  };
+
+  const displayEmail = isRealEmail(currentCard?.email)
+    ? currentCard.email
+    : isRealEmail(email)
+    ? email
+    : isRealEmail(user?.email)
+    ? user!.email
+    : currentCard?.email || email || user?.email || "";
   const displayPhone = currentCard?.phoneNumber || phoneNumber || user?.phoneNumber || "";
   const displayCardNumber = currentCard?.cardNumber || generatedCardId;
   const displayBalance = Number(currentCard?.balance ?? loadedAmount ?? 0);
@@ -509,15 +527,15 @@ function BuyCardPageContent() {
       }
 
       const res = await fetch(
-        `/api/card/my-cards?email=${encodeURIComponent(queryEmail)}&phoneNumber=${encodeURIComponent(queryPhone)}&customerId=${encodeURIComponent(queryCustomerId)}`
+        `/api/card/my-cards?email=${encodeURIComponent(queryEmail)}&phoneNumber=${encodeURIComponent(queryPhone)}&customerId=${encodeURIComponent(queryCustomerId)}`,
+        { cache: "no-store" }
       );
       const data = await res.json();
       if (data.success && Array.isArray(data.cards)) {
-        setMyCards(data.cards);
-        // If customer already owns a card (ACTIVE or PENDING), switch directly to View Card mode
-        const existingCard =
-          data.cards.find((c: any) => c.status === "ACTIVE") ||
-          data.cards[0];
+        const activeOnly = data.cards.filter((c: any) => c.status === "ACTIVE");
+        setMyCards(activeOnly);
+        // If customer already owns a verified ACTIVE card, switch directly to View Card mode
+        const existingCard = activeOnly[0];
         if (existingCard) {
           setActiveCardData(existingCard);
           setGeneratedCardId(existingCard.cardNumber);
@@ -537,6 +555,12 @@ function BuyCardPageContent() {
         } else {
           setIsCardGenerated(false);
           setActiveCardData(null);
+          try {
+            if (typeof window !== "undefined") {
+              const storageKey = `mercatox_card_${(user.email || user.id || "current").toLowerCase().trim()}`;
+              localStorage.removeItem(storageKey);
+            }
+          } catch {}
         }
       }
     } catch (err) {
@@ -554,7 +578,7 @@ function BuyCardPageContent() {
           const cached = localStorage.getItem(storageKey);
           if (cached) {
             const parsed = JSON.parse(cached);
-            if (parsed && parsed.cardNumber) {
+            if (parsed && parsed.cardNumber && parsed.status === "ACTIVE") {
               setActiveCardData(parsed);
               setGeneratedCardId(parsed.cardNumber);
               setLoadedAmount(Number(parsed.balance) || 0);
@@ -572,38 +596,115 @@ function BuyCardPageContent() {
     }
   }, [isAuthenticated, user?.id, user?.email, user?.phoneNumber]);
 
-  // Handle return from Chapa payment
-  useEffect(() => {
-    const txRef = searchParams.get("tx_ref");
-    const paymentStatus = searchParams.get("payment");
+  // Shared strict Chapa payment verification helper (used on return_url AND browser back/bfcache return)
+  const verifyPendingCardPayment = async (txRef: string, fromQuery: boolean) => {
+    setIsProcessing(false);
+    setIsVerifyingPayment(true);
+    setPaymentVerificationError(null);
+    toast.loading("Verifying Chapa payment...", { id: "chapa-verify" });
 
-    if (txRef) {
-      toast.loading("Verifying Chapa transaction...", { id: "chapa-verify" });
-      fetch(`/api/card/verify?tx_ref=${encodeURIComponent(txRef)}`)
-        .then((res) => res.json())
-        .then((data) => {
-          if (data.success && data.card) {
-            setActiveCardData(data.card);
-            setGeneratedCardId(data.card.cardNumber);
-            setLoadedAmount(Number(data.card.balance) || 0);
-            setCardholderName(data.card.cardholderName);
-            setSelectedThemeId(data.card.themeId || "mercatox-signature");
-            setIsCardGenerated(true);
-            toast.success("Payment Verified! 8-Digit Password Sent to Email", {
-              id: "chapa-verify",
-              description: `Card ${data.card.cardNumber} is active! Your 8-digit card password has been sent to ${data.card.email}. Use it to checkout on MercatoX.`,
-              duration: 8000,
-            });
-            loadUserCards();
-          } else {
-            toast.dismiss("chapa-verify");
-          }
-        })
-        .catch(() => {
-          toast.dismiss("chapa-verify");
+    try {
+      const res = await fetch(`/api/card/verify?tx_ref=${encodeURIComponent(txRef)}`, {
+        cache: "no-store",
+      });
+      const data = await res.json().catch(() => ({}));
+
+      try {
+        if (typeof window !== "undefined") {
+          sessionStorage.removeItem("mercatox_pending_card_tx_ref");
+        }
+      } catch {}
+
+      if (res.ok && data?.success && data?.verified && data?.card) {
+        setActiveCardData(data.card);
+        setMyCards([data.card]);
+        setGeneratedCardId(data.card.cardNumber);
+        setLoadedAmount(Number(data.card.balance) || 0);
+        setCardholderName(data.card.cardholderName);
+        setSelectedThemeId(data.card.themeId || "mercatox-signature");
+        setIsCardGenerated(true);
+        setPaymentVerificationError(null);
+        if (data.passwordEmailSent) {
+          toast.success("Chapa Payment Verified! 8-Digit Password Sent to Email", {
+            id: "chapa-verify",
+            description: `Card ${data.card.cardNumber} is active and your 8-digit card password was emailed to ${data.card.email}.`,
+            duration: 8000,
+          });
+        } else {
+          toast.success("Chapa Payment Verified! Your MercatoX Card is Active", {
+            id: "chapa-verify",
+            description: data.mailError
+              ? `Card ${data.card.cardNumber} is active, but email delivery reported: ${data.mailError}. Try clicking 'Resend Password to Email'.`
+              : `Card ${data.card.cardNumber} is active. Click 'Resend Password to Email' if you need a fresh copy of your 8-digit PIN.`,
+            duration: 9000,
+          });
+        }
+        loadUserCards();
+        router.replace("/card");
+      } else {
+        const errMsg =
+          data?.error ||
+          "Chapa payment was not completed. Your MercatoX Card has not been issued or registered.";
+        setPaymentVerificationError(errMsg);
+        setIsCardGenerated(false);
+        setActiveCardData(null);
+        toast.error("Chapa Payment Not Completed", {
+          id: "chapa-verify",
+          description: errMsg,
+          duration: 7000,
         });
+        if (fromQuery) {
+          router.replace("/card");
+        }
+      }
+    } catch {
+      const errMsg =
+        "Could not verify Chapa payment. If you did not finish paying on Chapa, please try again.";
+      setPaymentVerificationError(errMsg);
+      toast.error("Payment Verification Failed", {
+        id: "chapa-verify",
+        description: errMsg,
+        duration: 6000,
+      });
+    } finally {
+      setIsVerifyingPayment(false);
     }
+  };
+
+  // Handle return from Chapa payment: NEVER trust URL flags alone — strictly verify via Chapa API
+  useEffect(() => {
+    const queryTxRef = searchParams.get("tx_ref") || searchParams.get("trx_ref");
+    let pendingTxRef: string | null = null;
+    try {
+      pendingTxRef =
+        typeof window !== "undefined"
+          ? sessionStorage.getItem("mercatox_pending_card_tx_ref")
+          : null;
+    } catch {}
+
+    const txRef = queryTxRef || pendingTxRef;
+    if (!txRef) return;
+
+    verifyPendingCardPayment(txRef, Boolean(queryTxRef));
   }, [searchParams]);
+
+  // Catch browser Back button returning from Chapa checkout via bfcache
+  useEffect(() => {
+    const handlePageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setIsProcessing(false);
+        let pendingTxRef: string | null = null;
+        try {
+          pendingTxRef = sessionStorage.getItem("mercatox_pending_card_tx_ref");
+        } catch {}
+        if (pendingTxRef) {
+          verifyPendingCardPayment(pendingTxRef, false);
+        }
+      }
+    };
+    window.addEventListener("pageshow", handlePageShow);
+    return () => window.removeEventListener("pageshow", handlePageShow);
+  }, []);
 
   const handleResendPassword = async () => {
     const targetEmail = displayEmail;
@@ -624,11 +725,11 @@ function BuyCardPageContent() {
           cardNumber: displayCardNumber,
         }),
       });
-      const data = await res.json();
-      if (data.success) {
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
         toast.success("8-Digit Password Sent to Email!", {
           id: "resend-pin",
-          description: `Your card password has been sent to ${targetEmail}. Please check your inbox and spam folder.`,
+          description: `Your card password has been sent directly to ${data.email || targetEmail}. Please check your inbox and spam folder.`,
         });
       } else {
         toast.error(data.error || "Failed to send email", { id: "resend-pin" });
@@ -689,6 +790,7 @@ function BuyCardPageContent() {
       return;
     }
 
+    setPaymentVerificationError(null);
     setIsProcessing(true);
     toast.loading("Connecting to Chapa Payment Gateway...", { id: "card-chapa-init" });
 
@@ -709,43 +811,38 @@ function BuyCardPageContent() {
         }),
       });
 
-      const result = await response.json();
+      const result = await response.json().catch(() => ({}));
 
-      if (!result.success || !result.card) {
+      if (!response.ok || !result.success) {
         if (result.error && result.error.includes("already own an active MercatoX Card")) {
           toast.error(result.error, { id: "card-chapa-init" });
           loadUserCards();
           return;
         }
-        throw new Error(result.error || "Failed to initialize card with Chapa");
+        throw new Error(result.error || "Failed to initialize card payment with Chapa");
       }
 
-      // If Chapa provided an authentic hosted checkout URL, redirect IMMEDIATELY to Chapa
-      if (result.checkoutUrl) {
-        setRedirectCheckoutUrl(result.checkoutUrl);
-        toast.success("Connecting to Chapa Payment...", {
-          id: "card-chapa-init",
-          description: `Transferring directly to official Chapa secure checkout...`,
-        });
-        // Direct instant redirection to Chapa
-        window.location.href = result.checkoutUrl;
-        return;
+      if (!result.checkoutUrl || !result.txRef) {
+        throw new Error("Chapa checkout URL was not received. Card cannot be issued without payment.");
       }
 
-      // Fallback if direct issuance (offline/test bypass)
-      const issuedCard = result.card;
-      setActiveCardData(issuedCard);
-      setGeneratedCardId(issuedCard.cardNumber);
-      setIsCardGenerated(true);
-      loadUserCards();
+      // Persist pending txRef in sessionStorage so returning from Chapa without payment is strictly caught
+      try {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("mercatox_pending_card_tx_ref", result.txRef);
+        }
+      } catch {}
 
-      toast.success("Card Successfully Activated!", {
+      setRedirectCheckoutUrl(result.checkoutUrl);
+      toast.success("Redirecting to Chapa Checkout...", {
         id: "card-chapa-init",
-        description: `Your ${selectedTheme.name} loaded with ETB ${loadedAmount.toLocaleString()} is active.`,
+        description: "Complete your Chapa payment (enter your test number) to register your MercatoX Card.",
       });
+      window.location.href = result.checkoutUrl;
+      return;
     } catch (err: any) {
       console.error("[Card Order Error]", err);
-      toast.error("Failed to complete card purchase", {
+      toast.error("Failed to start Chapa card payment", {
         id: "card-chapa-init",
         description: err.message || "Please check connection and try again.",
       });
@@ -855,12 +952,14 @@ function BuyCardPageContent() {
               </div>
             </div>
           </div>
-        ) : isLoadingCards && !userOwnsCard ? (
+        ) : isVerifyingPayment || (isLoadingCards && !userOwnsCard) ? (
           /* ===================== VIEW: LOADING STATUS ===================== */
           <div className="min-h-[350px] flex flex-col items-center justify-center space-y-4 rounded-3xl border border-app bg-app-card shadow-xl p-8">
             <div className="h-10 w-10 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
             <p className="text-xs font-mono font-bold text-app-muted tracking-wider uppercase">
-              Verifying your official MercatoX Card account...
+              {isVerifyingPayment
+                ? "Verifying your Chapa payment before issuing card..."
+                : "Verifying your official MercatoX Card account..."}
             </p>
           </div>
         ) : userOwnsCard ? (
@@ -985,6 +1084,31 @@ function BuyCardPageContent() {
                 <span>1 Card Per Account Policy</span>
               </div>
             </div>
+
+            {/* Uncompleted Chapa Payment Warning Banner */}
+            {paymentVerificationError && (
+              <div className="relative z-10 rounded-2xl border border-rose-500/40 bg-rose-500/10 p-4 text-xs text-rose-200 flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="font-bold text-rose-300">
+                      Payment Not Completed — Card Not Issued
+                    </p>
+                    <p className="text-[11px] leading-relaxed text-rose-200/90">
+                      {paymentVerificationError}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setPaymentVerificationError(null)}
+                  className="text-rose-300/80 hover:text-white transition-colors"
+                  aria-label="Dismiss payment warning"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            )}
 
             {/* Centered Live ATM Card Showcase */}
             <div className="relative z-10 flex flex-col items-center justify-center py-2 sm:py-3">

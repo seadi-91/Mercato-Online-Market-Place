@@ -31,63 +31,6 @@ import {
 } from "@/features/admin/services/admin.service";
 import { useAdminUIStore } from "@/store/ui-store";
 
-const INITIAL_FALLBACK_DISPUTES: DisputeItem[] = [
-  {
-    id: "disp-01",
-    orderId: "ord-94818",
-    orderNumber: "MX-94818",
-    customerName: "Bereket Alemu",
-    customerPhone: "+251 91 123 4567",
-    deliveryAddress: "Bole Medhanialem, Addis Ababa",
-    merchantStore: "Bole Electronics Hub",
-    amount: 32000,
-    reason: "Defective screen display upon unboxing; seller disputed transit liability.",
-    openedDate: "2026-09-19",
-    paymentStatus: "PAID",
-    escrowStatus: "HELD",
-    status: "OPEN",
-    items: [
-      { id: "itm-1", title: "Samsung Galaxy Tab S9 128GB", quantity: 1, unitPrice: 32000, price: 32000 },
-    ],
-  },
-  {
-    id: "disp-02",
-    orderId: "ord-94780",
-    orderNumber: "MX-94780",
-    customerName: "Tadele Mengistu",
-    customerPhone: "+251 92 334 5566",
-    deliveryAddress: "Piassa, Arada, Addis Ababa",
-    merchantStore: "Heritage Cultural Outfits",
-    amount: 5400,
-    reason: "Incorrect fabric sizing delivered; requested replacement or full refund.",
-    openedDate: "2026-09-17",
-    paymentStatus: "PAID",
-    escrowStatus: "HELD",
-    status: "OPEN",
-    items: [
-      { id: "itm-2", title: "Handwoven Ethiopian Traditional Habesha Kemis", quantity: 1, unitPrice: 5400, price: 5400 },
-    ],
-  },
-  {
-    id: "disp-03",
-    orderId: "ord-94692",
-    orderNumber: "MX-94692",
-    customerName: "Sara Tesfaye",
-    customerPhone: "+251 94 550 7890",
-    deliveryAddress: "Kazanchis, Kirkos, Addis Ababa",
-    merchantStore: "Mercato Traditional Spices",
-    amount: 1850,
-    reason: "Package seal breached during courier handover.",
-    openedDate: "2026-09-15",
-    paymentStatus: "REFUNDED",
-    escrowStatus: "REFUNDED",
-    status: "RESOLVED_REFUND",
-    items: [
-      { id: "itm-3", title: "Premium Korerima & Organic Berbere 2kg", quantity: 1, unitPrice: 1850, price: 1850 },
-    ],
-  },
-];
-
 export function AdminDisputes() {
   const { setPendingCounts } = useAdminUIStore();
   const [disputes, setDisputes] = useState<DisputeItem[]>([]);
@@ -155,20 +98,17 @@ export function AdminDisputes() {
           };
         });
 
-        // Combine with fallback disputes if fewer than 2 real disputes
-        const combined = mapped.length < 2 ? [...mapped, ...INITIAL_FALLBACK_DISPUTES.filter(d => !mapped.some(m => m.orderNumber === d.orderNumber))] : mapped;
-        setDisputes(combined);
-
-        const openCount = combined.filter((d) => d.status === "OPEN").length;
+        setDisputes(mapped);
+        const openCount = mapped.filter((d) => d.status === "OPEN").length;
         setPendingCounts({ disputes: openCount });
       } else {
-        setDisputes(INITIAL_FALLBACK_DISPUTES);
-        setPendingCounts({ disputes: INITIAL_FALLBACK_DISPUTES.filter(d => d.status === "OPEN").length });
+        setDisputes([]);
+        setPendingCounts({ disputes: 0 });
       }
     } catch (err) {
-      console.warn("Failed to fetch real disputes from backend, falling back to defaults:", err);
-      setDisputes(INITIAL_FALLBACK_DISPUTES);
-      setPendingCounts({ disputes: INITIAL_FALLBACK_DISPUTES.filter(d => d.status === "OPEN").length });
+      console.warn("Failed to fetch real disputes from backend:", err);
+      setDisputes([]);
+      setPendingCounts({ disputes: 0 });
     } finally {
       setLoading(false);
       setIsRefreshing(false);

@@ -792,17 +792,21 @@ export function SupplierShipmentsView() {
                 </div>
                 <div className="flex justify-between py-1 border-b border-slate-100 dark:border-white/5">
                   <span className="text-slate-500 dark:text-zinc-400">Designated Driver</span>
-                  <span className="font-semibold text-slate-900 dark:text-white">{s.driverName || "Abebe Kebede"}</span>
+                  <span className="font-semibold text-slate-900 dark:text-white">{s.driverName || "Unassigned"}</span>
                 </div>
                 <div className="flex justify-between py-1">
                   <span className="text-slate-500 dark:text-zinc-400">Driver Phone</span>
-                  <a
-                    href={`tel:${s.driverPhone || "+251 91 190 2233"}`}
-                    className="font-mono text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1"
-                  >
-                    <Phone className="h-3 w-3" />
-                    <span>{s.driverPhone || "+251 91 190 2233"}</span>
-                  </a>
+                  {s.driverPhone ? (
+                    <a
+                      href={`tel:${s.driverPhone}`}
+                      className="font-mono text-indigo-600 dark:text-indigo-400 font-semibold hover:underline flex items-center gap-1"
+                    >
+                      <Phone className="h-3 w-3" />
+                      <span>{s.driverPhone}</span>
+                    </a>
+                  ) : (
+                    <span className="text-slate-400 dark:text-zinc-500 text-xs">Not assigned</span>
+                  )}
                 </div>
               </div>
             </div>

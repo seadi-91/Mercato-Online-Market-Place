@@ -148,7 +148,11 @@ export function adaptBackendProduct(p: BackendProduct): Product {
   const catFallback =
     CATEGORY_IMAGES[catSlug] ||
     "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800&auto=format&fit=crop&q=80";
-  const images = p.images && p.images.length > 0 ? p.images : [catFallback];
+  const realImages = Array.isArray(p.images)
+    ? p.images.filter((img) => typeof img === "string" && img.trim().length > 0)
+    : [];
+  const hasOwnImage = realImages.length > 0;
+  const images = hasOwnImage ? realImages : [catFallback];
 
   const marketZone = p.branchName || p.warehouseLocation || CATEGORY_ZONES[catSlug] || "Mercato Wholesale";
 
@@ -223,6 +227,7 @@ export function adaptBackendProduct(p: BackendProduct): Product {
     badge: p.stockQuantity > 0 ? "Verified Merchant" : undefined,
     description: p.description || p.title,
     image: images[0],
+    hasOwnImage,
     gallery: images,
     sku: p.sku,
     brand: p.brand,

@@ -1,7 +1,6 @@
 import { getPaymentDbPool } from "@/lib/db";
 import crypto from "crypto";
 
-const DEFAULT_CUSTOMER_ID = "609563b9-3c51-4b25-80c2-a3b238ee929f";
 const DEFAULT_SELLER_ID = "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
 function isValidUuid(id?: string | null): boolean {
@@ -66,7 +65,7 @@ export async function recordPaymentInDatabase(params: RecordPaymentParams) {
     const resolvedOrderId = isValidUuid(orderId) ? orderId! : crypto.randomUUID();
     const resolvedCustomerId = isValidUuid(customerId)
       ? customerId!
-      : DEFAULT_CUSTOMER_ID;
+      : crypto.randomUUID();
     const resolvedSellerId = isValidUuid(sellerId)
       ? sellerId!
       : DEFAULT_SELLER_ID;

@@ -170,8 +170,10 @@ export default function CheckoutPage() {
       const cached = localStorage.getItem(storageKey);
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (parsed && parsed.cardNumber) {
+        if (parsed && parsed.cardNumber && parsed.paymentMethod !== "CHAPA_REWARD") {
           setUserCard(parsed);
+        } else if (parsed?.paymentMethod === "CHAPA_REWARD") {
+          localStorage.removeItem(storageKey);
         }
       }
     } catch { }
@@ -189,11 +191,16 @@ export default function CheckoutPage() {
       );
       const data = await res.json();
       if (data.success && Array.isArray(data.cards) && data.cards.length > 0) {
-        const activeCard = data.cards.find((c: any) => c.status === "ACTIVE") || data.cards[0];
+        const purchasedCards = data.cards.filter((c: any) => c.paymentMethod !== "CHAPA_REWARD");
+        const activeCard = purchasedCards.find((c: any) => c.status === "ACTIVE") || purchasedCards[0] || null;
         setUserCard(activeCard);
         try {
           const storageKey = `mercatox_card_${(queryEmail || queryCustomerId || "current").toLowerCase().trim()}`;
-          localStorage.setItem(storageKey, JSON.stringify(activeCard));
+          if (activeCard) {
+            localStorage.setItem(storageKey, JSON.stringify(activeCard));
+          } else {
+            localStorage.removeItem(storageKey);
+          }
         } catch { }
       } else {
         setUserCard(null);
@@ -520,11 +527,12 @@ export default function CheckoutPage() {
             createdAt: new Date().toISOString(),
           };
           localStorage.setItem(
-            "mercatox_last_checkout_order",
+            "mercatox_pending_chapa_order",
             JSON.stringify(orderSnapshot)
           );
+          localStorage.removeItem("mercatox_last_checkout_order");
         } catch (storageErr) {
-          console.warn("Could not save order snapshot:", storageErr);
+          console.warn("Could not save pending order snapshot:", storageErr);
         }
 
         toast.success("Redirecting to Chapa Payment Gateway...", {
@@ -928,9 +936,11 @@ export default function CheckoutPage() {
                           <CreditCard className="h-3.5 w-3.5" />
                         </div>
                         <span className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300">Chapa Gateway</span>
-                        <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-600 dark:text-amber-300 tracking-wider">
-                          2% BONUS
-                        </span>
+                        {hasCard && (
+                          <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-600 dark:text-amber-300 tracking-wider">
+                            2% BONUS
+                          </span>
+                        )}
                       </div>
                       {paymentMethod === "chapa" && (
                         <CheckCircle2 className="h-4 w-4 text-indigo-500 dark:text-indigo-400 shrink-0" />
@@ -976,8 +986,8 @@ export default function CheckoutPage() {
                   </button>
                 </div>
 
-                {/* Dynamic 2% Card Cashback Reward Banner for Chapa */}
-                {paymentMethod === "chapa" && (
+                {/* Dynamic 2% Card Cashback Reward Banner for Chapa (ONLY shown if user owns a purchased MercatoX Card) */}
+                {paymentMethod === "chapa" && hasCard && (
                   <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-500/10 via-yellow-500/5 to-cyan-500/10 p-3.5 space-y-1.5 shadow-sm animate-in fade-in duration-200">
                     <div className="flex items-center justify-between gap-2 flex-wrap">
                       <div className="flex items-center gap-2">

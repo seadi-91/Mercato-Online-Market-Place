@@ -112,6 +112,141 @@ export interface GoogleAuthResponse {
   };
 }
 
+export interface GoogleOAuthIntent {
+  role: UserRole;
+  isRegistration: boolean;
+  postLoginDest: string;
+  redirectUri: string;
+  timestamp: number;
+}
+
+const GOOGLE_INTENT_KEY = "mercatox_google_oauth_intent";
+
+function isPlaceholderClientId(clientId?: string | null): boolean {
+  if (!clientId) return true;
+  const trimmed = clientId.trim();
+  return (
+    !trimmed ||
+    trimmed.includes("your_google_client_id") ||
+    trimmed.toLowerCase().includes("placeholder")
+  );
+}
+
+async function resolveGoogleClientId(): Promise<string> {
+  // Prefer live server config so client & server OAuth credentials never drift out of sync
+  if (typeof window !== "undefined") {
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 2500);
+      const res = await fetch(`${API_CONFIG.baseURL}/auth/oauth-config`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) {
+        const data = await res.json();
+        if (!isPlaceholderClientId(data?.googleClientId)) {
+          return String(data.googleClientId).trim();
+        }
+      }
+    } catch {
+      // fall back to NEXT_PUBLIC_GOOGLE_CLIENT_ID
+    }
+  }
+
+  const envClientId =
+    API_CONFIG.googleClientId ||
+    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
+    "";
+
+  if (!isPlaceholderClientId(envClientId)) {
+    return envClientId.trim();
+  }
+
+  throw new Error(
+    "Google Client ID is not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID or configure GOOGLE_CLIENT_ID on the server."
+  );
+}
+
+function extractServerErrorMessage(data: any, fallback: string): string {
+  if (!data) return fallback;
+  if (Array.isArray(data.message) && data.message.length > 0) {
+    return String(data.message[0]);
+  }
+  if (typeof data.message === "string" && data.message.trim()) {
+    return data.message;
+  }
+  if (typeof data.error === "string" && data.error.trim()) {
+    return data.error;
+  }
+  return fallback;
+}
+
+export function getStoredGoogleOAuthIntent(): GoogleOAuthIntent | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = sessionStorage.getItem(GOOGLE_INTENT_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw) as GoogleOAuthIntent;
+  } catch {
+    return null;
+  }
+}
+
+export function clearStoredGoogleOAuthIntent(): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.removeItem(GOOGLE_INTENT_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+export function startGoogleRedirectOAuth(options: {
+  clientId: string;
+  role?: UserRole;
+  isRegistration?: boolean;
+  postLoginDest?: string;
+}): void {
+  if (typeof window === "undefined") return;
+  const redirectUri = `${window.location.origin}/auth/callback/google`;
+  const postLoginDest =
+    options.postLoginDest ||
+    (() => {
+      try {
+        return sessionStorage.getItem("mercatox_auth_redirect") || "/";
+      } catch {
+        return "/";
+      }
+    })();
+
+  const intent: GoogleOAuthIntent = {
+    role: options.role || "CUSTOMER",
+    isRegistration: Boolean(options.isRegistration),
+    postLoginDest,
+    redirectUri,
+    timestamp: Date.now(),
+  };
+
+  try {
+    sessionStorage.setItem(GOOGLE_INTENT_KEY, JSON.stringify(intent));
+  } catch {
+    // ignore
+  }
+
+  const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+  authUrl.searchParams.set("client_id", options.clientId);
+  authUrl.searchParams.set("redirect_uri", redirectUri);
+  authUrl.searchParams.set("response_type", "code");
+  authUrl.searchParams.set("scope", "openid email profile");
+  authUrl.searchParams.set("prompt", "select_account");
+  authUrl.searchParams.set("access_type", "offline");
+  if (postLoginDest && postLoginDest.startsWith("/")) {
+    authUrl.searchParams.set("state", postLoginDest);
+  }
+
+  window.location.href = authUrl.toString();
+}
+
 function getGoogleErrorMessage(error: unknown): string {
   if (typeof error === "string") return error;
   if (error && typeof error === "object") {
@@ -127,46 +262,35 @@ function getGoogleErrorMessage(error: unknown): string {
       details.error,
       details.type,
     ]) {
-      if (typeof value === "string" && value) return value;
+      if (typeof value === "string" && value) {
+        if (value === "popup_closed") {
+          return "Sign-in popup was closed before completing.";
+        }
+        return value;
+      }
     }
   }
   return "Google sign-in could not be completed. Please check your credentials and try again.";
 }
 
 /**
- * Triggers Google Sign-In using modern Google Identity Services.
- * Uses initTokenClient as primary strategy for direct user profile exchange,
- * and seamlessly falls back to initCodeClient if required.
+ * Triggers Google Sign-In using Google Identity Services.
+ * Prioritizes initCodeClient (popup authorization-code flow exchanged with GOOGLE_CLIENT_SECRET on server),
+ * with fallbacks to initTokenClient and full-page OAuth redirect.
  */
 export async function triggerGoogleSignIn(
   role?: UserRole,
-  isRegistration?: boolean
+  isRegistration?: boolean,
+  postLoginDest?: string
 ): Promise<GoogleAuthResponse> {
-  await loadGoogleScript();
+  const clientId = await resolveGoogleClientId();
 
-  let clientId =
-    API_CONFIG.googleClientId ||
-    process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID ||
-    "";
-
-  if (!clientId) {
-    try {
-      const res = await fetch(`${API_CONFIG.baseURL}/auth/oauth-config`);
-      if (res.ok) {
-        const data = await res.json();
-        if (data?.googleClientId) {
-          clientId = data.googleClientId;
-        }
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  if (!clientId) {
-    throw new Error(
-      "Google Client ID is not configured. Please set NEXT_PUBLIC_GOOGLE_CLIENT_ID or configure it on the server."
-    );
+  try {
+    await loadGoogleScript();
+  } catch {
+    // If the GIS script is blocked by browser extensions, fall back to full-page redirect OAuth
+    startGoogleRedirectOAuth({ clientId, role, isRegistration, postLoginDest });
+    return new Promise(() => {});
   }
 
   // Ensure window.google.accounts is ready
@@ -183,19 +307,96 @@ export async function triggerGoogleSignIn(
     });
   }
 
+  if (!window.google?.accounts?.oauth2) {
+    startGoogleRedirectOAuth({ clientId, role, isRegistration, postLoginDest });
+    return new Promise(() => {});
+  }
+
   return new Promise((resolve, reject) => {
-    if (!window.google?.accounts?.oauth2) {
-      reject(
-        new Error(
-          "Google Identity Services did not load. Check your network connection and retry."
-        )
-      );
-      return;
+    const oauth = window.google!.accounts.oauth2;
+
+    // Strategy 1: Authorization Code Client (exchanges code with GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET on backend)
+    if (typeof oauth.initCodeClient === "function") {
+      try {
+        const codeClient = oauth.initCodeClient({
+          client_id: clientId,
+          scope: "openid email profile",
+          ux_mode: "popup",
+          callback: async (response) => {
+            if (response.error) {
+              let message = response.error;
+              if (response.error === "popup_closed_by_user") {
+                message = "Sign-in popup was closed before completing.";
+              } else if (response.error === "access_denied") {
+                message =
+                  "Google authorization was cancelled or access denied. Ensure your Google account is added as a Test User in Google Cloud Console.";
+              } else if (response.error === "origin_mismatch") {
+                message = `Google OAuth origin mismatch: Add http://${window.location.host} to 'Authorized JavaScript origins' in Google Cloud Console.`;
+              } else if (response.error === "redirect_uri_mismatch") {
+                message =
+                  "Google OAuth redirect_uri_mismatch: Ensure 'postmessage' and domain are allowed.";
+              }
+              return reject(new Error(message));
+            }
+
+            if (!response.code) {
+              return reject(
+                new Error("No authorization code received from Google")
+              );
+            }
+
+            try {
+              const res = await fetch(`${API_CONFIG.baseURL}/auth/google`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  code: response.code,
+                  redirectUri: "postmessage",
+                  role: role || "CUSTOMER",
+                  isRegistration: Boolean(isRegistration),
+                  clientId,
+                }),
+              });
+
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                return reject(
+                  new Error(
+                    extractServerErrorMessage(
+                      data,
+                      "Google authentication failed on server"
+                    )
+                  )
+                );
+              }
+
+              resolve(data);
+            } catch (err: unknown) {
+              reject(
+                err instanceof Error
+                  ? err
+                  : new Error(getGoogleErrorMessage(err))
+              );
+            }
+          },
+          error_callback: (err: unknown) => {
+            const msg = getGoogleErrorMessage(err);
+            if (msg.includes("popup_failed_to_open")) {
+              startGoogleRedirectOAuth({ clientId, role, isRegistration, postLoginDest });
+              return;
+            }
+            reject(new Error(msg));
+          },
+        });
+
+        codeClient.requestCode();
+        return;
+      } catch (codeInitErr) {
+        console.warn("[Google Auth] initCodeClient failed, trying initTokenClient:", codeInitErr);
+      }
     }
 
-    const oauth = window.google.accounts.oauth2;
-
-    // Strategy 1: Modern Token Client (Most reliable for Next.js Single Page Apps)
+    // Strategy 2: Token Client fallback
     if (typeof oauth.initTokenClient === "function") {
       try {
         const tokenClient = oauth.initTokenClient({
@@ -255,11 +456,14 @@ export async function triggerGoogleSignIn(
                 }),
               });
 
-              const data = await res.json();
+              const data = await res.json().catch(() => ({}));
               if (!res.ok) {
                 return reject(
                   new Error(
-                    data?.message || "Google authentication failed on server"
+                    extractServerErrorMessage(
+                      data,
+                      "Google authentication failed on server"
+                    )
                   )
                 );
               }
@@ -275,106 +479,21 @@ export async function triggerGoogleSignIn(
           },
           error_callback: (err: unknown) => {
             const msg = getGoogleErrorMessage(err);
-            if (msg.includes("popup_failed_to_open") || msg.includes("popup")) {
-              reject(
-                new Error(
-                  "Popup was blocked by your browser. Please allow popups for localhost:3000 and try again."
-                )
-              );
-            } else {
-              reject(new Error(msg));
+            if (msg.includes("popup_failed_to_open")) {
+              // Fall back seamlessly to full-page redirect OAuth when popups are blocked
+              startGoogleRedirectOAuth({ clientId, role, isRegistration, postLoginDest });
+              return;
             }
+            reject(new Error(msg));
           },
         });
 
         tokenClient.requestAccessToken({ prompt: "select_account" });
         return;
       } catch (tokenInitErr) {
-        console.warn("[Google Auth] initTokenClient failed, trying initCodeClient:", tokenInitErr);
-      }
-    }
-
-    // Strategy 2: Code Client fallback
-    if (typeof oauth.initCodeClient === "function") {
-      try {
-        const codeClient = oauth.initCodeClient({
-          client_id: clientId,
-          scope: "openid email profile",
-          ux_mode: "popup",
-          callback: async (response) => {
-            if (response.error) {
-              let message = response.error;
-              if (response.error === "popup_closed_by_user") {
-                message = "Sign-in popup was closed before completing.";
-              } else if (response.error === "access_denied") {
-                message =
-                  "Google authorization was cancelled or access denied. Ensure your Google account is added as a Test User in Google Cloud Console.";
-              } else if (response.error === "origin_mismatch") {
-                message = `Google OAuth origin mismatch: Add http://${window.location.host} to 'Authorized JavaScript origins' in Google Cloud Console.`;
-              } else if (response.error === "redirect_uri_mismatch") {
-                message =
-                  "Google OAuth redirect_uri_mismatch: Ensure 'postmessage' and domain are allowed.";
-              }
-              return reject(new Error(message));
-            }
-
-            if (!response.code) {
-              return reject(
-                new Error("No authorization code received from Google")
-              );
-            }
-
-            try {
-              const res = await fetch(`${API_CONFIG.baseURL}/auth/google`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  code: response.code,
-                  redirectUri: "postmessage",
-                  role: role || "CUSTOMER",
-                  isRegistration: Boolean(isRegistration),
-                  clientId,
-                }),
-              });
-
-              const data = await res.json();
-              if (!res.ok) {
-                return reject(
-                  new Error(
-                    data?.message || "Google authentication failed on server"
-                  )
-                );
-              }
-
-              resolve(data);
-            } catch (err: unknown) {
-              reject(
-                err instanceof Error
-                  ? err
-                  : new Error(getGoogleErrorMessage(err))
-              );
-            }
-          },
-          error_callback: (err: unknown) => {
-            const msg = getGoogleErrorMessage(err);
-            if (msg.includes("popup_failed_to_open") || msg.includes("popup")) {
-              reject(
-                new Error(
-                  "Popup was blocked by your browser. Please allow popups for localhost:3000 and try again."
-                )
-              );
-            } else {
-              reject(new Error(msg));
-            }
-          },
-        });
-
-        codeClient.requestCode();
-        return;
-      } catch (codeInitErr) {
         reject(
           new Error(
-            `Could not start Google sign-in: ${getGoogleErrorMessage(codeInitErr)}`
+            `Could not start Google sign-in: ${getGoogleErrorMessage(tokenInitErr)}`
           )
         );
         return;

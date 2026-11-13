@@ -47,6 +47,10 @@ import {
   Percent,
   Trash2,
   Star,
+  Package,
+  Phone,
+  Mail,
+  MapPin,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { StatusBadge } from "../shared/status-badge";
@@ -61,6 +65,8 @@ import { toast } from "sonner";
 export function SupplierPaymentsView() {
   const {
     transactions,
+    isLoadingTransactions,
+    fetchTransactions,
     setActiveTab,
     requestWithdrawal,
     releaseEscrow,
@@ -111,6 +117,11 @@ export function SupplierPaymentsView() {
   const [newBranch, setNewBranch] = useState("");
   const [newAccountType, setNewAccountType] = useState<string>("Primary Escrow");
   const [isDefaultAccount, setIsDefaultAccount] = useState(false);
+
+  // Load live supplier payments on mount
+  useEffect(() => {
+    fetchTransactions();
+  }, [fetchTransactions]);
 
   // Keep destination auto-selected if empty
   useEffect(() => {
@@ -280,8 +291,14 @@ export function SupplierPaymentsView() {
         const q = searchQuery.toLowerCase().trim();
         const matchesSearch =
           !q ||
+          tx.id.toLowerCase().includes(q) ||
+          (tx.paymentId && tx.paymentId.toLowerCase().includes(q)) ||
           tx.transactionNumber.toLowerCase().includes(q) ||
           tx.buyerCompany.toLowerCase().includes(q) ||
+          (tx.payerName && tx.payerName.toLowerCase().includes(q)) ||
+          (tx.payerPhone && tx.payerPhone.toLowerCase().includes(q)) ||
+          (tx.payerEmail && tx.payerEmail.toLowerCase().includes(q)) ||
+          (tx.itemsSummary && tx.itemsSummary.toLowerCase().includes(q)) ||
           tx.orderNumber.toLowerCase().includes(q) ||
           tx.referenceNumber.toLowerCase().includes(q) ||
           (tx.buyerTIN && tx.buyerTIN.toLowerCase().includes(q));
@@ -403,18 +420,19 @@ export function SupplierPaymentsView() {
 
   // Payment method badge styling helper tailored for Light, Dark, and System
   const getMethodBadge = (method: string) => {
-    if (method.includes("Escrow")) {
+    const m = (method || "").toLowerCase();
+    if (m.includes("mercatox card") || m.includes("card")) {
       return {
         bg: isLight
-          ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+          ? "bg-indigo-50 text-indigo-800 border-indigo-300 font-semibold"
           : isSystem
-          ? "bg-emerald-500/15 text-emerald-300 border-emerald-400/30 font-semibold"
-          : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-semibold",
-        icon: ShieldCheck,
-        short: "Escrow",
+          ? "bg-indigo-500/20 text-indigo-300 border-indigo-400/30 font-semibold"
+          : "bg-indigo-500/15 text-indigo-400 border-indigo-500/30 font-semibold",
+        icon: CreditCard,
+        short: m.includes("mercatox") ? "MercatoX Card" : "Card / Chapa",
       };
     }
-    if (method.includes("Telebirr")) {
+    if (m.includes("telebirr")) {
       return {
         bg: isLight
           ? "bg-blue-50 text-blue-800 border-blue-300 font-semibold"
@@ -425,7 +443,18 @@ export function SupplierPaymentsView() {
         short: "Telebirr",
       };
     }
-    if (method.includes("Commercial Bank") || method.includes("CBE")) {
+    if (m.includes("chapa")) {
+      return {
+        bg: isLight
+          ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+          : isSystem
+          ? "bg-emerald-500/15 text-emerald-300 border-emerald-400/30 font-semibold"
+          : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-semibold",
+        icon: ShieldCheck,
+        short: "Chapa Gateway",
+      };
+    }
+    if (m.includes("commercial bank") || m.includes("cbe")) {
       return {
         bg: isLight
           ? "bg-purple-50 text-purple-800 border-purple-300 font-semibold"
@@ -433,10 +462,10 @@ export function SupplierPaymentsView() {
           ? "bg-purple-500/20 text-purple-300 border-purple-400/30 font-semibold"
           : "bg-purple-500/15 text-purple-400 border-purple-500/30 font-semibold",
         icon: Landmark,
-        short: "CBE RTGS",
+        short: "CBE Escrow",
       };
     }
-    if (method.includes("Awash")) {
+    if (m.includes("awash")) {
       return {
         bg: isLight
           ? "bg-amber-50 text-amber-800 border-amber-300 font-semibold"
@@ -444,7 +473,18 @@ export function SupplierPaymentsView() {
           ? "bg-amber-500/20 text-amber-300 border-amber-400/30 font-semibold"
           : "bg-amber-500/15 text-amber-400 border-amber-500/30 font-semibold",
         icon: Building2,
-        short: "Awash LC",
+        short: "Awash Escrow",
+      };
+    }
+    if (m.includes("escrow")) {
+      return {
+        bg: isLight
+          ? "bg-emerald-50 text-emerald-800 border-emerald-300 font-semibold"
+          : isSystem
+          ? "bg-emerald-500/15 text-emerald-300 border-emerald-400/30 font-semibold"
+          : "bg-emerald-500/15 text-emerald-400 border-emerald-500/30 font-semibold",
+        icon: ShieldCheck,
+        short: "Escrow",
       };
     }
     return {
@@ -454,7 +494,7 @@ export function SupplierPaymentsView() {
         ? "bg-blue-900/30 text-blue-200 border-blue-500/25 font-semibold"
         : "bg-slate-500/15 text-slate-400 border-slate-500/30 font-semibold",
       icon: CreditCard,
-      short: "Wire",
+      short: method || "Wire",
     };
   };
 
@@ -767,6 +807,19 @@ export function SupplierPaymentsView() {
               >
                 <TrendingUp className="h-3.5 w-3.5" />
                 <span>{showAnalyticsStrip ? "Hide Trends" : "Cashflow Trends"}</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  fetchTransactions();
+                  toast.info("Refreshing live payment & escrow ledger...");
+                }}
+                disabled={isLoadingTransactions}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2.5 text-xs font-medium text-white/90 transition-all cursor-pointer disabled:opacity-60"
+              >
+                <RefreshCw className={`h-3.5 w-3.5 ${isLoadingTransactions ? "animate-spin" : ""}`} />
+                <span>{isLoadingTransactions ? "Syncing..." : "Refresh"}</span>
               </button>
             </div>
           </div>
@@ -1760,8 +1813,8 @@ export function SupplierPaymentsView() {
               : "border-white/10 bg-[#12161f] text-white"
           }`}
         >
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          <div className="overflow-x-auto pb-2">
+            <table className="w-full min-w-[1460px] text-left text-xs">
               <thead>
                 <tr
                   className={`border-b font-semibold uppercase text-[10px] tracking-wider select-none ${
@@ -1772,15 +1825,15 @@ export function SupplierPaymentsView() {
                       : "border-white/10 bg-white/5 text-zinc-400"
                   }`}
                 >
-                  <th className="py-3 px-4">Transaction / Date</th>
-                  <th className="py-3 px-3">Buyer Enterprise</th>
-                  <th className="py-3 px-3">Order Ref</th>
-                  <th className="py-3 px-3">Gross Value</th>
-                  <th className="py-3 px-3">Net Payout (ETB)</th>
-                  <th className="py-3 px-3">Settlement Channel</th>
-                  <th className="py-3 px-3">Gateway Ref</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-5 min-w-[190px] whitespace-nowrap">Payment ID & Date</th>
+                  <th className="py-3.5 px-4 min-w-[215px] whitespace-nowrap">Who Paid (Payer)</th>
+                  <th className="py-3.5 px-4 min-w-[235px] whitespace-nowrap">Order & What Paid For</th>
+                  <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">Amount Paid</th>
+                  <th className="py-3.5 px-4 min-w-[155px] whitespace-nowrap">Net Payout (ETB)</th>
+                  <th className="py-3.5 px-4 min-w-[165px] whitespace-nowrap">Payment Channel</th>
+                  <th className="py-3.5 px-4 min-w-[170px] whitespace-nowrap">Gateway / Tx Ref</th>
+                  <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">Status</th>
+                  <th className="py-3.5 px-5 min-w-[140px] text-right whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody
@@ -1797,11 +1850,13 @@ export function SupplierPaymentsView() {
                   const Icon = badgeConfig.icon;
                   const fee = tx.feeETB ?? Math.round(tx.amount * 0.015);
                   const net = tx.netAmountETB ?? tx.amount - fee;
+                  const displayPayId = tx.paymentId || tx.id;
 
                   return (
                     <tr
                       key={tx.id}
-                      className={`transition-colors group ${
+                      onClick={() => setSelectedReceiptTx(tx)}
+                      className={`transition-colors group cursor-pointer ${
                         isLight
                           ? "hover:bg-slate-50"
                           : isSystem
@@ -1809,16 +1864,22 @@ export function SupplierPaymentsView() {
                           : "hover:bg-white/[0.02]"
                       }`}
                     >
-                      {/* 1. Transaction ID & Date */}
-                      <td className="py-3.5 px-4">
+                      {/* 1. Payment ID, Tx Ref & Date */}
+                      <td className="py-4 px-5 whitespace-nowrap">
                         <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold">{tx.transactionNumber}</span>
+                          <span className="font-mono font-bold">
+                            {displayPayId.length > 14 ? `${displayPayId.slice(0, 12)}…` : displayPayId}
+                          </span>
                           <button
-                            onClick={() => handleCopy(tx.transactionNumber, `${tx.id}-num`)}
-                            title="Copy transaction ID"
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopy(displayPayId, `${tx.id}-pid`);
+                            }}
+                            title={`Copy Payment ID: ${displayPayId}`}
                             className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                           >
-                            {copiedRef === `${tx.id}-num` ? (
+                            {copiedRef === `${tx.id}-pid` ? (
                               <Check className="h-3 w-3 text-emerald-500" />
                             ) : (
                               <Copy className="h-3 w-3" />
@@ -1827,6 +1888,13 @@ export function SupplierPaymentsView() {
                         </div>
                         <div
                           className={`text-[11px] font-mono mt-0.5 ${
+                            isLight ? "text-slate-500" : isSystem ? "text-blue-200/75" : "text-zinc-400"
+                          }`}
+                        >
+                          {tx.transactionNumber}
+                        </div>
+                        <div
+                          className={`text-[10px] font-mono mt-0.5 ${
                             isLight ? "text-slate-400" : isSystem ? "text-blue-300/60" : "text-zinc-500"
                           }`}
                         >
@@ -1834,11 +1902,11 @@ export function SupplierPaymentsView() {
                         </div>
                       </td>
 
-                      {/* 2. Buyer Enterprise & TIN */}
-                      <td className="py-3.5 px-3">
-                        <div className="flex items-center gap-2">
+                      {/* 2. Who Paid (Payer Name, Phone, Email / TIN) */}
+                      <td className="py-4 px-4">
+                        <div className="flex items-center gap-2.5">
                           <div
-                            className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg font-bold text-[10px] ${
+                            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg font-bold text-[10px] ${
                               isLight
                                 ? "bg-slate-100 text-slate-700"
                                 : isSystem
@@ -1846,25 +1914,25 @@ export function SupplierPaymentsView() {
                                 : "bg-white/10 text-zinc-300"
                             }`}
                           >
-                            {getAvatarInitials(tx.buyerCompany)}
+                            {getAvatarInitials(tx.payerName || tx.buyerCompany)}
                           </div>
-                          <div>
-                            <div className="font-bold truncate max-w-[180px]">{tx.buyerCompany}</div>
-                            {tx.buyerTIN && (
+                          <div className="min-w-0">
+                            <div className="font-bold truncate max-w-[170px]">{tx.payerName || tx.buyerCompany}</div>
+                            {(tx.payerPhone || tx.payerEmail || tx.buyerTIN) && (
                               <div
-                                className={`text-[10px] font-mono ${
-                                  isLight ? "text-slate-400" : isSystem ? "text-blue-300/60" : "text-zinc-500"
+                                className={`text-[10px] font-mono truncate max-w-[170px] mt-0.5 ${
+                                  isLight ? "text-slate-500" : isSystem ? "text-blue-300/70" : "text-zinc-400"
                                 }`}
                               >
-                                TIN: {tx.buyerTIN}
+                                {tx.payerPhone || tx.payerEmail || `TIN: ${tx.buyerTIN}`}
                               </div>
                             )}
                           </div>
                         </div>
                       </td>
 
-                      {/* 3. Order Reference */}
-                      <td className="py-3.5 px-3">
+                      {/* 3. Order Reference & Paid Items */}
+                      <td className="py-4 px-4">
                         <span
                           className={`inline-flex items-center rounded-lg px-2 py-0.5 font-mono text-[11px] font-semibold ${
                             isLight
@@ -1876,15 +1944,32 @@ export function SupplierPaymentsView() {
                         >
                           {tx.orderNumber}
                         </span>
+                        <p
+                          className={`text-[11px] truncate max-w-[215px] mt-1 ${
+                            isLight ? "text-slate-600" : isSystem ? "text-blue-100/80" : "text-zinc-300"
+                          }`}
+                          title={tx.itemsSummary || undefined}
+                        >
+                          {tx.itemsSummary || "B2B Wholesale Order Settlement"}
+                        </p>
                       </td>
 
-                      {/* 4. Gross Amount */}
-                      <td className="py-3.5 px-3">
+                      {/* 4. Gross Amount Paid */}
+                      <td className="py-4 px-4 whitespace-nowrap">
                         <span className="font-mono font-bold text-xs">{formatMoney(tx.amount)}</span>
+                        {tx.deliveryFee != null && tx.deliveryFee > 0 && (
+                          <div
+                            className={`text-[10px] font-mono mt-0.5 ${
+                              isLight ? "text-slate-400" : isSystem ? "text-blue-300/60" : "text-zinc-500"
+                            }`}
+                          >
+                            Incl. ETB {tx.deliveryFee.toLocaleString()} ship
+                          </div>
+                        )}
                       </td>
 
                       {/* 5. Net Payout & Fee */}
-                      <td className="py-3.5 px-3">
+                      <td className="py-4 px-4 whitespace-nowrap">
                         <div
                           className={`font-mono font-semibold text-xs ${
                             isSystem ? "text-blue-400" : "text-emerald-600 dark:text-emerald-400"
@@ -1893,7 +1978,7 @@ export function SupplierPaymentsView() {
                           {formatMoney(net)}
                         </div>
                         <div
-                          className={`text-[10px] ${
+                          className={`text-[10px] mt-0.5 ${
                             isLight ? "text-slate-400" : isSystem ? "text-blue-300/60" : "text-zinc-500"
                           }`}
                         >
@@ -1901,26 +1986,39 @@ export function SupplierPaymentsView() {
                         </div>
                       </td>
 
-                      {/* 6. Settlement Channel */}
-                      <td className="py-3.5 px-3">
+                      {/* 6. Payment Channel & Card/Bank */}
+                      <td className="py-4 px-4 whitespace-nowrap">
                         <span
                           className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-medium ${badgeConfig.bg}`}
                         >
                           <Icon className="h-3 w-3" />
                           <span>{badgeConfig.short}</span>
                         </span>
+                        {(tx.maskedCardNumber || tx.bankName) && (
+                          <div
+                            className={`text-[10px] font-mono truncate max-w-[155px] mt-1 ${
+                              isLight ? "text-slate-500" : isSystem ? "text-blue-300/70" : "text-zinc-400"
+                            }`}
+                          >
+                            {tx.maskedCardNumber || tx.bankName}
+                          </div>
+                        )}
                       </td>
 
                       {/* 7. Gateway Reference */}
-                      <td className="py-3.5 px-3">
+                      <td className="py-4 px-4 whitespace-nowrap">
                         <div
                           className={`flex items-center gap-1 font-mono text-[11px] ${
                             isLight ? "text-slate-500" : isSystem ? "text-blue-200/70" : "text-zinc-400"
                           }`}
                         >
-                          <span className="truncate max-w-[130px]">{tx.referenceNumber}</span>
+                          <span className="truncate max-w-[135px]">{tx.referenceNumber}</span>
                           <button
-                            onClick={() => handleCopy(tx.referenceNumber, `${tx.id}-ref`)}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopy(tx.referenceNumber, `${tx.id}-ref`);
+                            }}
                             title="Copy reference number"
                             className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
                           >
@@ -1934,12 +2032,12 @@ export function SupplierPaymentsView() {
                       </td>
 
                       {/* 8. Status */}
-                      <td className="py-3.5 px-3 whitespace-nowrap">
+                      <td className="py-4 px-4 whitespace-nowrap">
                         <StatusBadge status={tx.status} size="sm" />
                       </td>
 
                       {/* 9. Actions */}
-                      <td className="py-3.5 px-4 text-right">
+                      <td className="py-4 px-5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <div className="flex items-center justify-end gap-1.5">
                           {tx.status === "escrow_held" && (
                             <button
@@ -1960,17 +2058,17 @@ export function SupplierPaymentsView() {
 
                           <button
                             onClick={() => setSelectedReceiptTx(tx)}
-                            className={`inline-flex items-center gap-1 rounded-xl border px-2 py-1 text-[11px] font-medium transition-colors cursor-pointer shadow-xs ${
+                            className={`inline-flex items-center gap-1 rounded-xl border px-2.5 py-1 text-[11px] font-medium transition-colors cursor-pointer shadow-xs ${
                               isLight
                                 ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                                 : isSystem
                                 ? "border-blue-500/25 bg-[#0c1630] hover:bg-[#122045] text-blue-200"
                                 : "border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300"
                             }`}
-                            title="View Official Fiscal Settlement Voucher"
+                            title="View Full Payment Details & Official Voucher"
                           >
-                            <FileText className="h-3 w-3" />
-                            <span>Voucher</span>
+                            <Eye className="h-3 w-3" />
+                            <span>Details</span>
                           </button>
                         </div>
                       </td>
@@ -2058,14 +2156,23 @@ export function SupplierPaymentsView() {
                         {getAvatarInitials(tx.buyerCompany)}
                       </div>
                       <div className="overflow-hidden">
-                        <p className="font-bold text-xs truncate">{tx.buyerCompany}</p>
+                        <p className="font-bold text-xs truncate">{tx.payerName || tx.buyerCompany}</p>
                         <p
-                          className={`text-[10px] font-mono ${
+                          className={`text-[10px] font-mono truncate ${
                             isLight ? "text-slate-500" : isSystem ? "text-blue-300/60" : "text-zinc-400"
                           }`}
                         >
-                          Order: #{tx.orderNumber}
+                          Order: #{tx.orderNumber} {tx.payerPhone ? `• ${tx.payerPhone}` : ""}
                         </p>
+                        {tx.itemsSummary && (
+                          <p
+                            className={`text-[10px] truncate mt-0.5 ${
+                              isLight ? "text-slate-600" : isSystem ? "text-blue-100/75" : "text-zinc-300"
+                            }`}
+                          >
+                            Paid for: {tx.itemsSummary}
+                          </p>
+                        )}
                       </div>
                     </div>
 
@@ -2558,25 +2665,44 @@ export function SupplierPaymentsView() {
                 <p className="text-[10px] font-bold uppercase tracking-wider opacity-60">
                   Supplier / Payee
                 </p>
-                <p className="font-bold mt-1">Selam Agricultural & Industrial PLC</p>
-                <p className="text-[11px] opacity-75">TIN: 0019283419 • VAT Reg: 2019-ETH</p>
+                <p className="font-bold mt-1">{profile?.businessName || "Verified MercatoX Supplier"}</p>
+                <p className="text-[11px] opacity-75">
+                  TIN: {(profile as any)?.tinNumber || "Verified Merchant"} • Payment ID: {selectedReceiptTx.paymentId || selectedReceiptTx.id}
+                </p>
                 <p className="text-[11px] opacity-75">Addis Ababa, Ethiopia</p>
               </div>
 
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider opacity-60">
-                  Buyer / Remitter
+                  Payer / Customer Details
                 </p>
-                <p className="font-bold mt-1">{selectedReceiptTx.buyerCompany}</p>
-                <p className="text-[11px] opacity-75">
-                  TIN: {selectedReceiptTx.buyerTIN || "Verified Enterprise Buyer"}
+                <p className="font-bold mt-1">{selectedReceiptTx.payerName || selectedReceiptTx.buyerCompany}</p>
+                {selectedReceiptTx.payerPhone && (
+                  <p className="text-[11px] opacity-80 flex items-center gap-1 mt-0.5 font-mono">
+                    <Phone className="h-3 w-3 opacity-70" />
+                    <span>{selectedReceiptTx.payerPhone}</span>
+                  </p>
+                )}
+                {selectedReceiptTx.payerEmail && (
+                  <p className="text-[11px] opacity-80 flex items-center gap-1 mt-0.5 font-mono truncate">
+                    <Mail className="h-3 w-3 opacity-70" />
+                    <span>{selectedReceiptTx.payerEmail}</span>
+                  </p>
+                )}
+                {selectedReceiptTx.deliveryAddress && (
+                  <p className="text-[11px] opacity-75 flex items-center gap-1 mt-0.5">
+                    <MapPin className="h-3 w-3 opacity-70 shrink-0" />
+                    <span className="truncate">{selectedReceiptTx.deliveryAddress}</span>
+                  </p>
+                )}
+                <p className="text-[11px] opacity-75 mt-0.5 font-mono">
+                  Order: #{selectedReceiptTx.orderNumber} {selectedReceiptTx.orderStatus ? `(${selectedReceiptTx.orderStatus})` : ""}
                 </p>
-                <p className="text-[11px] opacity-75">Linked Order: #{selectedReceiptTx.orderNumber}</p>
               </div>
             </div>
 
-            {/* Payment & Banking Rail Info */}
-            <div className="grid grid-cols-3 gap-2 text-[11px]">
+            {/* Complete Payment Identifiers & Banking Rail Info */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-[11px]">
               <div
                 className={`rounded-xl border p-2.5 ${
                   isLight
@@ -2586,8 +2712,29 @@ export function SupplierPaymentsView() {
                     : "border-white/10"
                 }`}
               >
-                <span className="opacity-60 block text-[10px]">Payment Method</span>
-                <span className="font-semibold">{selectedReceiptTx.paymentMethod}</span>
+                <span className="opacity-60 block text-[10px]">Payment ID</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(selectedReceiptTx.paymentId || selectedReceiptTx.id, "modal-pid")}
+                  className="font-mono font-semibold truncate flex items-center gap-1 w-full text-left cursor-pointer hover:underline"
+                >
+                  <span className="truncate">{selectedReceiptTx.paymentId || selectedReceiptTx.id}</span>
+                  <Copy className="h-3 w-3 shrink-0 opacity-60" />
+                </button>
+              </div>
+              <div
+                className={`rounded-xl border p-2.5 ${
+                  isLight
+                    ? "border-slate-200 bg-white"
+                    : isSystem
+                    ? "border-blue-500/20 bg-[#0c1630]"
+                    : "border-white/10"
+                }`}
+              >
+                <span className="opacity-60 block text-[10px]">Transaction Ref</span>
+                <span className="font-mono font-semibold truncate block">
+                  {selectedReceiptTx.transactionNumber}
+                </span>
               </div>
               <div
                 className={`rounded-xl border p-2.5 ${
@@ -2612,12 +2759,76 @@ export function SupplierPaymentsView() {
                     : "border-white/10"
                 }`}
               >
-                <span className="opacity-60 block text-[10px]">Status</span>
-                <div className="mt-0.5">
+                <span className="opacity-60 block text-[10px]">Payment Method</span>
+                <span className="font-semibold">{selectedReceiptTx.paymentMethod}</span>
+                {(selectedReceiptTx.maskedCardNumber || selectedReceiptTx.bankName) && (
+                  <span className="block text-[10px] font-mono opacity-75 mt-0.5 truncate">
+                    {[selectedReceiptTx.bankName, selectedReceiptTx.maskedCardNumber, selectedReceiptTx.depositorName].filter(Boolean).join(" • ")}
+                  </span>
+                )}
+              </div>
+              <div
+                className={`rounded-xl border p-2.5 ${
+                  isLight
+                    ? "border-slate-200 bg-white"
+                    : isSystem
+                    ? "border-blue-500/20 bg-[#0c1630]"
+                    : "border-white/10"
+                }`}
+              >
+                <span className="opacity-60 block text-[10px]">Paid Date & Time</span>
+                <span className="font-mono font-semibold block">{selectedReceiptTx.date}</span>
+              </div>
+              <div
+                className={`rounded-xl border p-2.5 ${
+                  isLight
+                    ? "border-slate-200 bg-white"
+                    : isSystem
+                    ? "border-blue-500/20 bg-[#0c1630]"
+                    : "border-white/10"
+                }`}
+              >
+                <span className="opacity-60 block text-[10px]">Status & Escrow</span>
+                <div className="mt-0.5 flex items-center gap-1.5 flex-wrap">
                   <StatusBadge status={selectedReceiptTx.status} size="sm" />
+                  {selectedReceiptTx.escrowStatus && (
+                    <span className="text-[10px] font-mono opacity-75">({selectedReceiptTx.escrowStatus})</span>
+                  )}
                 </div>
               </div>
             </div>
+
+            {/* Paid Items / What Customer Paid For */}
+            {((selectedReceiptTx.items && selectedReceiptTx.items.length > 0) || selectedReceiptTx.itemsSummary) && (
+              <div className="rounded-2xl border border-current/10 overflow-hidden">
+                <div className="bg-current/5 border-b border-current/10 px-3 py-2 flex items-center justify-between text-[10px] uppercase font-semibold">
+                  <span className="flex items-center gap-1.5">
+                    <Package className="h-3.5 w-3.5 text-emerald-500" />
+                    <span>Items Paid For ({selectedReceiptTx.itemsCount || selectedReceiptTx.items?.length || 1})</span>
+                  </span>
+                  <span className="font-mono">Order #{selectedReceiptTx.orderNumber}</span>
+                </div>
+                {selectedReceiptTx.items && selectedReceiptTx.items.length > 0 ? (
+                  <div className="divide-y divide-current/5 text-xs">
+                    {selectedReceiptTx.items.map((item, idx) => (
+                      <div key={item.id || idx} className="px-3 py-2 flex items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="font-medium truncate">{item.productTitle}</p>
+                          <p className="text-[10px] opacity-70 font-mono">
+                            {item.quantity} {item.unitOfMeasure || "unit"} × ETB {Number(item.unitPrice || 0).toLocaleString()}
+                          </p>
+                        </div>
+                        <span className="font-mono font-bold shrink-0">
+                          ETB {Number(item.totalPrice || item.unitPrice * item.quantity).toLocaleString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="px-3 py-2.5 text-xs opacity-85">{selectedReceiptTx.itemsSummary}</p>
+                )}
+              </div>
+            )}
 
             {/* Itemized Financial Breakdown */}
             <div className="rounded-2xl border border-current/10 overflow-hidden">
@@ -2630,8 +2841,26 @@ export function SupplierPaymentsView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-current/5 font-mono">
+                  {selectedReceiptTx.subtotalAmount != null && (
+                    <tr>
+                      <td className="py-2 px-3 font-sans opacity-85">Items Subtotal</td>
+                      <td className="py-2 px-3 text-right opacity-70">Goods</td>
+                      <td className="py-2 px-3 text-right">
+                        ETB {selectedReceiptTx.subtotalAmount.toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
+                  {selectedReceiptTx.deliveryFee != null && selectedReceiptTx.deliveryFee > 0 && (
+                    <tr>
+                      <td className="py-2 px-3 font-sans opacity-85">Freight / Delivery Fee</td>
+                      <td className="py-2 px-3 text-right opacity-70">Shipping</td>
+                      <td className="py-2 px-3 text-right">
+                        ETB {selectedReceiptTx.deliveryFee.toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
                   <tr>
-                    <td className="py-2.5 px-3 font-sans font-medium">Gross Order Settlement Value</td>
+                    <td className="py-2.5 px-3 font-sans font-medium">Gross Order Payment Received</td>
                     <td className="py-2.5 px-3 text-right opacity-70">100.0%</td>
                     <td className="py-2.5 px-3 text-right font-bold">
                       ETB {selectedReceiptTx.amount.toLocaleString()}

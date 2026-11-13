@@ -153,7 +153,7 @@ export function AdminOrdersEscrow() {
         rawOrders = response.data || [];
       } catch (apiErr) {
         console.warn("API gateway /admin/orders error, falling back to /api/orders:", apiErr);
-        const fallbackRes = await fetch("/api/orders");
+        const fallbackRes = await fetch("/api/orders?admin=true");
         if (fallbackRes.ok) {
           const fbJson = await fallbackRes.json();
           rawOrders = fbJson.orders || [];
@@ -183,41 +183,7 @@ export function AdminOrdersEscrow() {
       if (isManualRefresh) toast.success("Pending payouts refreshed from backend");
     } catch (err) {
       console.warn("Failed to load pending payouts from backend:", err);
-      // Demo placeholder if database empty
-      setPayouts([
-        {
-          id: "pay-01",
-          sellerId: "sel-88102",
-          orderId: "ord-94818",
-          paymentId: "pm-9912",
-          amount: 45000,
-          platformFee: 1575,
-          netPayoutAmount: 43425,
-          bankName: "Commercial Bank of Ethiopia",
-          bankAccountNumber: "1000289192841",
-          bankAccountHolderName: "Bole Electronics Wholesale PLC",
-          status: "PENDING",
-          createdAt: "2026-09-19T10:30:00Z",
-          orderNumber: "MX-94818",
-          shopName: "Bole Electronics Wholesale",
-        },
-        {
-          id: "pay-02",
-          sellerId: "sel-77412",
-          orderId: "ord-94780",
-          paymentId: "pm-8841",
-          amount: 18500,
-          platformFee: 647.5,
-          netPayoutAmount: 17852.5,
-          bankName: "Awash International Bank",
-          bankAccountNumber: "01320489124400",
-          bankAccountHolderName: "Heritage Cultural Outfits",
-          status: "PENDING",
-          createdAt: "2026-09-18T14:15:00Z",
-          orderNumber: "MX-94780",
-          shopName: "Heritage Cultural Outfits",
-        },
-      ]);
+      setPayouts([]);
     } finally {
       setLoadingPayouts(false);
     }

@@ -22,12 +22,14 @@ import { toast } from "sonner";
 import { useAuthStore } from "@/store";
 import { API_CONFIG } from "@/config/api.config";
 import { loadGoogleScript, triggerGoogleSignIn } from "@/lib/auth/google";
+import { startGitHubOAuth } from "@/lib/auth/github";
+import { resolvePostLoginRoute } from "@/lib/auth/role-routing";
 
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
 
-  const getPostLoginDestination = () => {
+  const getPostLoginDestination = (role?: string | null) => {
     try {
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
@@ -36,13 +38,13 @@ export default function LoginPage() {
           try {
             dest = decodeURIComponent(dest);
           } catch {}
-          if (dest.startsWith("/card")) return "/card";
-          if (dest.startsWith("/checkout")) return "/checkout";
-          if (dest.startsWith("/")) return dest;
+          if (dest.startsWith("/card")) return resolvePostLoginRoute("/card", role);
+          if (dest.startsWith("/checkout")) return resolvePostLoginRoute("/checkout", role);
+          return resolvePostLoginRoute(dest, role);
         }
       }
     } catch {}
-    return "/";
+    return resolvePostLoginRoute("/", role);
   };
 
   const [identifier, setIdentifier] = useState("");
@@ -51,6 +53,12 @@ export default function LoginPage() {
   const [rememberMe, setRememberMe] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isGitHubLoading, setIsGitHubLoading] = useState(false);
+  const [oauthError, setOauthError] = useState<{
+    provider: string;
+    message: string;
+    isUnregistered: boolean;
+  } | null>(null);
   const [capsLockActive, setCapsLockActive] = useState(false);
   const [identifierError, setIdentifierError] = useState("");
   const [passwordError, setPasswordError] = useState("");
@@ -334,7 +342,7 @@ export default function LoginPage() {
       } else if (isStaffDriver || effectiveRole === "DRIVER" || (effectiveRole as string) === "DELIVERY") {
         router.push("/dashboard/driver");
       } else {
-        router.push(getPostLoginDestination());
+        router.push(getPostLoginDestination(effectiveRole));
       }
     } catch {
       toast.error("Unable to connect to authentication server. Please verify API Gateway is running.");
@@ -344,6 +352,7 @@ export default function LoginPage() {
   };
 
   const handleOAuth = async (provider: string) => {
+    setOauthError(null);
     if (provider === "Google") {
       const postLoginDest = getPostLoginDestination();
       try {
@@ -356,7 +365,7 @@ export default function LoginPage() {
       toast.loading("Connecting to Google...", { id: "oauth" });
 
       try {
-        const authData = await triggerGoogleSignIn();
+        const authData = await triggerGoogleSignIn(undefined, false, postLoginDest);
         if (authData && authData.accessToken) {
           const userRole = authData.user.role || "CUSTOMER";
           login(
@@ -392,16 +401,61 @@ export default function LoginPage() {
       } catch (err: unknown) {
         const message =
           err instanceof Error ? err.message : "Google sign-in could not be completed.";
-        toast.error("Google sign-in failed", {
-          id: "oauth",
-          description: message,
+        const lower = message.toLowerCase();
+        const isUnregistered =
+          lower.includes("not found") ||
+          lower.includes("not registered") ||
+          lower.includes("register an account first");
+        setOauthError({
+          provider: "Google",
+          message,
+          isUnregistered,
         });
+        toast.error(
+          isUnregistered ? "Google account not registered" : "Google sign-in failed",
+          {
+            id: "oauth",
+            description: message,
+            duration: 6000,
+          }
+        );
         return;
       } finally {
         setIsGoogleLoading(false);
       }
 
       return;
+    }
+
+    if (provider === "GitHub") {
+      const postLoginDest = getPostLoginDestination();
+      try {
+        if (typeof window !== "undefined") {
+          sessionStorage.setItem("mercatox_auth_redirect", postLoginDest);
+        }
+      } catch {}
+
+      setIsGitHubLoading(true);
+      toast.loading("Connecting to GitHub...", { id: "oauth" });
+
+      try {
+        await startGitHubOAuth({
+          role: "CUSTOMER",
+          isRegistration: false,
+          postLoginDest,
+        });
+        return;
+      } catch (err: unknown) {
+        const message =
+          err instanceof Error ? err.message : "GitHub sign-in could not be started.";
+        toast.error("GitHub sign-in failed", {
+          id: "oauth",
+          description: message,
+        });
+        return;
+      } finally {
+        setIsGitHubLoading(false);
+      }
     }
 
     toast.error(`${provider} sign-in is not supported. Please sign in with your phone/email or Google.`);
@@ -676,12 +730,56 @@ export default function LoginPage() {
         </span>
       </div>
 
+      {/* OAuth Error Banner */}
+      {oauthError && (
+        <div
+          className={`mb-3 rounded-xl border p-3 text-xs ${
+            oauthError.isUnregistered
+              ? "border-amber-500/40 bg-amber-500/10 text-amber-200"
+              : "border-rose-500/40 bg-rose-500/10 text-rose-200"
+          }`}
+        >
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+              <div className="space-y-1.5">
+                <p className="font-semibold">
+                  {oauthError.isUnregistered
+                    ? `${oauthError.provider} account not registered`
+                    : `${oauthError.provider} sign-in failed`}
+                </p>
+                <p className="text-[11px] leading-relaxed opacity-90">
+                  {oauthError.message}
+                </p>
+                {oauthError.isUnregistered && (
+                  <Link
+                    href="/register"
+                    className="inline-flex items-center gap-1 rounded-lg bg-amber-500/20 px-2.5 py-1 text-[11px] font-semibold text-amber-200 hover:bg-amber-500/30 transition-colors"
+                  >
+                    <span>Register with {oauthError.provider} first</span>
+                    <ArrowRight className="h-3 w-3" />
+                  </Link>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setOauthError(null)}
+              className="text-zinc-400 hover:text-white transition-colors"
+              aria-label="Dismiss error"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Social OAuth Buttons */}
       <div className="space-y-2.5">
         <button
           type="button"
           onClick={() => handleOAuth("Google")}
-          disabled={isGoogleLoading}
+          disabled={isGoogleLoading || isGitHubLoading}
           className="w-full flex items-center justify-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] py-2.5 px-4 text-xs font-semibold text-white transition-all hover:bg-white/[0.09] hover:border-indigo-500/40 active:scale-[0.99] cursor-pointer shadow-sm disabled:opacity-60 group"
         >
           {isGoogleLoading ? (
@@ -694,11 +792,15 @@ export default function LoginPage() {
         <button
           type="button"
           onClick={() => handleOAuth("GitHub")}
-          disabled={isGoogleLoading}
-          className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] py-2 px-3 text-xs font-medium text-zinc-300 transition-all hover:bg-white/[0.06] hover:text-white hover:border-white/20 active:scale-[0.99] cursor-pointer disabled:opacity-60"
+          disabled={isGoogleLoading || isGitHubLoading}
+          className="w-full flex items-center justify-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] py-2 px-3 text-xs font-medium text-zinc-300 transition-all hover:bg-white/[0.06] hover:text-white hover:border-white/20 active:scale-[0.99] cursor-pointer disabled:opacity-60 group"
         >
-          <GithubIcon className="h-4 w-4 shrink-0" />
-          <span>Continue with GitHub</span>
+          {isGitHubLoading ? (
+            <Loader2 className="h-4 w-4 animate-spin text-white" />
+          ) : (
+            <GithubIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
+          )}
+          <span>{isGitHubLoading ? "Connecting to GitHub..." : "Continue with GitHub account"}</span>
         </button>
       </div>
 

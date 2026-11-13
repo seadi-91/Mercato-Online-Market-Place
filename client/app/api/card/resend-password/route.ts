@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { getCardsByUser, MercatoXCardRecord } from "@/lib/api/card-db";
+import { getCardsByUser, markCardPasswordEmailSent, MercatoXCardRecord } from "@/lib/api/card-db";
 import { getPaymentDbPool } from "@/lib/db";
-import { sendCardPasswordEmail } from "@/lib/mailer";
+import { isDeliverableEmail, sendCardPasswordEmail } from "@/lib/mailer";
 
 export async function POST(req: Request) {
   try {
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
       const cleanNum = String(cardNumber).replace(/\D/g, "");
       const rawNum = String(cardNumber).trim();
       const res = await pool.query(
-        `SELECT * FROM mercatox_cards WHERE REPLACE("cardNumber", ' ', '') = $1 OR "cardNumber" = $2 LIMIT 1`,
+        `SELECT * FROM mercatox_cards WHERE (REPLACE("cardNumber", ' ', '') = $1 OR "cardNumber" = $2) AND status = 'ACTIVE' LIMIT 1`,
         [cleanNum, rawNum]
       );
       if (res.rows.length > 0) {
@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     if (!targetCard && email && String(email).trim()) {
       const cleanEmail = String(email).trim().toLowerCase();
       const res = await pool.query(
-        `SELECT * FROM mercatox_cards WHERE LOWER(TRIM(email)) = $1 ORDER BY "createdAt" DESC LIMIT 1`,
+        `SELECT * FROM mercatox_cards WHERE LOWER(TRIM(email)) = $1 AND status = 'ACTIVE' ORDER BY "createdAt" DESC LIMIT 1`,
         [cleanEmail]
       );
       if (res.rows.length > 0) {
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
       const rawPhone = String(phoneNumber).trim();
       const digits = rawPhone.replace(/\D/g, "");
       const res = await pool.query(
-        `SELECT * FROM mercatox_cards WHERE "phoneNumber" LIKE $1 OR "phoneNumber" LIKE $2 ORDER BY "createdAt" DESC LIMIT 1`,
+        `SELECT * FROM mercatox_cards WHERE ("phoneNumber" LIKE $1 OR "phoneNumber" LIKE $2) AND status = 'ACTIVE' ORDER BY "createdAt" DESC LIMIT 1`,
         [`%${digits.slice(-8)}%`, `%${rawPhone}%`]
       );
       if (res.rows.length > 0) {
@@ -82,27 +82,32 @@ export async function POST(req: Request) {
       );
     }
 
-    // Determine target recipient email: prefer valid non-example email
-    let recipientEmail = (email || targetCard.email || "").trim().toLowerCase();
-    if (!recipientEmail || recipientEmail.includes("example.com") || recipientEmail.includes(".mercatox@gmail.com")) {
-      if (customerId) {
-        try {
-          const { getUsersDbPool } = await import("@/lib/db");
-          const uPool = getUsersDbPool();
-          const pRes = await uPool.query(
-            `SELECT email FROM profiles WHERE "userId" = $1 OR id = $1 LIMIT 1`,
-            [customerId]
-          );
-          if (pRes.rows.length > 0 && pRes.rows[0].email) {
-            recipientEmail = pRes.rows[0].email.trim().toLowerCase();
-          }
-        } catch { }
-      }
+    // Determine target recipient email: prefer real deliverable email from request or card or profile DB
+    const requestedEmail = (email || "").trim().toLowerCase();
+    const cardEmail = (targetCard.email || "").trim().toLowerCase();
+    let recipientEmail = isDeliverableEmail(requestedEmail)
+      ? requestedEmail
+      : isDeliverableEmail(cardEmail)
+      ? cardEmail
+      : "";
+
+    if (!recipientEmail && customerId) {
+      try {
+        const { getUsersDbPool } = await import("@/lib/db");
+        const uPool = getUsersDbPool();
+        const pRes = await uPool.query(
+          `SELECT email FROM profiles WHERE "userId" = $1 OR id = $1 LIMIT 1`,
+          [customerId]
+        );
+        if (pRes.rows.length > 0 && isDeliverableEmail(pRes.rows[0].email)) {
+          recipientEmail = pRes.rows[0].email.trim().toLowerCase();
+        }
+      } catch {}
     }
 
-    if (!recipientEmail || !recipientEmail.includes("@")) {
+    if (!isDeliverableEmail(recipientEmail)) {
       return NextResponse.json(
-        { success: false, error: "A valid email address is required to receive your 8-digit card password" },
+        { success: false, error: "A valid real email address is required to receive your 8-digit card password" },
         { status: 400 }
       );
     }
@@ -140,6 +145,8 @@ export async function POST(req: Request) {
       );
     }
 
+    await markCardPasswordEmailSent(targetCard.id).catch(() => null);
+
     console.log(`[Resend Password] Successfully sent 8-digit password for card ${targetCard.cardNumber} to ${recipientEmail}`);
 
     return NextResponse.json({
@@ -147,6 +154,7 @@ export async function POST(req: Request) {
       message: `8-digit card password sent successfully to ${recipientEmail}`,
       email: recipientEmail,
       cardNumber: targetCard.cardNumber,
+      messageId: result.messageId,
     });
   } catch (err: any) {
     console.error("[Resend Password API Error]", err);

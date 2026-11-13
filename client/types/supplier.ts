@@ -256,6 +256,13 @@ export interface B2BOrder {
   trackingNumber?: string;
   carrierName?: string;
   escrowReferenceNumber?: string;
+  paymentId?: string;
+  paymentMethod?: string;
+  txRef?: string;
+  providerReference?: string;
+  maskedCardNumber?: string;
+  bankName?: string;
+  depositorName?: string;
   // Branch & Assigned Driver Dispatch
   branchId?: string;
   branchName?: string;
@@ -549,19 +556,51 @@ export interface SettlementAccount {
   accentColor: string;
 }
 
+export interface PaymentTransactionItem {
+  id?: string;
+  productId?: string;
+  productTitle: string;
+  unitPrice: number;
+  quantity: number;
+  totalPrice: number;
+  unitOfMeasure?: string;
+}
+
 export interface PaymentTransaction {
   id: string;
+  paymentId?: string;
   transactionNumber: string;
   buyerCompany: string;
+  payerName?: string;
+  payerPhone?: string;
+  payerEmail?: string;
+  deliveryAddress?: string;
   buyerTIN?: string;
+  orderId?: string;
   orderNumber: string;
+  orderStatus?: string;
+  itemsSummary?: string;
+  itemsCount?: number;
+  items?: PaymentTransactionItem[];
+  subtotalAmount?: number;
+  deliveryFee?: number;
   amount: number;
   feeETB?: number;
   netAmountETB?: number;
   paymentMethod: string;
+  provider?: string;
   status: "completed" | "escrow_held" | "pending" | "failed" | "refunded";
+  escrowStatus?: string;
   date: string;
+  createdAt?: string;
+  verifiedAt?: string | null;
   referenceNumber: string;
+  providerReference?: string | null;
+  maskedCardNumber?: string | null;
+  bankName?: string | null;
+  depositorName?: string | null;
+  bankTransactionRef?: string | null;
+  paymentReceiptUrl?: string | null;
   payoutDate?: string;
   settlementAccount?: string;
   notes?: string;

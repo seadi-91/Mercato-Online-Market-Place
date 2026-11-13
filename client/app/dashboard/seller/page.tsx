@@ -1,7 +1,7 @@
 "use client";
 
-import React from "react";
-import { useSellerUIStore } from "@/store/ui-store";
+import React, { useEffect } from "react";
+import { useSellerUIStore, SellerTab } from "@/store/ui-store";
 import { SellerStats } from "./components/seller-stats";
 import { SellerProducts } from "./components/seller-products";
 import { SellerAddProduct } from "./components/seller-add-product";
@@ -11,10 +11,48 @@ import { SellerReviews } from "./components/seller-reviews";
 import { SellerSettings } from "./components/seller-settings";
 import { SellerSubscriptions } from "./components/seller-subscriptions";
 import { SellerWholesaleSourcing } from "./components/seller-wholesale-sourcing";
-import { Boxes, ArrowRight, ShieldCheck } from "lucide-react";
+import { Boxes, ArrowRight } from "lucide-react";
+
+const VALID_SELLER_TABS: SellerTab[] = [
+  "overview",
+  "wholesale-sourcing",
+  "products",
+  "add-product",
+  "orders",
+  "payouts",
+  "reviews",
+  "subscriptions",
+  "settings",
+];
 
 export default function SellerDashboardPage() {
   const { activeTab, setActiveTab } = useSellerUIStore();
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const tabParam = params.get("tab") as SellerTab | null;
+      const savedReturnTab = sessionStorage.getItem("mercatox_seller_return_tab") as SellerTab | null;
+      const targetTab = tabParam || savedReturnTab;
+
+      if (targetTab && VALID_SELLER_TABS.includes(targetTab)) {
+        setActiveTab(targetTab);
+      }
+
+      if (savedReturnTab) {
+        sessionStorage.removeItem("mercatox_seller_return_tab");
+      }
+      if (tabParam) {
+        params.delete("tab");
+        const cleanQuery = params.toString();
+        const nextUrl = `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`;
+        window.history.replaceState(null, "", nextUrl);
+      }
+    } catch {
+      // ignore storage or URL access errors
+    }
+  }, [setActiveTab]);
 
   return (
     <div className="w-full transition-all duration-150 space-y-4">

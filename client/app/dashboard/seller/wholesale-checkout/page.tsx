@@ -198,14 +198,53 @@ export default function SellerWholesaleCheckoutPage() {
     const toastId = toast.loading("Locking B2B Commercial Escrow & Generating Bill of Lading...");
 
     try {
-      await new Promise((resolve) => setTimeout(resolve, 1400));
+      const depotName =
+        COMMERCIAL_DEPOTS.find((d) => d.id === selectedDepot)?.name || "Mercato Central Depot";
+      const methodObj = COMMERCIAL_PAYMENT_METHODS.find((m) => m.id === paymentMethod);
+      const paymentLabel = methodObj?.name || paymentMethod;
+      const primarySellerId = items.find((it) => it.sellerId)?.sellerId;
+
+      const orderRes = await fetch("/api/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customerId: user?.id || `b2b-${Date.now()}`,
+          sellerId: primarySellerId,
+          customerName: shopName.trim() || repName.trim() || user?.name || "Verified B2B Buyer",
+          customerPhone: repPhone.trim() || user?.phoneNumber || "",
+          customerEmail: user?.email || "",
+          deliveryAddress: `${depotName} — Rep: ${repName.trim() || user?.name || "Buyer"} (TIN: ${tinNumber || "N/A"})`,
+          notes: deliveryNotes.trim() || undefined,
+          subtotal: totalAmount,
+          deliveryFee: freightFee,
+          totalAmount: grandTotal,
+          paymentMethod: paymentLabel,
+          paymentStatus: "PAID",
+          items: items.map((it) => ({
+            productId: it.id,
+            sellerId: it.sellerId || primarySellerId,
+            productName: it.name,
+            name: it.name,
+            price: it.price,
+            quantity: it.quantity,
+            unit: it.unit,
+            imageUrl: it.image,
+            image: it.image,
+          })),
+        }),
+      });
+
+      const orderData = await orderRes.json().catch(() => ({}));
+      if (!orderRes.ok || !orderData?.success) {
+        throw new Error(orderData?.error || "Failed to persist wholesale order in database");
+      }
 
       const generatedOrder = {
-        orderNumber: `MRC-B2B-${Math.floor(100000 + Math.random() * 900000)}`,
-        inspectionOtp: String(Math.floor(100000 + Math.random() * 900000)),
+        orderNumber: orderData.order?.orderNumber || `MRC-B2B-${Math.floor(100000 + Math.random() * 900000)}`,
+        inspectionOtp: orderData.order?.otpCode || String(Math.floor(100000 + Math.random() * 900000)),
         totalAmount: grandTotal,
         totalUnits: totalUnits,
-        depotName: COMMERCIAL_DEPOTS.find((d) => d.id === selectedDepot)?.name || "Mercato Central Depot",
+        depotName,
         createdAt: new Date().toLocaleString("en-US", {
           dateStyle: "medium",
           timeStyle: "short",
@@ -216,8 +255,8 @@ export default function SellerWholesaleCheckoutPage() {
       clearCart();
       setStep(3);
       toast.success("Wholesale Cargo Order Placed in Escrow!", { id: toastId });
-    } catch {
-      toast.error("Failed to process wholesale order", { id: toastId });
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to process wholesale order", { id: toastId });
     } finally {
       setIsProcessing(false);
     }

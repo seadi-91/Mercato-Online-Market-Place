@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createCardRecord, getCardsByUser } from "@/lib/api/card-db";
+import { getCardsByUser } from "@/lib/api/card-db";
 import { recordPaymentInDatabase } from "@/lib/api/payment-db";
 import crypto from "crypto";
 
@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // Verify 1 card limit per user: strictly 1 card only for 1 user
+    // Verify 1 card limit per user: strictly 1 ACTIVE card only for 1 user
     try {
       const existingCards = await getCardsByUser({
         email: validEmail,
@@ -105,9 +105,7 @@ export async function POST(req: Request) {
         customerId: customerId || undefined,
       });
 
-      const activeExistingCard =
-        existingCards.find((c) => c.status === "ACTIVE" || c.status === "PENDING") ||
-        existingCards[0];
+      const activeExistingCard = existingCards.find((c) => c.status === "ACTIVE");
       if (activeExistingCard) {
         return NextResponse.json(
           {
@@ -131,13 +129,23 @@ export async function POST(req: Request) {
       req.headers.get("referer")?.split("/").slice(0, 3).join("/") ||
       "http://localhost:3000";
 
-    const returnUrl = customReturnUrl || `${reqOrigin}/card?tx_ref=${encodeURIComponent(txRef)}&payment=success`;
+    const returnUrl = customReturnUrl || `${reqOrigin}/card?tx_ref=${encodeURIComponent(txRef)}`;
     const callbackUrl = `${reqOrigin}/payments/webhook/chapa`;
 
     // Chapa credentials
     const chapaSecretKey = process.env.CHAPA_SECRET_KEY || "";
     const chapaBaseUrl =
       process.env.CHAPA_BASE_URL || "https://api.chapa.co/v1";
+
+    if (!chapaSecretKey) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Chapa payment gateway is not configured on the server. Card cannot be issued without payment.",
+        },
+        { status: 500 }
+      );
+    }
 
     const chapaPayload = {
       amount: Math.round(totalAmount).toString(),
@@ -154,7 +162,7 @@ export async function POST(req: Request) {
     };
 
     let checkoutUrl = "";
-    let chapaSuccess = false;
+    let chapaErrorMsg = "";
 
     try {
       const chapaRes = await fetch(`${chapaBaseUrl}/transaction/initialize`, {
@@ -166,91 +174,69 @@ export async function POST(req: Request) {
         body: JSON.stringify(chapaPayload),
       });
 
-      const chapaData = await chapaRes.json();
-      if (chapaData.status === "success" && chapaData.data?.checkout_url) {
+      const chapaData = await chapaRes.json().catch(() => ({}));
+      if (chapaRes.ok && chapaData.status === "success" && chapaData.data?.checkout_url) {
         checkoutUrl = chapaData.data.checkout_url;
-        chapaSuccess = true;
       } else {
-        console.warn("[Card Chapa Init] Non-success response:", chapaData.message);
+        chapaErrorMsg =
+          typeof chapaData?.message === "string"
+            ? chapaData.message
+            : "Failed to initialize Chapa checkout session";
+        console.warn("[Card Chapa Init] Non-success response:", chapaData);
       }
-    } catch (chapaErr) {
+    } catch (chapaErr: any) {
+      chapaErrorMsg = chapaErr?.message || "Failed to connect to Chapa Payment Gateway";
       console.error("[Card Chapa Init] Failed to communicate with Chapa API:", chapaErr);
     }
 
-    // Insert card into database with initial loaded balance and pending status (awaiting Chapa payment)
-    const initialStatus = chapaSuccess ? "PENDING" : "ACTIVE";
+    if (!checkoutUrl) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: chapaErrorMsg || "Could not initialize Chapa payment. Your MercatoX Card was not registered.",
+        },
+        { status: 502 }
+      );
+    }
+
     const cardPassword = Math.floor(10000000 + Math.random() * 90000000).toString();
 
-    const cardRecord = await createCardRecord({
-      cardNumber,
-      cardholderName: trimmedName,
-      email: validEmail,
-      phoneNumber: cleanPhone,
-      themeId,
-      balance: cleanAmount,
-      initialAmount: cleanAmount,
-      cardFee: cardFee,
-      totalPaid: totalAmount,
-      currency: "ETB",
-      expiryDate,
-      cvv,
-      status: initialStatus,
-      paymentMethod: "CHAPA",
+    // Store ONLY a PENDING payment intent in payments DB.
+    // The MercatoX Card will ONLY be created/registered in mercatox_cards after Chapa confirms payment success.
+    await recordPaymentInDatabase({
       transactionReference: txRef,
-      chapaCheckoutUrl: checkoutUrl || undefined,
-      customerId,
-      cardPassword,
-    });
-
-    // If directly active (offline/test bypass mode without Chapa redirect), dispatch email immediately
-    if (initialStatus === "ACTIVE" && cardRecord) {
-      try {
-        const { sendCardPasswordEmail } = await import("@/lib/mailer");
-        const { markCardPasswordEmailSent } = await import("@/lib/api/card-db");
-        await sendCardPasswordEmail({
-          toEmail: validEmail,
-          cardholderName: trimmedName,
-          cardNumber: cardRecord.cardNumber,
-          cardPassword: cardPassword,
-          balance: Number(cardRecord.balance || 0),
-          currency: cardRecord.currency || "ETB",
-          expiryDate: cardRecord.expiryDate,
-        });
-        await markCardPasswordEmailSent(cardRecord.id);
-        console.log(`[Card Purchase] Dispatched instant 8-digit password email to ${validEmail}`);
-      } catch (mailErr) {
-        console.warn("[Card Purchase] Error sending instant card password email:", mailErr);
-      }
-    }
-
-    // Record payment transaction in mercatox_payment_db payments table
-    try {
-      await recordPaymentInDatabase({
-        transactionReference: txRef,
-        orderId: crypto.randomUUID(),
-        customerId: customerId || null,
-        sellerId: null,
-        amount: totalAmount,
-        currency: "ETB",
-        provider: "CHAPA",
-        status: chapaSuccess ? "PENDING" : "COMPLETED",
-        escrowStatus: "HELD",
-        metadata: {
-          type: "MERCATOX_CARD_PURCHASE",
+      orderId: crypto.randomUUID(),
+      customerId: customerId || null,
+      sellerId: null,
+      amount: totalAmount,
+      currency: "ETB",
+      provider: "CHAPA",
+      status: "PENDING",
+      escrowStatus: "HELD",
+      metadata: {
+        type: "MERCATOX_CARD_PURCHASE",
+        pendingCard: {
           cardNumber,
           cardholderName: trimmedName,
-          loadedAmount: cleanAmount,
-          cardFee: cardFee,
+          email: validEmail,
+          phoneNumber: cleanPhone,
           themeId,
+          balance: cleanAmount,
+          initialAmount: cleanAmount,
+          cardFee,
+          totalPaid: totalAmount,
+          currency: "ETB",
+          expiryDate,
+          cvv,
+          customerId: customerId || null,
+          cardPassword,
+          chapaCheckoutUrl: checkoutUrl,
         },
-      });
-    } catch (payDbErr) {
-      console.warn("[Card Payment DB] Note on recording payment:", payDbErr);
-    }
+      },
+    });
 
     return NextResponse.json({
       success: true,
-      card: cardRecord,
       checkoutUrl,
       txRef,
       amount: totalAmount,

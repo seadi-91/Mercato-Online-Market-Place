@@ -5,7 +5,6 @@ import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { sendOrderEmailsDirectly } from "@/lib/mailer";
 import crypto from "crypto";
 
-const DEFAULT_CUSTOMER_ID = "609563b9-3c51-4b25-80c2-a3b238ee929f";
 const DEFAULT_SELLER_ID = "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
 function isValidUuid(id?: string | null): boolean {
@@ -239,13 +238,16 @@ export async function GET(req: Request) {
     const email = searchParams.get("email");
     const phone = searchParams.get("phone");
     const orderNumber = searchParams.get("orderNumber");
+    const isAdminQuery = searchParams.get("admin") === "true";
 
     const orderId = searchParams.get("id") || searchParams.get("orderId");
 
     if (orderId) {
       if (isValidUuid(orderId)) {
         values.push(orderId);
-        conditions.push(`o.id = $${values.length}`);
+        conditions.push(`o.id::text = $${values.length}`);
+      } else {
+        return NextResponse.json({ success: true, orders: [] });
       }
     } else if (txRef) {
       values.push(txRef);
@@ -254,26 +256,40 @@ export async function GET(req: Request) {
       values.push(orderNumber);
       conditions.push(`o."orderNumber" = $${values.length}`);
     } else if (customerId) {
-      if (isValidUuid(customerId)) {
-        values.push(customerId);
-        conditions.push(`(o."customerId" = $${values.length} OR o."deliveryAddress"::text LIKE '%${customerId}%')`);
-      } else {
-        conditions.push(`o."deliveryAddress"::text LIKE '%${customerId}%'`);
-      }
+      values.push(customerId);
+      conditions.push(
+        `(o."customerId"::text = $${values.length} OR o."deliveryAddress"::jsonb->>'buyerId' = $${values.length} OR o."deliveryAddress"::jsonb->>'customerId' = $${values.length})`
+      );
     } else if (sellerId) {
-      if (isValidUuid(sellerId)) {
-        values.push(sellerId);
-        conditions.push(`(o."sellerId" = $${values.length} OR o."deliveryAddress"::text LIKE '%${sellerId}%')`);
-      } else {
-        conditions.push(`o."deliveryAddress"::text LIKE '%${sellerId}%'`);
-      }
+      values.push(sellerId);
+      const exactIdx = values.length;
+      values.push(`%${sellerId}%`);
+      const likeIdx = values.length;
+      conditions.push(
+        `(o."sellerId"::text = $${exactIdx} OR o."deliveryAddress"::jsonb->>'sellerId' = $${exactIdx} OR o."deliveryAddress"::text LIKE $${likeIdx})`
+      );
     }
 
     if (email) {
-      conditions.push(`o."deliveryAddress"::text ILIKE '%${email}%'`);
+      values.push(email.trim());
+      conditions.push(
+        `(o."deliveryAddress"::jsonb->>'buyerEmail' ILIKE $${values.length} OR o."deliveryAddress"::jsonb->>'email' ILIKE $${values.length})`
+      );
     }
     if (phone) {
-      conditions.push(`o."deliveryAddress"::text LIKE '%${phone}%'`);
+      values.push(`%${phone.trim()}%`);
+      conditions.push(`o."deliveryAddress"::text LIKE $${values.length}`);
+    }
+
+    // Strict user isolation: never dump all orders across users unless explicitly requested by admin dashboard
+    if (conditions.length === 0 && !isAdminQuery) {
+      return NextResponse.json({ success: true, orders: [] });
+    }
+
+    // For customer-facing queries (not admin and not seller), show ONLY real PAID orders not deleted/hidden by the customer
+    if (!isAdminQuery && !sellerId && !orderId) {
+      conditions.push(`o."paymentStatus" = 'PAID'`);
+      conditions.push(`COALESCE(o."deliveryAddress"::jsonb->>'customerHidden', 'false') != 'true'`);
     }
 
     if (conditions.length > 0) {
@@ -283,13 +299,102 @@ export async function GET(req: Request) {
     query += ` GROUP BY o.id ORDER BY o."createdAt" DESC`;
 
     const result = await pool.query(query, values);
+    let rows = result.rows;
 
-    return NextResponse.json({
-      success: true,
-      orders: result.rows.map((row) => {
+    // Filter precisely when sellerId matched via LIKE on deliveryAddress text
+    if (sellerId) {
+      rows = rows.filter((row: any) => {
+        if (String(row.sellerId || "") === sellerId) return true;
         const delivAddr = typeof row.deliveryAddress === "string"
           ? (() => { try { return JSON.parse(row.deliveryAddress); } catch { return {}; } })()
           : row.deliveryAddress || {};
+        if (String(delivAddr?.sellerId || "") === sellerId) return true;
+        const snaps = Array.isArray(delivAddr?.itemsSnapshot) ? delivAddr.itemsSnapshot : [];
+        return snaps.some((s: any) => String(s?.sellerId || "") === sellerId);
+      });
+    }
+
+    // Enrich customer profiles & payment details in batch
+    const customerIds = Array.from(
+      new Set(rows.map((r: any) => r.customerId).filter((id: any) => isValidUuid(id)))
+    );
+    const orderIds = Array.from(
+      new Set(rows.map((r: any) => r.id).filter((id: any) => isValidUuid(id)))
+    );
+
+    const profileMap = new Map<string, any>();
+    if (customerIds.length > 0) {
+      try {
+        const usersPool = getUsersDbPool();
+        const profRes = await usersPool.query(
+          `SELECT id::text AS id, email, "fullName", "phoneNumber" FROM profiles WHERE id::text = ANY($1)`,
+          [customerIds]
+        );
+        for (const p of profRes.rows) {
+          profileMap.set(p.id, p);
+        }
+      } catch (e) {
+        console.warn("[Orders GET] Profile enrichment skipped:", e);
+      }
+    }
+
+    const paymentMap = new Map<string, any>();
+    if (orderIds.length > 0) {
+      try {
+        const payPool = getPaymentDbPool();
+        const payRes = await payPool.query(
+          `SELECT DISTINCT ON ("orderId"::text)
+            id::text AS "paymentId",
+            "orderId"::text AS "orderId",
+            "transactionReference",
+            "providerReference",
+            provider,
+            status AS "payStatus",
+            "escrowStatus",
+            "bankName",
+            "depositorName",
+            "bankTransactionRef",
+            "maskedCardNumber",
+            "verifiedAt"
+          FROM payments
+          WHERE "orderId"::text = ANY($1)
+          ORDER BY "orderId"::text, "createdAt" DESC`,
+          [orderIds]
+        );
+        for (const p of payRes.rows) {
+          paymentMap.set(p.orderId, p);
+        }
+      } catch (e) {
+        console.warn("[Orders GET] Payment enrichment skipped:", e);
+      }
+    }
+
+    return NextResponse.json({
+      success: true,
+      orders: rows.map((row) => {
+        const delivAddr = typeof row.deliveryAddress === "string"
+          ? (() => { try { return JSON.parse(row.deliveryAddress); } catch { return {}; } })()
+          : row.deliveryAddress || {};
+
+        const custProf = row.customerId ? profileMap.get(String(row.customerId)) : null;
+        const payRec = paymentMap.get(String(row.id));
+
+        const resolvedCustomerName =
+          delivAddr.buyerName || delivAddr.recipientName || delivAddr.fullName || custProf?.fullName || "MercatoX Customer";
+        const resolvedCustomerEmail =
+          delivAddr.buyerEmail || delivAddr.email || custProf?.email || "";
+        const resolvedCustomerPhone =
+          delivAddr.buyerPhone || delivAddr.recipientPhone || delivAddr.phone || custProf?.phoneNumber || "";
+
+        const enrichedDeliveryAddress = {
+          ...delivAddr,
+          buyerName: resolvedCustomerName,
+          buyerEmail: resolvedCustomerEmail,
+          buyerPhone: resolvedCustomerPhone,
+          paymentId: payRec?.paymentId || delivAddr.paymentId,
+          providerReference: payRec?.providerReference || delivAddr.providerReference,
+          paymentProvider: payRec?.provider || delivAddr.paymentMethod,
+        };
 
         const snapshotList: any[] = Array.isArray(delivAddr.itemsSnapshot) ? delivAddr.itemsSnapshot : [];
 
@@ -319,17 +424,27 @@ export async function GET(req: Request) {
           id: row.id,
           orderNumber: row.orderNumber,
           customerId: row.customerId,
+          customerName: resolvedCustomerName,
+          customerEmail: resolvedCustomerEmail,
+          customerPhone: resolvedCustomerPhone,
           sellerId: row.sellerId,
           carrierId: row.carrierId || delivAddr?.assignedDriver?.id || null,
           assignedDriver: delivAddr?.assignedDriver || null,
           status: row.status,
           paymentStatus: row.paymentStatus,
-          paymentMethod: "Chapa Hosted Gateway (Telebirr / CBE / Card)",
-          txRef: row.txRef || `MX-CHAPA-${row.orderNumber}`,
+          paymentId: payRec?.paymentId || delivAddr?.paymentId || null,
+          paymentMethod: payRec?.provider || delivAddr?.paymentMethod || "Chapa Hosted Gateway (Telebirr / CBE / Card)",
+          providerReference: payRec?.providerReference || null,
+          txRef: payRec?.transactionReference || row.txRef || `MX-CHAPA-${row.orderNumber}`,
+          maskedCardNumber: payRec?.maskedCardNumber || null,
+          bankName: payRec?.bankName || null,
+          depositorName: payRec?.depositorName || null,
+          escrowStatus: payRec?.escrowStatus || null,
+          verifiedAt: payRec?.verifiedAt || null,
           subtotalAmount: Number(row.subtotalAmount),
           deliveryFee: Number(row.deliveryFee),
           totalAmount: Number(row.totalAmount),
-          deliveryAddress: delivAddr,
+          deliveryAddress: enrichedDeliveryAddress,
           notes: row.notes,
           items: mappedItems.length > 0 ? mappedItems : snapshotList.map((s: any) => ({
             id: s.id || crypto.randomUUID(),
@@ -345,7 +460,7 @@ export async function GET(req: Request) {
           createdAt: row.createdAt,
         };
       }),
-      total: result.rowCount,
+      total: rows.length,
     });
   } catch (err: any) {
     console.error("[Orders API GET Error]", err);
@@ -404,10 +519,48 @@ export async function POST(req: Request) {
           ? deliveryAddress.buyerId
           : (deliveryAddress && isValidUuid(deliveryAddress.customerId)
               ? deliveryAddress.customerId
-              : DEFAULT_CUSTOMER_ID));
+              : crypto.randomUUID()));
 
     const finalStatus = sanitizeOrderStatus(status);
     const finalPaymentStatus = sanitizePaymentStatus(paymentStatus);
+
+    if (finalPaymentStatus !== "PAID") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Order cannot be saved before payment is completed.",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (txRef) {
+      const paymentPool = getPaymentDbPool();
+      const payCheck = await paymentPool.query(
+        `SELECT status FROM payments WHERE "transactionReference" = $1 OR "providerReference" = $1 ORDER BY "createdAt" DESC LIMIT 1`,
+        [txRef]
+      );
+
+      if (payCheck.rows.length > 0 && payCheck.rows[0].status !== "COMPLETED") {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Payment is not completed yet (${payCheck.rows[0].status}). Order cannot be saved until Chapa confirms Payment Successful.`,
+          },
+          { status: 400 }
+        );
+      }
+
+      if (payCheck.rows.length === 0 && String(txRef).startsWith("MX-CHAPA-")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "No completed Chapa payment record found for this transaction reference. Order cannot be saved.",
+          },
+          { status: 400 }
+        );
+      }
+    }
 
     const itemsSnapshot = items.map((it: any) => ({
       id: it.id,
@@ -434,7 +587,7 @@ export async function POST(req: Request) {
       resolvedCustomerEmail.includes(".mercatox@gmail.com") ||
       resolvedCustomerEmail.includes("example.com")
     ) {
-      if (resolvedCustomerId && isValidUuid(resolvedCustomerId) && resolvedCustomerId !== DEFAULT_CUSTOMER_ID) {
+      if (resolvedCustomerId && isValidUuid(resolvedCustomerId)) {
         try {
           const usersPool = getUsersDbPool();
           const pRes = await usersPool.query(
@@ -765,7 +918,16 @@ export async function POST(req: Request) {
 export async function PATCH(req: Request) {
   try {
     const body = await req.json();
-    const { orderId, newStatus, cancelReason, notes, carrierId, assignedDriver } = body || {};
+    const {
+      orderId,
+      customerId,
+      customerHidden,
+      newStatus,
+      cancelReason,
+      notes,
+      carrierId,
+      assignedDriver,
+    } = body || {};
 
     if (!orderId) {
       return NextResponse.json(
@@ -775,6 +937,62 @@ export async function PATCH(req: Request) {
     }
 
     const pool = getOrderDbPool();
+
+    // Soft-delete / hide order from customer view while keeping DB record for admin & seller
+    if (typeof customerHidden === "boolean") {
+      if (!isValidUuid(orderId)) {
+        return NextResponse.json(
+          { success: false, error: "Valid Order ID is required" },
+          { status: 400 }
+        );
+      }
+
+      const hiddenLiteral = customerHidden ? "true" : "false";
+      const params: any[] = [orderId];
+      let whereClause = `WHERE id = $1`;
+
+      if (customerId) {
+        params.push(customerId);
+        whereClause += ` AND ("customerId"::text = $2 OR "deliveryAddress"::jsonb->>'buyerId' = $2 OR "deliveryAddress"::jsonb->>'customerId' = $2)`;
+      }
+
+      const softRes = await pool.query(
+        `UPDATE orders
+         SET "deliveryAddress" = jsonb_set(
+               jsonb_set(
+                 CASE WHEN jsonb_typeof(COALESCE("deliveryAddress", '{}'::jsonb)) = 'object' THEN COALESCE("deliveryAddress", '{}'::jsonb) ELSE '{}'::jsonb END,
+                 '{customerHidden}',
+                 '${hiddenLiteral}'::jsonb,
+                 true
+               ),
+               '{customerDeletedAt}',
+               ${customerHidden ? "to_jsonb(NOW()::text)" : "null::jsonb"},
+               true
+             ),
+             "updatedAt" = NOW()
+         ${whereClause}
+         RETURNING id, "orderNumber"`,
+        params
+      );
+
+      if (softRes.rowCount === 0) {
+        return NextResponse.json(
+          { success: false, error: "Order not found or access denied" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        orderId: softRes.rows[0].id,
+        orderNumber: softRes.rows[0].orderNumber,
+        customerHidden,
+        message: customerHidden
+          ? "Order removed from customer view while preserved for admin and seller"
+          : "Order restored to customer view",
+      });
+    }
+
     const updates: string[] = ['"updatedAt" = NOW()'];
     const values: any[] = [orderId];
 
@@ -820,6 +1038,69 @@ export async function PATCH(req: Request) {
     console.error("[Orders API PATCH Error]", err);
     return NextResponse.json(
       { success: false, error: err.message || "Failed to update order in database" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const orderId = searchParams.get("orderId") || searchParams.get("id");
+    const customerId = searchParams.get("customerId");
+
+    if (!orderId || !isValidUuid(orderId)) {
+      return NextResponse.json(
+        { success: false, error: "Valid Order ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const pool = getOrderDbPool();
+    const params: any[] = [orderId];
+    let whereClause = `WHERE id = $1`;
+
+    if (customerId) {
+      params.push(customerId);
+      whereClause += ` AND ("customerId"::text = $2 OR "deliveryAddress"::jsonb->>'buyerId' = $2 OR "deliveryAddress"::jsonb->>'customerId' = $2)`;
+    }
+
+    const res = await pool.query(
+      `UPDATE orders
+       SET "deliveryAddress" = jsonb_set(
+             jsonb_set(
+               CASE WHEN jsonb_typeof(COALESCE("deliveryAddress", '{}'::jsonb)) = 'object' THEN COALESCE("deliveryAddress", '{}'::jsonb) ELSE '{}'::jsonb END,
+               '{customerHidden}',
+               'true'::jsonb,
+               true
+             ),
+             '{customerDeletedAt}',
+             to_jsonb(NOW()::text),
+             true
+           ),
+           "updatedAt" = NOW()
+       ${whereClause}
+       RETURNING id, "orderNumber"`,
+      params
+    );
+
+    if (res.rowCount === 0) {
+      return NextResponse.json(
+        { success: false, error: "Order not found or access denied" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({
+      success: true,
+      orderId: res.rows[0].id,
+      orderNumber: res.rows[0].orderNumber,
+      message: "Order removed from customer view while preserved for admin and seller",
+    });
+  } catch (err: any) {
+    console.error("[Orders API DELETE Error]", err);
+    return NextResponse.json(
+      { success: false, error: err.message || "Failed to remove order from customer view" },
       { status: 500 }
     );
   }

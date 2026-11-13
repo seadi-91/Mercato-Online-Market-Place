@@ -5,7 +5,6 @@ import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { triggerOrderEmailNotifications } from "@/app/api/orders/route";
 import crypto from "crypto";
 
-const DEFAULT_CUSTOMER_ID = "609563b9-3c51-4b25-80c2-a3b238ee929f";
 const DEFAULT_SELLER_ID = "59972f9f-49ec-4592-9113-ba70a0aa3a52";
 
 function isValidUuid(id?: string | null): boolean {
@@ -137,7 +136,7 @@ export async function POST(req: Request) {
 
     const resolvedCustomerId = isValidUuid(customerId)
       ? customerId
-      : DEFAULT_CUSTOMER_ID;
+      : crypto.randomUUID();
     
     // Find sellerId from items or fallback
     const firstItemSeller = items.find((it: any) => isValidUuid(it.sellerId))?.sellerId;
@@ -179,96 +178,6 @@ export async function POST(req: Request) {
       itemsSnapshot,
     };
 
-    // 1. SAVE ORDER INFORMATION IN ORDER SERVICE (mercatox_order_db)
-    try {
-      const orderPool = getOrderDbPool();
-      const orderClient = await orderPool.connect();
-
-      try {
-        await orderClient.query("BEGIN");
-
-        await orderClient.query(
-          `
-          INSERT INTO orders (
-            id,
-            "orderNumber",
-            "customerId",
-            "sellerId",
-            status,
-            "paymentStatus",
-            "subtotalAmount",
-            "deliveryFee",
-            "totalAmount",
-            "deliveryAddress",
-            notes,
-            "txRef",
-            "createdAt",
-            "updatedAt"
-          ) VALUES ($1, $2, $3, $4, 'CONFIRMED', 'UNPAID', $5, $6, $7, $8, $9, $10, NOW(), NOW())
-          `,
-          [
-            orderId,
-            orderNumber,
-            resolvedCustomerId,
-            resolvedSellerId,
-            calcSubtotal,
-            calcDeliveryFee,
-            calcTotal,
-            JSON.stringify(deliveryAddressObj),
-            deliveryNotes || "",
-            txRef,
-          ]
-        );
-
-        for (const it of items) {
-          const itemId = crypto.randomUUID();
-          const itemProductId = isValidUuid(it.id || it.productId)
-            ? (it.id || it.productId)
-            : crypto.randomUUID();
-          const itemTitle = it.name || it.productTitle || "Mercato Wholesale Product";
-          const itemUnitPrice = Number(it.price || it.unitPrice || 0);
-          const itemQty = Number(it.quantity || 1);
-          const itemTotalPrice = itemUnitPrice * itemQty;
-
-          await orderClient.query(
-            `
-            INSERT INTO order_items (
-              id,
-              "orderId",
-              "productId",
-              "productTitle",
-              "unitOfMeasure",
-              "unitPrice",
-              quantity,
-              "totalPrice",
-              "createdAt",
-              "updatedAt"
-            ) VALUES ($1, $2, $3, $4, 'PIECE', $5, $6, $7, NOW(), NOW())
-            `,
-            [
-              itemId,
-              orderId,
-              itemProductId,
-              itemTitle,
-              itemUnitPrice,
-              itemQty,
-              itemTotalPrice,
-            ]
-          );
-        }
-
-        await orderClient.query("COMMIT");
-        console.log(`[Chapa API] Created order ${orderNumber} (${orderId}) in mercatox_order_db`);
-      } catch (orderInsertErr) {
-        await orderClient.query("ROLLBACK");
-        console.error("[Chapa API] Failed to insert order into mercatox_order_db:", orderInsertErr);
-      } finally {
-        orderClient.release();
-      }
-    } catch (dbConnErr) {
-      console.error("[Chapa API] Order DB connection error:", dbConnErr);
-    }
-
     // Resolve app origin for return_url
     const reqOrigin =
       req.headers.get("origin") ||
@@ -277,7 +186,7 @@ export async function POST(req: Request) {
 
     const defaultReturnUrl = `${reqOrigin}/payments/success?tx_ref=${encodeURIComponent(
       txRef
-    )}&amount=${encodeURIComponent(calcTotal)}&order_id=${encodeURIComponent(orderId)}&order_number=${encodeURIComponent(orderNumber)}&payment_status=success`;
+    )}&amount=${encodeURIComponent(calcTotal)}&order_id=${encodeURIComponent(orderId)}&order_number=${encodeURIComponent(orderNumber)}`;
 
     let returnUrl = defaultReturnUrl;
     if (customReturnUrl) {
@@ -293,10 +202,10 @@ export async function POST(req: Request) {
         orderId
       )}&order_number=${encodeURIComponent(
         orderNumber
-      )}&payment_status=success`;
+      )}`;
     }
 
-    const callbackUrl = `${reqOrigin}/payments/webhook/chapa`;
+    const callbackUrl = `${reqOrigin}/api/payments/verify?tx_ref=${encodeURIComponent(txRef)}`;
 
     const description = `MercatoX Escrow: ${items?.length || 1} item(s) to ${
       subcity ? subcity.split(" ")[0] : "Addis Ababa"
@@ -329,12 +238,11 @@ export async function POST(req: Request) {
       String(paymentMethod).toLowerCase() === "mercatox_card";
 
     let checkoutUrl = "";
-    let chapaSuccess = false;
     let chapaResponseData: any = null;
     let cardDeductInfo: any = null;
 
     if (isMercatoXCard) {
-      // 1. Verify card exists, has sufficient balance, and 8-digit password matches
+      // 1A. MercatoX Card: verify card exists, sufficient balance, and 8-digit PIN BEFORE creating order
       const { verifyAndDeductCardBalance } = await import("@/lib/api/card-db");
       const deductResult = await verifyAndDeductCardBalance({
         cardNumber: cardNumber || "",
@@ -357,11 +265,111 @@ export async function POST(req: Request) {
 
       cardDeductInfo = deductResult;
       checkoutUrl = returnUrl;
-      chapaSuccess = true;
       console.log(
         `[Payment API] MercatoX Card payment approved for order ${orderNumber} (${txRef}). Deducted ETB ${calcTotal}, Remaining Balance: ${deductResult.newBalance}`
       );
+
+      // Payment succeeded immediately via MercatoX Card -> create PAID/CONFIRMED order now
+      try {
+        const orderPool = getOrderDbPool();
+        const orderClient = await orderPool.connect();
+
+        try {
+          await orderClient.query("BEGIN");
+
+          await orderClient.query(
+            `
+            INSERT INTO orders (
+              id,
+              "orderNumber",
+              "customerId",
+              "sellerId",
+              status,
+              "paymentStatus",
+              "subtotalAmount",
+              "deliveryFee",
+              "totalAmount",
+              "deliveryAddress",
+              notes,
+              "txRef",
+              "createdAt",
+              "updatedAt"
+            ) VALUES ($1, $2, $3, $4, 'CONFIRMED', 'PAID', $5, $6, $7, $8, $9, $10, NOW(), NOW())
+            `,
+            [
+              orderId,
+              orderNumber,
+              resolvedCustomerId,
+              resolvedSellerId,
+              calcSubtotal,
+              calcDeliveryFee,
+              calcTotal,
+              JSON.stringify(deliveryAddressObj),
+              deliveryNotes || "",
+              txRef,
+            ]
+          );
+
+          for (const it of items) {
+            const itemId = crypto.randomUUID();
+            const itemProductId = isValidUuid(it.id || it.productId)
+              ? (it.id || it.productId)
+              : crypto.randomUUID();
+            const itemTitle = it.name || it.productTitle || "Mercato Wholesale Product";
+            const itemUnitPrice = Number(it.price || it.unitPrice || 0);
+            const itemQty = Number(it.quantity || 1);
+            const itemTotalPrice = itemUnitPrice * itemQty;
+
+            await orderClient.query(
+              `
+              INSERT INTO order_items (
+                id,
+                "orderId",
+                "productId",
+                "productTitle",
+                "unitOfMeasure",
+                "unitPrice",
+                quantity,
+                "totalPrice",
+                "createdAt",
+                "updatedAt"
+              ) VALUES ($1, $2, $3, $4, 'PIECE', $5, $6, $7, NOW(), NOW())
+              `,
+              [
+                itemId,
+                orderId,
+                itemProductId,
+                itemTitle,
+                itemUnitPrice,
+                itemQty,
+                itemTotalPrice,
+              ]
+            );
+          }
+
+          await orderClient.query("COMMIT");
+          console.log(`[Card API] Created PAID order ${orderNumber} (${orderId}) in mercatox_order_db`);
+        } catch (orderInsertErr) {
+          await orderClient.query("ROLLBACK");
+          console.error("[Card API] Failed to insert order into mercatox_order_db:", orderInsertErr);
+        } finally {
+          orderClient.release();
+        }
+      } catch (dbConnErr) {
+        console.error("[Card API] Order DB connection error:", dbConnErr);
+      }
     } else {
+      // 1B. Chapa Gateway: MUST successfully initialize real Chapa checkout URL (NO fallback bypass, NO pre-order creation!)
+      if (!chapaSecretKey) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Chapa payment gateway secret key is not configured on the server.",
+          },
+          { status: 500 }
+        );
+      }
+
       try {
         const chapaRes = await fetch(`${chapaBaseUrl}/transaction/initialize`, {
           method: "POST",
@@ -372,28 +380,42 @@ export async function POST(req: Request) {
           body: JSON.stringify(chapaPayload),
         });
 
-        chapaResponseData = await chapaRes.json();
+        chapaResponseData = await chapaRes.json().catch(() => ({}));
 
-        if (chapaRes.ok && chapaResponseData.status === "success" && chapaResponseData.data?.checkout_url) {
+        if (chapaRes.ok && chapaResponseData?.status === "success" && chapaResponseData?.data?.checkout_url) {
           checkoutUrl = chapaResponseData.data.checkout_url;
-          chapaSuccess = true;
         } else {
+          const rawMsg = chapaResponseData?.message;
+          const readableErr =
+            typeof rawMsg === "string"
+              ? rawMsg
+              : rawMsg && typeof rawMsg === "object"
+              ? Object.values(rawMsg).flat().join(", ")
+              : "Chapa could not initialize this transaction.";
           console.warn("[Chapa API] Gateway responded with non-success:", chapaResponseData);
+          return NextResponse.json(
+            {
+              success: false,
+              error: readableErr,
+              details: chapaResponseData,
+            },
+            { status: 400 }
+          );
         }
       } catch (chapaHttpErr: any) {
         console.error("[Chapa API] HTTP connection error:", chapaHttpErr);
-      }
-
-      if (!chapaSuccess || !checkoutUrl) {
-        console.warn(
-          "[Chapa API Route] Chapa live link unavailable, using sandbox verified return URL fallback."
+        return NextResponse.json(
+          {
+            success: false,
+            error: chapaHttpErr?.message || "Unable to connect to Chapa payment gateway. Check your internet connection and try again.",
+          },
+          { status: 502 }
         );
-        checkoutUrl = returnUrl;
-        chapaSuccess = true;
       }
     }
 
     // 2. SAVE PAYMENT INFORMATION IN PAYMENT SERVICE (mercatox_payment_db)
+    // Note: For Chapa, status stays INITIATED and pendingOrder is held in metadata until Chapa confirms PAID!
     try {
       await recordPaymentInDatabase({
         transactionReference: txRef,
@@ -405,6 +427,7 @@ export async function POST(req: Request) {
         provider: isMercatoXCard ? "MERCATOX_CARD" : (paymentMethod || "CHAPA"),
         status: isMercatoXCard ? "COMPLETED" : "INITIATED",
         providerReference: chapaResponseData?.data?.reference || txRef,
+        paymentReceiptUrl: checkoutUrl,
         escrowStatus: "HELD",
         metadata: {
           orderId,
@@ -422,27 +445,34 @@ export async function POST(req: Request) {
             price: it?.price,
             quantity: it?.quantity,
           })),
+          pendingOrder: !isMercatoXCard
+            ? {
+                orderId,
+                orderNumber,
+                customerId: resolvedCustomerId,
+                sellerId: resolvedSellerId,
+                subtotalAmount: calcSubtotal,
+                deliveryFee: calcDeliveryFee,
+                totalAmount: calcTotal,
+                deliveryAddress: deliveryAddressObj,
+                itemsSnapshot,
+                items,
+                notes: deliveryNotes || "",
+                customerEmail: resolvedCustomerRealEmail || (validEmail.includes(".mercatox@gmail.com") ? undefined : validEmail),
+                customerName: trimmedName || firstName,
+                customerPhone: cleanPhone,
+              }
+            : undefined,
           chapaInitData: chapaResponseData?.data,
           cardNumber: cardDeductInfo?.card?.cardNumber,
           remainingCardBalance: cardDeductInfo?.newBalance,
           initiatedAt: new Date().toISOString(),
         },
       });
-      console.log(`[Chapa API] Saved payment for order ${orderId} (${txRef}) in mercatox_payment_db`);
+      console.log(`[Chapa API] Saved ${isMercatoXCard ? "COMPLETED" : "INITIATED"} payment for ${txRef} in mercatox_payment_db`);
 
       if (isMercatoXCard) {
         try {
-          const orderPool = getOrderDbPool();
-          const orderClient = await orderPool.connect();
-          try {
-            await orderClient.query(
-              `UPDATE orders SET "paymentStatus" = 'PAID', status = 'CONFIRMED', "updatedAt" = NOW() WHERE id = $1`,
-              [orderId]
-            );
-          } finally {
-            orderClient.release();
-          }
-
           // Trigger email notifications for MercatoX Card order (Customer, Admin, and Each Seller)
           const targetRecipientEmail =
             (resolvedCustomerRealEmail && resolvedCustomerRealEmail.includes("@") && !resolvedCustomerRealEmail.includes("example.com"))
@@ -470,7 +500,7 @@ export async function POST(req: Request) {
             createdAt: new Date().toISOString(),
           });
         } catch (orderUpdErr) {
-          console.warn("[Chapa API] Failed to update order status to PAID:", orderUpdErr);
+          console.warn("[Chapa API] Failed to dispatch emails for card order:", orderUpdErr);
         }
       }
     } catch (payDbInitErr) {

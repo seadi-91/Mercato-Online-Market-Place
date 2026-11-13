@@ -775,16 +775,43 @@ export function SupplierOrdersView() {
                 </span>
               </div>
 
-              <div className="space-y-1.5 text-xs text-zinc-300 leading-relaxed">
+              <div className="space-y-2 text-xs text-zinc-300 leading-relaxed">
+                {selectedOrder.paymentId && (
+                  <p>
+                    Payment ID:{" "}
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(selectedOrder.paymentId!, "Payment ID")}
+                      className="text-indigo-300 font-mono font-bold hover:underline inline-flex items-center gap-1 cursor-pointer"
+                    >
+                      <span>{selectedOrder.paymentId}</span>
+                      <Copy className="h-3 w-3 opacity-60" />
+                    </button>
+                  </p>
+                )}
                 <p>
-                  Escrow Guarantee Ref:{" "}
+                  Escrow / Tx Reference:{" "}
                   <strong className="text-white font-mono">
-                    {selectedOrder.escrowReferenceNumber || (selectedOrder.orderNumber ? `CBE-ESC-${selectedOrder.orderNumber}` : "Pending Verification")}
+                    {selectedOrder.txRef || selectedOrder.escrowReferenceNumber || (selectedOrder.orderNumber ? `CBE-ESC-${selectedOrder.orderNumber}` : "Pending Verification")}
                   </strong>
                 </p>
+                {selectedOrder.providerReference && (
+                  <p>
+                    Gateway Ref:{" "}
+                    <strong className="text-emerald-300 font-mono">{selectedOrder.providerReference}</strong>
+                  </p>
+                )}
                 <p>
-                  Terms: <strong className="text-white">{selectedOrder.paymentTerms}</strong>
+                  Payment Channel / Terms: <strong className="text-white">{selectedOrder.paymentMethod || selectedOrder.paymentTerms}</strong>
                 </p>
+                {(selectedOrder.maskedCardNumber || selectedOrder.bankName) && (
+                  <p>
+                    Instrument:{" "}
+                    <strong className="text-white font-mono">
+                      {[selectedOrder.bankName, selectedOrder.maskedCardNumber, selectedOrder.depositorName].filter(Boolean).join(" • ")}
+                    </strong>
+                  </p>
+                )}
                 <p className="text-[11px] text-zinc-400 pt-1">
                   Commercial Bank of Ethiopia holds full deposit in an irrevocable escrow account. Payout is automatically released to your supplier account upon destination delivery inspection signoff.
                 </p>
@@ -1027,8 +1054,15 @@ export function SupplierOrdersView() {
         onExport={() => toast.success("Exporting purchase orders register...")}
       />
 
-      {/* Orders Data Table: Borderless, Background-less, Clean & Light */}
-      <div className="w-full overflow-x-auto">
+      {/* Orders Data Table: Spacious horizontal layout so columns never squeeze */}
+      <div
+        className={`w-full overflow-x-auto pb-3 rounded-2xl border ${isLight
+            ? "border-slate-200 bg-white"
+            : isSystem
+              ? "border-blue-500/20 bg-[#0b142c]/60"
+              : "border-white/10 bg-[#0d111a]/60"
+          }`}
+      >
         {isLoadingOrders && orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-3">
             <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
@@ -1059,19 +1093,19 @@ export function SupplierOrdersView() {
             />
           </div>
         ) : (
-          <table className="w-full text-left text-xs border-collapse">
+          <table className="w-full min-w-[1460px] text-left text-xs border-collapse">
             <thead>
-              <tr className="border-b border-white/10 text-zinc-400 font-semibold uppercase text-[10px] tracking-wider select-none">
-                <th className="py-3 px-3">Order ID</th>
-                <th className="py-3 px-3">Buyer Company</th>
-                <th className="py-3 px-3">Commodity & Volume</th>
-                <th className="py-3 px-3">Order Total (ETB)</th>
-                <th className="py-3 px-3">Branch Hub</th>
-                <th className="py-3 px-3">Fleet Driver</th>
-                <th className="py-3 px-3">Payment</th>
-                <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3">Date</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+              <tr className="border-b border-white/10 bg-white/[0.02] text-zinc-400 font-semibold uppercase text-[10px] tracking-wider select-none">
+                <th className="py-4 px-5 min-w-[160px] whitespace-nowrap">Order ID</th>
+                <th className="py-4 px-5 min-w-[220px] whitespace-nowrap">Buyer / Customer</th>
+                <th className="py-4 px-5 min-w-[250px] whitespace-nowrap">Commodity & Volume</th>
+                <th className="py-4 px-5 min-w-[150px] whitespace-nowrap">Order Total (ETB)</th>
+                <th className="py-4 px-5 min-w-[130px] whitespace-nowrap">Branch Hub</th>
+                <th className="py-4 px-5 min-w-[175px] whitespace-nowrap">Fleet Driver</th>
+                <th className="py-4 px-5 min-w-[175px] whitespace-nowrap">Payment & Ref</th>
+                <th className="py-4 px-5 min-w-[140px] whitespace-nowrap">Status</th>
+                <th className="py-4 px-5 min-w-[120px] whitespace-nowrap">Date</th>
+                <th className="py-4 px-5 min-w-[85px] text-right whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -1085,44 +1119,46 @@ export function SupplierOrdersView() {
                     onClick={() => setSelectedOrderId(order.id)}
                   >
                     {/* Order ID */}
-                    <td className="py-4 px-3 font-mono font-bold text-indigo-400">
-                      {order.orderNumber}
+                    <td className="py-4.5 px-5 font-mono font-bold text-indigo-400 whitespace-nowrap">
+                      <span>{order.orderNumber}</span>
                     </td>
 
-                    {/* Buyer Company */}
-                    <td className="py-4 px-3">
-                      <p className="font-bold text-white truncate max-w-[190px]">{order.buyerCompany}</p>
-                      <p className="text-[11px] text-zinc-400">{order.contactPerson}</p>
+                    {/* Buyer / Customer */}
+                    <td className="py-4.5 px-5">
+                      <p className="font-bold text-white truncate max-w-[205px]">{order.buyerCompany}</p>
+                      <p className="text-[11px] text-zinc-400 truncate max-w-[205px] mt-0.5">
+                        {order.buyerPhone || order.buyerEmail || order.contactPerson}
+                      </p>
                     </td>
 
                     {/* Commodity & Volume */}
-                    <td className="py-4 px-3">
-                      <p className="font-semibold text-zinc-200 truncate max-w-[200px]">{order.productName}</p>
-                      <p className="font-mono text-zinc-400 text-[11px]">
+                    <td className="py-4.5 px-5">
+                      <p className="font-semibold text-zinc-200 truncate max-w-[235px]">{order.productName}</p>
+                      <p className="font-mono text-zinc-400 text-[11px] mt-0.5 whitespace-nowrap">
                         {order.quantity.toLocaleString()} {order.unit} @ ETB {order.unitPrice.toLocaleString()}
                       </p>
                     </td>
 
                     {/* Order Total */}
-                    <td className="py-4 px-3 font-mono font-bold text-white text-sm">
+                    <td className="py-4.5 px-5 font-mono font-bold text-white text-sm whitespace-nowrap">
                       ETB {order.total.toLocaleString()}
                     </td>
 
                     {/* Branch Hub */}
-                    <td className="py-4 px-3 whitespace-nowrap">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-300">
+                    <td className="py-4.5 px-5 whitespace-nowrap">
+                      <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-white/5 border border-white/10 text-zinc-300">
                         {order.branchName?.split(" ")[0] || "Hub"}
                       </span>
                     </td>
 
                     {/* Fleet Driver */}
-                    <td className="py-4 px-3" onClick={(e) => e.stopPropagation()}>
+                    <td className="py-4.5 px-5 whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                       {order.assignedDriverName ? (
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-2">
                           <div className="h-6 w-6 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 flex items-center justify-center font-bold text-[10px] shrink-0">
                             <Truck className="h-3 w-3" />
                           </div>
-                          <div className="min-w-0 max-w-[130px]">
+                          <div className="min-w-0 max-w-[140px]">
                             <p className="font-semibold text-white truncate text-[11px]">{order.assignedDriverName}</p>
                             <p className="font-mono text-zinc-400 text-[9px] truncate">{order.assignedVehiclePlate || "Dispatched"}</p>
                           </div>
@@ -1134,7 +1170,7 @@ export function SupplierOrdersView() {
                             setAssigningOrder(order);
                             setSelectedDriverId("");
                           }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-[10px] transition-colors cursor-pointer"
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 font-semibold text-[10px] transition-colors cursor-pointer"
                         >
                           <Truck className="h-3 w-3" />
                           <span>Assign Driver</span>
@@ -1142,24 +1178,29 @@ export function SupplierOrdersView() {
                       )}
                     </td>
 
-                    {/* Payment Status */}
-                    <td className="py-4 px-3">
+                    {/* Payment Status & Channel */}
+                    <td className="py-4.5 px-5 whitespace-nowrap">
                       <StatusBadge status={order.paymentStatus} size="sm" />
+                      {(order.paymentMethod || order.paymentId) && (
+                        <p className="text-[10px] text-zinc-400 font-mono truncate max-w-[165px] mt-1">
+                          {order.paymentMethod?.split("(")[0].trim() || `ID: ${order.paymentId?.slice(0, 8)}`}
+                        </p>
+                      )}
                     </td>
 
                     {/* Order Status */}
-                    <td className="py-4 px-3">
+                    <td className="py-4.5 px-5 whitespace-nowrap">
                       <StatusBadge status={order.orderStatus} size="sm" />
                     </td>
 
                     {/* Date */}
-                    <td className="py-4 px-3 font-mono text-zinc-400 whitespace-nowrap">
+                    <td className="py-4.5 px-5 font-mono text-zinc-400 whitespace-nowrap">
                       {order.orderDate}
                     </td>
 
                     {/* Action 3-Dots Menu */}
                     <td
-                      className="py-4 px-3 text-right relative"
+                      className="py-4.5 px-5 text-right relative"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <button

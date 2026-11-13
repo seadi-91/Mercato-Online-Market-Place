@@ -1051,6 +1051,10 @@ export class AuthService {
       );
     }
 
+    const isRegistration =
+      payload.isRegistration === true ||
+      (payload.isRegistration as unknown) === 'true';
+
     const email = googleUser.email.toLowerCase().trim();
     const googleId = googleUser.sub;
     const fullName =
@@ -1059,13 +1063,17 @@ export class AuthService {
       email.split('@')[0] ||
       'Customer';
 
-    // Check if user exists in auth db by googleId or email
-    let user = await this.userRepository.findOne({
-      where: [
-        ...(googleId ? [{ googleId }] : []),
-        { email },
-      ],
-    });
+    // Check if user exists in auth db by googleId or email (case-insensitive)
+    const userQuery = this.userRepository.createQueryBuilder('user');
+    if (googleId) {
+      userQuery.where('(user.googleId = :googleId OR LOWER(user.email) = :email)', {
+        googleId,
+        email,
+      });
+    } else {
+      userQuery.where('LOWER(user.email) = :email', { email });
+    }
+    let user = await userQuery.getOne();
 
     const isNewGoogleUser = !user;
 
@@ -1097,10 +1105,10 @@ export class AuthService {
         user = await this.userRepository.save(user);
       }
     } else {
-      if (!payload.isRegistration) {
+      if (!isRegistration) {
         throw new RpcException(
           new UnauthorizedException(
-            'Account not found. No user exists with this Google account in the database. Please register an account first.',
+            `Account not found. No user is registered with Google account (${email}). Please register an account first.`,
           ),
         );
       }
@@ -1157,7 +1165,7 @@ export class AuthService {
 
     // Send Welcome Email if this is a newly registered Google user, explicit registration request, or first time profile
     const shouldSendWelcome = Boolean(
-      (isNewGoogleUser || payload.isRegistration || isFirstTimeProfile) &&
+      (isNewGoogleUser || isRegistration || isFirstTimeProfile) &&
       user.email &&
       user.email.includes('@')
     );
@@ -1200,6 +1208,300 @@ export class AuthService {
         avatarUrl: googleUser?.picture,
         isVerified: true,
         authProvider: 'google',
+      },
+    };
+  }
+
+  async githubLogin(payload: {
+    code?: string;
+    redirectUri?: string;
+    role?: UserRole;
+    isRegistration?: boolean;
+    clientId?: string;
+  }) {
+    const { code, redirectUri, role, isRegistration } = payload;
+
+    if (!code) {
+      throw new RpcException(
+        new BadRequestException('GitHub authorization code is required.'),
+      );
+    }
+
+    const clientId =
+      this.configService.get<string>('GITHUB_CLIENT_ID') ||
+      process.env.GITHUB_CLIENT_ID ||
+      payload?.clientId;
+    const clientSecret =
+      this.configService.get<string>('GITHUB_CLIENT_SECRET') ||
+      process.env.GITHUB_CLIENT_SECRET;
+
+    if (!clientId || !clientSecret) {
+      throw new RpcException(
+        new BadRequestException('GitHub OAuth credentials are not configured on the server.'),
+      );
+    }
+
+    let tokenData: any;
+    try {
+      const bodyParams: Record<string, string> = {
+        client_id: clientId,
+        client_secret: clientSecret,
+        code,
+      };
+      if (redirectUri) {
+        bodyParams.redirect_uri = redirectUri;
+      }
+
+      let tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+          'User-Agent': 'MercatoX-App',
+        },
+        body: JSON.stringify(bodyParams),
+      });
+
+      tokenData = await tokenRes.json();
+      if (!tokenRes.ok || tokenData.error || !tokenData.access_token) {
+        // If it failed and redirect_uri was passed, retry once without redirect_uri
+        if (bodyParams.redirect_uri) {
+          delete bodyParams.redirect_uri;
+          const retryRes = await fetch('https://github.com/login/oauth/access_token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Accept: 'application/json',
+              'User-Agent': 'MercatoX-App',
+            },
+            body: JSON.stringify(bodyParams),
+          });
+          const retryData = await retryRes.json();
+          if (retryRes.ok && !retryData.error && retryData.access_token) {
+            tokenData = retryData;
+          }
+        }
+      }
+
+      if (!tokenData || tokenData.error || !tokenData.access_token) {
+        this.logger.error(`[AuthService] GitHub token exchange failed:`, tokenData);
+        throw new Error(
+          tokenData?.error_description ||
+            tokenData?.error ||
+            'Failed to exchange authorization code with GitHub',
+        );
+      }
+    } catch (err: any) {
+      this.logger.error('[AuthService] GitHub token exchange error:', err);
+      throw new RpcException(
+        new UnauthorizedException(
+          err.message || 'GitHub authentication code verification failed',
+        ),
+      );
+    }
+
+    // Fetch user profile from GitHub
+    let profileData: any;
+    try {
+      const userRes = await fetch('https://api.github.com/user', {
+        headers: {
+          Authorization: `Bearer ${tokenData.access_token}`,
+          Accept: 'application/vnd.github.v3+json',
+          'User-Agent': 'MercatoX-App',
+        },
+      });
+      profileData = await userRes.json();
+      if (!userRes.ok || !profileData || !profileData.id) {
+        throw new Error('Failed to retrieve user profile from GitHub');
+      }
+    } catch (err: any) {
+      this.logger.error('[AuthService] GitHub profile fetch error:', err);
+      throw new RpcException(
+        new UnauthorizedException(
+          err.message || 'Could not retrieve user profile from GitHub',
+        ),
+      );
+    }
+
+    // Retrieve email from user profile or /user/emails
+    let userEmail: string = profileData.email;
+    if (!userEmail) {
+      try {
+        const emailsRes = await fetch('https://api.github.com/user/emails', {
+          headers: {
+            Authorization: `Bearer ${tokenData.access_token}`,
+            Accept: 'application/vnd.github.v3+json',
+            'User-Agent': 'MercatoX-App',
+          },
+        });
+        const emailsData = await emailsRes.json();
+        if (Array.isArray(emailsData) && emailsData.length > 0) {
+          const primaryVerified =
+            emailsData.find((e: any) => e.primary && e.verified)?.email ||
+            emailsData.find((e: any) => e.verified)?.email ||
+            emailsData.find((e: any) => e.primary)?.email ||
+            emailsData[0]?.email;
+          if (primaryVerified) {
+            userEmail = primaryVerified;
+          }
+        }
+      } catch (e) {
+        this.logger.warn('[AuthService] Could not retrieve GitHub user emails list:', e);
+      }
+    }
+
+    if (!userEmail) {
+      userEmail = `${profileData.login}@users.noreply.github.com`;
+    }
+
+    const email = userEmail.toLowerCase().trim();
+    const githubId = String(profileData.id);
+    const fullName =
+      profileData.name ||
+      profileData.login ||
+      email.split('@')[0] ||
+      'MercatoX User';
+    const avatarUrl = profileData.avatar_url || null;
+
+    // Check if user exists in auth db by githubId or email
+    let user = await this.userRepository.findOne({
+      where: [
+        { githubId },
+        { email },
+      ],
+    });
+
+    const isNewGitHubUser = !user;
+
+    if (user) {
+      let needsSave = false;
+      if (!user.githubId) {
+        user.githubId = githubId;
+        needsSave = true;
+      }
+      if (user.authProvider !== 'github') {
+        user.authProvider = 'github';
+        needsSave = true;
+      }
+      if (!user.isActive) {
+        user.isActive = true;
+        needsSave = true;
+      }
+      if (
+        user.failedLoginAttempts > 0 ||
+        user.lockedUntil ||
+        user.lockoutRounds > 0
+      ) {
+        user.failedLoginAttempts = 0;
+        user.lockedUntil = null;
+        user.lockoutRounds = 0;
+        needsSave = true;
+      }
+      if (needsSave) {
+        user = await this.userRepository.save(user);
+      }
+    } else {
+      if (!isRegistration) {
+        throw new RpcException(
+          new UnauthorizedException(
+            `Account not found. No user is registered with GitHub account (${email}). Please register an account first.`,
+          ),
+        );
+      }
+
+      // New user registering via GitHub
+      const registrationRole =
+        role && Object.values(UserRole).includes(role)
+          ? role
+          : UserRole.CUSTOMER;
+
+      user = this.userRepository.create({
+        email,
+        phoneNumber: null,
+        role: registrationRole,
+        authProvider: 'github',
+        githubId,
+        isActive: true,
+        failedLoginAttempts: 0,
+        lockoutRounds: 0,
+        lockedUntil: null,
+      });
+      user = await this.userRepository.save(user);
+    }
+
+    // Ensure Profile exists in mercatox_users_db
+    let profile: any = null;
+    try {
+      profile = await firstValueFrom(
+        this.usersClient.send('get_profile', { userId: user.id }),
+      );
+    } catch {
+      // ignore
+    }
+
+    let isFirstTimeProfile = false;
+    if (!profile) {
+      try {
+        isFirstTimeProfile = true;
+        profile = await firstValueFrom(
+          this.usersClient.send('create_profile', {
+            userId: user.id,
+            role: user.role || UserRole.CUSTOMER,
+            fullName,
+            email: user.email,
+          }),
+        );
+      } catch (e) {
+        this.logger.error('[AuthService] Failed creating user profile for GitHub login:', e);
+      }
+    }
+
+    // Send Welcome Email if this is a newly registered GitHub user or first time profile
+    const shouldSendWelcome = Boolean(
+      (isNewGitHubUser || isRegistration || isFirstTimeProfile) &&
+      user.email &&
+      user.email.includes('@') &&
+      !user.email.endsWith('@users.noreply.github.com')
+    );
+
+    if (shouldSendWelcome) {
+      try {
+        const resolvedName = profile?.fullName || fullName || user.email.split('@')[0];
+        const sent = await this.mailService.sendRegistrationSuccessEmail({
+          toEmail: user.email,
+          fullName: resolvedName,
+          role: user.role,
+        });
+        this.logger.log(`GitHub registration welcome email dispatched to ${user.email}: ${sent}`);
+      } catch (err) {
+        this.logger.error(`Failed to send GitHub registration welcome email to ${user.email}:`, err);
+      }
+    }
+
+    // Generate JWT tokens
+    const tokens = await this.generateTokens(
+      user.id,
+      user.phoneNumber,
+      user.role,
+      user.email,
+    );
+
+    const salt = await bcrypt.genSalt(10);
+    const refreshTokenHash = await bcrypt.hash(tokens.refreshToken, salt);
+    await this.userRepository.update(user.id, { refreshTokenHash });
+
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        fullName: profile?.fullName || fullName,
+        role: user.role,
+        avatar: avatarUrl,
+        avatarUrl: avatarUrl,
+        isVerified: true,
+        authProvider: 'github',
       },
     };
   }

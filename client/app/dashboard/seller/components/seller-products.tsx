@@ -212,10 +212,14 @@ export function SellerProducts() {
     return matchesSearch && matchesCategory;
   });
 
-  const totalPostedUnits = products.reduce((acc, p) => acc + p.stock + (p.soldUnits || 0), 0);
-  const totalSoldUnits = products.reduce((acc, p) => acc + (p.soldUnits || 0), 0);
-  const totalInStock = products.reduce((acc, p) => acc + p.stock, 0);
-  const overallSellThrough = totalPostedUnits > 0 ? (totalSoldUnits / totalPostedUnits) * 100 : 0;
+  const totalPostedProductTypes = products.length;
+  const totalSoldProductTypes = products.filter((p) => (p.soldUnits || 0) > 0).length;
+  const totalInStockProductTypes = products.filter((p) => p.stock > 0).length;
+  const totalCategoriesCount = new Set(products.map((p) => p.category).filter(Boolean)).size;
+  const overallSellThrough =
+    totalPostedProductTypes > 0
+      ? (totalSoldProductTypes / totalPostedProductTypes) * 100
+      : 0;
 
   return (
     <div className="space-y-3.5">
@@ -271,7 +275,7 @@ export function SellerProducts() {
         </div>
       </div>
 
-      {/* 4-Metric Correlation Ribbon: Posted vs Sold Summary */}
+      {/* 4-Metric Correlation Ribbon: Distinct Product Type Counts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 rounded-xl bg-white/[0.02] border border-white/5 p-3 text-xs">
         <div className="space-y-1">
           <span className="text-[10px] text-zinc-400 flex items-center gap-1.5 font-medium">
@@ -280,11 +284,15 @@ export function SellerProducts() {
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-base font-bold font-mono text-sky-400">
-              {totalPostedUnits.toLocaleString()}
+              {totalPostedProductTypes.toLocaleString()}
             </span>
-            <span className="text-[10px] text-zinc-500 font-sans">units listed</span>
+            <span className="text-[10px] text-zinc-500 font-sans">
+              product type{totalPostedProductTypes === 1 ? "" : "s"} listed
+            </span>
           </div>
-          <p className="text-[9.5px] text-zinc-500">Across {products.length} catalog item{products.length === 1 ? "" : "s"}</p>
+          <p className="text-[9.5px] text-zinc-500">
+            Across {totalCategoriesCount} categor{totalCategoriesCount === 1 ? "y" : "ies"}
+          </p>
         </div>
 
         <div className="space-y-1">
@@ -294,11 +302,13 @@ export function SellerProducts() {
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-base font-bold font-mono text-emerald-400">
-              {totalSoldUnits.toLocaleString()}
+              {totalSoldProductTypes.toLocaleString()}
             </span>
-            <span className="text-[10px] text-zinc-500 font-sans">units purchased</span>
+            <span className="text-[10px] text-zinc-500 font-sans">
+              product{totalSoldProductTypes === 1 ? "" : "s"} purchased
+            </span>
           </div>
-          <p className="text-[9.5px] text-zinc-500">Via Telebirr, CBE & Chapa</p>
+          <p className="text-[9.5px] text-zinc-500">Via Telebirr, CBE &amp; Chapa</p>
         </div>
 
         <div className="space-y-1">
@@ -308,9 +318,11 @@ export function SellerProducts() {
           </span>
           <div className="flex items-baseline gap-1.5">
             <span className="text-base font-bold font-mono text-white">
-              {totalInStock.toLocaleString()}
+              {totalInStockProductTypes.toLocaleString()}
             </span>
-            <span className="text-[10px] text-zinc-500 font-sans">units in stock</span>
+            <span className="text-[10px] text-zinc-500 font-sans">
+              product{totalInStockProductTypes === 1 ? "" : "s"} in stock
+            </span>
           </div>
           <p className="text-[9.5px] text-zinc-500">Available for checkout</p>
         </div>
@@ -329,7 +341,7 @@ export function SellerProducts() {
               style={{ width: `${Math.min(Math.max(overallSellThrough, 3), 100)}%` }}
             />
           </div>
-          <p className="text-[9.5px] text-zinc-500">Ratio of posted stock sold</p>
+          <p className="text-[9.5px] text-zinc-500">Ratio of posted product types sold</p>
         </div>
       </div>
 

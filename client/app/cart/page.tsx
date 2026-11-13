@@ -167,7 +167,7 @@ export default function CartPage() {
     <div className="min-h-screen flex flex-col bg-[#070a12] text-zinc-100 selection:bg-indigo-500/30 selection:text-indigo-200">
       <CustomerHeader />
 
-      <main className="flex-1 mx-auto max-w-5xl w-full px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+      <main className="flex-1 mx-auto max-w-[1460px] w-full px-4 sm:px-6 lg:px-8 py-8 space-y-7">
         {/* Page Title */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
           <div>
@@ -202,148 +202,148 @@ export default function CartPage() {
             <p className="mt-4 text-xs text-zinc-400">Loading your cart items...</p>
           </div>
         ) : items.length > 0 ? (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-            {/* Cart Items List */}
-            <div className="w-full lg:col-span-7 xl:col-span-7 space-y-3.5">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-10 xl:gap-12 items-start">
+            {/* Cart Items List - Expanded Width & Compact Height */}
+            <div className="w-full lg:col-span-7 xl:col-span-8 space-y-3">
               {items.map((item) => {
                 const options = getProductOptions(item.category, item.name);
 
                 return (
                   <div
                     key={`${item.id}-${item.selectedSize || ""}-${item.selectedColor || ""}`}
-                    className="rounded-2xl border border-white/10 bg-[#0b101f]/90 p-3.5 sm:p-4 backdrop-blur-md flex flex-col gap-3 hover:border-indigo-500/30 transition-all w-full shadow-lg"
+                    className="rounded-2xl border border-white/10 bg-[#0b101f]/90 p-3 sm:p-3.5 backdrop-blur-md hover:border-indigo-500/30 transition-all w-full shadow-md"
                   >
-                    <div className="flex items-start justify-between gap-3">
-                      {/* Item Thumbnail */}
-                      {item.image && (
-                        <Link
-                          href={`/products/${item.id}`}
-                          className="relative h-18 w-18 sm:h-20 sm:w-20 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 hover:border-indigo-500/50 transition-colors block"
-                        >
-                          <img
-                            src={item.image}
-                            alt={item.name}
-                            className="h-full w-full object-cover object-center"
-                          />
-                        </Link>
-                      )}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      {/* Left: Thumbnail & Details */}
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        {/* Item Thumbnail */}
+                        {item.image && (
+                          <Link
+                            href={`/products/${item.id}`}
+                            className="relative h-16 w-16 sm:h-18 sm:w-18 flex-shrink-0 overflow-hidden rounded-xl border border-white/10 bg-black/40 hover:border-indigo-500/50 transition-colors block"
+                          >
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="h-full w-full object-cover object-center"
+                            />
+                          </Link>
+                        )}
 
-                      {/* Main Details */}
-                      <div className="space-y-1 min-w-0 flex-1">
-                        <span className="text-[10px] font-semibold text-indigo-400 uppercase tracking-wider block">
-                          {item.category}
-                        </span>
-                        <Link
-                          href={`/products/${item.id}`}
-                          className="block text-xs sm:text-sm font-semibold text-white hover:text-cyan-300 transition-colors line-clamp-1"
-                        >
-                          {item.name}
-                        </Link>
-                        <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
-                          <MapPin className="h-3 w-3 text-cyan-400 shrink-0" />
-                          <span className="truncate">{item.shopName}</span>
-                          <span>•</span>
-                          <span className="text-zinc-500 truncate">{item.marketZone}</span>
-                        </div>
-                        <div className="text-[11px] font-mono text-cyan-300">
-                          Unit: {item.price.toLocaleString()} ETB
-                        </div>
-                      </div>
-
-                      {/* Remove Button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          removeItem(item.id);
-                          toast.info(`Removed ${item.name} from cart`);
-                        }}
-                        className="text-zinc-500 hover:text-rose-400 p-1 transition-colors cursor-pointer shrink-0"
-                        title="Remove item"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-
-                    {/* Size and Color Selectors if Required */}
-                    {options && (
-                      <div className="pt-2.5 border-t border-white/5 flex flex-wrap items-center gap-3 text-xs bg-white/[0.02] -mx-3.5 sm:-mx-4 -mb-1 px-3.5 sm:px-4 py-2 rounded-b-xl">
-                        {/* Size / Storage / Weight Selector */}
-                        {options.sizes.length > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[10.5px] text-zinc-400 font-medium">
-                              {options.sizeLabel}:
+                        {/* Main Details & Inline Options */}
+                        <div className="min-w-0 flex-1 space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
+                              {item.category}
                             </span>
-                            <select
-                              value={item.selectedSize || options.sizes[0]}
-                              onChange={(e) => {
-                                updateItemOptions(item.id, { size: e.target.value });
-                                toast.success(`Selected ${options.sizeLabel}: ${e.target.value}`);
-                              }}
-                              className="rounded-lg border border-white/15 bg-[#0b101f] px-2 py-0.5 text-[10.5px] text-white outline-none focus:border-cyan-400 cursor-pointer"
-                            >
-                              {options.sizes.map((sz) => (
-                                <option key={sz} value={sz} className="bg-[#0b101f] text-white">
-                                  {sz}
-                                </option>
-                              ))}
-                            </select>
+                            <span className="text-zinc-600">•</span>
+                            <span className="text-[11px] text-zinc-400 truncate flex items-center gap-1">
+                              <MapPin className="h-3 w-3 text-cyan-400 shrink-0" />
+                              {item.shopName}
+                            </span>
                           </div>
-                        )}
 
-                        {/* Color Selector */}
-                        {options.colors.length > 0 && (
-                          <div className="flex items-center gap-1.5">
-                            <Palette className="h-3 w-3 text-zinc-400" />
-                            <span className="text-[10.5px] text-zinc-400 font-medium">Color:</span>
-                            <select
-                              value={item.selectedColor || options.colors[0]}
-                              onChange={(e) => {
-                                updateItemOptions(item.id, { color: e.target.value });
-                                toast.success(`Selected Color: ${e.target.value}`);
-                              }}
-                              className="rounded-lg border border-white/15 bg-[#0b101f] px-2 py-0.5 text-[10.5px] text-white outline-none focus:border-cyan-400 cursor-pointer"
-                            >
-                              {options.colors.map((col) => (
-                                <option key={col} value={col} className="bg-[#0b101f] text-white">
-                                  {col}
-                                </option>
-                              ))}
-                            </select>
+                          <Link
+                            href={`/products/${item.id}`}
+                            className="block text-xs sm:text-sm font-bold text-white hover:text-cyan-300 transition-colors truncate"
+                          >
+                            {item.name}
+                          </Link>
+
+                          {/* Inline Options (Storage / Color) + Unit Price */}
+                          <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap text-xs pt-0.5">
+                            <span className="text-[11px] font-mono text-cyan-300 font-semibold">
+                              Unit: {item.price.toLocaleString()} ETB
+                            </span>
+
+                            {options && options.sizes.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <span className="text-[10.5px] text-zinc-400">{options.sizeLabel}:</span>
+                                <select
+                                  value={item.selectedSize || options.sizes[0]}
+                                  onChange={(e) => {
+                                    updateItemOptions(item.id, { size: e.target.value });
+                                    toast.success(`Selected ${options.sizeLabel}: ${e.target.value}`);
+                                  }}
+                                  className="rounded-md border border-white/15 bg-[#0e1428] px-2 py-0.5 text-[10.5px] font-medium text-white outline-none focus:border-cyan-400 cursor-pointer"
+                                >
+                                  {options.sizes.map((sz) => (
+                                    <option key={sz} value={sz} className="bg-[#0b101f] text-white">
+                                      {sz}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
+
+                            {options && options.colors.length > 0 && (
+                              <div className="flex items-center gap-1">
+                                <Palette className="h-3 w-3 text-indigo-400" />
+                                <span className="text-[10.5px] text-zinc-400">Color:</span>
+                                <select
+                                  value={item.selectedColor || options.colors[0]}
+                                  onChange={(e) => {
+                                    updateItemOptions(item.id, { color: e.target.value });
+                                    toast.success(`Selected Color: ${e.target.value}`);
+                                  }}
+                                  className="rounded-md border border-white/15 bg-[#0e1428] px-2 py-0.5 text-[10.5px] font-medium text-white outline-none focus:border-cyan-400 cursor-pointer"
+                                >
+                                  {options.colors.map((col) => (
+                                    <option key={col} value={col} className="bg-[#0b101f] text-white">
+                                      {col}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Quantity Stepper & Subtotal Row */}
-                    <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                      {/* Stepper with comfortable touch targets */}
-                      <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 p-1">
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/15 active:scale-90 flex items-center justify-center text-zinc-300 hover:text-white transition-all cursor-pointer"
-                          aria-label="Decrease quantity"
-                        >
-                          <Minus className="h-3.5 w-3.5" />
-                        </button>
-                        <span className="w-6 text-center text-xs font-bold text-white font-mono">
-                          {item.quantity}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="h-7 w-7 rounded-lg bg-white/5 hover:bg-white/15 active:scale-90 flex items-center justify-center text-zinc-300 hover:text-white transition-all cursor-pointer"
-                          aria-label="Increase quantity"
-                        >
-                          <Plus className="h-3.5 w-3.5" />
-                        </button>
+                        </div>
                       </div>
 
-                      {/* Item Total Price */}
-                      <div className="text-right">
-                        <span className="text-xs sm:text-sm font-bold text-white font-mono">
-                          {(item.price * item.quantity).toLocaleString()} ETB
-                        </span>
+                      {/* Right: Stepper, Subtotal, and Remove Button */}
+                      <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-4 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/5">
+                        {/* Stepper with compact touch targets */}
+                        <div className="flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 p-0.5">
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                            className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg bg-white/5 hover:bg-white/15 active:scale-90 flex items-center justify-center text-zinc-300 hover:text-white transition-all cursor-pointer"
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus className="h-3 w-3" />
+                          </button>
+                          <span className="w-6 text-center text-xs font-bold text-white font-mono">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                            className="h-6 w-6 sm:h-7 sm:w-7 rounded-lg bg-white/5 hover:bg-white/15 active:scale-90 flex items-center justify-center text-zinc-300 hover:text-white transition-all cursor-pointer"
+                            aria-label="Increase quantity"
+                          >
+                            <Plus className="h-3 w-3" />
+                          </button>
+                        </div>
+
+                        {/* Item Total Price */}
+                        <div className="text-right min-w-[85px] sm:min-w-[105px]">
+                          <span className="text-xs sm:text-sm font-bold text-white font-mono block">
+                            {(item.price * item.quantity).toLocaleString()} ETB
+                          </span>
+                        </div>
+
+                        {/* Remove Button */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            removeItem(item.id);
+                            toast.info(`Removed ${item.name} from cart`);
+                          }}
+                          className="text-zinc-500 hover:text-rose-400 p-1 transition-colors cursor-pointer"
+                          title="Remove item"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -361,8 +361,8 @@ export default function CartPage() {
               </div>
             </div>
 
-            {/* Order Summary & Escrow Checkout */}
-            <div className="w-full lg:col-span-5 xl:col-span-5 space-y-4">
+            {/* Order Summary & Escrow Checkout - Moved to Right Column */}
+            <div className="w-full lg:col-span-5 xl:col-span-4 space-y-4 lg:sticky lg:top-24">
               <div className="rounded-2xl border border-white/10 bg-[#0b101f]/95 p-4 sm:p-5 backdrop-blur-md space-y-4 shadow-xl">
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">

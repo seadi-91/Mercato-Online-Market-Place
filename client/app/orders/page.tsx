@@ -24,7 +24,11 @@ import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useAuthStore } from "@/store";
-import { fetchCustomerOrders, CustomerOrder } from "@/lib/api/orders";
+import {
+  fetchCustomerOrders,
+  hideOrderForCustomer,
+  CustomerOrder,
+} from "@/lib/api/orders";
 import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { toast } from "sonner";
 
@@ -34,41 +38,52 @@ function OrdersPageContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrderForView, setSelectedOrderForView] = useState<CustomerOrder | null>(null);
   const [orderToDelete, setOrderToDelete] = useState<CustomerOrder | null>(null);
+  const [isDeletingOrder, setIsDeletingOrder] = useState(false);
   const [copiedTxRef, setCopiedTxRef] = useState(false);
 
   const { token, user, isAuthenticated, hasHydrated } = useAuthStore();
 
   const loadData = async () => {
+    if (!user?.id && !token) {
+      setOrders([]);
+      setIsLoading(false);
+      return;
+    }
     setIsLoading(true);
     try {
       const fetchedOrders = await fetchCustomerOrders(token, user?.id);
       setOrders(fetchedOrders);
     } catch (err) {
       console.error("Failed to load customer orders:", err);
+      setOrders([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDeleteOrder = (orderId: string) => {
+  const handleDeleteOrder = async (orderId: string) => {
     const target = orders.find((o) => o.id === orderId);
-    const updated = orders.filter((o) => o.id !== orderId);
-    setOrders(updated);
-    if (selectedOrderForView?.id === orderId) {
-      setSelectedOrderForView(null);
+    setIsDeletingOrder(true);
+    try {
+      const res = await hideOrderForCustomer(orderId, user?.id);
+      if (!res.success) {
+        toast.error("Could not delete order", {
+          description: res.error || "Please try again.",
+        });
+        return;
+      }
+
+      setOrders((prev) => prev.filter((o) => o.id !== orderId));
+      if (selectedOrderForView?.id === orderId) {
+        setSelectedOrderForView(null);
+      }
+      setOrderToDelete(null);
+      toast.success(`Order #${target?.orderNumber || orderId} deleted from your list`, {
+        description: "Removed from your customer view permanently while preserved for merchant and admin records.",
+      });
+    } finally {
+      setIsDeletingOrder(false);
     }
-    toast.success(`Order #${target?.orderNumber || orderId} removed from view`, {
-      description: "Order temporarily hidden. Click Undo to restore.",
-      action: target
-        ? {
-            label: "Undo",
-            onClick: () => {
-              setOrders((prev) => [target, ...prev]);
-              toast.success(`Order #${target.orderNumber} restored!`);
-            },
-          }
-        : undefined,
-    });
   };
 
   useEffect(() => {
@@ -593,7 +608,7 @@ function OrdersPageContent() {
                   Are you sure you want to delete this order?
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  This will temporarily remove the order from your active list.
+                  This will remove the order from your customer view so it does not appear again. Admin and seller records remain preserved.
                 </p>
               </div>
 
@@ -630,15 +645,12 @@ function OrdersPageContent() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const id = orderToDelete.id;
-                    setOrderToDelete(null);
-                    handleDeleteOrder(id);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
+                  disabled={isDeletingOrder}
+                  onClick={() => handleDeleteOrder(orderToDelete.id)}
+                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white font-bold text-xs flex items-center gap-1.5 shadow-sm transition-all cursor-pointer active:scale-95"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Yes, Delete Order</span>
+                  <span>{isDeletingOrder ? "Deleting..." : "Yes, Delete Order"}</span>
                 </button>
               </div>
             </div>

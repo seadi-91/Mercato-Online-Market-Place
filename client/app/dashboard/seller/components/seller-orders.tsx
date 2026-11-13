@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { sellerService } from "@/services/seller/seller.service";
+import { useAuthStore } from "@/store";
 
 export interface SellerOrderItem {
   id: string;
@@ -41,6 +42,7 @@ export interface SellerOrderItem {
 }
 
 export function SellerOrders() {
+  const user = useAuthStore((s) => s.user);
   const [orders, setOrders] = useState<SellerOrderItem[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
@@ -61,17 +63,21 @@ export function SellerOrders() {
           setIsLiveConnected(true);
         }
       } catch {
-        // Fallback to /api/orders database endpoint
-        try {
-          const fb = await fetch("/api/orders");
-          if (fb.ok) {
-            const json = await fb.json();
-            if (json.success && Array.isArray(json.orders)) {
-              ordersData = json.orders;
-              setIsLiveConnected(true);
+        // Fallback to /api/orders strictly filtered by sellerId
+        if (user?.id) {
+          try {
+            const fb = await fetch(`/api/orders?sellerId=${encodeURIComponent(user.id)}`);
+            if (fb.ok) {
+              const json = await fb.json();
+              if (json.success && Array.isArray(json.orders)) {
+                ordersData = json.orders;
+                setIsLiveConnected(true);
+              }
             }
+          } catch {
+            setIsLiveConnected(false);
           }
-        } catch {
+        } else {
           setIsLiveConnected(false);
         }
       }
@@ -117,7 +123,7 @@ export function SellerOrders() {
     } finally {
       setIsLoading(false);
     }
-  }, [filterStatus]);
+  }, [filterStatus, user?.id]);
 
   useEffect(() => {
     loadOrders();

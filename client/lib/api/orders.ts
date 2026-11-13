@@ -31,6 +31,7 @@ export interface CustomerOrder {
     recipientName?: string;
     phone?: string;
     notes?: string;
+    customerHidden?: boolean | string;
   };
   notes?: string;
   items: CustomerOrderItem[];
@@ -70,33 +71,47 @@ export async function fetchCustomerOrders(
   token?: string | null,
   customerId?: string | null
 ): Promise<CustomerOrder[]> {
-  const mergedOrders: CustomerOrder[] = [];
-
-  // 1. Fetch orders from PostgreSQL Database via /api/orders
-  try {
-    const queryParams = new URLSearchParams();
-    if (customerId) queryParams.set("customerId", customerId);
-
-    const dbRes = await fetch(`/api/orders?${queryParams.toString()}`);
-    if (dbRes.ok) {
-      const data = await dbRes.json();
-      if (data.success && Array.isArray(data.orders)) {
-        for (const dbOrd of data.orders) {
-          if (customerId) {
-            const matchesCustomer =
-              dbOrd.customerId === customerId ||
-              (dbOrd.deliveryAddress && JSON.stringify(dbOrd.deliveryAddress).includes(customerId));
-            if (!matchesCustomer) continue;
-          }
-          mergedOrders.push(dbOrd);
-        }
-      }
-    }
-  } catch (dbErr) {
-    console.warn("Could not fetch orders from /api/orders database:", dbErr);
+  // Never fetch or return orders if there is no authenticated customer identity
+  if (!customerId && !token) {
+    return [];
   }
 
-  // 2. Try fetching live orders from NestJS API Gateway (orders microservice)
+  const mergedOrders: CustomerOrder[] = [];
+
+  const belongsToCurrentCustomer = (ord: any): boolean => {
+    if (!customerId) return true; // If relying strictly on JWT /orders/my-orders
+    const deliv = ord?.deliveryAddress || {};
+    return (
+      ord?.customerId === customerId ||
+      deliv?.buyerId === customerId ||
+      deliv?.customerId === customerId
+    );
+  };
+
+  // 1. Fetch orders belonging strictly to this customer from PostgreSQL via /api/orders
+  if (customerId) {
+    try {
+      const queryParams = new URLSearchParams();
+      queryParams.set("customerId", customerId);
+
+      const dbRes = await fetch(`/api/orders?${queryParams.toString()}`, {
+        cache: "no-store",
+      });
+      if (dbRes.ok) {
+        const data = await dbRes.json();
+        if (data.success && Array.isArray(data.orders)) {
+          for (const dbOrd of data.orders) {
+            if (!belongsToCurrentCustomer(dbOrd)) continue;
+            mergedOrders.push(dbOrd);
+          }
+        }
+      }
+    } catch (dbErr) {
+      console.warn("Could not fetch orders from /api/orders database:", dbErr);
+    }
+  }
+
+  // 2. Fetch live orders belonging strictly to the authenticated JWT user from API Gateway
   if (token) {
     try {
       const res = await fetch(`${API_BASE_URL}/orders/my-orders`, {
@@ -111,6 +126,9 @@ export async function fetchCustomerOrders(
         const backendOrders = result.data || result || [];
         if (Array.isArray(backendOrders)) {
           for (const bOrder of backendOrders) {
+            if (customerId && bOrder.customerId && bOrder.customerId !== customerId) {
+              continue;
+            }
             if (!mergedOrders.some((m) => m.id === bOrder.id || (m.txRef && m.txRef === bOrder.txRef))) {
               mergedOrders.push({
                 id: bOrder.id,
@@ -131,6 +149,7 @@ export async function fetchCustomerOrders(
                   recipientName: bOrder.deliveryAddress?.recipientName || "Customer",
                   phone: bOrder.deliveryAddress?.phone || bOrder.deliveryAddress?.recipientPhone || "+251911000000",
                   notes: bOrder.notes,
+                  customerHidden: bOrder.deliveryAddress?.customerHidden,
                 },
                 notes: bOrder.notes,
                 items: (bOrder.items || []).map((it: any) => ({
@@ -149,155 +168,72 @@ export async function fetchCustomerOrders(
         }
       }
     } catch (err) {
-      console.warn("Could not fetch orders from backend gateway, falling back to local orders:", err);
+      console.warn("Could not fetch orders from backend gateway:", err);
     }
   }
 
-  // 2. Read local completed orders from storage (such as from Chapa escrow payments)
+  // Never include localStorage fallback/default orders — strictly return real PAID DB orders not hidden by the customer
+  const realOrders = mergedOrders.filter((ord: any) => {
+    const isPaid = String(ord?.paymentStatus || "").toUpperCase() === "PAID";
+    const isHiddenByCustomer =
+      ord?.deliveryAddress?.customerHidden === true ||
+      ord?.deliveryAddress?.customerHidden === "true" ||
+      ord?.customerHidden === true;
+    return isPaid && !isHiddenByCustomer;
+  });
+
+  // Clean up any legacy local completed orders cache
   if (typeof window !== "undefined") {
     try {
-      const completedRaw = localStorage.getItem("mercatox_completed_orders");
-      if (completedRaw) {
-        const localCompleted: CustomerOrder[] = JSON.parse(completedRaw);
-        if (Array.isArray(localCompleted)) {
-          for (const ord of localCompleted) {
-            if (!mergedOrders.some((m) => m.id === ord.id || (m.txRef && m.txRef === ord.txRef))) {
-              mergedOrders.push(ord);
-            }
-          }
-        }
-      }
-
-      // Check last checkout order
-      const lastRaw = localStorage.getItem("mercatox_last_checkout_order");
-      if (lastRaw) {
-        const last = JSON.parse(lastRaw);
-        const existing = mergedOrders.some((m) => m.txRef === last.txRef);
-        if (!existing && last.txRef) {
-          mergedOrders.unshift({
-            id: last.txRef,
-            orderNumber: `MX-${last.txRef.slice(-6)}`,
-            customerId: "current-customer",
-            status: "CONFIRMED",
-            paymentStatus: "PAID",
-            paymentMethod: "Chapa Hosted Gateway (Telebirr / CBE / Card)",
-            subtotalAmount: Number(last.amount) - (last.deliveryFee ?? 150),
-            deliveryFee: last.deliveryFee ?? 150,
-            totalAmount: Number(last.amount),
-            deliveryAddress: {
-              city: "Addis Ababa",
-              subCity: last.subcity,
-              specificLocation: last.specificAddress,
-              recipientName: last.fullName,
-              phone: last.phoneNumber,
-              notes: last.deliveryNotes,
-            },
-            notes: last.deliveryNotes,
-            items: (last.items || []).map((it: any) => ({
-              id: it.id,
-              productId: it.id,
-              productTitle: it.name,
-              unitPrice: it.price,
-              quantity: it.quantity,
-              totalPrice: it.price * it.quantity,
-              image: it.image || getAccurateProductImage(it.name || it.productTitle),
-              selectedSize: it.selectedSize,
-              selectedColor: it.selectedColor,
-            })),
-            createdAt: last.createdAt || new Date().toISOString(),
-            txRef: last.txRef,
-          });
-        }
-      }
-    } catch (storageErr) {
-      console.warn("Failed to read local orders from storage:", storageErr);
+      localStorage.removeItem("mercatox_completed_orders");
+    } catch {
+      // ignore
     }
   }
 
-  // 3. Fallback sample data if empty
-  if (mergedOrders.length === 0) {
-    mergedOrders.push(
-      {
-        id: "ord-sample-01",
-        orderNumber: "MX-2026-892104",
-        customerId: "customer-1",
-        status: "IN_TRANSIT",
-        paymentStatus: "PAID",
-        paymentMethod: "Chapa (Telebirr SuperApp)",
-        txRef: "MX-CHAPA-1790241513055-9174",
-        subtotalAmount: 18500,
-        deliveryFee: 150,
-        totalAmount: 18650,
-        deliveryAddress: {
-          city: "Addis Ababa",
-          subCity: "Bole (Medhanialem, Rwanda, Atlas, Bulbula)",
-          specificLocation: "Near Atlas Hotel, Villa 204, Gate 2",
-          recipientName: "Abebe Kebede",
-          phone: "+251 91 122 3344",
-          notes: "Please call 10 mins before arrival.",
-        },
-        notes: "Please call 10 mins before arrival.",
-        items: [
-          {
-            id: "item-1",
-            productId: "prod-1",
-            productTitle: "Dell XPS 15 Ultra HD InfinityEdge Touchscreen",
-            unitPrice: 18500,
-            quantity: 1,
-            totalPrice: 18500,
-            image: "https://images.unsplash.com/photo-1593642632823-8f785ba67e45?w=500&q=80",
-          },
-        ],
-        createdAt: new Date(Date.now() - 3600000 * 3).toISOString(),
-      },
-      {
-        id: "ord-sample-02",
-        orderNumber: "MX-2026-784192",
-        customerId: "customer-1",
-        status: "DELIVERED",
-        paymentStatus: "PAID",
-        paymentMethod: "Chapa (CBE Birr / Awash)",
-        txRef: "MX-CHAPA-1790240982210-4412",
-        subtotalAmount: 7200,
-        deliveryFee: 0,
-        totalAmount: 7200,
-        deliveryAddress: {
-          city: "Addis Ababa",
-          subCity: "Kirkos (Kazanchis, Meskel Flower, Olympia)",
-          specificLocation: "Kazanchis, UNECA vicinity, Apartment 5B",
-          recipientName: "Abebe Kebede",
-          phone: "+251 91 122 3344",
-          notes: "Drop off at reception if not home.",
-        },
-        items: [
-          {
-            id: "item-2",
-            productId: "prod-2",
-            productTitle: "Traditional Ethiopian Hand-Woven Habesha Kemis",
-            unitPrice: 4800,
-            quantity: 1,
-            totalPrice: 4800,
-            image: "https://images.unsplash.com/photo-1583391733956-3750e0ff4e8b?w=500&q=80",
-          },
-          {
-            id: "item-3",
-            productId: "prod-3",
-            productTitle: "Organic Yirgacheffe Roasted Coffee Beans (1kg)",
-            unitPrice: 1200,
-            quantity: 2,
-            totalPrice: 2400,
-            image: "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=500&q=80",
-          },
-        ],
-        createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-      }
-    );
-  }
-
-  // 4. Sort strictly based on order date (newest first)
-  return mergedOrders.sort(
+  // 3. Strictly sort based on order date (newest first) — ZERO fallback/static data
+  return realOrders.sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
+}
+
+export async function hideOrderForCustomer(
+  orderId: string,
+  customerId?: string | null
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch("/api/orders", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        orderId,
+        customerId: customerId || undefined,
+        customerHidden: true,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data?.success) {
+      return {
+        success: false,
+        error: data?.error || "Failed to remove order from customer view",
+      };
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.removeItem("mercatox_completed_orders");
+      } catch {
+        // ignore
+      }
+    }
+
+    return { success: true };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err?.message || "Network error while deleting order",
+    };
+  }
 }
 
 export async function fetchCustomerReviews(): Promise<any[]> {

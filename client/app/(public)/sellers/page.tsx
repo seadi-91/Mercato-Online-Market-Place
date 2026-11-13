@@ -13,11 +13,25 @@ import {
 } from "lucide-react";
 import { fetchProducts, fetchSellerProfile, type SellerProfile } from "@/lib/api/catalog";
 import type { Product } from "@/constants/mock-data";
+import { useAuthStore } from "@/store/auth-store";
+import { useSellerUIStore } from "@/store/ui-store";
 
 export default function SellersPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sellerId = searchParams.get("sellerId");
+  const { user, hasHydrated } = useAuthStore();
+  const setSellerActiveTab = useSellerUIStore((state) => state.setActiveTab);
+  const isSellerAccount = hasHydrated && user?.role === "SELLER";
+
+  const handleBackNavigation = () => {
+    if (isSellerAccount) {
+      setSellerActiveTab("wholesale-sourcing");
+      router.push("/dashboard/seller?tab=wholesale-sourcing");
+      return;
+    }
+    router.push(sellerId ? "/marketplace" : "/");
+  };
 
   const [products, setProducts] = useState<Product[]>([]);
   const [sellerProfile, setSellerProfile] = useState<SellerProfile | null>(null);
@@ -98,11 +112,11 @@ export default function SellersPage() {
           </p>
           <button
             type="button"
-            onClick={() => router.push("/")}
-            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500"
+            onClick={handleBackNavigation}
+            className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 cursor-pointer"
           >
             <ArrowLeft className="h-4 w-4" />
-            Back to home
+            {isSellerAccount ? "Back to Seller Dashboard" : "Back to home"}
           </button>
         </div>
       </div>
@@ -140,11 +154,11 @@ export default function SellersPage() {
 
             <button
               type="button"
-              onClick={() => router.push("/marketplace")}
-              className="inline-flex items-center gap-2 self-start rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/10"
+              onClick={handleBackNavigation}
+              className="inline-flex items-center gap-2 self-start rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-zinc-200 transition hover:bg-white/10 cursor-pointer"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              Marketplace
+              {isSellerAccount ? "Back to Seller Dashboard" : "Marketplace"}
             </button>
           </div>
 
@@ -196,7 +210,13 @@ export default function SellersPage() {
                 <div key={product.id} className="flex justify-center">
                   <button
                     type="button"
-                    onClick={() => router.push(`/products/${product.id}`)}
+                    onClick={() =>
+                      router.push(
+                        isSellerAccount
+                          ? `/products/${product.id}?from=seller-wholesale`
+                          : `/products/${product.id}`,
+                      )
+                    }
                     className="group w-full max-w-[240px] overflow-hidden rounded-xl border border-white/10 bg-[#0b1220] text-left transition hover:border-indigo-500/60 hover:bg-[#0f172a]"
                   >
                     <div className="relative h-28 overflow-hidden bg-slate-900 sm:h-32">

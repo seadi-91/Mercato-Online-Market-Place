@@ -63,6 +63,7 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
     fetchProfile,
     fetchProducts,
     fetchOrders,
+    fetchTransactions,
     fetchRFQs,
     fetchQuotations,
     fetchNegotiations,
@@ -81,6 +82,7 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
     fetchStaff();
     fetchProducts();
     fetchOrders();
+    fetchTransactions();
     fetchRFQs();
     fetchQuotations();
     fetchNegotiations();
@@ -92,6 +94,7 @@ export function SupplierLayoutShell({ initialTab }: { initialTab?: SupplierTab }
     fetchStaff,
     fetchProducts,
     fetchOrders,
+    fetchTransactions,
     fetchRFQs,
     fetchQuotations,
     fetchNegotiations,
