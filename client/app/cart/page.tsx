@@ -654,7 +654,7 @@ export default function CartPage() {
                         description: `${prod.name} added to your cart.`,
                       });
                     }}
-                    className="mt-2.5 w-full rounded-xl bg-indigo-600/20 hover:bg-indigo-600 border border-indigo-500/30 py-1.5 text-[11px] font-semibold text-indigo-300 hover:text-white transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
+                    className="mt-2.5 w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 py-1.5 text-[11px] font-bold text-white shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <Plus className="h-3 w-3" />
                     <span>Add to Cart</span>

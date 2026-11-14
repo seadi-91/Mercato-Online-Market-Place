@@ -47,7 +47,7 @@ interface HomePageClientProps {
 
 interface HorizontalProductRowProps {
   section: HomeProductSection;
-  onQuickView: (product: Product) => void;
+  onQuickView?: (product: Product) => void;
 }
 
 // Explicitly excluded from the home page per user request:
@@ -86,7 +86,8 @@ function getHomeCategoryPriority(slug: string): number {
   return 99;
 }
 
-function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProps) {
+function HorizontalProductRow({ section }: HorizontalProductRowProps) {
+  const router = useRouter();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(section.products.length > 4);
@@ -109,12 +110,12 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
   };
 
   const categoryIcons: Record<string, React.ReactNode> = {
-    "agricultural-commodities": <Wheat className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-    "kids-children": <Baby className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-    "cosmetics-skincare": <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-    "computers-electronics": <Laptop className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-    "smartphones-mobile": <Smartphone className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
-    "home-kitchen-appliances": <Home className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />,
+    "agricultural-commodities": <Wheat className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />,
+    "kids-children": <Baby className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />,
+    "cosmetics-skincare": <Sparkles className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />,
+    "computers-electronics": <Laptop className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />,
+    "smartphones-mobile": <Smartphone className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />,
+    "home-kitchen-appliances": <Home className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />,
   };
 
   return (
@@ -123,12 +124,12 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
       <div className="flex items-center justify-between gap-2 border-b border-border/40 pb-2.5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="flex h-5.5 w-5.5 items-center justify-center rounded-full bg-indigo-600 text-[10px] font-black text-white shrink-0 shadow-xs">
+            <span className="flex h-5.5 w-5.5 items-center justify-center rounded-full bg-zinc-900 dark:bg-zinc-800 text-[10px] font-black text-white shrink-0 shadow-xs">
               {section.order}
             </span>
             <div className="flex items-center gap-1.5 min-w-0">
               {categoryIcons[section.categorySlug] || (
-                <Package className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <Package className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
               )}
               <h3 className="text-sm sm:text-base md:text-lg font-bold truncate text-foreground tracking-tight">
                 {section.title}
@@ -144,7 +145,7 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
         <div className="flex items-center gap-1.5 shrink-0">
           <Link
             href={section.viewAllLink}
-            className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 flex items-center gap-0.5 mr-1 transition-colors"
+            className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white flex items-center gap-0.5 mr-1 transition-colors hover:underline"
           >
             <span>See All</span>
             <ChevronRight className="h-3.5 w-3.5" />
@@ -192,7 +193,10 @@ function HorizontalProductRow({ section, onQuickView }: HorizontalProductRowProp
             key={product.id}
             className="w-[136px] xs:w-[150px] sm:w-[165px] md:w-[180px] lg:w-[195px] shrink-0 snap-start h-full"
           >
-            <ProductCard product={product} onQuickView={onQuickView} />
+            <ProductCard
+              product={product}
+              onClick={(p) => router.push(`/products/${p.id}`)}
+            />
           </div>
         ))}
       </div>
@@ -216,10 +220,42 @@ export function HomePageClient({
     });
   }, [initialProducts]);
 
-  // ALL active categories displayed in "Shop by Department" (5 columns)
+  const getCatCount = (category: CategoryItem | string) => {
+    const slug = typeof category === "string" ? category : category.slug;
+    const name = typeof category === "object" ? category.name : undefined;
+    return initialProducts.filter((p) => {
+      if (
+        p.categorySlug &&
+        slug &&
+        p.categorySlug.toLowerCase() === slug.toLowerCase()
+      ) {
+        return true;
+      }
+      if (
+        name &&
+        p.category &&
+        p.category.toLowerCase() === name.toLowerCase()
+      ) {
+        return true;
+      }
+      if (
+        p.category &&
+        slug &&
+        p.category.toLowerCase() === slug.toLowerCase()
+      ) {
+        return true;
+      }
+      return false;
+    }).length;
+  };
+
+  // ONLY active categories with at least 1 product displayed in "Shop by Department" (no empty categories)
   const departments = useMemo(
-    () => initialCategories.filter((category) => category.isActive !== false),
-    [initialCategories],
+    () =>
+      initialCategories
+        .filter((category) => category.isActive !== false)
+        .filter((category) => getCatCount(category) > 0),
+    [initialCategories, initialProducts],
   );
 
   // Allowed categories for the product sections, sorted by priority and capped at maximum 5
@@ -247,10 +283,6 @@ export function HomePageClient({
       .slice(0, 5);
   }, [productSectionCategories, homeProducts]);
 
-  const getCatCount = (slug: string) => {
-    return initialProducts.filter((product) => product.categorySlug === slug).length;
-  };
-
   const handleQuickView = (product: Product) => {
     setQuickViewProduct(product);
   };
@@ -274,20 +306,20 @@ export function HomePageClient({
           <section className="mx-auto max-w-[1600px] px-3 sm:px-6 lg:px-8">
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5">
               <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
-                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
                   <Truck className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
                     <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">Fast Delivery</h4>
-                    <span className="hidden sm:inline-block rounded-md bg-indigo-100 dark:bg-indigo-900/50 px-1.5 py-0.2 text-[9px] font-bold text-indigo-700 dark:text-indigo-300">Express</span>
+                    <span className="hidden sm:inline-block rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.2 text-[9px] font-bold text-zinc-700 dark:text-zinc-300">Express</span>
                   </div>
                   <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Across Addis Ababa & beyond</p>
                 </div>
               </div>
 
               <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
-                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
                   <ShieldCheck className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="min-w-0">
@@ -300,7 +332,7 @@ export function HomePageClient({
               </div>
 
               <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
-                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
                   <CreditCard className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="min-w-0">
@@ -313,7 +345,7 @@ export function HomePageClient({
               </div>
 
               <div className="flex items-center gap-2.5 sm:gap-3 rounded-xl sm:rounded-2xl border border-slate-200/80 dark:border-white/10 bg-white/80 dark:bg-[#11131c]/80 backdrop-blur-sm p-2.5 sm:p-3.5 shadow-xs hover:shadow-md transition-all duration-200">
-                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400">
+                <div className="flex h-9 w-9 sm:h-10 sm:w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200">
                   <Headphones className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <div className="min-w-0">
@@ -340,7 +372,7 @@ export function HomePageClient({
               </div>
               <Link
                 href="/categories"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
+                className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white hover:underline transition-colors"
               >
                 <span>View All</span>
                 <ChevronRight className="h-3.5 w-3.5" />
@@ -353,14 +385,14 @@ export function HomePageClient({
                   <CategoryCard
                     key={category.id}
                     category={category}
-                    itemCount={getCatCount(category.slug)}
+                    itemCount={getCatCount(category)}
                     products={initialProducts}
                   />
                 ))}
               </div>
             ) : (
               <p className="rounded-xl border border-app bg-app-card p-6 text-center text-sm text-app-muted">
-                No departments are available right now.
+                No departments with products are available right now.
               </p>
             )}
           </section>
@@ -393,7 +425,6 @@ export function HomePageClient({
                   <HorizontalProductRow
                     key={section.id}
                     section={section}
-                    onQuickView={handleQuickView}
                   />
                 ))
               ) : (

@@ -19,6 +19,7 @@ import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 interface ProductCardProps {
   product: Product;
   onQuickView?: (product: Product) => void;
+  onClick?: (product: Product) => void;
   tradeView?: TradeType;
   hideBadges?: boolean;
   transparentCartButton?: boolean;
@@ -29,6 +30,7 @@ interface ProductCardProps {
 export function ProductCard({
   product,
   onQuickView,
+  onClick,
   tradeView = "ALL",
   hideBadges = false,
   compact = false,
@@ -103,11 +105,11 @@ export function ProductCard({
   };
 
   const handleCardClick = () => {
-    if (onQuickView) {
-      onQuickView(product);
-    } else {
-      router.push(`/products/${product.id}`);
+    if (onClick) {
+      onClick(product);
+      return;
     }
+    router.push(`/products/${product.id}`);
   };
 
   const primaryImage = product.image || (product as any).images?.[0] || "/placeholder.jpg";
@@ -148,7 +150,7 @@ export function ProductCard({
       tabIndex={0}
       role="link"
       aria-label={product.name}
-      className={`group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border border-slate-200/85 dark:border-white/10 bg-white dark:bg-[#11131c] text-slate-900 dark:text-slate-100 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-250 ease-out cursor-pointer overflow-hidden h-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50 ${
+      className={`group relative flex flex-col justify-between rounded-xl sm:rounded-2xl border border-slate-200/85 dark:border-white/10 bg-white dark:bg-[#11131c] text-slate-900 dark:text-slate-100 shadow-xs hover:shadow-lg hover:-translate-y-0.5 transition-all duration-250 ease-out cursor-pointer overflow-hidden h-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50 ${
         className || ""
       }`}
     >
@@ -174,41 +176,22 @@ export function ProductCard({
           />
         )}
 
-        {/* Top-Left Badges (Discount, Wholesale MOQ, or Curated Badge) */}
-        {!hideBadges && (
-          <div className="absolute top-1.5 left-1.5 z-10 flex flex-col gap-1 items-start">
-            {discountPercent && discountPercent > 0 ? (
-              <div
-                aria-label={`${discountPercent}% off`}
-                className="flex items-center gap-0.5 bg-gradient-to-r from-rose-600 to-red-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs"
-              >
-                <Zap className="w-2 h-2 fill-white" aria-hidden="true" />
-                <span>-{discountPercent}%</span>
-              </div>
-            ) : tradeView === "WHOLESALE" && tradeInfo.moq > 1 ? (
-              <div className="flex items-center gap-1 bg-gradient-to-r from-amber-600 to-amber-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-xs">
-                <span>MOQ {tradeInfo.moq}</span>
-              </div>
-            ) : product.badge ? (
-              <div className="flex items-center gap-1 bg-gradient-to-r from-indigo-600 to-indigo-500 text-white text-[8.5px] font-bold px-1.5 py-0.5 rounded-md shadow-xs tracking-tight">
-                <span>{product.badge}</span>
-              </div>
-            ) : null}
-          </div>
-        )}
-
-        {/* Quick View Button Hover Bar (ZiiMarket Style) */}
+        {/* Quick View Button Hover Bar */}
         <div className="absolute inset-x-1.5 bottom-1.5 z-15 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200 ease-out">
           <button
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              handleCardClick();
+              if (onQuickView) {
+                onQuickView(product);
+              } else {
+                handleCardClick();
+              }
             }}
             aria-label={`Quick view ${product.name}`}
             className="w-full h-6 rounded-md flex items-center justify-center gap-1 bg-white/95 dark:bg-[#151928]/95 backdrop-blur-sm text-slate-800 dark:text-slate-100 border border-slate-200/60 dark:border-white/10 shadow-xs text-[9px] font-bold hover:bg-white dark:hover:bg-[#1a2033] transition-colors cursor-pointer"
           >
-            <Eye className="w-2.5 h-2.5 text-indigo-600 dark:text-indigo-400" aria-hidden="true" />
+            <Eye className="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" aria-hidden="true" />
             <span>Quick View</span>
           </button>
         </div>
@@ -257,7 +240,7 @@ export function ProductCard({
           <Link
             href={`/products/${product.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="block text-[11px] sm:text-xs font-semibold text-card-foreground line-clamp-2 leading-tight h-[28px] sm:h-[32px] mt-0.5 transition-colors hover:text-indigo-600 dark:hover:text-indigo-400"
+            className="block text-[11px] sm:text-xs font-semibold text-card-foreground line-clamp-2 leading-tight h-[28px] sm:h-[32px] mt-0.5 transition-colors hover:text-slate-900 dark:hover:text-white hover:underline"
             title={product.name}
           >
             {product.name}

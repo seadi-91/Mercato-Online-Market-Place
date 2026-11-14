@@ -18,6 +18,7 @@ import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 interface HorizontalProductCardProps {
   product: Product;
   onQuickView?: (product: Product) => void;
+  onClick?: (product: Product) => void;
   tradeView?: TradeType;
   hideBadges?: boolean;
   transparentCartButton?: boolean;
@@ -26,6 +27,7 @@ interface HorizontalProductCardProps {
 export function HorizontalProductCard({
   product,
   onQuickView,
+  onClick,
   tradeView = "ALL",
   hideBadges = false,
 }: HorizontalProductCardProps) {
@@ -98,11 +100,11 @@ export function HorizontalProductCard({
   };
 
   const handleCardClick = () => {
-    if (onQuickView) {
-      onQuickView(product);
-    } else {
-      router.push(`/products/${product.id}`);
+    if (onClick) {
+      onClick(product);
+      return;
     }
+    router.push(`/products/${product.id}`);
   };
 
   const primaryImage = product.image || (product as any).images?.[0] || "/placeholder.jpg";
@@ -144,7 +146,7 @@ export function HorizontalProductCard({
       tabIndex={0}
       role="link"
       aria-label={product.name}
-      className="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between rounded-xl sm:rounded-2xl border border-slate-200/85 dark:border-white/10 bg-white dark:bg-[#11131c] text-slate-900 dark:text-slate-100 hover:border-indigo-400 dark:hover:border-indigo-500/50 hover:shadow-lg transition-all duration-250 p-2 sm:p-3 gap-2.5 sm:gap-3 cursor-pointer overflow-hidden w-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/50"
+      className="group relative flex flex-col sm:flex-row items-stretch sm:items-center justify-between rounded-xl sm:rounded-2xl border border-slate-200/85 dark:border-white/10 bg-white dark:bg-[#11131c] text-slate-900 dark:text-slate-100 hover:border-slate-400 dark:hover:border-white/30 hover:shadow-lg transition-all duration-250 p-2 sm:p-3 gap-2.5 sm:gap-3 cursor-pointer overflow-hidden w-full touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-zinc-400/50"
     >
       {/* Left: Product Image Thumbnail */}
       <div className="relative w-full sm:w-20 sm:h-20 md:w-24 md:h-24 shrink-0 aspect-square sm:aspect-auto rounded-lg sm:rounded-xl overflow-hidden bg-slate-50 dark:bg-[#0c0e17]">
@@ -164,22 +166,6 @@ export function HorizontalProductCard({
             className="absolute inset-0 h-full w-full object-cover object-center opacity-0 transition-all duration-500 ease-out group-hover:opacity-100 group-hover:scale-106"
             loading="lazy"
           />
-        )}
-
-        {/* Top-Left Badges */}
-        {!hideBadges && (
-          <div className="absolute top-1 left-1 z-10">
-            {discountPercent && discountPercent > 0 ? (
-              <span className="flex items-center gap-0.5 bg-gradient-to-r from-rose-600 to-red-500 text-white text-[8px] font-black px-1 py-0.5 rounded shadow-xs">
-                <Zap className="w-2 h-2 fill-white" />
-                -{discountPercent}%
-              </span>
-            ) : tradeView === "WHOLESALE" && tradeInfo.moq > 1 ? (
-              <span className="bg-amber-600 text-white text-[8px] font-black px-1 py-0.5 rounded shadow-xs">
-                MOQ {tradeInfo.moq}
-              </span>
-            ) : null}
-          </div>
         )}
 
         {/* Wishlist Button */}
@@ -218,7 +204,7 @@ export function HorizontalProductCard({
         <Link
           href={`/products/${product.id}`}
           onClick={(e) => e.stopPropagation()}
-          className="block text-xs sm:text-sm font-semibold text-card-foreground hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors line-clamp-2 leading-snug"
+          className="block text-xs sm:text-sm font-semibold text-card-foreground hover:text-slate-900 dark:hover:text-white hover:underline transition-colors line-clamp-2 leading-snug"
           title={product.name}
         >
           {product.name}

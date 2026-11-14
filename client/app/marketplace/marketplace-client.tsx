@@ -130,14 +130,6 @@ export function MarketplaceClient({
     }
   }, [isMobileFilterOpen]);
 
-  const categoryScrollRef = useRef<HTMLDivElement>(null);
-  const scrollCategory = (direction: "left" | "right") => {
-    if (categoryScrollRef.current) {
-      const scrollAmount = direction === "left" ? -300 : 300;
-      categoryScrollRef.current.scrollBy({ left: scrollAmount, behavior: "smooth" });
-    }
-  };
-
   const refreshMarketplace = async () => {
     setIsLoading(true);
     try {
@@ -423,40 +415,122 @@ export function MarketplaceClient({
 
       <main className="flex-1 mx-auto max-w-[1600px] w-full px-2.5 sm:px-4 lg:px-6 py-2 sm:py-4 space-y-2.5 sm:space-y-3 pb-20 sm:pb-12">
 
-        {/* Mobile Search Bar - Sleek, fast, no wasted container borders */}
-        <div className="sm:hidden">
+        {/* Mobile Search & Quick Sourcing Controls - Modern Responsive UX */}
+        <div className="sm:hidden space-y-2">
+          {/* Mobile Search Input */}
           <div
             className={`flex items-center rounded-xl border transition-all overflow-hidden shadow-xs ${
               isLight
-                ? "bg-white border-slate-300 focus-within:border-indigo-600 focus-within:ring-2 focus-within:ring-indigo-600/10"
-                : "bg-[#161926] border-white/15 focus-within:border-indigo-500 focus-within:ring-2 focus-within:ring-indigo-500/20"
+                ? "bg-white border-slate-300 focus-within:border-zinc-500 focus-within:ring-2 focus-within:ring-zinc-500/10"
+                : "bg-[#161926] border-white/15 focus-within:border-zinc-400 focus-within:ring-2 focus-within:ring-zinc-400/20"
             }`}
           >
+            <div className={`flex items-center border-r px-2 shrink-0 ${isLight ? "border-slate-200" : "border-white/10"}`}>
+              <select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                className="bg-transparent text-[11px] font-bold outline-none cursor-pointer py-2 max-w-[85px] truncate text-slate-700 dark:text-zinc-200"
+              >
+                <option value="ALL">All Depts</option>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.slug}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             <div className="relative flex-1 flex items-center">
-              <Search className="absolute left-3 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
+              <Search className="absolute left-2.5 h-3.5 w-3.5 text-slate-400 pointer-events-none" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search verified products, brands..."
-                className="w-full bg-transparent pl-8.5 pr-8 py-2 text-xs outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
+                placeholder="Search products, brands, cargo..."
+                className="w-full bg-transparent pl-8 pr-7 py-2 text-xs outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
               />
               {searchQuery && (
                 <button
                   type="button"
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-2.5 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer touch-manipulation"
+                  className="absolute right-2 p-1 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-white cursor-pointer touch-manipulation"
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-3 w-3" />
                 </button>
               )}
             </div>
+
             <button
               type="button"
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 flex items-center gap-1 transition-colors cursor-pointer shrink-0 touch-manipulation active:scale-95"
+              className="bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 font-bold text-xs px-3 py-2 flex items-center gap-1 transition-colors cursor-pointer shrink-0 touch-manipulation active:scale-95"
             >
               <Search className="h-3.5 w-3.5" />
             </button>
+          </div>
+
+          {/* Mobile Sourcing Mode Segmented Control */}
+          <div
+            className={`flex items-center rounded-xl border p-0.5 w-full ${
+              isLight ? "border-slate-200 bg-slate-50" : "border-white/10 bg-white/5"
+            }`}
+          >
+            {[
+              { id: "ALL" as TradeType, label: "All Items", count: counts.total },
+              { id: "RETAIL" as TradeType, label: "Retail", count: counts.retail },
+              { id: "WHOLESALE" as TradeType, label: "Wholesale", count: counts.wholesale },
+            ].map((m) => {
+              const isSelected = tradeType === m.id;
+              return (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setTradeType(m.id)}
+                  className={`flex-1 flex items-center justify-center gap-1 py-1.5 px-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer touch-manipulation active:scale-95 ${
+                    isSelected
+                      ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 shadow-xs"
+                      : isLight
+                        ? "text-slate-600 hover:text-slate-900"
+                        : "text-zinc-300 hover:text-white"
+                  }`}
+                >
+                  <span>{m.label}</span>
+                  <span
+                    className={`text-[9px] font-mono px-1 rounded-full ${
+                      isSelected
+                        ? "bg-white/20 text-white"
+                        : isLight
+                          ? "bg-slate-200 text-slate-700"
+                          : "bg-white/10 text-zinc-400"
+                    }`}
+                  >
+                    {m.count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Mobile Trending Tags Horizontal Scroll */}
+          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5 text-[11px]">
+            <span className={`font-semibold shrink-0 text-[10px] ${isLight ? "text-slate-400" : "text-zinc-500"}`}>
+              Trending:
+            </span>
+            {TRENDING_KEYWORDS.map((kw) => (
+              <button
+                key={kw}
+                type="button"
+                onClick={() => setSearchQuery(kw)}
+                className={`px-2 py-0.5 rounded-full border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 whitespace-nowrap text-[10.5px] ${
+                  searchQuery.toLowerCase() === kw.toLowerCase()
+                    ? "bg-zinc-900 text-white border-zinc-900 dark:bg-zinc-800 dark:border-zinc-700 font-bold shadow-xs"
+                    : isLight
+                      ? "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900"
+                      : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20 hover:text-white"
+                }`}
+              >
+                {kw}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -473,14 +547,14 @@ export function MarketplaceClient({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-2.5">
               <div>
                 <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 animate-pulse" />
-                  <span className="text-[10px] sm:text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
+                  <span className="h-1.5 w-1.5 rounded-full bg-zinc-700 dark:bg-zinc-300 animate-pulse" />
+                  <span className="text-[10px] sm:text-xs font-bold text-zinc-700 dark:text-zinc-300 uppercase tracking-wider">
                     Addis Ababa Commercial Hub
                   </span>
                 </div>
                 <h1 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight mt-0.5 text-slate-900 dark:text-white">
                   Verified Ethiopian{" "}
-                  <span className="text-indigo-600 dark:text-indigo-400">
+                  <span className="text-zinc-800 dark:text-zinc-200">
                     Marketplace
                   </span>
                 </h1>
@@ -508,7 +582,7 @@ export function MarketplaceClient({
                       onClick={() => setTradeType(m.id)}
                       className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation active:scale-95 ${
                         isSelected
-                          ? "bg-indigo-600 text-white shadow-xs"
+                          ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 shadow-xs"
                           : isLight
                             ? "text-slate-600 hover:text-slate-900 hover:bg-slate-200/50"
                             : "text-zinc-300 hover:text-white hover:bg-white/5"
@@ -579,7 +653,7 @@ export function MarketplaceClient({
 
                 <button
                   type="button"
-                  className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs sm:text-sm px-3.5 sm:px-4 py-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 touch-manipulation active:scale-95"
+                  className="bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 font-bold text-xs sm:text-sm px-3.5 sm:px-4 py-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 touch-manipulation active:scale-95"
                 >
                   <Search className="h-3.5 w-3.5" />
                   <span>Search</span>
@@ -598,9 +672,9 @@ export function MarketplaceClient({
                     onClick={() => setSearchQuery(kw)}
                     className={`px-2 py-0.5 rounded-full border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 ${
                       searchQuery.toLowerCase() === kw.toLowerCase()
-                        ? "bg-indigo-600 text-white border-indigo-600 font-bold"
+                        ? "bg-zinc-900 text-white border-zinc-900 dark:bg-zinc-800 dark:border-zinc-700 font-bold shadow-xs"
                         : isLight
-                          ? "bg-white border-slate-200 text-slate-600 hover:border-indigo-300 hover:text-indigo-600"
+                          ? "bg-white border-slate-200 text-slate-600 hover:border-slate-300 hover:text-slate-900"
                           : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20 hover:text-white"
                     }`}
                   >
@@ -612,130 +686,18 @@ export function MarketplaceClient({
           </div>
         </section>
 
-        {/* DEPARTMENT HORIZONTAL CAROUSEL - Desktop Only (Mobile uses the Filter drawer) */}
-        <section className="hidden sm:block space-y-1.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Layers className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-slate-900 dark:text-white">
-                Shop By Department
-              </h2>
-            </div>
-
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => scrollCategory("left")}
-                className={`p-1 rounded-full border transition-all cursor-pointer touch-manipulation active:scale-90 ${
-                  isLight
-                    ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
-                    : "bg-[#14141a] border-white/10 text-zinc-300 hover:text-white"
-                }`}
-                title="Scroll categories left"
-              >
-                <ChevronLeft className="h-3.5 w-3.5" />
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollCategory("right")}
-                className={`p-1 rounded-full border transition-all cursor-pointer touch-manipulation active:scale-90 ${
-                  isLight
-                    ? "bg-white border-slate-200 text-slate-700 hover:bg-slate-50 shadow-xs"
-                    : "bg-[#14141a] border-white/10 text-zinc-300 hover:text-white"
-                }`}
-                title="Scroll categories right"
-              >
-                <ChevronRight className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          </div>
-
-          <div
-            ref={categoryScrollRef}
-            className="flex items-center gap-2 overflow-x-auto pb-1 scroll-smooth no-scrollbar"
-          >
-            {/* All Departments */}
-            <button
-              type="button"
-              onClick={() => setSelectedCategory("ALL")}
-              className={`flex items-center gap-2 p-1.5 sm:p-2 rounded-xl border text-xs font-bold shrink-0 transition-all cursor-pointer touch-manipulation active:scale-95 ${
-                selectedCategory === "ALL"
-                  ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                  : isLight
-                    ? "bg-white border-slate-200 text-slate-800 hover:border-indigo-300 hover:bg-indigo-50/20"
-                    : "bg-[#121218] border-white/10 text-zinc-200 hover:border-white/20 hover:text-white"
-              }`}
-            >
-              <div
-                className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-                  selectedCategory === "ALL"
-                    ? "bg-white/20 text-white"
-                    : isLight
-                      ? "bg-indigo-50 text-indigo-600"
-                      : "bg-indigo-950/60 text-indigo-400"
-                }`}
-              >
-                <Layers className="h-3.5 w-3.5" />
-              </div>
-              <div className="text-left">
-                <div className="leading-tight text-[11px] sm:text-xs">All Departments</div>
-                <div className={`text-[9px] font-normal ${selectedCategory === "ALL" ? "text-white/80" : "text-slate-400"}`}>
-                  {getCategoryCount("ALL")} items
-                </div>
-              </div>
-            </button>
-
-            {categories.map((cat) => {
-              const isSelected = selectedCategory === cat.slug;
-              const count = getCategoryCount(cat.slug);
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  onClick={() => setSelectedCategory(cat.slug)}
-                  className={`flex items-center gap-2 p-1.5 sm:p-2 rounded-xl border text-xs font-bold shrink-0 transition-all cursor-pointer touch-manipulation active:scale-95 ${
-                    isSelected
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-xs"
-                      : isLight
-                        ? "bg-white border-slate-200 text-slate-800 hover:border-indigo-300 hover:bg-indigo-50/20"
-                        : "bg-[#121218] border-white/10 text-zinc-200 hover:border-white/20 hover:text-white"
-                  }`}
-                >
-                  <div
-                    className={`h-7 w-7 rounded-lg flex items-center justify-center shrink-0 ${
-                      isSelected
-                        ? "bg-white/20 text-white"
-                        : isLight
-                          ? "bg-indigo-50 text-indigo-600"
-                          : "bg-indigo-950/60 text-indigo-400"
-                    }`}
-                  >
-                    {getCategoryIcon(cat.slug)}
-                  </div>
-                  <div className="text-left">
-                    <div className="leading-tight text-[11px] sm:text-xs max-w-[110px] truncate">{cat.name}</div>
-                    <div className={`text-[9px] font-normal ${isSelected ? "text-white/80" : "text-slate-400"}`}>
-                      {count} items
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        {/* TOOLBAR ROW - Sticky on mobile & desktop, ultra-clean on mobile */}
+        {/* TOOLBAR ROW - Sticky on mobile & desktop, modern responsive UX */}
         <section
-          className={`flex items-center justify-between gap-2 rounded-xl border p-2 sm:p-2.5 transition-all sticky top-1 sm:top-2 z-20 backdrop-blur-md ${
+          className={`flex items-center justify-between gap-1.5 sm:gap-2 rounded-xl border p-1.5 sm:p-2.5 transition-all sticky top-0 sm:top-2 z-20 backdrop-blur-md ${
             isLight ? "bg-white/95 border-slate-200 shadow-xs" : "bg-[#11131c]/95 border-white/10 shadow-md"
           }`}
         >
-          <div className="flex items-center gap-1.5 sm:gap-2">
-            {/* Mobile Filter Button */}
+          <div className="flex items-center gap-1 sm:gap-2 min-w-0 flex-1 overflow-x-auto no-scrollbar">
+            {/* Mobile Filter Drawer Trigger Button */}
             <button
               type="button"
               onClick={() => setIsMobileFilterOpen(true)}
-              className="lg:hidden inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-indigo-700 active:scale-95 transition-all cursor-pointer shadow-xs shrink-0 touch-manipulation"
+              className="lg:hidden inline-flex items-center gap-1 rounded-lg bg-zinc-900 dark:bg-zinc-800 px-2.5 py-1 text-xs font-bold text-white hover:bg-zinc-800 dark:hover:bg-zinc-700 active:scale-95 transition-all cursor-pointer shadow-xs shrink-0 touch-manipulation"
               title="Open Filters"
               aria-label="Open Filters"
             >
@@ -743,7 +705,7 @@ export function MarketplaceClient({
               <Filter className="h-3 w-3" />
               <span>Filters</span>
               {activeFilterCount > 0 && (
-                <span className="rounded-full bg-white text-indigo-600 text-[9px] h-3.5 min-w-3.5 px-1 flex items-center justify-center font-extrabold">
+                <span className="rounded-full bg-white/20 text-white text-[9px] h-3.5 min-w-3.5 px-1 flex items-center justify-center font-extrabold">
                   {activeFilterCount}
                 </span>
               )}
@@ -761,7 +723,7 @@ export function MarketplaceClient({
             >
               {isSidebarCollapsed ? (
                 <>
-                  <PanelLeftOpen className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                  <PanelLeftOpen className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
                   <span>Show Sidebar</span>
                 </>
               ) : (
@@ -772,59 +734,59 @@ export function MarketplaceClient({
               )}
             </button>
 
-            {/* Quick Filter Chips (Desktop Only - on mobile, everything is cleanly inside Filters) */}
-            <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+            {/* Quick Filter Chips (Horizontal Swipeable on mobile & desktop) */}
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <button
                 type="button"
                 onClick={() => setMinRating(minRating === 4 ? 0 : 4)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 ${
+                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10.5px] sm:text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 whitespace-nowrap ${
                   minRating === 4
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs font-bold"
+                    ? "bg-zinc-900 text-white border-zinc-900 dark:bg-zinc-800 dark:border-zinc-700 shadow-xs font-bold"
                     : isLight
                       ? "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
                       : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20"
                 }`}
               >
-                <Star className={`h-3 w-3 ${minRating === 4 ? "fill-white text-white" : "text-indigo-600"}`} />
-                <span>4.0+ Stars</span>
+                <Star className={`h-3 w-3 ${minRating === 4 ? "fill-white text-white" : "fill-amber-400 text-amber-400"}`} />
+                <span>4.0+★</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setInStockOnly(!inStockOnly)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 ${
+                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10.5px] sm:text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 whitespace-nowrap ${
                   inStockOnly
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs font-bold"
+                    ? "bg-zinc-900 text-white border-zinc-900 dark:bg-zinc-800 dark:border-zinc-700 shadow-xs font-bold"
                     : isLight
                       ? "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
                       : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20"
                 }`}
               >
-                <CheckCircle2 className="h-3 w-3 text-indigo-600" />
+                <CheckCircle2 className={`h-3 w-3 ${inStockOnly ? "text-white" : "text-slate-500 dark:text-zinc-400"}`} />
                 <span>In Stock</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setEscrowOnly(!escrowOnly)}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 ${
+                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10.5px] sm:text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 whitespace-nowrap ${
                   escrowOnly
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs font-bold"
+                    ? "bg-zinc-900 text-white border-zinc-900 dark:bg-zinc-800 dark:border-zinc-700 shadow-xs font-bold"
                     : isLight
                       ? "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
                       : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20"
                 }`}
               >
-                <ShieldCheck className="h-3 w-3 text-indigo-600" />
-                <span>Escrow Verified</span>
+                <ShieldCheck className={`h-3 w-3 ${escrowOnly ? "text-white" : "text-slate-500 dark:text-zinc-400"}`} />
+                <span>Escrow</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => setPriceRange(priceRange === "under-5k" ? "ALL" : "under-5k")}
-                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 ${
+                className={`inline-flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-[10.5px] sm:text-xs font-semibold border transition-all cursor-pointer shrink-0 touch-manipulation active:scale-95 whitespace-nowrap ${
                   priceRange === "under-5k"
-                    ? "bg-indigo-600 text-white border-indigo-600 shadow-xs font-bold"
+                    ? "bg-zinc-900 text-white border-zinc-900 dark:bg-zinc-800 dark:border-zinc-700 shadow-xs font-bold"
                     : isLight
                       ? "bg-white border-slate-200 text-slate-700 hover:border-slate-300"
                       : "bg-white/5 border-white/10 text-zinc-300 hover:border-white/20"
@@ -833,13 +795,14 @@ export function MarketplaceClient({
                 <span>&lt; 5k ETB</span>
               </button>
             </div>
-
-            <span className={`text-[11px] sm:text-xs ml-0.5 sm:ml-1 font-medium shrink-0 ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              <strong className={isLight ? "text-slate-900" : "text-white"}>{filteredProducts.length}</strong> items
-            </span>
           </div>
 
-          <div className="flex items-center gap-1.5 sm:gap-2 justify-end shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 justify-end shrink-0">
+            {/* Live Count */}
+            <span className={`text-[10.5px] sm:text-xs font-medium shrink-0 hidden xs:inline ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
+              <strong className={isLight ? "text-slate-900" : "text-white"}>{filteredProducts.length}</strong> items
+            </span>
+
             {/* View Mode Switcher */}
             <div
               className={`flex items-center rounded-lg border p-0.5 ${
@@ -856,11 +819,12 @@ export function MarketplaceClient({
                   onClick={() => setViewMode(v.mode)}
                   className={`flex items-center gap-1 rounded-md px-1.5 sm:px-2 py-0.5 text-xs font-semibold transition-all cursor-pointer touch-manipulation active:scale-95 ${
                     viewMode === v.mode
-                      ? "bg-indigo-600 text-white shadow-xs font-bold"
+                      ? "bg-zinc-900 text-white dark:bg-zinc-800 shadow-xs font-bold"
                       : isLight
                         ? "text-slate-600 hover:text-slate-900"
                         : "text-zinc-400 hover:text-white"
                   }`}
+                  title={`${v.label} View`}
                 >
                   <v.Icon className="h-3 w-3" />
                   <span className="hidden sm:inline">{v.label}</span>
@@ -873,15 +837,15 @@ export function MarketplaceClient({
               <select
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value as any)}
-                className={`rounded-lg border px-2 py-1 text-[11px] sm:text-xs font-semibold outline-none focus:border-indigo-600 focus:ring-1 focus:ring-indigo-600/20 cursor-pointer transition-all touch-manipulation ${
+                className={`rounded-lg border px-1.5 sm:px-2 py-1 text-[11px] sm:text-xs font-semibold outline-none focus:border-zinc-500 cursor-pointer transition-all touch-manipulation ${
                   isLight
                     ? "border-slate-200 bg-white text-slate-800 shadow-xs"
                     : "border-white/10 bg-[#161926] text-zinc-200"
                 }`}
               >
                 <option value="featured">Featured</option>
-                <option value="price-asc">Price: Low to High</option>
-                <option value="price-desc">Price: High to Low</option>
+                <option value="price-asc">Price: Low-High</option>
+                <option value="price-desc">Price: High-Low</option>
                 <option value="rating">Top Rated</option>
               </select>
             </div>
@@ -896,7 +860,7 @@ export function MarketplaceClient({
             </span>
 
             {tradeType !== "ALL" && (
-              <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300">
+              <span className="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200">
                 {tradeType === "WHOLESALE" ? "Wholesale" : "Retail"}
                 <button type="button" onClick={() => setTradeType("ALL")} className="hover:opacity-70 cursor-pointer touch-manipulation">
                   <X className="h-3 w-3" />
@@ -905,7 +869,7 @@ export function MarketplaceClient({
             )}
 
             {selectedCategory !== "ALL" && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 text-[10px] font-bold">
                 {categories.find((c) => c.slug === selectedCategory)?.name || selectedCategory}
                 <button type="button" onClick={() => setSelectedCategory("ALL")} className="hover:opacity-70 cursor-pointer touch-manipulation">
                   <X className="h-3 w-3" />
@@ -914,7 +878,7 @@ export function MarketplaceClient({
             )}
 
             {searchQuery && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 text-[10px] font-bold">
                 &ldquo;{searchQuery}&rdquo;
                 <button type="button" onClick={() => setSearchQuery("")} className="hover:opacity-70 cursor-pointer touch-manipulation">
                   <X className="h-3 w-3" />
@@ -923,7 +887,7 @@ export function MarketplaceClient({
             )}
 
             {priceRange !== "ALL" && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 text-[10px] font-bold">
                 {priceRange === "custom" ? `${customMinPrice || 0} - ${customMaxPrice || "Max"} ETB` : priceRange}
                 <button type="button" onClick={() => setPriceRange("ALL")} className="hover:opacity-70 cursor-pointer touch-manipulation">
                   <X className="h-3 w-3" />
@@ -932,7 +896,7 @@ export function MarketplaceClient({
             )}
 
             {inStockOnly && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 text-[10px] font-bold">
                 In Stock
                 <button type="button" onClick={() => setInStockOnly(false)} className="hover:opacity-70 cursor-pointer touch-manipulation">
                   <X className="h-3 w-3" />
@@ -941,7 +905,7 @@ export function MarketplaceClient({
             )}
 
             {escrowOnly && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 text-[10px] font-bold">
                 Verified
                 <button type="button" onClick={() => setEscrowOnly(false)} className="hover:opacity-70 cursor-pointer touch-manipulation">
                   <X className="h-3 w-3" />
@@ -950,7 +914,7 @@ export function MarketplaceClient({
             )}
 
             {minRating > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 text-[10px] font-bold">
+              <span className="inline-flex items-center gap-1 rounded-md bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 px-2 py-0.5 text-[10px] font-bold">
                 {minRating}★+
                 <button type="button" onClick={() => setMinRating(0)} className="hover:opacity-70 cursor-pointer touch-manipulation">
                   <X className="h-3 w-3" />
@@ -961,7 +925,7 @@ export function MarketplaceClient({
             <button
               type="button"
               onClick={clearFilters}
-              className="inline-flex items-center gap-1 text-[10px] font-bold ml-1 text-indigo-600 hover:underline cursor-pointer touch-manipulation"
+              className="inline-flex items-center gap-1 text-[10px] font-bold ml-1 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:underline cursor-pointer touch-manipulation"
             >
               <RotateCcw className="h-3 w-3" />
               <span>Clear</span>
@@ -980,19 +944,19 @@ export function MarketplaceClient({
                   : "bg-[#11131c] border-white/10 shadow-md text-white"
               }`}
             >
-              <div className="h-1 w-full bg-indigo-600" />
+              <div className="h-1 w-full bg-zinc-900 dark:bg-zinc-700" />
 
               <div className="p-2.5 xl:p-3 space-y-2.5 xl:space-y-3 max-h-[calc(100vh-80px)] overflow-y-auto no-scrollbar">
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2">
                   <div className="flex items-center gap-1.5">
-                    <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                    <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
                     <h3 className="text-xs font-bold tracking-tight">Filters</h3>
                   </div>
                   {activeFilterCount > 0 && (
                     <button
                       type="button"
                       onClick={clearFilters}
-                      className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer touch-manipulation"
+                      className="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:underline cursor-pointer touch-manipulation"
                     >
                       Reset ({activeFilterCount})
                     </button>
@@ -1010,10 +974,10 @@ export function MarketplaceClient({
                         type="checkbox"
                         checked={escrowOnly}
                         onChange={(e) => setEscrowOnly(e.target.checked)}
-                        className="rounded h-3.5 w-3.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="rounded h-3.5 w-3.5 text-zinc-900 focus:ring-zinc-800 dark:text-zinc-700 cursor-pointer"
                       />
                       <span className="flex items-center gap-1 text-[11px] font-medium leading-tight">
-                        <ShieldCheck className="h-3 w-3 text-indigo-600 shrink-0" />
+                        <ShieldCheck className="h-3 w-3 text-zinc-600 dark:text-zinc-400 shrink-0" />
                         <span className="truncate">Escrow Protected</span>
                       </span>
                     </label>
@@ -1023,10 +987,10 @@ export function MarketplaceClient({
                         type="checkbox"
                         checked={inStockOnly}
                         onChange={(e) => setInStockOnly(e.target.checked)}
-                        className="rounded h-3.5 w-3.5 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                        className="rounded h-3.5 w-3.5 text-zinc-900 focus:ring-zinc-800 dark:text-zinc-700 cursor-pointer"
                       />
                       <span className="flex items-center gap-1 text-[11px] font-medium leading-tight">
-                        <Truck className="h-3 w-3 text-indigo-600 shrink-0" />
+                        <Truck className="h-3 w-3 text-zinc-600 dark:text-zinc-400 shrink-0" />
                         <span className="truncate">Addis Express</span>
                       </span>
                     </label>
@@ -1050,7 +1014,7 @@ export function MarketplaceClient({
                         onClick={() => setTradeType(t.id)}
                         className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] transition-all cursor-pointer touch-manipulation active:scale-95 ${
                           tradeType === t.id
-                            ? "bg-indigo-600 text-white font-bold shadow-xs"
+                            ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 font-bold shadow-xs"
                             : isLight
                               ? "text-slate-700 hover:bg-slate-100"
                               : "text-zinc-300 hover:bg-white/5"
@@ -1074,7 +1038,7 @@ export function MarketplaceClient({
                     onClick={() => setSelectedCategory("ALL")}
                     className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] transition-all cursor-pointer touch-manipulation active:scale-95 ${
                       selectedCategory === "ALL"
-                        ? "bg-indigo-600 text-white font-bold shadow-xs"
+                        ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 font-bold shadow-xs"
                         : isLight
                           ? "text-slate-700 hover:bg-slate-100"
                           : "text-zinc-300 hover:bg-white/5"
@@ -1094,7 +1058,7 @@ export function MarketplaceClient({
                           onClick={() => setSelectedCategory(c.slug)}
                           className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] transition-all cursor-pointer touch-manipulation active:scale-95 ${
                             isSel
-                              ? "bg-indigo-600 text-white font-bold shadow-xs"
+                              ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 font-bold shadow-xs"
                               : isLight
                                 ? "text-slate-700 hover:bg-slate-100"
                                 : "text-zinc-300 hover:bg-white/5"
@@ -1130,7 +1094,7 @@ export function MarketplaceClient({
                         onClick={() => setPriceRange(p.value)}
                         className={`w-full text-left px-2 py-1 rounded-md text-[11px] transition-all cursor-pointer touch-manipulation active:scale-95 ${
                           priceRange === p.value
-                            ? "bg-indigo-600 text-white font-bold shadow-xs"
+                            ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 font-bold shadow-xs"
                             : isLight
                               ? "text-slate-700 hover:bg-slate-100"
                               : "text-zinc-300 hover:bg-white/5"
@@ -1145,26 +1109,28 @@ export function MarketplaceClient({
                   <form onSubmit={applyCustomPrice} className="pt-1 flex items-center gap-1">
                     <input
                       type="number"
+                      inputMode="numeric"
                       placeholder="Min"
                       value={customMinPrice}
                       onChange={(e) => setCustomMinPrice(e.target.value)}
-                      className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-600 ${
+                      className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-zinc-500 ${
                         isLight ? "border-slate-300 bg-white" : "border-white/15 bg-white/5"
                       }`}
                     />
                     <span className="text-slate-400 text-[10px]">-</span>
                     <input
                       type="number"
+                      inputMode="numeric"
                       placeholder="Max"
                       value={customMaxPrice}
                       onChange={(e) => setCustomMaxPrice(e.target.value)}
-                      className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-600 ${
+                      className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-zinc-500 ${
                         isLight ? "border-slate-300 bg-white" : "border-white/15 bg-white/5"
                       }`}
                     />
                     <button
                       type="submit"
-                      className="rounded-md bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-700 cursor-pointer shrink-0 touch-manipulation"
+                      className="rounded-md bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2 py-0.5 text-[10px] font-bold cursor-pointer shrink-0 touch-manipulation"
                     >
                       Go
                     </button>
@@ -1188,7 +1154,7 @@ export function MarketplaceClient({
                         onClick={() => setMinRating(r.rating)}
                         className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] font-medium transition-all cursor-pointer touch-manipulation active:scale-95 ${
                           minRating === r.rating
-                            ? "bg-indigo-600 text-white font-bold shadow-xs"
+                            ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 font-bold shadow-xs"
                             : isLight
                               ? "text-slate-600 hover:bg-slate-50"
                               : "text-zinc-400 hover:bg-white/5"
@@ -1203,7 +1169,7 @@ export function MarketplaceClient({
                                   minRating === r.rating
                                     ? "fill-white text-white"
                                     : i < (r.rating || 5)
-                                      ? "fill-indigo-600 text-indigo-600"
+                                      ? "fill-amber-400 text-amber-400"
                                       : "text-slate-300 dark:text-zinc-600"
                                 }`}
                               />
@@ -1225,8 +1191,8 @@ export function MarketplaceClient({
               <div
                 className={`grid gap-2 sm:gap-2.5 lg:gap-3 ${
                   isSidebarCollapsed
-                    ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
-                    : "grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+                    ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 2xl:grid-cols-6"
+                    : "grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5"
                 }`}
               >
                 {[...Array(10)].map((_, i) => (
@@ -1248,8 +1214,8 @@ export function MarketplaceClient({
                 <div
                   className={`grid gap-2 sm:gap-2.5 lg:gap-3 ${
                     isSidebarCollapsed
-                      ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-7"
-                      : "grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+                      ? "grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 2xl:grid-cols-6"
+                      : "grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-5 2xl:grid-cols-5"
                   }`}
                 >
                   {filteredProducts.map((product) => (
@@ -1280,7 +1246,7 @@ export function MarketplaceClient({
                   isLight ? "bg-white border-slate-300" : "bg-[#11131c] border-white/10"
                 }`}
               >
-                <div className="h-14 w-14 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 flex items-center justify-center">
+                <div className="h-14 w-14 mx-auto rounded-2xl bg-zinc-100 dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 flex items-center justify-center">
                   <Layers className="h-7 w-7" />
                 </div>
 
@@ -1302,7 +1268,7 @@ export function MarketplaceClient({
                   <button
                     type="button"
                     onClick={() => setTradeType("ALL")}
-                    className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-all cursor-pointer shadow-sm"
+                    className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 px-4 py-2 text-xs font-bold transition-all cursor-pointer shadow-sm"
                   >
                     View All Products
                   </button>
@@ -1318,7 +1284,7 @@ export function MarketplaceClient({
                   <button
                     type="button"
                     onClick={clearFilters}
-                    className="rounded-xl border border-slate-300 dark:border-white/20 px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer text-indigo-600"
+                    className="rounded-xl border border-slate-300 dark:border-white/20 px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer text-zinc-800 dark:text-zinc-200"
                   >
                     Reset Filters
                   </button>
@@ -1338,7 +1304,7 @@ export function MarketplaceClient({
         >
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 sm:gap-5">
             <div className="space-y-0.5 max-w-md">
-              <span className="text-[9px] uppercase font-bold tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+              <span className="text-[9px] uppercase font-bold tracking-wider text-zinc-700 dark:text-zinc-300 flex items-center gap-1">
                 <ShieldCheck className="h-3.5 w-3.5" />
                 Guaranteed Buyer Protection
               </span>
@@ -1358,7 +1324,7 @@ export function MarketplaceClient({
                 { step: "04", title: "OTP Handover", desc: "Inspect & release code" },
               ].map((s) => (
                 <div key={s.step} className="space-y-0.5 p-2 rounded-xl bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5">
-                  <div className="text-[9px] font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                  <div className="text-[9px] font-mono font-bold text-zinc-700 dark:text-zinc-300">
                     STEP {s.step}
                   </div>
                   <div className="text-[11px] sm:text-xs font-bold leading-tight">{s.title}</div>
@@ -1386,17 +1352,17 @@ export function MarketplaceClient({
                 : "bg-[#09090b] text-white border-white/10"
             }`}
           >
-            <div className="absolute top-0 left-0 right-0 h-1 bg-indigo-600" />
+            <div className="absolute top-0 left-0 right-0 h-1 bg-zinc-900 dark:bg-zinc-700" />
 
             <div className="space-y-3.5">
               {/* Header: Filters Title + Close Icon (X) */}
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2.5 pt-1">
                 <div className="flex items-center gap-1.5">
-                  <Menu className="h-4 w-4 text-indigo-600" />
+                  <Menu className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
                     <span>Filters &amp; Sourcing</span>
                     {activeFilterCount > 0 && (
-                      <span className="rounded-full bg-indigo-600 text-white text-[9px] h-3.5 min-w-3.5 px-1 flex items-center justify-center font-bold">
+                      <span className="rounded-full bg-zinc-900 dark:bg-zinc-800 text-white text-[9px] h-3.5 min-w-3.5 px-1 flex items-center justify-center font-bold">
                         {activeFilterCount}
                       </span>
                     )}
@@ -1435,7 +1401,7 @@ export function MarketplaceClient({
                       onClick={() => setTradeType(t.id)}
                       className={`flex flex-col items-center justify-center p-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all touch-manipulation active:scale-95 ${
                         tradeType === t.id
-                          ? "bg-indigo-600 text-white shadow-xs font-bold"
+                          ? "bg-zinc-900 text-white dark:bg-zinc-800 font-bold shadow-xs"
                           : isLight
                             ? "bg-slate-50 border border-slate-200 text-slate-700"
                             : "bg-white/5 border border-white/8 text-zinc-300"
@@ -1455,27 +1421,27 @@ export function MarketplaceClient({
                 </span>
                 <label className="flex items-center justify-between text-xs cursor-pointer select-none py-0.5">
                   <span className="flex items-center gap-1.5 font-medium text-[11px]">
-                    <ShieldCheck className="h-3 w-3 text-indigo-600" />
+                    <ShieldCheck className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
                     <span>Escrow Protected</span>
                   </span>
                   <input
                     type="checkbox"
                     checked={escrowOnly}
                     onChange={(e) => setEscrowOnly(e.target.checked)}
-                    className="rounded h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                    className="rounded h-3.5 w-3.5 text-zinc-900 focus:ring-zinc-800 dark:text-zinc-700 cursor-pointer"
                   />
                 </label>
 
                 <label className="flex items-center justify-between text-xs cursor-pointer select-none py-0.5">
                   <span className="flex items-center gap-1.5 font-medium text-[11px]">
-                    <Truck className="h-3 w-3 text-indigo-600" />
+                    <Truck className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
                     <span>Addis Express Dispatch</span>
                   </span>
                   <input
                     type="checkbox"
                     checked={inStockOnly}
                     onChange={(e) => setInStockOnly(e.target.checked)}
-                    className="rounded h-3.5 w-3.5 text-indigo-600 cursor-pointer"
+                    className="rounded h-3.5 w-3.5 text-zinc-900 focus:ring-zinc-800 dark:text-zinc-700 cursor-pointer"
                   />
                 </label>
               </div>
@@ -1490,7 +1456,7 @@ export function MarketplaceClient({
                   onClick={() => setSelectedCategory("ALL")}
                   className={`w-full text-left p-1.5 rounded-lg text-xs font-medium cursor-pointer transition-all touch-manipulation active:scale-95 ${
                     selectedCategory === "ALL"
-                      ? "bg-indigo-600 text-white font-bold"
+                      ? "bg-zinc-900 text-white dark:bg-zinc-800 font-bold"
                       : "text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/5"
                   }`}
                 >
@@ -1504,7 +1470,7 @@ export function MarketplaceClient({
                       onClick={() => setSelectedCategory(c.slug)}
                       className={`w-full flex items-center justify-between p-1.5 rounded-lg text-[11px] font-medium cursor-pointer transition-all touch-manipulation active:scale-95 ${
                         selectedCategory === c.slug
-                          ? "bg-indigo-600 text-white font-bold"
+                          ? "bg-zinc-900 text-white dark:bg-zinc-800 font-bold"
                           : "text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/5"
                       }`}
                     >
@@ -1534,7 +1500,7 @@ export function MarketplaceClient({
                       onClick={() => setPriceRange(p.value)}
                       className={`text-left px-2 py-1 rounded-md text-[10px] font-medium cursor-pointer transition-all touch-manipulation active:scale-95 ${
                         priceRange === p.value
-                          ? "bg-indigo-600 text-white font-bold"
+                          ? "bg-zinc-900 text-white dark:bg-zinc-800 font-bold"
                           : "text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-white/5"
                       }`}
                     >
@@ -1547,26 +1513,28 @@ export function MarketplaceClient({
                 <form onSubmit={applyCustomPrice} className="pt-1 flex items-center gap-1">
                   <input
                     type="number"
+                    inputMode="numeric"
                     placeholder="Min"
                     value={customMinPrice}
                     onChange={(e) => setCustomMinPrice(e.target.value)}
-                    className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-600 ${
+                    className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-zinc-500 ${
                       isLight ? "border-slate-300 bg-white" : "border-white/15 bg-white/5"
                     }`}
                   />
                   <span className="text-slate-400 text-[10px]">-</span>
                   <input
                     type="number"
+                    inputMode="numeric"
                     placeholder="Max"
                     value={customMaxPrice}
                     onChange={(e) => setCustomMaxPrice(e.target.value)}
-                    className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-indigo-600 ${
+                    className={`w-full rounded-md border px-1.5 py-0.5 text-[11px] outline-none focus:border-zinc-500 ${
                       isLight ? "border-slate-300 bg-white" : "border-white/15 bg-white/5"
                     }`}
                   />
                   <button
                     type="submit"
-                    className="rounded-md bg-indigo-600 px-2 py-0.5 text-[10px] font-bold text-white hover:bg-indigo-700 cursor-pointer shrink-0 touch-manipulation"
+                    className="rounded-md bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 px-2 py-0.5 text-[10px] font-bold cursor-pointer shrink-0 touch-manipulation"
                   >
                     Go
                   </button>
@@ -1590,13 +1558,13 @@ export function MarketplaceClient({
                       onClick={() => setMinRating(r.rating)}
                       className={`flex-1 flex items-center justify-center gap-1 p-1 rounded-md text-[10px] font-medium transition-all cursor-pointer touch-manipulation active:scale-95 ${
                         minRating === r.rating
-                          ? "bg-indigo-600 text-white font-bold shadow-xs"
+                          ? "bg-zinc-900 text-white dark:bg-zinc-800 font-bold shadow-xs"
                           : isLight
                             ? "border border-slate-200 text-slate-700"
                             : "border border-white/10 text-zinc-300"
                       }`}
                     >
-                      <Star className={`h-2.5 w-2.5 ${minRating === r.rating ? "fill-white text-white" : "text-indigo-600"}`} />
+                      <Star className={`h-2.5 w-2.5 ${minRating === r.rating ? "fill-white text-white" : "fill-amber-400 text-amber-400"}`} />
                       <span>{r.label}</span>
                     </button>
                   ))}
@@ -1619,7 +1587,7 @@ export function MarketplaceClient({
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
-                className="flex-1 py-2 rounded-xl bg-indigo-600 text-xs font-bold text-white shadow-md cursor-pointer hover:bg-indigo-700 active:scale-95 transition-all flex items-center justify-center gap-1.5 touch-manipulation"
+                className="flex-1 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-bold shadow-md cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5 touch-manipulation"
               >
                 <span>Apply Filters</span>
                 <span className="font-mono text-[10px] bg-white/20 px-1.5 py-0.2 rounded-full">({filteredProducts.length})</span>

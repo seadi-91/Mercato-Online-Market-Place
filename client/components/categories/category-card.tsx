@@ -20,12 +20,30 @@ export function CategoryCard({
 }: CategoryCardProps) {
   // Strictly match real products belonging to this exact category
   const matchingProducts = useMemo(() => {
-    return products.filter(
-      (p) =>
-        p.categorySlug === category.slug ||
-        (category.name &&
-          p.category?.toLowerCase() === category.name.toLowerCase())
-    );
+    return products.filter((p) => {
+      if (
+        p.categorySlug &&
+        category.slug &&
+        p.categorySlug.toLowerCase() === category.slug.toLowerCase()
+      ) {
+        return true;
+      }
+      if (
+        category.name &&
+        p.category &&
+        p.category.toLowerCase() === category.name.toLowerCase()
+      ) {
+        return true;
+      }
+      if (
+        category.slug &&
+        p.category &&
+        p.category.toLowerCase() === category.slug.toLowerCase()
+      ) {
+        return true;
+      }
+      return false;
+    });
   }, [category.slug, category.name, products]);
 
   // Extract ONLY real product images from this category; leave empty slots null (no fallback/default images)
@@ -48,6 +66,11 @@ export function CategoryCard({
   }, [matchingProducts]);
 
   const displayCount = itemCount > 0 ? itemCount : matchingProducts.length;
+
+  // Never display empty category cards with zero products
+  if (displayCount === 0 && matchingProducts.length === 0) {
+    return null;
+  }
 
   return (
     <Link

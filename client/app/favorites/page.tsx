@@ -339,10 +339,10 @@ export default function FavoritesPage() {
                       type="button"
                       onClick={(e) => handleAddToCart(e, product)}
                       title="Move to Cart"
-                      className="cart-action-text flex items-center justify-center gap-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:text-cyan-600 dark:hover:text-cyan-300 transition-all active:scale-95 cursor-pointer shrink-0 bg-transparent border-none"
+                      className="cart-action-text flex items-center justify-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                     >
-                      <ShoppingCart className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
-                      <span className="font-bold text-indigo-600 dark:text-indigo-400">Cart</span>
+                      <ShoppingCart className="h-3 w-3 text-white" />
+                      <span>+Cart</span>
                     </button>
                   </div>
                 </div>

@@ -742,9 +742,7 @@ export function SellerWholesaleSourcing() {
                     onClick={() => handleAddToCart(product, false)}
                     className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border text-[10.5px] font-bold transition-all cursor-pointer ${isAdded
                         ? "border-emerald-500 bg-emerald-600 text-white"
-                        : isLight
-                          ? "border-slate-300 bg-white text-slate-800 hover:bg-slate-100"
-                          : "border-white/15 bg-white/[0.05] text-zinc-200 hover:bg-white/10"
+                        : "border-transparent bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs"
                       }`}
                   >
                     {isAdded ? (

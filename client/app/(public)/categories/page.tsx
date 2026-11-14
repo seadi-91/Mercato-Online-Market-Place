@@ -17,7 +17,7 @@ import {
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { Product, CategoryItem } from "@/constants/mock-data";
-import { fetchCategories, fetchProducts } from "@/lib/api/catalog";
+import { fetchCategories, fetchAllProducts } from "@/lib/api/catalog";
 import { CategoryCard } from "@/components/categories/category-card";
 
 function CategoriesContent() {
@@ -33,7 +33,7 @@ function CategoriesContent() {
       try {
         const [cats, prodsResult] = await Promise.all([
           fetchCategories(),
-          fetchProducts({ limit: 100 }),
+          fetchAllProducts({ limit: 100 }),
         ]);
         if (isMounted) {
           setCategories(cats);
@@ -51,9 +51,41 @@ function CategoriesContent() {
     };
   }, []);
 
+  const getCatCount = (category: CategoryItem) => {
+    return products.filter((p) => {
+      if (
+        p.categorySlug &&
+        category.slug &&
+        p.categorySlug.toLowerCase() === category.slug.toLowerCase()
+      ) {
+        return true;
+      }
+      if (
+        category.name &&
+        p.category &&
+        p.category.toLowerCase() === category.name.toLowerCase()
+      ) {
+        return true;
+      }
+      if (
+        category.slug &&
+        p.category &&
+        p.category.toLowerCase() === category.slug.toLowerCase()
+      ) {
+        return true;
+      }
+      return false;
+    }).length;
+  };
+
+  // Only display categories that have at least 1 product
+  const categoriesWithProducts = useMemo(() => {
+    return categories.filter((cat) => getCatCount(cat) > 0);
+  }, [categories, products]);
+
   // Filter categories by search
   const filteredCategories = useMemo(() => {
-    const list = categories;
+    const list = categoriesWithProducts;
     if (!searchQuery.trim()) return list;
     const q = searchQuery.toLowerCase();
     return list.filter(
@@ -62,15 +94,7 @@ function CategoriesContent() {
         cat.description?.toLowerCase().includes(q) ||
         cat.subcategories?.some((sub) => sub.toLowerCase().includes(q))
     );
-  }, [categories, searchQuery]);
-
-  const getCatCount = (category: CategoryItem) => {
-    return products.filter(
-      (p) =>
-        p.categorySlug === category.slug ||
-        (category.name && p.category?.toLowerCase() === category.name.toLowerCase())
-    ).length;
-  };
+  }, [categoriesWithProducts, searchQuery]);
 
   return (
     <div className="relative min-h-screen flex flex-col bg-app text-app transition-colors duration-200 overflow-x-clip">
@@ -93,7 +117,7 @@ function CategoriesContent() {
               </h1>
               <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
                 <Sparkles className="w-3 h-3 text-indigo-500" />
-                {categories.length} Departments
+                {categoriesWithProducts.length} Departments
               </span>
             </div>
             <p className="text-xs text-app-muted">
@@ -205,17 +229,25 @@ function CategoriesContent() {
         ) : (
           <div className="rounded-2xl border border-app bg-app-card p-12 text-center space-y-3 shadow-xs">
             <Package className="h-10 w-10 text-app-muted/40 mx-auto" />
-            <h3 className="text-sm font-semibold text-app">No departments found</h3>
+            <h3 className="text-sm font-semibold text-app">
+              {searchQuery.trim()
+                ? "No departments found"
+                : "No departments with products available"}
+            </h3>
             <p className="text-xs text-app-muted max-w-sm mx-auto">
-              We couldn&apos;t find any departments matching &ldquo;{searchQuery}&rdquo;.
+              {searchQuery.trim()
+                ? `We couldn't find any departments matching "${searchQuery}".`
+                : "There are currently no departments with listed products. Check back soon!"}
             </p>
-            <button
-              type="button"
-              onClick={() => setSearchQuery("")}
-              className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-xs font-semibold hover:bg-indigo-500 transition-colors cursor-pointer shadow-md"
-            >
-              Clear Search
-            </button>
+            {searchQuery.trim() && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery("")}
+                className="rounded-xl bg-indigo-600 text-white px-4 py-2 text-xs font-semibold hover:bg-indigo-500 transition-colors cursor-pointer shadow-md"
+              >
+                Clear Search
+              </button>
+            )}
           </div>
         )}
       </main>

@@ -590,7 +590,7 @@ export function ProductDetailModal({
                 <button
                   type="button"
                   onClick={handleAddToCart}
-                  className="rounded-xl border border-indigo-600/30 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 py-3 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-xs"
+                  className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-3 text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-md shadow-indigo-600/20 active:scale-98"
                 >
                   <ShoppingCart className="h-4 w-4" />
                   <span>Add to Cart</span>

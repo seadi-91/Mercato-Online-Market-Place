@@ -1434,9 +1434,7 @@ export function ProductDetailClient({
                     disabled={product.stock <= 0}
                     className={`flex items-center justify-center gap-1.5 rounded-xl border h-9 sm:h-10 px-4 text-xs font-bold transition-all cursor-pointer ${isAdded
                       ? "border-emerald-500/50 bg-emerald-600 text-white"
-                      : isLight
-                        ? "border-indigo-600/30 bg-indigo-50 text-indigo-700 hover:bg-indigo-600 hover:text-white shadow-xs"
-                        : "border-indigo-500/40 bg-indigo-600/20 text-indigo-300 hover:bg-indigo-600 hover:text-white"
+                      : "border-transparent bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 active:scale-98"
                       }`}
                   >
                     {isAdded ? (
