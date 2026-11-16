@@ -24,9 +24,11 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { usePlatformStore } from "@/store/platform-store";
+import { useTranslation } from "@/store/language-store";
 import { toast } from "sonner";
 
 export function MercatoXCardPromo() {
+  const { t } = useTranslation();
   const { user, isAuthenticated } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
   const [copiedId, setCopiedId] = useState(false);
@@ -130,7 +132,7 @@ export function MercatoXCardPromo() {
                 className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:brightness-110 text-white px-5 py-2.5 text-xs sm:text-sm font-bold shadow-md shadow-indigo-600/25 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer shrink-0"
               >
                 <CreditCard className="h-4 w-4" />
-                <span>{hasCard ? "View Card" : "Buy Card"}</span>
+                <span>{hasCard ? t("card.title") : t("card.applyCard")}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
 
@@ -138,15 +140,15 @@ export function MercatoXCardPromo() {
               <div className="flex flex-wrap items-center gap-2.5 text-[11px] text-app-muted">
                 <div className="flex items-center gap-1 font-medium">
                   <CheckCircle2 className="h-3.5 w-3.5 text-cyan-500 shrink-0" />
-                  <span>Instant SMS/Email Delivery</span>
+                  <span>{t("home.fastDelivery")}</span>
                 </div>
                 <div className="flex items-center gap-1 font-medium">
                   <CheckCircle2 className="h-3.5 w-3.5 text-indigo-500 shrink-0" />
-                  <span>5% Automated Cashback</span>
+                  <span>5% {t("card.cashback")}</span>
                 </div>
                 <div className="flex items-center gap-1 font-medium">
                   <CheckCircle2 className="h-3.5 w-3.5 text-teal-500 shrink-0" />
-                  <span>0% Escrow Fees</span>
+                  <span>0% {t("header.escrowBadge")}</span>
                 </div>
               </div>
             </div>

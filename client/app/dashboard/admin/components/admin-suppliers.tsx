@@ -24,6 +24,7 @@ import {
   ShieldAlert,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import {
   adminSupplierService,
   type SupplierItem,
@@ -34,6 +35,7 @@ import { useAdminUIStore } from "@/store/ui-store";
 import { useThemeStore } from "@/store/theme-store";
 
 export function AdminSuppliers() {
+  const { t, tZone } = useTranslation();
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
@@ -298,7 +300,7 @@ export function AdminSuppliers() {
             </div>
             <div>
               <h1 className={`text-xl sm:text-2xl font-bold tracking-tight ${textHeading} flex items-center gap-2`}>
-                Suppliers & Fleet Control
+                {t("admin.suppliers.title", "Suppliers & Fleet Control")}
                 <span
                   className={`rounded-full px-2.5 py-0.5 text-xs font-semibold border ${
                     isLight
@@ -310,7 +312,7 @@ export function AdminSuppliers() {
                 </span>
               </h1>
               <p className={`text-xs sm:text-sm ${textMuted}`}>
-                Manage wholesale suppliers, bulk merchants, warehouse hubs, and their staff roster directly from the database.
+                {t("admin.suppliers.subtitle", "Manage wholesale suppliers, bulk merchants, warehouse hubs, and their staff roster directly from the database.")}
               </p>
             </div>
           </div>
@@ -334,7 +336,7 @@ export function AdminSuppliers() {
         <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-indigo-500/40 transition-all`}>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
-            <span>Suppliers in DB</span>
+            <span>{t("admin.suppliers.allSuppliers", "Suppliers in DB")}</span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/15 text-indigo-400 border border-indigo-500/25">
               <Building2 className="h-4 w-4" />
             </div>
@@ -347,7 +349,7 @@ export function AdminSuppliers() {
         <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-emerald-500/40 transition-all`}>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-emerald-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
-            <span>Verified Wholesalers</span>
+            <span>{t("admin.suppliers.verifiedSuppliers", "Verified Wholesalers")}</span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
               <ShieldCheck className="h-4 w-4" />
             </div>
@@ -360,7 +362,7 @@ export function AdminSuppliers() {
         <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-cyan-500/40 transition-all`}>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
-            <span>Total Staff &amp; Fleet</span>
+            <span>{t("admin.delivery.allRiders", "Total Staff & Fleet")}</span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/15 text-cyan-400 border border-cyan-500/25">
               <Users className="h-4 w-4" />
             </div>
@@ -373,7 +375,7 @@ export function AdminSuppliers() {
         <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-amber-500/40 transition-all`}>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-amber-500 to-transparent opacity-80" />
           <div className={`flex items-center justify-between ${textMuted} text-xs font-medium`}>
-            <span>Pending Approvals</span>
+            <span>{t("admin.suppliers.pendingReview", "Pending Approvals")}</span>
             <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/25">
               <AlertTriangle className="h-4 w-4" />
             </div>

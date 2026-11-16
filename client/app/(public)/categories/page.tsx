@@ -16,11 +16,13 @@ import {
 } from "lucide-react";
 import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
+import { useTranslation } from "@/store/language-store";
 import { Product, CategoryItem } from "@/constants/mock-data";
 import { fetchCategories, fetchAllProducts } from "@/lib/api/catalog";
 import { CategoryCard } from "@/components/categories/category-card";
 
 function CategoriesContent() {
+  const { t } = useTranslation();
   const [searchQuery, setSearchQuery] = useState("");
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -106,22 +108,22 @@ function CategoriesContent() {
           <div className="space-y-1">
             <div className="flex items-center gap-1.5 text-xs text-app-muted">
               <Link href="/" className="hover:text-app transition-colors">
-                Home
+                {t("nav.home")}
               </Link>
               <ChevronRight className="w-3 h-3 text-app-muted/60" />
-              <span className="text-app font-semibold">Categories</span>
+              <span className="text-app font-semibold">{t("nav.categories")}</span>
             </div>
             <div className="flex items-center gap-2">
               <h1 className="text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight text-app">
-                Shop by Department & Category
+                {t("categories.title")}
               </h1>
               <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-0.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400">
                 <Sparkles className="w-3 h-3 text-indigo-500" />
-                {categoriesWithProducts.length} Departments
+                {categoriesWithProducts.length} {t("header.allDepts")}
               </span>
             </div>
             <p className="text-xs text-app-muted">
-              Select any verified department to view live products and wholesale catalogs
+              {t("categories.subtitle")}
             </p>
           </div>
 
@@ -132,7 +134,7 @@ function CategoriesContent() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by department name..."
+              placeholder={t("header.searchPlaceholder")}
               className="w-full rounded-xl border border-app bg-app-card py-2.5 pl-9 pr-8 text-xs text-app placeholder:text-app-muted/60 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/20 transition-all shadow-xs"
             />
             {searchQuery && (
@@ -155,8 +157,8 @@ function CategoriesContent() {
               <Truck className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">Fast Delivery</h4>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Addis Ababa & Regional</p>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{t("home.fastDelivery")}</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{t("home.acrossAddis")}</p>
             </div>
           </div>
 
@@ -165,8 +167,8 @@ function CategoriesContent() {
               <ShieldCheck className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">100% Authentic</h4>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Vetted Merchant Sourcing</p>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{t("home.authenticGuaranteed")}</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{t("home.fromSuppliers")}</p>
             </div>
           </div>
 
@@ -175,8 +177,8 @@ function CategoriesContent() {
               <CreditCard className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">Local Payments</h4>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">Telebirr, CBE, Chapa</p>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{t("home.localPayments")}</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{t("home.localPaymentsDesc")}</p>
             </div>
           </div>
 
@@ -185,8 +187,8 @@ function CategoriesContent() {
               <Headphones className="h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">Escrow Protected</h4>
-              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">4-Digit Handover OTP</p>
+              <h4 className="text-xs font-bold text-slate-900 dark:text-white truncate">{t("home.safeEscrow")}</h4>
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate">{t("home.escrowGuarantee")}</p>
             </div>
           </div>
         </section>

@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 
 import { useAuthStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import { API_CONFIG } from "@/config/api.config";
 import { loadGoogleScript, triggerGoogleSignIn } from "@/lib/auth/google";
 import { startGitHubOAuth } from "@/lib/auth/github";
@@ -28,6 +29,7 @@ import { resolvePostLoginRoute } from "@/lib/auth/role-routing";
 export default function LoginPage() {
   const router = useRouter();
   const login = useAuthStore((state) => state.login);
+  const { t } = useTranslation();
 
   const getPostLoginDestination = (role?: string | null) => {
     try {
@@ -120,15 +122,15 @@ export default function LoginPage() {
     setPasswordError("");
 
     if (!identifier.trim()) {
-      setIdentifierError("Please enter your phone number or email");
+      setIdentifierError(t("auth.valIdentifier"));
       isValid = false;
     }
 
     if (!password) {
-      setPasswordError("Password is required");
+      setPasswordError(t("auth.valPassword"));
       isValid = false;
     } else if (password.length < 6) {
-      setPasswordError("Password must be at least 6 characters");
+      setPasswordError(t("auth.valPasswordLen"));
       isValid = false;
     }
 
@@ -471,13 +473,13 @@ export default function LoginPage() {
         <Link
           href="/"
           className="group inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:text-white hover:bg-white/[0.08] hover:border-indigo-500/40 transition-all cursor-pointer shadow-sm"
-          title="Return to MercatoX Home Page"
+          title={t("auth.returnHome")}
         >
           <Home className="h-3.5 w-3.5 text-indigo-400 group-hover:text-cyan-300 transition-colors" />
-          <span>Home</span>
+          <span>{t("nav.home")}</span>
         </Link>
         <span className="text-[10.5px] font-mono text-zinc-500">
-          MercatoX Authentication
+          MercatoX
         </span>
       </div>
 
@@ -487,27 +489,25 @@ export default function LoginPage() {
           type="button"
           className="rounded-lg bg-indigo-600/30 border border-indigo-500/40 py-1.5 text-xs font-semibold text-white shadow-sm transition-all"
         >
-          Sign In
+          {t("nav.signIn")}
         </button>
         <Link
           href="/register"
           className="rounded-lg py-1.5 text-center text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
         >
-          Create Account
+          {t("auth.createAccount")}
         </Link>
       </div>
 
       {/* Title */}
       <div className="mb-4 text-center">
         <h1 className="text-lg sm:text-2xl font-bold tracking-tight text-white">
-          Welcome back
+          {t("auth.signInTitle")}
         </h1>
         <p className="mt-0.5 text-xs text-zinc-400">
-          Enter your credentials to access your console
+          {t("auth.signInSubtitle")}
         </p>
       </div>
-
-
 
       {/* Clean Login Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
@@ -517,7 +517,7 @@ export default function LoginPage() {
             htmlFor="identifier"
             className="mb-1.5 block text-[12px] font-medium text-zinc-300"
           >
-            Phone Number or Email
+            {t("auth.identifierLabel")}
           </label>
           <div className="relative">
             <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -533,7 +533,7 @@ export default function LoginPage() {
                 if (identifierError) setIdentifierError("");
                 if (attemptWarning) setAttemptWarning(null);
               }}
-              placeholder="e.g. 0911 22 33 44 or user@company.com"
+              placeholder={t("auth.identifierPlaceholder")}
               className={`w-full rounded-xl border bg-black/40 py-2.5 pl-9 pr-8 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 ${identifierError
                 ? "border-rose-500/60 ring-2 ring-rose-500/20"
                 : "border-white/10 hover:border-white/20"
@@ -564,13 +564,13 @@ export default function LoginPage() {
               htmlFor="password"
               className="text-[12px] font-medium text-zinc-300"
             >
-              Password
+              {t("auth.passwordLabel")}
             </label>
             <Link
               href="/forgot-password"
               className="text-[11px] font-medium text-indigo-400 hover:text-indigo-300 transition-colors"
             >
-              Forgot password?
+              {t("auth.forgotPassword")}
             </Link>
           </div>
           <div className="relative">
@@ -612,7 +612,7 @@ export default function LoginPage() {
           {capsLockActive && (
             <p className="mt-1 flex items-center gap-1 text-[10px] text-amber-400">
               <AlertCircle className="h-3 w-3" />
-              Caps Lock is active
+              {t("auth.capsLock")}
             </p>
           )}
 
@@ -634,7 +634,7 @@ export default function LoginPage() {
               className="h-3.5 w-3.5 rounded border-white/20 bg-black/40 text-indigo-500 focus:ring-0 focus:ring-offset-0 accent-indigo-500"
             />
             <span className="text-[11px] text-zinc-400">
-              Keep me signed in for 30 days
+              {t("auth.rememberMe")}
             </span>
           </label>
         </div>
@@ -652,21 +652,21 @@ export default function LoginPage() {
           {isLoading ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin text-white" />
-              <span>Authenticating...</span>
+              <span>{t("common.loading")}</span>
             </>
           ) : lockoutCooldown !== null && lockoutCooldown > 0 ? (
             <>
               <Clock className="h-4 w-4 animate-spin text-amber-300" style={{ animationDuration: "2s" }} />
-              <span className="font-bold">Cooldown Active ({lockoutCooldown}s remaining)</span>
+              <span className="font-bold">{t("auth.cooldown")} ({lockoutCooldown}s)</span>
             </>
           ) : blockedAccountError ? (
             <>
               <ShieldAlert className="h-4 w-4 text-rose-300" />
-              <span>Account Blocked · Contact Admin</span>
+              <span>{t("auth.accountBlocked")} · {t("auth.contactAdmin")}</span>
             </>
           ) : (
             <>
-              <span>Sign In to Console</span>
+              <span>{t("auth.signInBtn")}</span>
               <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
             </>
           )}
@@ -687,7 +687,7 @@ export default function LoginPage() {
             <div className="flex items-center justify-center gap-2 text-amber-400 font-mono text-base font-bold tracking-tight">
               <Clock className="h-5 w-5 animate-spin text-amber-400 shrink-0" style={{ animationDuration: "2s" }} />
               <span>
-                Cooldown Active: <span className="text-amber-300 font-black text-lg tabular-nums">{lockoutCooldown}s</span> remaining
+                {t("auth.cooldown")}: <span className="text-amber-300 font-black text-lg tabular-nums">{lockoutCooldown}s</span>
               </span>
             </div>
             {lockoutInfo?.round && (
@@ -697,7 +697,7 @@ export default function LoginPage() {
             )}
             <p className="text-xs text-zinc-400 max-w-sm mx-auto leading-relaxed">
               {blockedAccountError || lockoutInfo?.isBlocked
-                ? "Maximum security lockout cycles reached (3 cycles). Account is permanently blocked. Please contact an administrator."
+                ? t("auth.accountBlocked")
                 : `3 failed attempts used in Cycle ${lockoutInfo?.round || 1}. Please wait ${lockoutCooldown} second(s) for the next cycle.`}
             </p>
           </div>
@@ -708,13 +708,13 @@ export default function LoginPage() {
           <div className="pt-2.5 text-center space-y-1.5 animate-in fade-in duration-200">
             <div className="flex items-center justify-center gap-1.5 text-rose-400 text-sm font-bold">
               <ShieldAlert className="h-4 w-4 text-rose-400 shrink-0" />
-              <span>Account Permanently Blocked</span>
+              <span>{t("auth.accountBlocked")}</span>
             </div>
             <p className="text-[11.5px] text-zinc-300 max-w-sm mx-auto leading-relaxed">
               {blockedAccountError}
             </p>
             <p className="text-[11px] text-zinc-400 font-medium">
-              Please contact an administrator to unblock your account.
+              {t("auth.contactAdmin")}
             </p>
           </div>
         )}
@@ -726,7 +726,7 @@ export default function LoginPage() {
           <div className="w-full border-t border-white/10" />
         </div>
         <span className="relative bg-[#0d121f] px-2 text-[11px] uppercase tracking-wider text-zinc-500 font-medium">
-          Or continue with
+          {t("auth.orContinueWith")}
         </span>
       </div>
 
@@ -787,7 +787,7 @@ export default function LoginPage() {
           ) : (
             <GoogleIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
           )}
-          <span>{isGoogleLoading ? "Connecting to Google..." : "Continue with Google account"}</span>
+          <span>{isGoogleLoading ? t("common.loading") : t("auth.googleBtn")}</span>
         </button>
         <button
           type="button"
@@ -800,18 +800,18 @@ export default function LoginPage() {
           ) : (
             <GithubIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
           )}
-          <span>{isGitHubLoading ? "Connecting to GitHub..." : "Continue with GitHub account"}</span>
+          <span>{isGitHubLoading ? t("common.loading") : t("auth.githubBtn")}</span>
         </button>
       </div>
 
       {/* Switch link */}
       <p className="mt-6 text-center text-xs text-zinc-400">
-        Don&apos;t have an account yet?{" "}
+        {t("auth.noAccount")}{" "}
         <Link
           href="/register"
           className="font-medium text-indigo-400 hover:text-indigo-300 hover:underline transition-colors"
         >
-          Create account
+          {t("auth.createAccount")}
         </Link>
       </p>
 
@@ -822,7 +822,7 @@ export default function LoginPage() {
           className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-white hover:underline transition-colors"
         >
           <Home className="h-3.5 w-3.5 text-indigo-400" />
-          <span>Return to Home page</span>
+          <span>{t("auth.returnHome")}</span>
         </Link>
       </div>
     </div>

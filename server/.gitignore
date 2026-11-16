@@ -1,24 +1,53 @@
+# ==============================================================================
+# MercatoX - Backend Server .gitignore
+# ==============================================================================
+
 # Compiled output
 /dist
+dist/
 /build
+build/
 
 # Node dependencies
 /node_modules
+node_modules/
+.pnp
+.pnp.js
+
+# Environment files & Secrets
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
+!.env.example
+!.env.*.example
+
+# Logs & Diagnostics
+logs/
+*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 lerna-debug.log*
+pnpm-debug.log*
 
-.env
-.env.local
-.env.*.local
-!.env.example
+# Testing & Coverage
+coverage/
+.nyc_output/
 
-# OS generated files
+# Temporary files & uploads
+uploads/
+tmp/
+temp/
+*.sqlite
+*.sqlite3
+
+# OS & Editor Files
 .DS_Store
 Thumbs.db
-
-# IDE and Editor files
+Desktop.ini
 .idea/
 .vscode/
 *.suo
@@ -26,6 +55,9 @@ Thumbs.db
 *.njsproj
 *.sln
 *.sw?
+*.swp
+*.swo
 
 # TypeScript cache
 *.tsbuildinfo
+tsconfig.tsbuildinfo

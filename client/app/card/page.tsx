@@ -39,6 +39,7 @@ import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { useAuthStore } from "@/store/auth-store";
 import { usePlatformStore } from "@/store/platform-store";
+import { useTranslation } from "@/store/language-store";
 import { API_CONFIG } from "@/config/api.config";
 import { toast } from "sonner";
 
@@ -387,6 +388,7 @@ function BuyCardPageContent() {
   const searchParams = useSearchParams();
   const { user, token, isAuthenticated, hasHydrated } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
+  const { t } = useTranslation();
 
   // Form State - Defaulted to official MercatoX Signature theme
   const [selectedThemeId, setSelectedThemeId] = useState<string>("mercatox-signature");
@@ -879,7 +881,7 @@ function BuyCardPageContent() {
             className="inline-flex items-center gap-1.5 text-xs font-semibold text-app-muted hover:text-app transition-colors"
           >
             <ArrowLeft className="h-4 w-4" />
-            <span>Back to Home</span>
+            <span>{t("auth.returnHome")}</span>
           </Link>
 
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border border-cyan-500/20 text-xs font-bold font-mono">
@@ -934,7 +936,7 @@ function BuyCardPageContent() {
                   className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:brightness-110 text-white py-3 text-xs font-bold shadow-md shadow-indigo-600/25 transition-all"
                 >
                   <LogIn className="h-4 w-4" />
-                  <span>Sign In to Continue</span>
+                  <span>{t("nav.signIn")}</span>
                 </Link>
 
                 <Link
@@ -942,7 +944,7 @@ function BuyCardPageContent() {
                   className="flex items-center justify-center gap-2 rounded-xl bg-app-surface border border-app hover:border-cyan-500 text-app py-3 text-xs font-bold transition-colors"
                 >
                   <UserPlus className="h-4 w-4 text-cyan-500" />
-                  <span>Create Account</span>
+                  <span>{t("auth.createAccount")}</span>
                 </Link>
               </div>
 
@@ -973,10 +975,10 @@ function BuyCardPageContent() {
                 <CheckCircle2 className="h-7 w-7" />
               </div>
               <h2 className="text-xl sm:text-2xl font-black text-app">
-                My Official MercatoX Card
+                {t("card.title")}
               </h2>
               <p className="text-xs sm:text-sm text-app-muted max-w-md mx-auto">
-                Verified digital ATM card with 5% automated cashback and live available balance. You already own this card—additional purchases are restricted.
+                {t("card.subtitle")}
               </p>
             </div>
 
@@ -1053,7 +1055,7 @@ function BuyCardPageContent() {
                   className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:brightness-110 py-3 text-xs font-bold text-white shadow-sm transition-all cursor-pointer text-center"
                 >
                   <ShoppingBag className="h-4 w-4" />
-                  <span>Shop on Marketplace</span>
+                  <span>{t("home.shopMarketplace")}</span>
                 </Link>
               </div>
 
@@ -1073,7 +1075,7 @@ function BuyCardPageContent() {
             <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-app pb-4">
               <div>
                 <h2 className="text-xl sm:text-2xl font-black text-app tracking-tight">
-                  Customize & Buy Your Card
+                  {t("card.applyCard")}
                 </h2>
                 <p className="text-xs text-app-muted mt-0.5">
                   Single-card account issuance with 5% automated cashback & live balance.
@@ -1382,15 +1384,15 @@ function BuyCardPageContent() {
               <div className="pt-3 border-t border-app flex flex-wrap items-center justify-center gap-4 text-[11px] text-app-muted">
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-cyan-500" />
-                  <span>5% Cashback</span>
+                  <span>5% {t("card.cashback")}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-indigo-500" />
-                  <span>0% Escrow Fees</span>
+                  <span>0% {t("header.escrowBadge")}</span>
                 </span>
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-teal-500" />
-                  <span>Strictly 1 Card / Account</span>
+                  <span>{t("card.benefits")}</span>
                 </span>
               </div>
             </form>

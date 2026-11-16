@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Product } from "@/constants/mock-data";
 import { useCartStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import { toast } from "sonner";
 import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 
@@ -37,6 +38,7 @@ export function ProductCard({
   className = "",
 }: ProductCardProps) {
   const router = useRouter();
+  const { t, tCategory } = useTranslation();
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const isFavorite = useCartStore((state) => state.isFavorite);
@@ -192,7 +194,7 @@ export function ProductCard({
             className="w-full h-6 rounded-md flex items-center justify-center gap-1 bg-white/95 dark:bg-[#151928]/95 backdrop-blur-sm text-slate-800 dark:text-slate-100 border border-slate-200/60 dark:border-white/10 shadow-xs text-[9px] font-bold hover:bg-white dark:hover:bg-[#1a2033] transition-colors cursor-pointer"
           >
             <Eye className="w-2.5 h-2.5 text-slate-700 dark:text-slate-300" aria-hidden="true" />
-            <span>Quick View</span>
+            <span>{t("product.quickView")}</span>
           </button>
         </div>
 
@@ -222,7 +224,7 @@ export function ProductCard({
             className="absolute inset-0 bg-background/60 backdrop-blur-[2px] flex items-center justify-center z-12"
           >
             <span className="bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-md shadow-xs">
-              Sold Out
+              {t("product.soldOut")}
             </span>
           </div>
         )}
@@ -233,7 +235,7 @@ export function ProductCard({
         <div>
           {/* Category or Brand eyebrow */}
           <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-            {product.brand || product.category || product.shopName}
+            {tCategory(product.category || product.brand || product.shopName)}
           </p>
 
           {/* Product Name */}
@@ -267,7 +269,7 @@ export function ProductCard({
               className="inline-block w-1.5 h-1.5 rounded-full bg-destructive animate-pulse"
               aria-hidden="true"
             />
-            Only {product.stock} left
+            {product.stock} {t("product.onlyLeft")}
           </p>
         )}
 
@@ -300,12 +302,14 @@ export function ProductCard({
             {isAdded ? (
               <>
                 <Check className="w-2.5 h-2.5" />
-                <span className="hidden xs:inline">Added</span>
+                <span className="hidden xs:inline">{t("common.inStock")}</span>
               </>
+            ) : isSoldOut ? (
+              <span>{t("product.soldOut")}</span>
             ) : (
               <>
                 <ShoppingCart className="w-2.5 h-2.5" />
-                <span>+Add</span>
+                <span>{t("common.addToCart")}</span>
               </>
             )}
           </button>

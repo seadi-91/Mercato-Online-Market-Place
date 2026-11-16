@@ -25,6 +25,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import {
   adminDisputesService,
   type DisputeItem,
@@ -32,6 +33,7 @@ import {
 import { useAdminUIStore } from "@/store/ui-store";
 
 export function AdminDisputes() {
+  const { t } = useTranslation();
   const { setPendingCounts } = useAdminUIStore();
   const [disputes, setDisputes] = useState<DisputeItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -228,7 +230,7 @@ export function AdminDisputes() {
         {/* Open Arbitration Cases */}
         <div className="relative overflow-hidden rounded-xl border border-rose-500/30 bg-gradient-to-b from-rose-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Open Arbitration</span>
+            <span className="font-medium text-zinc-300">{t("admin.disputes.openDisputes", "Open Arbitration")}</span>
             <div className="rounded-lg bg-rose-500/20 p-1.5 text-rose-400">
               <Scale className="h-4 w-4" />
             </div>
@@ -244,7 +246,7 @@ export function AdminDisputes() {
         {/* Contested Escrow Sum */}
         <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Contested Escrow</span>
+            <span className="font-medium text-zinc-300">{t("admin.orders.escrowBalance", "Contested Escrow")}</span>
             <div className="rounded-lg bg-amber-500/20 p-1.5 text-amber-300">
               <DollarSign className="h-4 w-4" />
             </div>
@@ -260,7 +262,7 @@ export function AdminDisputes() {
         {/* Refunded to Buyers */}
         <div className="relative overflow-hidden rounded-xl border border-purple-500/30 bg-gradient-to-b from-purple-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Buyer Refunds</span>
+            <span className="font-medium text-zinc-300">{t("admin.disputes.refundCustomer", "Buyer Refunds")}</span>
             <div className="rounded-lg bg-purple-500/20 p-1.5 text-purple-300">
               <RotateCcw className="h-4 w-4" />
             </div>
@@ -276,7 +278,7 @@ export function AdminDisputes() {
         {/* Cleared to Sellers */}
         <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Seller Releases</span>
+            <span className="font-medium text-zinc-300">{t("admin.disputes.releaseSeller", "Seller Releases")}</span>
             <div className="rounded-lg bg-emerald-500/20 p-1.5 text-emerald-300">
               <CheckCircle2 className="h-4 w-4" />
             </div>
@@ -300,7 +302,7 @@ export function AdminDisputes() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search order ref, customer, seller, issue..."
+              placeholder={t("admin.disputes.searchPlaceholder", "Search order ref, customer, seller, issue...")}
               className="w-full h-8 rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-rose-500"
             />
           </div>
@@ -351,13 +353,13 @@ export function AdminDisputes() {
           <table className="w-full text-left text-xs border-collapse min-w-[850px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="py-2.5 px-3">Order Reference</th>
-                <th className="py-2.5 px-3">Buyer vs Seller</th>
-                <th className="py-2.5 px-3">Locked Escrow Sum</th>
-                <th className="py-2.5 px-3">Contested Grounds</th>
-                <th className="py-2.5 px-3">Filed Date</th>
-                <th className="py-2.5 px-3">Arbitration State</th>
-                <th className="py-2.5 px-3 text-right">Rulings & Actions</th>
+                <th className="py-2.5 px-3">{t("admin.disputes.colOrder", "Order Reference")}</th>
+                <th className="py-2.5 px-3">{t("admin.disputes.colParties", "Buyer vs Seller")}</th>
+                <th className="py-2.5 px-3">{t("admin.disputes.colAmount", "Locked Escrow Sum")}</th>
+                <th className="py-2.5 px-3">{t("admin.disputes.colReason", "Contested Grounds")}</th>
+                <th className="py-2.5 px-3">{t("admin.users.colJoined", "Filed Date")}</th>
+                <th className="py-2.5 px-3">{t("admin.disputes.colStatus", "Arbitration State")}</th>
+                <th className="py-2.5 px-3 text-right">{t("admin.disputes.colAction", "Rulings & Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -366,7 +368,7 @@ export function AdminDisputes() {
                   <td colSpan={7} className="py-12 text-center text-zinc-400">
                     <div className="flex flex-col items-center justify-center gap-2">
                       <RefreshCw className="h-6 w-6 animate-spin text-rose-400" />
-                      <span>Loading escrow arbitration records...</span>
+                      <span>{t("admin.disputes.loadingDisputes", "Loading escrow arbitration records...")}</span>
                     </div>
                   </td>
                 </tr>
@@ -375,7 +377,7 @@ export function AdminDisputes() {
                   <td colSpan={7} className="py-12 text-center text-zinc-400">
                     <div className="flex flex-col items-center justify-center gap-1.5">
                       <Scale className="h-8 w-8 text-zinc-500" />
-                      <p className="text-sm font-semibold text-zinc-300">No disputes match your filters</p>
+                      <p className="text-sm font-semibold text-zinc-300">{t("admin.disputes.noDisputes", "No disputes match your filters")}</p>
                       <p className="text-xs text-zinc-500">All current escrow transactions are in good standing.</p>
                     </div>
                   </td>

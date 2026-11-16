@@ -63,6 +63,7 @@ import { useCartStore, useAuthStore } from "@/store";
 import { useSellerUIStore } from "@/store/ui-store";
 import { useWholesaleCartStore } from "@/store/wholesale-cart-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
 import { toast } from "sonner";
 
 interface ProductDetailClientProps {
@@ -105,6 +106,7 @@ export function ProductDetailClient({
   const isFavorite = useCartStore((state) => state.isFavorite);
   const addWholesaleItem = useWholesaleCartStore((state) => state.addItem);
   const wholesaleCartCount = useWholesaleCartStore((state) => state.getTotalItems());
+  const { t, tCategory, tZone } = useTranslation();
 
   // Theme integration for System, Light, and Dark modes
   const { theme } = useThemeStore();
@@ -907,7 +909,7 @@ export function ProductDetailClient({
               Wholesale Sourcing
             </button>
             <ChevronRight className="h-3 w-3" />
-            <span className="capitalize">{product.category}</span>
+            <span className="capitalize">{tCategory(product.category)}</span>
             <ChevronRight className="h-3 w-3" />
             <span className={`font-medium truncate max-w-xs sm:max-w-sm ${themeText}`}>
               {product.name}
@@ -916,18 +918,18 @@ export function ProductDetailClient({
         ) : (
           <nav className={`flex items-center gap-1.5 text-xs flex-wrap ${themeTextMuted}`}>
             <Link href="/" className={`hover:${themeText} transition-colors`}>
-              Home
+              {t("nav.home")}
             </Link>
             <ChevronRight className="h-3 w-3" />
             <Link href="/marketplace" className={`hover:${themeText} transition-colors`}>
-              Marketplace
+              {t("nav.marketplace")}
             </Link>
             <ChevronRight className="h-3 w-3" />
             <Link
               href={`/marketplace?category=${encodeURIComponent(product.categorySlug)}`}
               className={`hover:${themeText} transition-colors capitalize`}
             >
-              {product.category}
+              {tCategory(product.category)}
             </Link>
             <ChevronRight className="h-3 w-3" />
             <span className={`font-medium truncate max-w-xs sm:max-w-sm ${themeText}`}>
@@ -1116,7 +1118,7 @@ export function ProductDetailClient({
                   <span>Origin</span>
                 </div>
                 <div className={`text-[11px] font-bold truncate ${themeText}`}>
-                  {product.origin || product.marketZone || "Mercato Hub"}
+                  {tZone(product.origin || product.marketZone || "Mercato Hub")}
                 </div>
               </div>
 
@@ -1170,7 +1172,7 @@ export function ProductDetailClient({
               <div className="flex items-center justify-between gap-2 flex-wrap">
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-[10.5px] font-bold text-indigo-600 dark:text-indigo-300 uppercase tracking-wider">
-                    {product.category}
+                    {tCategory(product.category)}
                   </span>
                   {product.brand && (
                     <span className="rounded-full bg-indigo-500/10 border border-indigo-500/25 px-2 py-0.5 text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-300">
@@ -1245,7 +1247,7 @@ export function ProductDetailClient({
                 <span className={`h-2.5 w-[1px] ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
                 <span className={`flex items-center gap-1 text-[11px] ${themeTextMuted}`}>
                   <MapPin className="h-3 w-3 text-indigo-500" />
-                  <span>{product.warehouseLocation || product.marketZone}</span>
+                  <span>{tZone(product.warehouseLocation || product.marketZone)}</span>
                 </span>
                 <span className={`h-2.5 w-[1px] ${isLight ? "bg-slate-200" : "bg-white/10"}`} />
                 <span
@@ -1253,8 +1255,8 @@ export function ProductDetailClient({
                     }`}
                 >
                   {maxStock > 0
-                    ? `${maxStock.toLocaleString()} ${product.unit || "Units"} in Stock`
-                    : "Sold Out"}
+                    ? `${maxStock.toLocaleString()} ${product.unit || "Units"} ${t("product.inStock")}`
+                    : t("product.soldOut")}
                 </span>
               </div>
             </div>
@@ -1440,12 +1442,12 @@ export function ProductDetailClient({
                     {isAdded ? (
                       <>
                         <Check className="h-3.5 w-3.5" />
-                        <span>Added to Cart!</span>
+                        <span>{t("common.inStock")}</span>
                       </>
                     ) : (
                       <>
                         <ShoppingCart className="h-3.5 w-3.5" />
-                        <span>Add to Cart</span>
+                        <span>{t("common.addToCart")}</span>
                       </>
                     )}
                   </button>
@@ -1456,7 +1458,7 @@ export function ProductDetailClient({
                     disabled={product.stock <= 0}
                     className="flex items-center justify-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 h-9 sm:h-10 px-4 text-xs font-bold text-white shadow-md shadow-indigo-600/30 active:scale-98 transition-all cursor-pointer"
                   >
-                    <span>Instant Escrow Checkout</span>
+                    <span>{t("common.buyNow")}</span>
                   </button>
                 </div>
               </div>
@@ -1495,7 +1497,7 @@ export function ProductDetailClient({
                     </h3>
                     <span className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
                       <MapPin className="h-2.5 w-2.5 text-indigo-500" />
-                      <span>{product.warehouseLocation || product.marketZone}</span>
+                      <span>{tZone(product.warehouseLocation || product.marketZone)}</span>
                     </span>
                   </div>
                 </div>
@@ -1723,7 +1725,7 @@ export function ProductDetailClient({
                       </h3>
                       <span className={`text-[10px] flex items-center gap-1 ${themeTextMuted}`}>
                         <MapPin className="h-2.5 w-2.5 text-indigo-500" />
-                        <span>{product.warehouseLocation || product.marketZone}</span>
+                        <span>{tZone(product.warehouseLocation || product.marketZone)}</span>
                       </span>
                     </div>
                   </div>

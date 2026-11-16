@@ -24,6 +24,7 @@ import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useCartStore, useAuthStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import { Product } from "@/constants/mock-data";
 import { fetchProducts } from "@/lib/api/catalog";
 import { fetchCustomerProfile, CustomerProfile } from "@/lib/api/customer";
@@ -118,6 +119,7 @@ function getProductOptions(category?: string, name?: string) {
 }
 
 export default function CartPage() {
+  const { t, tCategory, tZone } = useTranslation();
   const items = useCartStore((state) => state.items);
   const addItem = useCartStore((state) => state.addItem);
   const updateQuantity = useCartStore((state) => state.updateQuantity);
@@ -173,10 +175,10 @@ export default function CartPage() {
           <div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white flex items-center gap-2.5">
               <ShoppingBag className="h-6 w-6 sm:h-7 sm:w-7 text-indigo-400" />
-              <span>Your Shopping Cart</span>
+              <span>{t("cart.title")}</span>
             </h1>
             <p className="text-xs text-zinc-400 mt-1">
-              All purchases on MercatoX are protected by 100% buyer protection guarantee.
+              {t("header.tradeBanner")}
             </p>
           </div>
 
@@ -190,7 +192,7 @@ export default function CartPage() {
               className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>Clear Cart</span>
+              <span>{t("cart.clearCart")}</span>
             </button>
           )}
         </div>
@@ -234,7 +236,7 @@ export default function CartPage() {
                         <div className="min-w-0 flex-1 space-y-0.5">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider">
-                              {item.category}
+                              {tCategory(item.category)}
                             </span>
                             <span className="text-zinc-600">•</span>
                             <span className="text-[11px] text-zinc-400 truncate flex items-center gap-1">
@@ -253,7 +255,7 @@ export default function CartPage() {
                           {/* Inline Options (Storage / Color) + Unit Price */}
                           <div className="flex items-center gap-2.5 sm:gap-3 flex-wrap text-xs pt-0.5">
                             <span className="text-[11px] font-mono text-cyan-300 font-semibold">
-                              Unit: {item.price.toLocaleString()} ETB
+                              {t("cart.unitPrice")}: {item.price.toLocaleString()} ETB
                             </span>
 
                             {options && options.sizes.length > 0 && (
@@ -279,7 +281,7 @@ export default function CartPage() {
                             {options && options.colors.length > 0 && (
                               <div className="flex items-center gap-1">
                                 <Palette className="h-3 w-3 text-indigo-400" />
-                                <span className="text-[10.5px] text-zinc-400">Color:</span>
+                                <span className="text-[10.5px] text-zinc-400">{t("cart.color")}:</span>
                                 <select
                                   value={item.selectedColor || options.colors[0]}
                                   onChange={(e) => {
@@ -356,7 +358,7 @@ export default function CartPage() {
                   className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors"
                 >
                   <RotateCcw className="h-3.5 w-3.5" />
-                  <span>Continue Shopping</span>
+                  <span>{t("cart.continueShopping")}</span>
                 </Link>
               </div>
             </div>
@@ -367,10 +369,10 @@ export default function CartPage() {
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-white/10 pb-3">
                   <h2 className="text-sm sm:text-base font-bold text-white">
-                    Order Summary
+                    {t("cart.orderSummary")}
                   </h2>
                   <span className="text-[11px] text-zinc-400 font-medium">
-                    {items.length} {items.length === 1 ? "item" : "items"}
+                    {items.length} {t("header.cartItems")}
                   </span>
                 </div>
 
@@ -378,7 +380,7 @@ export default function CartPage() {
                 {items.length > 0 && (
                   <div className="space-y-2.5 pb-3 border-b border-white/10">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400">
-                      <span>Products in Order</span>
+                      <span>{t("cart.productsInOrder")}</span>
                       <span className="text-[10px] text-zinc-500 font-mono">
                         {Math.min(visibleSummaryCount, items.length)} of {items.length} shown
                       </span>
@@ -451,7 +453,7 @@ export default function CartPage() {
                             className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-cyan-400 hover:text-cyan-300 bg-cyan-500/10 hover:bg-cyan-500/15 border border-cyan-500/20 px-3 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98"
                           >
                             <ChevronDown className="h-3.5 w-3.5" />
-                            <span>View More (+2)</span>
+                            <span>{t("cart.viewMore")} (+2)</span>
                           </button>
                         ) : (
                           <div />
@@ -464,7 +466,7 @@ export default function CartPage() {
                             className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-zinc-400 hover:text-zinc-200 bg-white/5 hover:bg-white/10 border border-white/10 px-3 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98 ml-auto"
                           >
                             <ChevronUp className="h-3.5 w-3.5" />
-                            <span>View Less (-2)</span>
+                            <span>{t("cart.viewLess")} (-2)</span>
                           </button>
                         )}
                       </div>
@@ -475,17 +477,17 @@ export default function CartPage() {
                 {/* Costs Breakdown */}
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between text-zinc-400">
-                    <span>Items Subtotal</span>
+                    <span>{t("cart.subtotal")}</span>
                     <span className="text-white font-mono font-semibold">
                       {subtotal.toLocaleString()} ETB
                     </span>
                   </div>
 
                   <div className="flex justify-between text-zinc-400">
-                    <span>Doorstep Courier Delivery</span>
+                    <span>{t("cart.deliveryFee")}</span>
                     <span className="text-white font-mono font-semibold">
                       {deliveryFee === 0 ? (
-                        <span className="text-emerald-400 font-bold">FREE (Over 5,000 ETB)</span>
+                        <span className="text-emerald-400 font-bold">{t("cart.freeBadge")} (Over 5,000 ETB)</span>
                       ) : (
                         `${deliveryFee} ETB`
                       )}
@@ -493,12 +495,12 @@ export default function CartPage() {
                   </div>
 
                   <div className="flex justify-between text-zinc-400">
-                    <span>100% Buyer Protection</span>
-                    <span className="text-emerald-400 font-bold">Covered (0 ETB)</span>
+                    <span>{t("header.escrowBadge")}</span>
+                    <span className="text-emerald-400 font-bold">{t("cart.freeBadge")} (0 ETB)</span>
                   </div>
 
                   <div className="pt-2.5 border-t border-white/10 flex justify-between text-sm sm:text-base font-bold text-white">
-                    <span>Total Amount</span>
+                    <span>{t("common.total")}</span>
                     <span className="font-mono text-cyan-300">
                       {total.toLocaleString()} ETB
                     </span>
@@ -512,7 +514,7 @@ export default function CartPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-1">
                         <span className="font-semibold text-white truncate">
-                          Delivering to {savedCustomerAddress.fullName || "Your Account"}
+                          {t("cart.deliveringTo")} {savedCustomerAddress.fullName || ""}
                         </span>
                         <span className="rounded-full bg-cyan-500/15 border border-cyan-500/30 px-1.5 py-0.2 text-[9.5px] font-mono text-cyan-300">
                           Saved in DB
@@ -530,7 +532,7 @@ export default function CartPage() {
                 <div className="rounded-xl bg-white/[0.03] border border-white/5 p-3 flex items-start gap-2.5 text-[11px] text-zinc-400">
                   <ShieldCheck className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
                   <p>
-                    Funds remain securely locked until you inspect the parcel and share your 4-digit SMS OTP with courier.
+                    {t("cart.escrowGuaranteeNotice")}
                   </p>
                 </div>
 
@@ -540,7 +542,7 @@ export default function CartPage() {
                   className="w-full rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 py-3 text-xs sm:text-sm font-bold text-white shadow-xl shadow-indigo-500/25 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Lock className="h-4 w-4" />
-                  <span>Process to Checkout</span>
+                  <span>{t("cart.checkout")}</span>
                   <ArrowRight className="h-4 w-4" />
                 </Link>
               </div>
@@ -549,10 +551,10 @@ export default function CartPage() {
               <div className="rounded-2xl border border-white/10 bg-[#0b101f]/60 p-3.5 backdrop-blur-sm space-y-2 text-xs">
                 <div className="flex items-center gap-2 text-zinc-300">
                   <Truck className="h-4 w-4 text-cyan-400" />
-                  <span className="font-semibold">Doorstep Dispatch Available</span>
+                  <span className="font-semibold">{t("home.fastDelivery")}</span>
                 </div>
                 <p className="text-[11px] text-zinc-400">
-                  Instant courier fulfillment across Bole, Mercato, Shiro Meda, Kazanchis, and all Addis Ababa districts.
+                  {t("header.tradeBanner")}
                 </p>
               </div>
             </div>
@@ -564,16 +566,16 @@ export default function CartPage() {
               <ShoppingBag className="h-8 w-8" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-white">Your cart is empty</h2>
+              <h2 className="text-lg font-bold text-white">{t("cart.empty")}</h2>
               <p className="text-xs text-zinc-400">
-                Looks like you haven&apos;t added any protected items yet.
+                {t("cart.emptySub")}
               </p>
             </div>
             <Link
               href="/marketplace"
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 hover:brightness-110 active:scale-95 transition-all"
             >
-              <span>Browse Marketplace</span>
+              <span>{t("cart.browseMarketplace")}</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -585,17 +587,17 @@ export default function CartPage() {
               <div>
                 <div className="flex items-center gap-1.5 text-[11px] font-semibold text-indigo-400 uppercase tracking-wider mb-0.5">
                   <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                  <span>Curated Marketplace Picks</span>
+                  <span>{t("cart.curatedPicks")}</span>
                 </div>
                 <h2 className="text-lg sm:text-xl font-bold text-white tracking-tight">
-                  You May Also Like
+                  {t("cart.youMayAlsoLike")}
                 </h2>
               </div>
               <Link
                 href="/marketplace"
                 className="text-xs font-semibold text-cyan-400 hover:text-cyan-300 transition-colors inline-flex items-center gap-1"
               >
-                <span>Browse all marketplace</span>
+                <span>{t("cart.browseMarketplace")}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -616,7 +618,7 @@ export default function CartPage() {
                         loading="lazy"
                       />
                       <span className="absolute top-1.5 left-1.5 rounded-md bg-black/75 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-300 border border-white/10">
-                        {prod.category}
+                        {tCategory(prod.category)}
                       </span>
                     </div>
 
@@ -624,7 +626,7 @@ export default function CartPage() {
                     <div className="space-y-1">
                       <div className="flex items-center gap-1 text-[10px] text-zinc-400">
                         <MapPin className="h-2.5 w-2.5 text-cyan-400 shrink-0" />
-                        <span className="truncate">{prod.marketZone}</span>
+                        <span className="truncate">{tZone(prod.marketZone)}</span>
                       </div>
                       <h3 className="text-xs font-bold text-white group-hover:text-cyan-300 transition-colors line-clamp-1" title={prod.name}>
                         {prod.name}
@@ -657,7 +659,7 @@ export default function CartPage() {
                     className="mt-2.5 w-full rounded-xl bg-indigo-600 hover:bg-indigo-700 py-1.5 text-[11px] font-bold text-white shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer active:scale-95"
                   >
                     <Plus className="h-3 w-3" />
-                    <span>Add to Cart</span>
+                    <span>{t("product.addToCart")}</span>
                   </button>
                 </div>
               ))}
@@ -670,7 +672,7 @@ export default function CartPage() {
       {mounted && items.length > 0 && (
         <div className="sm:hidden fixed bottom-14 left-0 right-0 z-30 border-t border-white/10 bg-[#090d18]/95 backdrop-blur-2xl px-4 py-2.5 shadow-[0_-8px_25px_rgba(0,0,0,0.7)] flex items-center justify-between gap-3">
           <div>
-            <span className="text-[10px] text-zinc-400 block uppercase font-medium">Total ({items.length} items)</span>
+            <span className="text-[10px] text-zinc-400 block uppercase font-medium">{t("common.total")} ({items.length})</span>
             <span className="text-sm font-black text-cyan-300 font-mono">
               {total.toLocaleString()} ETB
             </span>
@@ -680,7 +682,7 @@ export default function CartPage() {
             className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 active:scale-95 transition-all"
           >
             <Lock className="h-3.5 w-3.5" />
-            <span>Checkout</span>
+            <span>{t("cart.checkout")}</span>
             <ArrowRight className="h-3.5 w-3.5" />
           </Link>
         </div>

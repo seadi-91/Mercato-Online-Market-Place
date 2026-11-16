@@ -45,6 +45,7 @@ import { Product, CategoryItem } from "@/constants/mock-data";
 import { fetchProducts, fetchCategories } from "@/lib/api/catalog";
 import { useCartStore } from "@/store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
 import {
   isWholesaleProduct,
   isRetailProduct,
@@ -74,6 +75,7 @@ export function MarketplaceClient({
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
   const { theme } = useThemeStore();
+  const { t, tCategory, tZone } = useTranslation();
 
   const [mounted, setMounted] = useState(false);
   useEffect(() => {
@@ -431,7 +433,7 @@ export function MarketplaceClient({
                 onChange={(e) => setSelectedCategory(e.target.value)}
                 className="bg-transparent text-[11px] font-bold outline-none cursor-pointer py-2 max-w-[85px] truncate text-slate-700 dark:text-zinc-200"
               >
-                <option value="ALL">All Depts</option>
+                <option value="ALL">{t("header.allDepts")}</option>
                 {categories.map((c) => (
                   <option key={c.id} value={c.slug}>
                     {c.name}
@@ -446,7 +448,7 @@ export function MarketplaceClient({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search products, brands, cargo..."
+                placeholder={t("header.searchPlaceholder")}
                 className="w-full bg-transparent pl-8 pr-7 py-2 text-xs outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
               />
               {searchQuery && (
@@ -475,9 +477,9 @@ export function MarketplaceClient({
             }`}
           >
             {[
-              { id: "ALL" as TradeType, label: "All Items", count: counts.total },
-              { id: "RETAIL" as TradeType, label: "Retail", count: counts.retail },
-              { id: "WHOLESALE" as TradeType, label: "Wholesale", count: counts.wholesale },
+              { id: "ALL" as TradeType, label: t("marketplace.all"), count: counts.total },
+              { id: "RETAIL" as TradeType, label: t("marketplace.retailOnly"), count: counts.retail },
+              { id: "WHOLESALE" as TradeType, label: t("marketplace.wholesaleOnly"), count: counts.wholesale },
             ].map((m) => {
               const isSelected = tradeType === m.id;
               return (
@@ -553,13 +555,10 @@ export function MarketplaceClient({
                   </span>
                 </div>
                 <h1 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight mt-0.5 text-slate-900 dark:text-white">
-                  Verified Ethiopian{" "}
-                  <span className="text-zinc-800 dark:text-zinc-200">
-                    Marketplace
-                  </span>
+                  {t("marketplace.title")}
                 </h1>
                 <p className="text-xs mt-0.5 text-slate-600 dark:text-zinc-400">
-                  Direct wholesale bulk supply and retail from verified Mercato merchants with certified escrow protection.
+                  {t("marketplace.subtitle")}
                 </p>
               </div>
 
@@ -570,9 +569,9 @@ export function MarketplaceClient({
                 }`}
               >
                 {[
-                  { id: "ALL" as TradeType, label: "All Items", icon: Layers, count: counts.total },
-                  { id: "RETAIL" as TradeType, label: "Retail (1 Unit)", icon: ShoppingBag, count: counts.retail },
-                  { id: "WHOLESALE" as TradeType, label: "Wholesale (Bulk)", icon: Boxes, count: counts.wholesale },
+                  { id: "ALL" as TradeType, label: t("marketplace.all"), icon: Layers, count: counts.total },
+                  { id: "RETAIL" as TradeType, label: t("marketplace.retailOnly"), icon: ShoppingBag, count: counts.retail },
+                  { id: "WHOLESALE" as TradeType, label: t("marketplace.wholesaleOnly"), icon: Boxes, count: counts.wholesale },
                 ].map((m) => {
                   const isSelected = tradeType === m.id;
                   return (
@@ -622,7 +621,7 @@ export function MarketplaceClient({
                     onChange={(e) => setSelectedCategory(e.target.value)}
                     className="bg-transparent text-xs font-bold outline-none cursor-pointer py-2 text-slate-700 dark:text-zinc-200"
                   >
-                    <option value="ALL">All Departments</option>
+                    <option value="ALL">{t("header.allDepts")}</option>
                     {categories.map((c) => (
                       <option key={c.id} value={c.slug}>
                         {c.name}
@@ -637,7 +636,7 @@ export function MarketplaceClient({
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Search verified products, brands, cargo in Addis..."
+                    placeholder={t("header.searchPlaceholder")}
                     className="w-full bg-transparent pl-8 sm:pl-9 pr-8 py-2 text-xs sm:text-sm outline-none text-slate-900 dark:text-white placeholder:text-slate-400"
                   />
                   {searchQuery && (
@@ -656,7 +655,7 @@ export function MarketplaceClient({
                   className="bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 font-bold text-xs sm:text-sm px-3.5 sm:px-4 py-2 flex items-center gap-1.5 transition-colors cursor-pointer shrink-0 touch-manipulation active:scale-95"
                 >
                   <Search className="h-3.5 w-3.5" />
-                  <span>Search</span>
+                  <span>{t("common.search")}</span>
                 </button>
               </div>
 
@@ -703,7 +702,7 @@ export function MarketplaceClient({
             >
               <Menu className="h-3.5 w-3.5" />
               <Filter className="h-3 w-3" />
-              <span>Filters</span>
+              <span>{t("marketplace.filters")}</span>
               {activeFilterCount > 0 && (
                 <span className="rounded-full bg-white/20 text-white text-[9px] h-3.5 min-w-3.5 px-1 flex items-center justify-center font-extrabold">
                   {activeFilterCount}
@@ -763,7 +762,7 @@ export function MarketplaceClient({
                 }`}
               >
                 <CheckCircle2 className={`h-3 w-3 ${inStockOnly ? "text-white" : "text-slate-500 dark:text-zinc-400"}`} />
-                <span>In Stock</span>
+                <span>{t("product.inStock")}</span>
               </button>
 
               <button
@@ -778,7 +777,7 @@ export function MarketplaceClient({
                 }`}
               >
                 <ShieldCheck className={`h-3 w-3 ${escrowOnly ? "text-white" : "text-slate-500 dark:text-zinc-400"}`} />
-                <span>Escrow</span>
+                <span>{t("marketplace.escrowProtected")}</span>
               </button>
 
               <button
@@ -800,7 +799,7 @@ export function MarketplaceClient({
           <div className="flex items-center gap-1 sm:gap-2 justify-end shrink-0">
             {/* Live Count */}
             <span className={`text-[10.5px] sm:text-xs font-medium shrink-0 hidden xs:inline ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              <strong className={isLight ? "text-slate-900" : "text-white"}>{filteredProducts.length}</strong> items
+              <strong className={isLight ? "text-slate-900" : "text-white"}>{filteredProducts.length}</strong> {t("categories.itemsCount")}
             </span>
 
             {/* View Mode Switcher */}
@@ -843,10 +842,10 @@ export function MarketplaceClient({
                     : "border-white/10 bg-[#161926] text-zinc-200"
                 }`}
               >
-                <option value="featured">Featured</option>
-                <option value="price-asc">Price: Low-High</option>
-                <option value="price-desc">Price: High-Low</option>
-                <option value="rating">Top Rated</option>
+                <option value="featured">{t("marketplace.featured")}</option>
+                <option value="price-asc">{t("marketplace.priceLowHigh")}</option>
+                <option value="price-desc">{t("marketplace.priceHighLow")}</option>
+                <option value="rating">{t("marketplace.topRated")}</option>
               </select>
             </div>
           </div>
@@ -928,7 +927,7 @@ export function MarketplaceClient({
               className="inline-flex items-center gap-1 text-[10px] font-bold ml-1 text-zinc-700 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white hover:underline cursor-pointer touch-manipulation"
             >
               <RotateCcw className="h-3 w-3" />
-              <span>Clear</span>
+              <span>{t("marketplace.clearAll")}</span>
             </button>
           </div>
         )}
@@ -950,7 +949,7 @@ export function MarketplaceClient({
                 <div className="flex items-center justify-between border-b border-slate-100 dark:border-white/10 pb-2">
                   <div className="flex items-center gap-1.5">
                     <SlidersHorizontal className="h-3.5 w-3.5 text-zinc-700 dark:text-zinc-300" />
-                    <h3 className="text-xs font-bold tracking-tight">Filters</h3>
+                    <h3 className="text-xs font-bold tracking-tight">{t("marketplace.filters")}</h3>
                   </div>
                   {activeFilterCount > 0 && (
                     <button
@@ -958,7 +957,7 @@ export function MarketplaceClient({
                       onClick={clearFilters}
                       className="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white hover:underline cursor-pointer touch-manipulation"
                     >
-                      Reset ({activeFilterCount})
+                      {t("marketplace.clearAll")} ({activeFilterCount})
                     </button>
                   )}
                 </div>
@@ -978,7 +977,7 @@ export function MarketplaceClient({
                       />
                       <span className="flex items-center gap-1 text-[11px] font-medium leading-tight">
                         <ShieldCheck className="h-3 w-3 text-zinc-600 dark:text-zinc-400 shrink-0" />
-                        <span className="truncate">Escrow Protected</span>
+                        <span className="truncate">{t("marketplace.escrowProtected")}</span>
                       </span>
                     </label>
 
@@ -991,7 +990,7 @@ export function MarketplaceClient({
                       />
                       <span className="flex items-center gap-1 text-[11px] font-medium leading-tight">
                         <Truck className="h-3 w-3 text-zinc-600 dark:text-zinc-400 shrink-0" />
-                        <span className="truncate">Addis Express</span>
+                        <span className="truncate">{t("product.inStock")}</span>
                       </span>
                     </label>
                   </div>
@@ -1000,28 +999,28 @@ export function MarketplaceClient({
                 {/* Sourcing / Trade Sector */}
                 <div className="pt-2 border-t border-slate-100 dark:border-white/10 space-y-1">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">
-                    Sourcing Type
+                    {t("marketplace.sourcingMode")}
                   </span>
                   <div className="space-y-0.5 text-xs">
                     {[
-                      { id: "ALL" as TradeType, label: "All Items", count: counts.total },
-                      { id: "RETAIL" as TradeType, label: "Retail (1 Unit)", count: counts.retail },
-                      { id: "WHOLESALE" as TradeType, label: "Wholesale (Bulk)", count: counts.wholesale },
-                    ].map((t) => (
+                      { id: "ALL" as TradeType, label: t("marketplace.all"), count: counts.total },
+                      { id: "RETAIL" as TradeType, label: t("marketplace.retailOnly"), count: counts.retail },
+                      { id: "WHOLESALE" as TradeType, label: t("marketplace.wholesaleOnly"), count: counts.wholesale },
+                    ].map((m) => (
                       <button
-                        key={t.id}
+                        key={m.id}
                         type="button"
-                        onClick={() => setTradeType(t.id)}
+                        onClick={() => setTradeType(m.id)}
                         className={`w-full flex items-center justify-between px-2 py-1 rounded-md text-[11px] transition-all cursor-pointer touch-manipulation active:scale-95 ${
-                          tradeType === t.id
+                          tradeType === m.id
                             ? "bg-zinc-900 text-white dark:bg-zinc-800 dark:text-zinc-100 font-bold shadow-xs"
                             : isLight
                               ? "text-slate-700 hover:bg-slate-100"
                               : "text-zinc-300 hover:bg-white/5"
                         }`}
                       >
-                        <span className="truncate">{t.label}</span>
-                        <span className="font-mono text-[9px] opacity-75 ml-1">{t.count}</span>
+                        <span className="truncate">{m.label}</span>
+                        <span className="font-mono text-[9px] opacity-75 ml-1">{m.count}</span>
                       </button>
                     ))}
                   </div>
@@ -1030,7 +1029,7 @@ export function MarketplaceClient({
                 {/* Departments */}
                 <div className="pt-2 border-t border-slate-100 dark:border-white/10 space-y-1.5">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">
-                    Departments
+                    {t("marketplace.departments")}
                   </span>
 
                   <button
@@ -1044,7 +1043,7 @@ export function MarketplaceClient({
                           : "text-zinc-300 hover:bg-white/5"
                     }`}
                   >
-                    <span>All Departments</span>
+                    <span>{t("header.allDepts")}</span>
                     <span className="font-mono text-[9px] opacity-75">{getCategoryCount("ALL")}</span>
                   </button>
 
@@ -1064,7 +1063,7 @@ export function MarketplaceClient({
                                 : "text-zinc-300 hover:bg-white/5"
                           }`}
                         >
-                          <span className="truncate pr-1 text-left">{c.name}</span>
+                          <span className="truncate pr-1 text-left">{tCategory(c.name)}</span>
                           <span className="font-mono text-[9px] opacity-75 shrink-0">
                             {getCategoryCount(c.slug)}
                           </span>
@@ -1140,7 +1139,7 @@ export function MarketplaceClient({
                 {/* Customer Reviews Rating Filter */}
                 <div className="pt-2 border-t border-slate-100 dark:border-white/10 space-y-1">
                   <span className="text-[9px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 block">
-                    Customer Reviews
+                    {t("marketplace.customerReviews")}
                   </span>
                   <div className="space-y-0.5">
                     {[
@@ -1252,16 +1251,16 @@ export function MarketplaceClient({
 
                 <h3 className="text-lg font-bold">
                   {tradeType === "WHOLESALE"
-                    ? "No wholesale bulk items matched"
+                    ? t("marketplace.wholesaleOnly")
                     : tradeType === "RETAIL"
-                      ? "No retail items found"
-                      : "No matching products found"}
+                      ? t("marketplace.retailOnly")
+                      : t("marketplace.noProductsFound")}
                 </h3>
 
                 <p className={`text-xs max-w-sm mx-auto ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
                   {searchQuery
-                    ? `No products matched "${searchQuery}". Try a different keyword or reset filters.`
-                    : "No products matched the selected filters. Please reset active filters."}
+                    ? `${t("marketplace.noProductsFound")} "${searchQuery}".`
+                    : t("marketplace.noProductsFound")}
                 </p>
 
                 <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
@@ -1270,7 +1269,7 @@ export function MarketplaceClient({
                     onClick={() => setTradeType("ALL")}
                     className="rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 px-4 py-2 text-xs font-bold transition-all cursor-pointer shadow-sm"
                   >
-                    View All Products
+                    {t("home.viewAll")}
                   </button>
 
                   <button
@@ -1286,7 +1285,7 @@ export function MarketplaceClient({
                     onClick={clearFilters}
                     className="rounded-xl border border-slate-300 dark:border-white/20 px-4 py-2 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 transition-all cursor-pointer text-zinc-800 dark:text-zinc-200"
                   >
-                    Reset Filters
+                    {t("marketplace.clearAll")}
                   </button>
                 </div>
               </div>
@@ -1360,7 +1359,7 @@ export function MarketplaceClient({
                 <div className="flex items-center gap-1.5">
                   <Menu className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
                   <h3 className="text-xs font-bold flex items-center gap-1.5">
-                    <span>Filters &amp; Sourcing</span>
+                    <span>{t("marketplace.filters")}</span>
                     {activeFilterCount > 0 && (
                       <span className="rounded-full bg-zinc-900 dark:bg-zinc-800 text-white text-[9px] h-3.5 min-w-3.5 px-1 flex items-center justify-center font-bold">
                         {activeFilterCount}
@@ -1387,28 +1386,28 @@ export function MarketplaceClient({
               {/* Sourcing / Trade Sector */}
               <div className="space-y-1.5">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Trade Sector
+                  {t("marketplace.sourcingMode")}
                 </span>
                 <div className="grid grid-cols-3 gap-1">
                   {[
-                    { id: "ALL" as TradeType, label: "All Items", count: counts.total },
-                    { id: "RETAIL" as TradeType, label: "Retail", count: counts.retail },
-                    { id: "WHOLESALE" as TradeType, label: "Wholesale", count: counts.wholesale },
-                  ].map((t) => (
+                    { id: "ALL" as TradeType, label: t("marketplace.all"), count: counts.total },
+                    { id: "RETAIL" as TradeType, label: t("marketplace.retailOnly"), count: counts.retail },
+                    { id: "WHOLESALE" as TradeType, label: t("marketplace.wholesaleOnly"), count: counts.wholesale },
+                  ].map((m) => (
                     <button
-                      key={t.id}
+                      key={m.id}
                       type="button"
-                      onClick={() => setTradeType(t.id)}
+                      onClick={() => setTradeType(m.id)}
                       className={`flex flex-col items-center justify-center p-1.5 rounded-lg text-xs font-semibold cursor-pointer transition-all touch-manipulation active:scale-95 ${
-                        tradeType === t.id
+                        tradeType === m.id
                           ? "bg-zinc-900 text-white dark:bg-zinc-800 font-bold shadow-xs"
                           : isLight
                             ? "bg-slate-50 border border-slate-200 text-slate-700"
                             : "bg-white/5 border border-white/8 text-zinc-300"
                       }`}
                     >
-                      <span>{t.label}</span>
-                      <span className="font-mono text-[9px] opacity-75">{t.count}</span>
+                      <span>{m.label}</span>
+                      <span className="font-mono text-[9px] opacity-75">{m.count}</span>
                     </button>
                   ))}
                 </div>
@@ -1422,7 +1421,7 @@ export function MarketplaceClient({
                 <label className="flex items-center justify-between text-xs cursor-pointer select-none py-0.5">
                   <span className="flex items-center gap-1.5 font-medium text-[11px]">
                     <ShieldCheck className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
-                    <span>Escrow Protected</span>
+                    <span>{t("marketplace.escrowProtected")}</span>
                   </span>
                   <input
                     type="checkbox"
@@ -1435,7 +1434,7 @@ export function MarketplaceClient({
                 <label className="flex items-center justify-between text-xs cursor-pointer select-none py-0.5">
                   <span className="flex items-center gap-1.5 font-medium text-[11px]">
                     <Truck className="h-3 w-3 text-zinc-600 dark:text-zinc-400" />
-                    <span>Addis Express Dispatch</span>
+                    <span>{t("product.inStock")}</span>
                   </span>
                   <input
                     type="checkbox"
@@ -1449,7 +1448,7 @@ export function MarketplaceClient({
               {/* Departments */}
               <div className="pt-2 border-t border-slate-100 dark:border-white/10 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Departments
+                  {t("marketplace.departments")}
                 </span>
                 <button
                   type="button"
@@ -1460,7 +1459,7 @@ export function MarketplaceClient({
                       : "text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/5"
                   }`}
                 >
-                  All Departments ({getCategoryCount("ALL")})
+                  {t("header.allDepts")} ({getCategoryCount("ALL")})
                 </button>
                 <div className="space-y-0.5 max-h-36 overflow-y-auto no-scrollbar">
                   {categories.map((c) => (
@@ -1474,7 +1473,7 @@ export function MarketplaceClient({
                           : "text-slate-700 dark:text-zinc-300 hover:bg-slate-100 dark:hover:bg-white/5"
                       }`}
                     >
-                      <span className="truncate pr-1">{c.name}</span>
+                      <span className="truncate pr-1">{tCategory(c.name)}</span>
                       <span className="font-mono text-[9px] opacity-75 shrink-0">({getCategoryCount(c.slug)})</span>
                     </button>
                   ))}
@@ -1544,7 +1543,7 @@ export function MarketplaceClient({
               {/* Customer Reviews Rating */}
               <div className="pt-2 border-t border-slate-100 dark:border-white/10 space-y-1">
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">
-                  Customer Reviews
+                  {t("marketplace.customerReviews")}
                 </span>
                 <div className="flex items-center gap-1.5">
                   {[
@@ -1582,14 +1581,14 @@ export function MarketplaceClient({
                 }}
                 className="py-2 px-3 rounded-xl border border-slate-300 dark:border-white/15 text-xs font-semibold hover:bg-slate-50 dark:hover:bg-white/5 cursor-pointer touch-manipulation active:scale-95 shrink-0"
               >
-                Reset
+                {t("marketplace.clearAll")}
               </button>
               <button
                 type="button"
                 onClick={() => setIsMobileFilterOpen(false)}
                 className="flex-1 py-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-800 dark:hover:bg-zinc-700 text-xs font-bold shadow-md cursor-pointer active:scale-95 transition-all flex items-center justify-center gap-1.5 touch-manipulation"
               >
-                <span>Apply Filters</span>
+                <span>{t("marketplace.filters")}</span>
                 <span className="font-mono text-[10px] bg-white/20 px-1.5 py-0.2 rounded-full">({filteredProducts.length})</span>
               </button>
             </div>

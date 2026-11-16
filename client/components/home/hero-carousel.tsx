@@ -10,8 +10,10 @@ import {
   ShoppingCart,
 } from "lucide-react";
 import type { Product } from "@/constants/mock-data";
+import { useTranslation } from "@/store/language-store";
 
 export function HeroCarousel({ products }: { products: Product[] }) {
+  const { t, tCategory } = useTranslation();
   const slides = products.slice(0, 5).map((product) => ({
     id: product.id,
     title: product.name,
@@ -144,7 +146,7 @@ export function HeroCarousel({ products }: { products: Product[] }) {
               <div className="absolute inset-0 flex items-center z-20">
                 <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-8 md:px-16 space-y-3 sm:space-y-4 pt-12 sm:pt-16">
                   <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/20 px-3 py-1 sm:px-3.5 sm:py-1.5 text-[11px] sm:text-xs font-bold text-emerald-300 backdrop-blur-md shadow-lg w-fit">
-                    <span>{products[index]?.category || "Marketplace product"}</span>
+                    <span>{tCategory(products[index]?.category || "Marketplace product")}</span>
                   </div>
 
                   <h1 className="text-2xl xs:text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight text-white leading-tight max-w-4xl drop-shadow-md">
@@ -163,7 +165,7 @@ export function HeroCarousel({ products }: { products: Product[] }) {
                       className="inline-flex items-center justify-center gap-2 rounded-xl sm:rounded-2xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-500 px-6 sm:px-8 py-2.5 sm:py-3.5 text-xs sm:text-sm font-bold text-white shadow-xl shadow-indigo-500/30 hover:brightness-110 active:scale-95 transition-all"
                     >
                       <ShoppingCart className="h-4 w-4" />
-                      <span>View Product</span>
+                      <span>{t("home.viewProduct")}</span>
                       <ArrowRight className="h-4 w-4" />
                     </Link>
 
@@ -171,7 +173,7 @@ export function HeroCarousel({ products }: { products: Product[] }) {
                       href="/marketplace"
                       className="inline-flex items-center justify-center gap-2 rounded-xl sm:rounded-2xl border border-white/20 bg-white/10 hover:bg-white/20 px-5 sm:px-7 py-2.5 sm:py-3.5 text-xs sm:text-sm font-semibold text-white backdrop-blur-md transition-all active:scale-95"
                     >
-                      <span>Explore Store</span>
+                      <span>{t("home.exploreStore")}</span>
                     </Link>
                   </div>
 
@@ -209,7 +211,7 @@ export function HeroCarousel({ products }: { products: Product[] }) {
         title="Scroll down"
       >
         <span className="text-[10px] sm:text-[11px] font-mono tracking-[0.25em] uppercase">
-          SCROLL
+          {t("home.scrollDown")}
         </span>
         <div className="w-5 h-8 sm:w-5.5 sm:h-9 rounded-full border-2 border-zinc-400/70 group-hover:border-cyan-400 flex items-start justify-center p-1 transition-colors">
           <div className="w-1 h-2 rounded-full bg-zinc-300 group-hover:bg-cyan-400 animate-bounce mt-0.5 transition-colors" />

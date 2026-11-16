@@ -38,6 +38,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { useAuthStore, usePlatformStore } from "@/store";
 import { api } from "@/services/api/client";
 
@@ -147,6 +148,7 @@ const SIDEBAR_ITEMS = [
 ];
 
 export function AdminSettings() {
+  const { t } = useTranslation();
   const { user, setUser } = useAuthStore();
   const {
     settings: globalSettings,
@@ -434,7 +436,7 @@ export function AdminSettings() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-bold text-white tracking-tight">
-                Platform & Security Settings
+                {t("admin.settings.title", "Platform & Security Settings")}
               </h1>
               {isStoreLoading && (
                 <span className="flex items-center gap-1 text-[10px] text-zinc-400">
@@ -449,7 +451,7 @@ export function AdminSettings() {
               )}
             </div>
             <p className="text-xs text-zinc-400">
-              Customize marketplace name, upload platform logo, configure contacts, and sync everywhere.
+              {t("admin.settings.subtitle", "Customize marketplace name, upload platform logo, configure contacts, and sync everywhere.")}
             </p>
           </div>
         </div>
@@ -463,7 +465,7 @@ export function AdminSettings() {
             title="Reset to factory defaults"
           >
             <RotateCcw className="h-3 w-3" />
-            <span className="hidden sm:inline">Reset Defaults</span>
+            <span className="hidden sm:inline">{t("admin.settings.resetDefaults", "Reset Defaults")}</span>
           </button>
 
           <button
@@ -473,7 +475,7 @@ export function AdminSettings() {
             className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-1.5 text-[11px] font-semibold text-white shadow-md shadow-indigo-500/25 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
-            <span>{isSaving ? "Saving..." : "Save to Backend"}</span>
+            <span>{isSaving ? t("admin.settings.saving", "Saving...") : t("admin.settings.saveChanges", "Save to Backend")}</span>
           </button>
         </div>
       </div>
@@ -487,10 +489,10 @@ export function AdminSettings() {
             </div>
             <div>
               <p className="text-xs font-semibold text-rose-300">
-                Cluster Maintenance Mode is Currently Active
+                {t("admin.settings.maintenanceMode", "Cluster Maintenance Mode is Currently Active")}
               </p>
               <p className="text-[10px] text-rose-300/80">
-                Storefront checkout is paused. Escrow balances and administrative functions remain intact.
+                {t("admin.settings.maintenanceDesc", "Storefront checkout is paused. Escrow balances and administrative functions remain intact.")}
               </p>
             </div>
           </div>

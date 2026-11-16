@@ -38,6 +38,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { api } from "@/services/api/client";
 import {
   adminDeliveryService,
@@ -213,6 +214,7 @@ function validateDriverForm(
 }
 
 export function AdminDelivery() {
+  const { t, tZone } = useTranslation();
   const [riders, setRiders] = useState<DeliveryRider[]>([]);
   const [loading, setLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -1006,13 +1008,13 @@ export function AdminDelivery() {
             </div>
             <div>
               <h1 className="text-xl sm:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-                <span>Fleet &amp; Delivery Logistics</span>
+                <span>{t("admin.delivery.title", "Fleet & Delivery Logistics")}</span>
                 <span className="rounded-full px-2.5 py-0.5 text-xs font-semibold border border-cyan-500/30 bg-cyan-500/15 text-cyan-300">
                   Live Database
                 </span>
               </h1>
               <p className="text-xs sm:text-sm text-zinc-400">
-                Manage registered couriers, vehicle records, dispatch assignments, and live orders directly from the database.
+                {t("admin.delivery.subtitle", "Manage registered couriers, vehicle records, dispatch assignments, and live orders directly from the database.")}
               </p>
             </div>
           </div>
@@ -1029,7 +1031,7 @@ export function AdminDelivery() {
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3.5 py-2 text-xs font-medium text-zinc-300 hover:text-white transition-all cursor-pointer active:scale-95 disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isRefreshing || loading ? "animate-spin text-cyan-400" : ""}`} />
-            <span>Refresh Live Data</span>
+            <span>{t("admin.nav.refresh", "Refresh Live Data")}</span>
           </button>
 
           <button
@@ -1038,7 +1040,7 @@ export function AdminDelivery() {
             className="flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-cyan-500 via-indigo-600 to-indigo-700 px-4 py-2 text-xs font-bold text-white shadow-lg shadow-cyan-500/25 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            <span>Add Courier to DB</span>
+            <span>{t("admin.delivery.addRider", "Add Courier to DB")}</span>
           </button>
         </div>
       </div>

@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import { API_CONFIG } from "@/config/api.config";
 import { loadGoogleScript, triggerGoogleSignIn } from "@/lib/auth/google";
 import { startGitHubOAuth } from "@/lib/auth/github";
@@ -423,6 +424,7 @@ function RegisterPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const login = useAuthStore((state) => state.login);
+  const { t } = useTranslation();
 
   useEffect(() => {
     loadGoogleScript().catch(() => {
@@ -523,10 +525,63 @@ function RegisterPageContent() {
   }, []);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Active Role Metadata
+  // Active Role Metadata & Localized Role Options
+  const localizedRoles = useMemo(() => {
+    return [
+      {
+        id: "CUSTOMER" as BackendRole,
+        title: t("auth.customerRoleTitle"),
+        badge: t("auth.customerRoleBadge"),
+        shortDesc: t("auth.customerRoleDesc"),
+        features: [
+          t("auth.customerFeat1"),
+          t("auth.customerFeat2"),
+          t("auth.customerFeat3"),
+        ],
+        icon: ShoppingBag,
+        accentColor: "text-cyan-400",
+        iconBg: "bg-cyan-500/10 text-cyan-400 border border-cyan-500/20",
+        activeBorder: "border-cyan-500/80 ring-2 ring-cyan-500/20",
+        activeGlow: "from-cyan-500/15 via-cyan-500/5 to-transparent",
+      },
+      {
+        id: "SELLER" as BackendRole,
+        title: t("auth.sellerRoleTitle"),
+        badge: t("auth.sellerRoleBadge"),
+        shortDesc: t("auth.sellerRoleDesc"),
+        features: [
+          t("auth.sellerFeat1"),
+          t("auth.sellerFeat2"),
+          t("auth.sellerFeat3"),
+        ],
+        icon: Store,
+        accentColor: "text-amber-400",
+        iconBg: "bg-amber-500/10 text-amber-400 border border-amber-500/20",
+        activeBorder: "border-amber-500/80 ring-2 ring-amber-500/20",
+        activeGlow: "from-amber-500/15 via-amber-500/5 to-transparent",
+      },
+      {
+        id: "SUPPLIER" as BackendRole,
+        title: t("auth.supplierRoleTitle"),
+        badge: t("auth.supplierRoleBadge"),
+        shortDesc: t("auth.supplierRoleDesc"),
+        features: [
+          t("auth.supplierFeat1"),
+          t("auth.supplierFeat2"),
+          t("auth.supplierFeat3"),
+        ],
+        icon: Factory,
+        accentColor: "text-emerald-400",
+        iconBg: "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20",
+        activeBorder: "border-emerald-500/80 ring-2 ring-emerald-500/20",
+        activeGlow: "from-emerald-500/15 via-emerald-500/5 to-transparent",
+      },
+    ];
+  }, [t]);
+
   const activeRoleData = useMemo(() => {
-    return ROLES.find((r) => r.id === selectedRole) || ROLES[0];
-  }, [selectedRole]);
+    return localizedRoles.find((r) => r.id === selectedRole) || localizedRoles[0];
+  }, [localizedRoles, selectedRole]);
 
   // Full normalized phone string for backend validation
   const fullPhoneNumber = useMemo(() => {
@@ -1391,13 +1446,13 @@ function RegisterPageContent() {
           href="/login"
           className="rounded-lg py-1.5 text-center text-xs font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
         >
-          Sign In
+          {t("nav.signIn")}
         </Link>
         <button
           type="button"
           className="rounded-lg bg-indigo-600/30 border border-indigo-500/40 py-1.5 text-xs font-semibold text-white shadow-sm transition-all"
         >
-          Create Account
+          {t("auth.createAccount")}
         </button>
       </div>
 
@@ -1408,10 +1463,10 @@ function RegisterPageContent() {
         <div>
           <div className="mb-4 text-center">
             <h1 className="text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Select Account Type
+              {t("auth.selectRole")}
             </h1>
             <p className="mt-1 text-xs text-zinc-400">
-              Choose your role to configure your dedicated workspace
+              {t("auth.registerSubtitle")}
             </p>
           </div>
 
@@ -1429,7 +1484,7 @@ function RegisterPageContent() {
                 ) : (
                   <GoogleIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
                 )}
-                <span>{isGoogleLoading ? "Connecting to Google..." : "Continue with Google account"}</span>
+                <span>{isGoogleLoading ? t("common.loading") : t("auth.googleBtn")}</span>
               </button>
               <button
                 type="button"
@@ -1442,14 +1497,14 @@ function RegisterPageContent() {
                 ) : (
                   <GithubIcon className="h-4 w-4 shrink-0 transition-transform group-hover:scale-110" />
                 )}
-                <span>{isGitHubLoading ? "Connecting to GitHub..." : "Continue with GitHub account"}</span>
+                <span>{isGitHubLoading ? t("common.loading") : t("auth.githubBtn")}</span>
               </button>
             </div>
             <div className="mt-2.5 flex items-center justify-center gap-1.5 text-[11px] text-zinc-400">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-cyan-400 animate-pulse" />
-              <span>Registers directly with Google or GitHub as</span>
+              <span>{t("auth.socialRegistersAs")}</span>
               <span className="font-semibold text-cyan-300">
-                {selectedRole === "SELLER" ? "Merchant / Seller" : selectedRole === "SUPPLIER" ? "B2B Supplier" : "Customer"}
+                {selectedRole === "SELLER" ? t("auth.sellerRoleTitle") : selectedRole === "SUPPLIER" ? t("auth.supplierRoleTitle") : t("auth.customerRoleTitle")}
               </span>
             </div>
           </div>
@@ -1460,13 +1515,13 @@ function RegisterPageContent() {
               <div className="w-full border-t border-white/10" />
             </div>
             <span className="relative bg-[#0d121f] px-2 text-[10px] uppercase tracking-wider text-zinc-500 font-medium">
-              Or choose account type to register
+              {t("auth.orChooseAccountType")}
             </span>
           </div>
 
           {/* 3 Visual Role Cards */}
           <div className="space-y-2.5 mb-5">
-            {ROLES.map((r) => {
+            {localizedRoles.map((r) => {
               const Icon = r.icon;
               const isSelected = selectedRole === r.id;
               return (
@@ -1544,10 +1599,10 @@ function RegisterPageContent() {
             <Truck className="h-4 w-4 text-indigo-400 shrink-0 mt-0.5" />
             <div>
               <span className="font-semibold text-white">
-                Looking to deliver as a Courier or Fleet Partner?
+                {t("auth.courierPartnerNotice")}
               </span>
               <p className="text-[10.5px] text-zinc-400 mt-0.5 leading-relaxed">
-                Courier drivers and fleet vehicles (motorcycles, vans) are registered and assigned exclusively by MercatoX Administrators to ensure verified background and vehicle checks. Please contact admin dispatch.
+                {t("auth.courierPartnerDesc")}
               </p>
             </div>
           </div>
@@ -1558,17 +1613,17 @@ function RegisterPageContent() {
             onClick={() => setStep(2)}
             className="group flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-500 via-indigo-600 to-cyan-500 py-2.5 text-xs font-semibold text-white shadow-lg shadow-indigo-500/25 transition-all hover:brightness-110 active:scale-[0.99] cursor-pointer"
           >
-            <span>Continue as {activeRoleData.title.split("/")[0].trim()}</span>
+            <span>{t("auth.continueAs")} {activeRoleData.title.split("/")[0].trim()}</span>
             <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </button>
 
           <p className="mt-4 text-center text-xs text-zinc-400">
-            Already registered?{" "}
+            {t("auth.haveAccount")}{" "}
             <Link
               href="/login"
               className="font-medium text-indigo-400 hover:text-indigo-300 hover:underline transition-colors"
             >
-              Sign In
+              {t("nav.signIn")}
             </Link>
           </p>
         </div>
@@ -1587,7 +1642,7 @@ function RegisterPageContent() {
               className="inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-white transition-colors"
             >
               <ArrowLeft className="h-3.5 w-3.5" />
-              <span>Change Account Type</span>
+              <span>{t("auth.changeAccountType")}</span>
             </button>
 
             <span
@@ -1598,20 +1653,20 @@ function RegisterPageContent() {
                   : "border border-cyan-500/30 bg-cyan-500/10 text-cyan-300"
                 }`}
             >
-              {selectedRole} ACCOUNT
+              {selectedRole} {t("auth.accountTypeSuffix")}
             </span>
           </div>
 
           <div className="mb-4">
             <h2 className="text-lg font-bold text-white">
-              {activeRoleData.title} Registration
+              {activeRoleData.title} {t("nav.register")}
             </h2>
             <p className="text-xs text-zinc-400">
               {selectedRole === "SUPPLIER"
-                ? "Register as a verified wholesale distributor, factory, or bulk importer"
+                ? t("auth.supplierRegDesc")
                 : selectedRole === "SELLER"
-                  ? "Fulfill business & legal trade details for verified merchant access"
-                  : "Enter your contact details to start shopping on MercatoX"}
+                  ? t("auth.sellerRegDesc")
+                  : t("auth.customerRegDesc")}
             </p>
           </div>
 
@@ -2479,7 +2534,7 @@ function RegisterPageContent() {
                     htmlFor="fullName"
                     className="mb-1 block text-[11px] font-medium text-zinc-300"
                   >
-                    Full Legal Name <span className="text-rose-400">*</span>
+                    {t("auth.fullName")} <span className="text-rose-400">*</span>
                   </label>
                   <input
                     id="fullName"
@@ -2510,7 +2565,7 @@ function RegisterPageContent() {
                       htmlFor="phoneBody"
                       className="text-[11px] font-medium text-zinc-300"
                     >
-                      Ethiopian Mobile Number <span className="text-rose-400">*</span>
+                      {t("auth.phone")} <span className="text-rose-400">*</span>
                     </label>
                     <span
                       className={`text-[10px] font-medium ${isPhoneValid ? "text-emerald-400" : "text-zinc-500"
@@ -2564,7 +2619,7 @@ function RegisterPageContent() {
                         htmlFor="email"
                         className="mb-1 block text-[11px] font-medium text-zinc-300"
                       >
-                        Email Address
+                        {t("auth.email")}
                       </label>
                       <input
                         id="email"
@@ -2620,7 +2675,7 @@ function RegisterPageContent() {
                       htmlFor="email"
                       className="mb-1 block text-[11px] font-medium text-zinc-300"
                     >
-                      Email Address <span className="text-zinc-500 text-[10px]">(Optional for order receipts)</span>
+                      {t("auth.email")} <span className="text-zinc-500 text-[10px]">({t("auth.returnHome").includes("ተመለስ") ? "አማራጭ" : "Optional"})</span>
                     </label>
                     <div className="relative">
                       <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-2.5">
@@ -2912,7 +2967,7 @@ function RegisterPageContent() {
                       htmlFor="confirmPassword"
                       className="text-[11px] font-medium text-zinc-300"
                     >
-                      Confirm Password <span className="text-rose-400">*</span>
+                      {t("auth.confirmPassword")} <span className="text-rose-400">*</span>
                     </label>
                     {confirmPassword && password && (
                       <span
@@ -2989,11 +3044,7 @@ function RegisterPageContent() {
                     className="mt-0.5 h-3.5 w-3.5 rounded border-white/20 bg-black/40 text-cyan-500 focus:ring-0 focus:ring-offset-0 accent-cyan-500"
                   />
                   <span className="text-[11px] leading-tight text-zinc-400">
-                    I agree to the{" "}
-                    <span className="text-zinc-200 hover:underline">
-                      MercatoX Terms of Service
-                    </span>{" "}
-                    and Ethiopian Commercial Verification Guidelines.
+                    {t("auth.agreeTerms")}
                   </span>
                 </label>
                 {errors.agreed && (
@@ -3013,11 +3064,11 @@ function RegisterPageContent() {
                 {isLoading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin text-white" />
-                    <span>Registering {selectedRole} account...</span>
+                    <span>{t("common.loading")}...</span>
                   </>
                 ) : (
                   <>
-                    <span>Complete {activeRoleData.title.split("/")[0].trim()} Registration</span>
+                    <span>{t("auth.registerBtn")}</span>
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                   </>
                 )}

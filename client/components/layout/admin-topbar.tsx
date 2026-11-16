@@ -27,11 +27,14 @@ import {
   XCircle,
   ArrowRight,
   FileCheck,
+  Sparkles,
 } from "lucide-react";
 import { useAdminUIStore, AdminTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
 import { usePlatformStore } from "@/store/platform-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LanguageSelector } from "@/components/common/language-selector";
+import { useTranslation } from "@/store/language-store";
 import {
   adminNotificationService,
   adminSupplierService,
@@ -43,6 +46,7 @@ export function AdminTopbar() {
   const router = useRouter();
   const { user, logout } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
+  const { t } = useTranslation();
   const {
     activeTab,
     setActiveTab,
@@ -102,32 +106,33 @@ export function AdminTopbar() {
   const totalAlerts = notifications.length + pendingSlipsCount;
 
   const tabLabels: Record<AdminTab, string> = {
-    overview: "Overview & Analytics",
-    catalog: "Products Moderation",
-    categories: "Categories Management",
-    users: "Merchants & KYC Verification",
-    suppliers: "Suppliers & Fleet Control",
-    orders: "Orders & Escrow Operations",
-    slips: "Bank Slip Verification Queue",
-    delivery: "Delivery Fleet & Logistics",
-    disputes: "Disputes & Escrow Arbitration",
-    audit: "Security Audit Logs",
-    subscriptions: "Subscriptions & Plans",
-    settings: "Platform Governance & Settings",
+    overview: t("admin.nav.overview", "Overview & Analytics"),
+    catalog: t("admin.nav.catalog", "Products Moderation"),
+    categories: t("admin.nav.categories", "Categories Management"),
+    users: t("admin.nav.users", "Merchants & KYC Verification"),
+    suppliers: t("admin.nav.suppliers", "Suppliers & Fleet Control"),
+    orders: t("admin.nav.orders", "Orders & Escrow Operations"),
+    slips: t("admin.nav.slips", "Bank Slip Verification Queue"),
+    delivery: t("admin.nav.delivery", "Delivery Fleet & Logistics"),
+    disputes: t("admin.nav.disputes", "Disputes & Escrow Arbitration"),
+    audit: t("admin.nav.audit", "Security Audit Logs"),
+    subscriptions: t("admin.nav.subscriptions", "Subscriptions & Plans"),
+    settings: t("admin.nav.settings", "Platform Governance & Settings"),
   };
 
   const quickTabs: { id: AdminTab; label: string; icon: React.ElementType }[] = [
-    { id: "overview", label: "Overview", icon: LayoutDashboard },
-    { id: "catalog", label: "Products", icon: Tag },
-    { id: "categories", label: "Categories", icon: FolderTree },
-    { id: "users", label: "Users & KYC", icon: Users },
-    { id: "suppliers", label: "Suppliers", icon: Building2 },
-    { id: "orders", label: "Orders", icon: Package },
-    { id: "slips", label: "Bank Slips", icon: Receipt },
-    { id: "delivery", label: "Delivery", icon: Bike },
-    { id: "disputes", label: "Disputes", icon: Scale },
-    { id: "audit", label: "Audit Logs", icon: ShieldAlert },
-    { id: "settings", label: "Settings", icon: Settings },
+    { id: "overview", label: t("admin.nav.overview", "Overview"), icon: LayoutDashboard },
+    { id: "catalog", label: t("admin.nav.catalog", "Products"), icon: Tag },
+    { id: "categories", label: t("admin.nav.categories", "Categories"), icon: FolderTree },
+    { id: "users", label: t("admin.nav.users", "Users & KYC"), icon: Users },
+    { id: "suppliers", label: t("admin.nav.suppliers", "Suppliers"), icon: Building2 },
+    { id: "orders", label: t("admin.nav.orders", "Orders"), icon: Package },
+    { id: "slips", label: t("admin.nav.slips", "Bank Slips"), icon: Receipt },
+    { id: "delivery", label: t("admin.nav.delivery", "Delivery"), icon: Bike },
+    { id: "disputes", label: t("admin.nav.disputes", "Disputes"), icon: Scale },
+    { id: "subscriptions", label: t("admin.nav.subscriptions", "Subscriptions"), icon: Sparkles },
+    { id: "audit", label: t("admin.nav.audit", "Audit"), icon: ShieldAlert },
+    { id: "settings", label: t("admin.nav.settings", "Settings"), icon: Settings },
   ];
 
   const handleRefresh = () => {
@@ -210,7 +215,7 @@ export function AdminTopbar() {
           <Search className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
           <input
             type="text"
-            placeholder="Quick search merchants, orders, slips... (Ctrl+K)"
+            placeholder={t("admin.nav.searchPlaceholder", "Quick search merchants, orders, slips... (Ctrl+K)")}
             className="h-8 w-full rounded-lg border border-white/10 bg-white/[0.03] pl-8 pr-12 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500/80 focus:bg-white/[0.06]"
           />
           <kbd className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 rounded bg-white/10 px-1.5 py-0.5 text-[9px] font-mono font-medium text-zinc-400 border border-white/10">
@@ -226,6 +231,9 @@ export function AdminTopbar() {
           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
           <span className="font-mono text-zinc-300">ETB</span>
         </div>
+
+        {/* Language Selector */}
+        <LanguageSelector />
 
         {/* Appearance / Theme Toggle */}
         <ThemeToggle />
@@ -263,11 +271,11 @@ export function AdminTopbar() {
               <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-white tracking-wide">
-                    Compliance &amp; Approvals
+                    {t("admin.nav.complianceApprovals", "Compliance & Approvals")}
                   </span>
                   {notifications.length > 0 && (
                     <span className="rounded-full bg-amber-500/20 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold text-amber-300">
-                      {notifications.length} Pending
+                      {notifications.length} {t("admin.nav.pendingBadge", "Pending")}
                     </span>
                   )}
                 </div>
@@ -277,7 +285,7 @@ export function AdminTopbar() {
                   className="text-[11px] text-zinc-400 hover:text-white transition-colors cursor-pointer flex items-center gap-1"
                 >
                   <RefreshCw className="h-3 w-3" />
-                  <span>Refresh</span>
+                  <span>{t("admin.nav.refresh", "Refresh")}</span>
                 </button>
               </div>
 
@@ -287,9 +295,9 @@ export function AdminTopbar() {
                     <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 mb-2">
                       <CheckCircle2 className="h-5 w-5" />
                     </div>
-                    <p className="text-xs font-semibold text-white">All Caught Up</p>
+                    <p className="text-xs font-semibold text-white">{t("admin.nav.allCaughtUp", "All Caught Up")}</p>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
-                      No new supplier applications awaiting verification.
+                      {t("admin.nav.noSupplierAlerts", "No new supplier applications awaiting verification.")}
                     </p>
                   </div>
                 ) : (
@@ -429,7 +437,7 @@ export function AdminTopbar() {
           {showUserMenu && (
             <div className="app-dropdown-panel absolute right-0 mt-2 w-52 rounded-xl border border-white/10 bg-[#0d121f] p-2 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in duration-150">
               <div className="px-2 py-1.5 border-b border-white/10 mb-1">
-                <p className="text-xs font-semibold text-white">System Admin</p>
+                <p className="text-xs font-semibold text-white">{t("admin.nav.masterSuperAdmin", "System Admin")}</p>
                 <p className="text-[10px] font-mono text-zinc-400 truncate">
                   {user?.email || "admin@mercatox.et"}
                 </p>
@@ -443,7 +451,7 @@ export function AdminTopbar() {
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors cursor-pointer"
               >
                 <Activity className="h-3.5 w-3.5 text-indigo-400" />
-                <span>Platform Controls</span>
+                <span>{t("admin.nav.settings", "Platform Controls")}</span>
               </button>
               <button
                 type="button"
@@ -454,7 +462,7 @@ export function AdminTopbar() {
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs text-zinc-300 hover:bg-white/[0.06] hover:text-white transition-colors cursor-pointer"
               >
                 <Shield className="h-3.5 w-3.5 text-emerald-400" />
-                <span>Audit Trail</span>
+                <span>{t("admin.nav.audit", "Audit Trail")}</span>
               </button>
               <div className="my-1 border-t border-white/10" />
               <button
@@ -463,7 +471,7 @@ export function AdminTopbar() {
                 className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-xs font-medium text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5" />
-                <span>Sign Out</span>
+                <span>{t("admin.nav.signOut", "Sign Out")}</span>
               </button>
             </div>
           )}

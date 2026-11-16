@@ -26,6 +26,7 @@ import {
   X,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { api } from "@/services/api/client";
 import { fetchAllProducts } from "@/lib/api/catalog";
 import { adminDeliveryService } from "@/features/admin/services/admin.service";
@@ -140,6 +141,7 @@ interface AdminOrderDetail {
 export default function AdminOrderDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { t } = useTranslation();
   const orderId = Array.isArray(params.orderId) ? params.orderId[0] : params.orderId;
 
   const [order, setOrder] = useState<AdminOrderDetail | null>(null);
@@ -404,7 +406,7 @@ export default function AdminOrderDetailPage() {
       <div className="min-h-screen bg-[#070b12] text-white p-6 flex items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-          <p className="mt-3 text-sm text-zinc-400">Loading order details...</p>
+          <p className="mt-3 text-sm text-zinc-400">{t("admin.details.loadingDetails", "Loading order details...")}</p>
         </div>
       </div>
     );

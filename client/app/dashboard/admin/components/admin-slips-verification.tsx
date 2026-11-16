@@ -36,6 +36,7 @@ import {
   Layers,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { api } from "@/services/api/client";
 import { INITIAL_PLANS } from "@/store/subscription-store";
 
@@ -190,6 +191,7 @@ const adaptBackendSlip = (payment: any): BankSlipItem => {
 
 export function AdminSlipsVerification() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [slips, setSlips] = useState<BankSlipItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [viewingSlip, setViewingSlip] = useState<BankSlipItem | null>(null);
@@ -762,10 +764,10 @@ export function AdminSlipsVerification() {
           <Building2 className="h-4 w-4 text-amber-400 shrink-0" />
           <div>
             <h4 className="text-xs font-semibold text-white">
-              Customer Payment & Bank Slip Verification Console
+              {t("admin.slips.title", "Customer Payment & Bank Slip Verification Console")}
             </h4>
             <p className="text-[10px] text-zinc-400">
-              Verify customer payments, CBE/Awash bank transfer slips, and merchant subscriptions.
+              {t("admin.slips.subtitle", "Verify customer payments, CBE/Awash bank transfer slips, and merchant subscriptions.")}
             </p>
           </div>
         </div>
@@ -793,7 +795,7 @@ export function AdminSlipsVerification() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search merchant, customer, order #, phone, ref..."
+            placeholder={t("admin.slips.searchPlaceholder", "Search merchant, customer, order #, phone, ref...")}
             className="w-full h-8 rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500"
           />
         </div>
@@ -837,26 +839,26 @@ export function AdminSlipsVerification() {
           <table className="w-full text-left text-xs border-collapse min-w-[840px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="py-2.5 px-3">Linked Order</th>
-                <th className="py-2.5 px-3">Customer / Depositor</th>
-                <th className="py-2.5 px-3">Gateway & Reference</th>
-                <th className="py-2.5 px-3">Amount (ETB)</th>
-                <th className="py-2.5 px-3">Date & Time</th>
-                <th className="py-2.5 px-3">Escrow Status</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
+                <th className="py-2.5 px-3">{t("admin.orders.colOrder", "Linked Order")}</th>
+                <th className="py-2.5 px-3">{t("admin.slips.colPayer", "Customer / Depositor")}</th>
+                <th className="py-2.5 px-3">{t("admin.slips.colBank", "Gateway & Reference")}</th>
+                <th className="py-2.5 px-3">{t("admin.slips.colAmount", "Amount (ETB)")}</th>
+                <th className="py-2.5 px-3">{t("admin.slips.colDate", "Date & Time")}</th>
+                <th className="py-2.5 px-3">{t("admin.slips.colStatus", "Escrow Status")}</th>
+                <th className="py-2.5 px-3 text-right">{t("admin.slips.colAction", "Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-8 text-center text-zinc-400">
-                    Loading payments and bank slips from payment service...
+                    {t("admin.slips.loadingSlips", "Loading payments and bank slips from payment service...")}
                   </td>
                 </tr>
               ) : filteredSlips.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-8 text-center text-zinc-400">
-                    No payment records matching search criteria.
+                    {t("admin.slips.noSlips", "No payment records matching search criteria.")}
                   </td>
                 </tr>
               ) : (

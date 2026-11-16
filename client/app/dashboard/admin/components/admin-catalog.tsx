@@ -16,6 +16,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import {
   deleteProductAdmin,
   fetchAllProducts,
@@ -38,6 +39,7 @@ interface ProductRowMeta {
 
 export function AdminCatalog() {
   const router = useRouter();
+  const { t, tCategory } = useTranslation();
   const [products, setProducts] = useState<ProductRowMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -166,16 +168,16 @@ export function AdminCatalog() {
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search product title, seller, category..."
+            placeholder={t("admin.catalog.searchPlaceholder", "Search product title, seller, category...")}
             className="h-8 w-full rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500"
           />
         </div>
 
         <div className="flex items-center overflow-x-auto w-full sm:w-auto scrollbar-none rounded-lg border border-white/5 bg-white/[0.04] p-0.5 text-[11px]">
           {[
-            { id: "ALL", label: "All Products" },
-            { id: "ACTIVE", label: `Active (${activeCount})` },
-            { id: "OUT_OF_STOCK", label: "Out of Stock" },
+            { id: "ALL", label: t("admin.catalog.filterAll", "All Products") },
+            { id: "ACTIVE", label: `${t("admin.catalog.filterActive", "Active")} (${activeCount})` },
+            { id: "OUT_OF_STOCK", label: t("admin.catalog.filterOutOfStock", "Out of Stock") },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -203,13 +205,13 @@ export function AdminCatalog() {
           <table className="w-full border-collapse text-left text-xs min-w-[800px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="px-3 py-2.5 min-w-[200px]">Product Listing</th>
-                <th className="px-3 py-2.5 min-w-[140px]">Merchant / Store</th>
-                <th className="px-3 py-2.5 min-w-[110px]">Category</th>
-                <th className="px-3 py-2.5 min-w-[100px]">Price (ETB)</th>
-                <th className="px-3 py-2.5 min-w-[90px]">Stock Units</th>
-                <th className="px-3 py-2.5 min-w-[90px]">Status</th>
-                <th className="px-3 py-2.5 text-right min-w-[60px]">Action</th>
+                <th className="px-3 py-2.5 min-w-[200px]">{t("admin.catalog.colProduct", "Product Listing")}</th>
+                <th className="px-3 py-2.5 min-w-[140px]">{t("admin.catalog.colMerchant", "Merchant / Store")}</th>
+                <th className="px-3 py-2.5 min-w-[110px]">{t("admin.catalog.colCategory", "Category")}</th>
+                <th className="px-3 py-2.5 min-w-[100px]">{t("admin.catalog.colPrice", "Price (ETB)")}</th>
+                <th className="px-3 py-2.5 min-w-[90px]">{t("admin.catalog.colStock", "Stock Units")}</th>
+                <th className="px-3 py-2.5 min-w-[90px]">{t("admin.catalog.colStatus", "Status")}</th>
+                <th className="px-3 py-2.5 text-right min-w-[60px]">{t("admin.catalog.colAction", "Action")}</th>
               </tr>
             </thead>
 
@@ -217,13 +219,13 @@ export function AdminCatalog() {
               {loading ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-10 text-center text-zinc-400">
-                    Loading products from backend...
+                    {t("admin.catalog.loadingProducts", "Loading products from backend...")}
                   </td>
                 </tr>
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-3 py-10 text-center text-zinc-400">
-                    No products found for the current filters.
+                    {t("admin.catalog.noProducts", "No products found for the current filters.")}
                   </td>
                 </tr>
               ) : (
@@ -259,7 +261,7 @@ export function AdminCatalog() {
                       </div>
                     </td>
 
-                    <td className="px-3 py-2.5 text-zinc-300">{item.category}</td>
+                    <td className="px-3 py-2.5 text-zinc-300">{tCategory(item.category)}</td>
 
                     <td className="px-3 py-2.5 font-mono font-bold text-emerald-400">
                       ETB {item.price.toLocaleString()}
@@ -271,12 +273,12 @@ export function AdminCatalog() {
                       {item.status === "ACTIVE" ? (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                          Active
+                          {t("admin.catalog.activeStatus", "Active")}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-rose-400">
                           <Package className="h-3.5 w-3.5 shrink-0" />
-                          Out of Stock
+                          {t("admin.catalog.outOfStockStatus", "Out of Stock")}
                         </span>
                       )}
                     </td>
@@ -302,7 +304,7 @@ export function AdminCatalog() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-indigo-300 transition-colors hover:bg-indigo-500/15 cursor-pointer"
                               >
                                 <Eye className="h-3.5 w-3.5" />
-                                <span>View details</span>
+                                <span>{t("admin.catalog.viewDetails", "View details")}</span>
                               </button>
 
                               <button
@@ -312,7 +314,7 @@ export function AdminCatalog() {
                                 disabled={updatingProductId === item.id}
                               >
                                 <ShieldCheck className="h-3.5 w-3.5 text-amber-400" />
-                                <span>{item.status === "ACTIVE" ? "Suspend" : "Activate"}</span>
+                                <span>{item.status === "ACTIVE" ? t("admin.catalog.suspend", "Suspend") : t("admin.catalog.activate", "Activate")}</span>
                               </button>
 
                               <button
@@ -325,7 +327,7 @@ export function AdminCatalog() {
                                 disabled={updatingProductId === item.id}
                               >
                                 <Trash2 className="h-3.5 w-3.5 text-rose-400" />
-                                <span>Delete</span>
+                                <span>{t("admin.catalog.delete", "Delete")}</span>
                               </button>
 
                               <button
@@ -334,7 +336,7 @@ export function AdminCatalog() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 transition-colors hover:bg-white/10 hover:text-white cursor-pointer"
                               >
                                 <Store className="h-3.5 w-3.5 text-cyan-400" />
-                                <span>Merchant store</span>
+                                <span>{t("admin.catalog.merchantStore", "Merchant store")}</span>
                               </button>
                             </div>
                           </>
@@ -359,7 +361,7 @@ export function AdminCatalog() {
               </div>
               <div>
                 <h3 className="text-base font-bold text-white">
-                  Are you sure you want to delete this product?
+                  {t("admin.catalog.confirmDelete", "Are you sure you want to delete this product?")}
                 </h3>
                 <p className="text-xs text-zinc-400 mt-0.5 truncate max-w-[280px]">
                   {productToDelete.title}
@@ -393,7 +395,7 @@ export function AdminCatalog() {
                 </div>
               </div>
               <p className="text-rose-300/90 text-[11px] leading-relaxed">
-                This action cannot be undone. This product will be permanently deleted from the catalog and database.
+                {t("admin.catalog.confirmDeleteDesc", "This action cannot be undone. This product will be permanently deleted from the catalog and database.")}
               </p>
             </div>
 
@@ -413,11 +415,11 @@ export function AdminCatalog() {
                 className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-rose-600/30 hover:bg-rose-500 transition-colors cursor-pointer disabled:opacity-50"
               >
                 {isDeleting ? (
-                  <span>Deleting...</span>
+                  <span>{t("admin.catalog.deleting", "Deleting...")}</span>
                 ) : (
                   <>
                     <Trash2 className="h-3.5 w-3.5" />
-                    <span>Yes, Delete</span>
+                    <span>{t("admin.catalog.delete", "Yes, Delete")}</span>
                   </>
                 )}
               </button>

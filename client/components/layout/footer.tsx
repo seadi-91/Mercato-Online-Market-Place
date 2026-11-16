@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { useThemeStore } from "@/store/theme-store";
 import { usePlatformStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 
 export function CustomerFooter() {
   const [email, setEmail] = useState("");
@@ -20,6 +21,7 @@ export function CustomerFooter() {
   const [mounted, setMounted] = useState(false);
   const { theme, resolvedTheme } = useThemeStore();
   const { settings: platformSettings } = usePlatformStore();
+  const { t, tCategory } = useTranslation();
 
   useEffect(() => {
     setMounted(true);
@@ -70,21 +72,21 @@ export function CustomerFooter() {
                 }`}
               >
                 <Sparkles className={`h-3.5 w-3.5 ${isLight ? "text-cyan-700" : "text-cyan-400"}`} />
-                <span>Weekly Addis Ababa Deals & Flash Sales</span>
+                <span>{t("home.popularDeals")}</span>
               </div>
               <h3
                 className={`text-lg sm:text-xl font-bold tracking-tight transition-colors ${
                   isLight ? "text-slate-900" : "text-white"
                 }`}
               >
-                Subscribe to {platformSettings.platformName} Marketplace Deals
+                {t("footer.newsletterTitle")}
               </h3>
               <p
                 className={`text-xs max-w-xl transition-colors ${
                   isLight ? "text-slate-600" : "text-zinc-400"
                 }`}
               >
-                Get notified of exclusive Bole tech discounts, Shiro Meda cultural drops, and verified merchant promotions.
+                {t("footer.newsletterSubtitle")}
               </p>
             </div>
 
@@ -102,7 +104,7 @@ export function CustomerFooter() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="Enter your email address..."
+                  placeholder={t("footer.placeholderEmail")}
                   required
                   className={`w-full rounded-xl border py-2.5 pl-10 pr-3.5 text-xs outline-none transition-colors ${
                     isLight
@@ -124,7 +126,7 @@ export function CustomerFooter() {
                   </>
                 ) : (
                   <>
-                    <span>Subscribe</span>
+                    <span>{t("footer.subscribeBtn")}</span>
                     <ArrowRight className="h-3.5 w-3.5" />
                   </>
                 )}
@@ -198,7 +200,7 @@ export function CustomerFooter() {
                 isLight ? "text-slate-900" : "text-white"
               }`}
             >
-              Marketplace
+              {t("nav.marketplace")}
             </h5>
             <ul className="space-y-2">
               <li>
@@ -208,7 +210,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  All Products
+                  {t("nav.marketplace")}
                 </Link>
               </li>
               <li>
@@ -218,7 +220,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Product Categories
+                  {t("nav.categories")}
                 </Link>
               </li>
               <li>
@@ -228,7 +230,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  My Wishlist
+                  {t("nav.favorites")}
                 </Link>
               </li>
               <li>
@@ -238,7 +240,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Shopping Cart
+                  {t("nav.cart")}
                 </Link>
               </li>
             </ul>
@@ -251,7 +253,7 @@ export function CustomerFooter() {
                 isLight ? "text-slate-900" : "text-white"
               }`}
             >
-              Departments
+              {t("categories.title")}
             </h5>
             <ul className="space-y-2">
               <li>
@@ -261,7 +263,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Kids & Children
+                  {tCategory("Kids & Children")}
                 </Link>
               </li>
               <li>
@@ -271,7 +273,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Cosmetics & Skincare
+                  {tCategory("Cosmetics & Skincare")}
                 </Link>
               </li>
               <li>
@@ -281,7 +283,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Fashion, Apparel & Shoes
+                  {tCategory("Fashion, Apparel & Shoes")}
                 </Link>
               </li>
               <li>
@@ -291,7 +293,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Electronics & Smart Devices
+                  {tCategory("Electronics & Smart Devices")}
                 </Link>
               </li>
             </ul>
@@ -304,7 +306,7 @@ export function CustomerFooter() {
                 isLight ? "text-slate-900" : "text-white"
               }`}
             >
-              Customer Care
+              {t("footer.customerService")}
             </h5>
             <ul className="space-y-2">
               <li>
@@ -314,7 +316,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  My Profile
+                  {t("nav.profile")}
                 </Link>
               </li>
               <li>
@@ -324,7 +326,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Account Settings
+                  {t("nav.settings")}
                 </Link>
               </li>
               <li>
@@ -334,7 +336,7 @@ export function CustomerFooter() {
                     isLight ? "text-slate-600 hover:text-slate-900" : "text-zinc-400 hover:text-white"
                   }`}
                 >
-                  Sign In / Register
+                  {t("auth.signIn")} / {t("auth.register")}
                 </Link>
               </li>
             </ul>
@@ -349,7 +351,7 @@ export function CustomerFooter() {
         >
           <p className={isLight ? "text-slate-500" : "text-zinc-500"}>
             {platformSettings.copyrightText ||
-              `© ${new Date().getFullYear()} ${platformSettings.platformName} Inc. All rights reserved. Ethiopian Protected Commerce.`}
+              `© ${new Date().getFullYear()} ${platformSettings.platformName} Inc. ${t("footer.allRightsReserved")}`}
           </p>
 
           <div

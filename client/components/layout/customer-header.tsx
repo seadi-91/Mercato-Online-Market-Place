@@ -43,6 +43,9 @@ import { useSupplierStore } from "@/store/supplier-store";
 import type { SupplierTab } from "@/types/supplier";
 import { useThemeStore, ThemeMode } from "@/store/theme-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LanguageSelector } from "@/components/common/language-selector";
+import { useTranslation } from "@/store/language-store";
+import { translations } from "@/lib/i18n/translations";
 import { toast } from "sonner";
 
 interface CustomerHeaderProps {
@@ -64,6 +67,7 @@ export function CustomerHeader({
   const { theme, setTheme } = useThemeStore();
   const cartItemsCount = useCartStore((state) => state.getItemCount());
   const favoritesCount = useCartStore((state) => state.favorites.length);
+  const { t, language, setLanguage } = useTranslation();
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [profileDropdownOpen, setProfileDropdownOpen] = useState(false);
@@ -190,26 +194,26 @@ export function CustomerHeader({
 
   const navLinks = isAdminAccount
     ? [
-        { name: "Admin Dashboard", href: "/dashboard/admin" },
-        { name: "Marketplace", href: "/marketplace" },
-        { name: "Categories", href: "/categories" },
+        { name: t("nav.adminDashboard"), href: "/dashboard/admin" },
+        { name: t("nav.marketplace"), href: "/marketplace" },
+        { name: t("nav.categories"), href: "/categories" },
       ]
     : isSupplierAccount
       ? [
-          { name: "Supplier Dashboard", href: "/dashboard/supplier" },
-          { name: "Marketplace", href: "/marketplace" },
-          { name: "Categories", href: "/categories" },
+          { name: t("nav.supplierDashboard"), href: "/dashboard/supplier" },
+          { name: t("nav.marketplace"), href: "/marketplace" },
+          { name: t("nav.categories"), href: "/categories" },
         ]
       : isSellerAccount
         ? [
-            { name: "Seller Dashboard", href: "/dashboard/seller" },
-            { name: "Marketplace", href: "/marketplace" },
-            { name: "Categories", href: "/categories" },
+            { name: t("nav.sellerDashboard"), href: "/dashboard/seller" },
+            { name: t("nav.marketplace"), href: "/marketplace" },
+            { name: t("nav.categories"), href: "/categories" },
           ]
         : [
-            { name: "Home", href: "/" },
-            { name: "Marketplace", href: "/marketplace" },
-            { name: "Categories", href: "/categories" },
+            { name: t("nav.home"), href: "/" },
+            { name: t("nav.marketplace"), href: "/marketplace" },
+            { name: t("nav.categories"), href: "/categories" },
           ];
 
   const accountMenuItems: Array<{
@@ -571,7 +575,7 @@ export function CustomerHeader({
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search Bole, Mercato, electronics, traditional..."
+                placeholder={t("header.searchPlaceholder")}
                 className={`w-full text-xs outline-none bg-transparent transition-colors ${isHomePage && !isScrolled
                   ? "placeholder-white/70 text-white"
                   : "placeholder-zinc-400 text-inherit"
@@ -584,7 +588,7 @@ export function CustomerHeader({
                 aria-label="Search"
               >
                 <Star className="h-3 w-3 fill-cyan-300 text-cyan-300" />
-                <span>Search</span>
+                <span>{language === "am" ? "ፈልግ" : language === "om" ? "Barbaadi" : language === "ti" ? "ድለይ" : "Search"}</span>
               </button>
             </div>
           </form>
@@ -600,7 +604,7 @@ export function CustomerHeader({
                   ? "bg-transparent text-slate-700 hover:bg-transparent hover:text-slate-950"
                   : "bg-transparent text-zinc-300 hover:bg-transparent hover:text-white"
                 }`}
-              title="Saved Favorites"
+              title={t("nav.favorites")}
             >
               <Heart className="h-4 w-4" />
               {mounted && favoritesCount > 0 && (
@@ -609,6 +613,11 @@ export function CustomerHeader({
                 </span>
               )}
             </Link>
+
+            {/* Multi-Language Selector Dropdown (Amharic, English, Oromo, Tigrinya) */}
+            <div className="flex items-center">
+              <LanguageSelector className="[&>button]:border-0 [&>button]:!bg-transparent [&>button]:hover:!bg-transparent" />
+            </div>
 
             {/* Bright Light / Appearance Theme Dropdown */}
             <div className="flex items-center">
@@ -624,8 +633,8 @@ export function CustomerHeader({
                   ? "text-indigo-600"
                   : "text-indigo-400 hover:text-cyan-300"
                 }`}
-              title="Shopping Cart"
-              aria-label="Shopping Cart"
+              title={t("nav.cart")}
+              aria-label={t("nav.cart")}
             >
               <div className="relative flex items-center justify-center">
                 <ShoppingCart className={`h-4.5 w-4.5 group-hover:scale-110 transition-transform ${isHomePage && !isScrolled ? "text-cyan-300" : "text-indigo-400"
@@ -638,7 +647,7 @@ export function CustomerHeader({
               </div>
               <span className={`hidden sm:inline text-xs font-bold ${isHomePage && !isScrolled ? "text-white" : "text-indigo-400 group-hover:text-cyan-300"
                 }`}>
-                Cart {mounted && cartItemsCount > 0 ? `(${cartItemsCount})` : ""}
+                {t("nav.cart")} {mounted && cartItemsCount > 0 ? `(${cartItemsCount})` : ""}
               </span>
             </Link>
 
@@ -725,7 +734,7 @@ export function CustomerHeader({
                         className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-xs text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer"
                       >
                         <LogOut className="h-3.5 w-3.5" />
-                        <span>Sign Out</span>
+                        <span>{t("nav.logout")}</span>
                       </button>
                     </div>
                   </div>
@@ -740,7 +749,7 @@ export function CustomerHeader({
                   aria-expanded={authDropdownOpen}
                   aria-haspopup="true"
                 >
-                  <span>Sign In</span>
+                  <span>{t("nav.signIn")}</span>
                   <ChevronDown
                     className={`h-3 w-3 transition-transform duration-200 ${authDropdownOpen ? "rotate-180" : ""
                       }`}
@@ -1117,7 +1126,7 @@ export function CustomerHeader({
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search products, zones..."
+                  placeholder={t("header.searchPlaceholder")}
                   className={`w-full rounded-xl border py-2 pl-9 pr-14 text-xs outline-none transition-all ${theme === "light"
                     ? "border-slate-300 bg-slate-100/90 text-slate-900 placeholder-slate-400 focus:border-cyan-500 focus:bg-white"
                     : theme === "dark"
@@ -1131,7 +1140,7 @@ export function CustomerHeader({
                   title="Search"
                   aria-label="Search"
                 >
-                  <span>Find</span>
+                  <span>{language === "am" ? "ፈልግ" : language === "om" ? "Barbaadi" : language === "ti" ? "ድለይ" : "Find"}</span>
                 </button>
               </form>
 
@@ -1400,6 +1409,71 @@ export function CustomerHeader({
                       {zone.name}
                     </Link>
                   ))}
+                </div>
+              </div>
+
+              {/* Multi-Language Quick Selector in Drawer */}
+              <div
+                className={`p-3 rounded-xl border space-y-2 ${theme === "light"
+                  ? "border-slate-200 bg-slate-50/80"
+                  : theme === "dark"
+                    ? "border-zinc-800/80 bg-zinc-900/40"
+                    : "border-blue-500/20 bg-blue-950/40"
+                  }`}
+              >
+                <div className="flex items-center justify-between text-[11px] font-semibold">
+                  <span
+                    className={`uppercase tracking-wider text-[10px] ${theme === "light"
+                      ? "text-slate-500"
+                      : theme === "dark"
+                        ? "text-zinc-400"
+                        : "text-blue-300/80"
+                      }`}
+                  >
+                    Language / ቋንቋ
+                  </span>
+                  <span
+                    className={`font-bold ${theme === "light"
+                      ? "text-indigo-600"
+                      : "text-cyan-400"
+                      }`}
+                  >
+                    {language === "en" ? "English" : language === "am" ? "አማርኛ" : language === "om" ? "Afaan Oromoo" : "ትግርኛ"}
+                  </span>
+                </div>
+                <div className="grid grid-cols-4 gap-1">
+                  {[
+                    { code: "en" as const, label: "EN", title: "English" },
+                    { code: "am" as const, label: "አማ", title: "አማርኛ" },
+                    { code: "om" as const, label: "OR", title: "Oromo" },
+                    { code: "ti" as const, label: "ትግ", title: "ትግርኛ" },
+                  ].map((opt) => {
+                    const isSelected = language === opt.code;
+                    return (
+                      <button
+                        key={opt.code}
+                        type="button"
+                        onClick={() => {
+                          setLanguage(opt.code);
+                          toast.success(translations[opt.code].toast.languageChanged);
+                        }}
+                        className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-lg text-[10px] font-bold border transition-all cursor-pointer ${isSelected
+                          ? theme === "light"
+                            ? "border-indigo-500 bg-indigo-50 text-indigo-700 font-bold shadow-xs"
+                            : "border-cyan-500 bg-cyan-500/15 text-cyan-400 font-bold shadow-xs"
+                          : theme === "light"
+                            ? "border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                            : theme === "dark"
+                              ? "border-zinc-800 bg-zinc-800/70 text-zinc-400 hover:text-white hover:bg-zinc-700"
+                              : "border-blue-500/20 bg-blue-900/30 text-blue-300 hover:text-white hover:bg-blue-800/50"
+                          }`}
+                        title={opt.title}
+                      >
+                        <span className="text-[11px] font-bold leading-tight">{opt.label}</span>
+                        <span className="text-[8.5px] opacity-70 truncate max-w-full">{opt.title}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

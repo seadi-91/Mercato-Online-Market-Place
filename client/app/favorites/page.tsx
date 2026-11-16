@@ -19,6 +19,7 @@ import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useCartStore } from "@/store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
 import { ProductCard } from "@/components/products/product-card";
 import { Product } from "@/constants/mock-data";
 import { fetchProducts } from "@/lib/api/catalog";
@@ -26,6 +27,7 @@ import { toast } from "sonner";
 
 export default function FavoritesPage() {
   const router = useRouter();
+  const { t, tCategory, tZone } = useTranslation();
   const favorites = useCartStore((state) => state.favorites);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const removeFavorite = useCartStore((state) => state.removeFavorite);
@@ -144,18 +146,18 @@ export default function FavoritesPage() {
           <div>
             <div className="flex items-center gap-2">
               <span className="rounded-full bg-rose-500/10 border border-rose-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-rose-500 dark:text-rose-300">
-                Personal Wishlist
+                {t("favorites.personalWishlist")}
               </span>
               <span className={`text-xs ${themeTextMuted}`}>
-                {mounted ? favorites.length : 0} saved items
+                {mounted ? favorites.length : 0} {t("favorites.savedCount")}
               </span>
             </div>
             <h1 className={`mt-1 text-2xl sm:text-3xl font-extrabold tracking-tight flex items-center gap-2.5 ${themeText}`}>
               <Heart className="h-7 w-7 text-rose-500 fill-rose-500" />
-              <span>Saved Favorite Products</span>
+              <span>{t("favorites.title")}</span>
             </h1>
             <p className={`text-xs mt-0.5 ${themeTextMuted}`}>
-              Items you have marked as favorites across all categories
+              {t("favorites.subtitle")}
             </p>
           </div>
 
@@ -171,7 +173,7 @@ export default function FavoritesPage() {
                 }`}
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Load 6 Demo Items</span>
+                <span>{t("favorites.loadDemoItems")}</span>
               </button>
             )}
 
@@ -183,7 +185,7 @@ export default function FavoritesPage() {
                   : "border-white/10 bg-white/5 hover:bg-white/10 text-zinc-200 hover:text-white"
               }`}
             >
-              <span>Explore Marketplace</span>
+              <span>{t("favorites.exploreMarketplace")}</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>
@@ -201,7 +203,7 @@ export default function FavoritesPage() {
             <div className={`flex items-center gap-2 text-xs ${themeTextMuted}`}>
               <span className="flex h-2 w-2 rounded-full bg-rose-500 animate-pulse"></span>
               <span>
-                Showing <strong className={`font-bold ${themeText}`}>{displayedList.length}</strong> favorite {displayedList.length === 1 ? "item" : "items"}
+                <strong className={`font-bold ${themeText}`}>{displayedList.length}</strong> {t("favorites.showingFavorites")}
               </span>
             </div>
             <div className="flex items-center gap-2.5">
@@ -211,7 +213,7 @@ export default function FavoritesPage() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-red-500/30 bg-red-500/10 hover:bg-red-500/20 text-red-500 dark:text-red-400 px-3.5 py-2 text-xs font-semibold transition-all cursor-pointer active:scale-95 shadow-sm"
               >
                 <Trash2 className="h-3.5 w-3.5 text-red-500" style={{ stroke: "#ef4444" }} />
-                <span>Clear All</span>
+                <span>{t("favorites.clearAll")}</span>
               </button>
               <button
                 type="button"
@@ -219,7 +221,7 @@ export default function FavoritesPage() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:brightness-110 px-4 py-2 text-xs font-bold text-white shadow-md shadow-indigo-950/40 hover:shadow-indigo-500/20 transition-all cursor-pointer active:scale-95"
               >
                 <ShoppingCart className="h-3.5 w-3.5 text-white" />
-                <span>Add All to Cart</span>
+                <span>{t("favorites.addAllToCart")}</span>
               </button>
             </div>
           </div>
@@ -265,7 +267,7 @@ export default function FavoritesPage() {
                       }`}
                     >
                       <Eye className={`h-3.5 w-3.5 ${isLight ? "text-indigo-600" : "text-cyan-400"}`} />
-                      <span>Quick View</span>
+                      <span>{t("favorites.quickView")}</span>
                     </button>
                   </div>
 
@@ -294,7 +296,7 @@ export default function FavoritesPage() {
                     {/* Category & Title */}
                     <div className="space-y-0.5">
                       <span className="text-[9.5px] font-bold uppercase tracking-wider text-indigo-500 dark:text-indigo-400 truncate block">
-                        {product.category || "General Item"}
+                        {tCategory(product.category || "General Item")}
                       </span>
                       <Link
                         href={`/products/${product.id}`}
@@ -313,7 +315,7 @@ export default function FavoritesPage() {
                     <div className="mt-1.5 flex items-center gap-1 text-[10px] truncate">
                       <MapPin className="h-3 w-3 text-cyan-500 shrink-0" />
                       <span className={`truncate font-medium ${isLight ? "text-slate-600" : "text-zinc-300"}`}>
-                        {product.shopName || "Verified Shop"}
+                        {product.shopName || tZone(product.marketZone) || "Verified Shop"}
                       </span>
                     </div>
 
@@ -342,7 +344,7 @@ export default function FavoritesPage() {
                       className="cart-action-text flex items-center justify-center gap-1.5 text-[11px] font-bold px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs transition-all active:scale-95 cursor-pointer shrink-0"
                     >
                       <ShoppingCart className="h-3 w-3 text-white" />
-                      <span>+Cart</span>
+                      <span>{t("product.addToCart")}</span>
                     </button>
                   </div>
                 </div>
@@ -360,9 +362,9 @@ export default function FavoritesPage() {
             <div className="h-16 w-16 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center mx-auto text-rose-500">
               <Heart className="h-8 w-8 text-rose-500" />
             </div>
-            <h3 className={`text-lg font-bold ${themeText}`}>Your wishlist is empty</h3>
+            <h3 className={`text-lg font-bold ${themeText}`}>{t("favorites.empty")}</h3>
             <p className={`text-xs leading-relaxed ${themeTextMuted}`}>
-              Save products while browsing the marketplace to track prices and buy later with 100% buyer protection.
+              {t("favorites.emptySub")}
             </p>
             <div className="flex items-center justify-center gap-3 pt-2 flex-wrap">
               <button
@@ -371,7 +373,7 @@ export default function FavoritesPage() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-indigo-600 hover:brightness-110 px-5 py-2.5 text-xs font-bold text-white shadow-md cursor-pointer transition-all"
               >
                 <Sparkles className="h-3.5 w-3.5" />
-                <span>Load 6 Demo Wishlist Items</span>
+                <span>{t("favorites.loadDemoItems")}</span>
               </button>
               <Link
                 href="/marketplace"
@@ -381,7 +383,7 @@ export default function FavoritesPage() {
                     : "border-white/10 bg-white/5 hover:bg-white/10 text-zinc-200"
                 }`}
               >
-                <span>Browse Marketplace</span>
+                <span>{t("favorites.browseMarketplace")}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -393,17 +395,17 @@ export default function FavoritesPage() {
           <div className="flex items-center justify-between">
             <div>
               <span className="text-xs font-semibold uppercase tracking-wider text-cyan-600 dark:text-cyan-400">
-                Recommended For You
+                {t("favorites.recommendedForYou")}
               </span>
               <h2 className={`mt-0.5 text-lg sm:text-xl font-bold ${themeText}`}>
-                Trending Items to Add to Wishlist
+                {t("favorites.trendingWishlist")}
               </h2>
             </div>
             <Link
               href="/marketplace"
               className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
             >
-              <span>View All</span>
+              <span>{t("home.exploreAll")}</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

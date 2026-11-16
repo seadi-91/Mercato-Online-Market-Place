@@ -28,6 +28,7 @@ import { ProductCard } from "@/components/products/product-card";
 import { QuickViewModal } from "@/components/products/quick-view-modal";
 import { CategoryCard } from "@/components/categories/category-card";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/store/language-store";
 import { MercatoXCardPromo } from "@/components/home/mercatox-card-promo";
 import type { Product, CategoryItem } from "@/constants/mock-data";
 
@@ -88,6 +89,7 @@ function getHomeCategoryPriority(slug: string): number {
 
 function HorizontalProductRow({ section }: HorizontalProductRowProps) {
   const router = useRouter();
+  const { t, tCategory } = useTranslation();
   const rowRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(section.products.length > 4);
@@ -132,11 +134,11 @@ function HorizontalProductRow({ section }: HorizontalProductRowProps) {
                 <Package className="h-4 w-4 text-zinc-700 dark:text-zinc-300" />
               )}
               <h3 className="text-sm sm:text-base md:text-lg font-bold truncate text-foreground tracking-tight">
-                {section.title}
+                {tCategory(section.title)}
               </h3>
             </div>
             <span className="text-[10px] sm:text-xs font-semibold px-2 py-0.5 rounded-full bg-muted text-muted-foreground hidden sm:inline">
-              {section.products.length} items
+              {section.products.length} {t("categories.itemsCount")}
             </span>
           </div>
         </div>
@@ -147,7 +149,7 @@ function HorizontalProductRow({ section }: HorizontalProductRowProps) {
             href={section.viewAllLink}
             className="text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white flex items-center gap-0.5 mr-1 transition-colors hover:underline"
           >
-            <span>See All</span>
+            <span>{t("home.seeAll")}</span>
             <ChevronRight className="h-3.5 w-3.5" />
           </Link>
           <button
@@ -209,6 +211,7 @@ export function HomePageClient({
   initialCategories,
 }: HomePageClientProps) {
   const router = useRouter();
+  const { t } = useTranslation();
   const [quickViewProduct, setQuickViewProduct] = useState<Product | null>(null);
 
   // Filter products for the home page sections (strictly exclude products from excluded categories)
@@ -311,10 +314,10 @@ export function HomePageClient({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">Fast Delivery</h4>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">{t("home.fastDelivery")}</h4>
                     <span className="hidden sm:inline-block rounded-md bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.2 text-[9px] font-bold text-zinc-700 dark:text-zinc-300">Express</span>
                   </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Across Addis Ababa & beyond</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">{t("home.acrossAddis")}</p>
                 </div>
               </div>
 
@@ -324,10 +327,10 @@ export function HomePageClient({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">100% Authentic</h4>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">{t("home.authenticGuaranteed")}</h4>
                     <span className="hidden sm:inline-block rounded-md bg-emerald-100 dark:bg-emerald-900/50 px-1.5 py-0.2 text-[9px] font-bold text-emerald-700 dark:text-emerald-300">Verified</span>
                   </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Direct from vetted suppliers</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">{t("home.fromSuppliers")}</p>
                 </div>
               </div>
 
@@ -337,10 +340,10 @@ export function HomePageClient({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">Local Payments</h4>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">{t("home.localPayments")}</h4>
                     <span className="hidden sm:inline-block rounded-md bg-cyan-100 dark:bg-cyan-900/50 px-1.5 py-0.2 text-[9px] font-bold text-cyan-700 dark:text-cyan-300">Telebirr</span>
                   </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Telebirr, CBE & Cards</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">{t("home.localPaymentsDesc")}</p>
                 </div>
               </div>
 
@@ -350,10 +353,10 @@ export function HomePageClient({
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5">
-                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">Dedicated Support</h4>
+                    <h4 className="text-xs sm:text-sm font-bold text-slate-900 dark:text-white truncate">{t("home.safeEscrow")}</h4>
                     <span className="hidden sm:inline-block rounded-md bg-purple-100 dark:bg-purple-900/50 px-1.5 py-0.2 text-[9px] font-bold text-purple-700 dark:text-purple-300">24/7</span>
                   </div>
-                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">Escrow & buyer guarantee</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 dark:text-slate-400 truncate">{t("home.escrowGuarantee")}</p>
                 </div>
               </div>
             </div>
@@ -364,17 +367,17 @@ export function HomePageClient({
             <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
               <div>
                 <h2 className="text-sm sm:text-base md:text-lg font-bold tracking-tight text-foreground">
-                  Shop by Department
+                  {t("categories.title")}
                 </h2>
                 <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                  Explore top categories and direct marketplace departments
+                  {t("categories.subtitle")}
                 </p>
               </div>
               <Link
                 href="/categories"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-zinc-800 dark:text-zinc-200 hover:text-black dark:hover:text-white hover:underline transition-colors"
               >
-                <span>View All</span>
+                <span>{t("common.viewAll")}</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -403,10 +406,10 @@ export function HomePageClient({
             <div className="flex items-center justify-between border-b border-border/40 pb-2.5">
               <div>
                 <h2 className="text-sm sm:text-base md:text-xl font-bold tracking-tight text-foreground">
-                  Latest Products & Department Feeds
+                  {t("home.latestProducts")}
                 </h2>
                 <p className="text-[11px] sm:text-xs text-muted-foreground mt-0.5">
-                  Fresh arrivals, top sellers, and authentic products updated daily
+                  {t("home.latestProductsSub")}
                 </p>
               </div>
 
@@ -414,7 +417,7 @@ export function HomePageClient({
                 href="/marketplace"
                 className="inline-flex items-center gap-1 text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 transition-colors"
               >
-                <span>Explore All</span>
+                <span>{t("home.exploreAll")}</span>
                 <ChevronRight className="h-3.5 w-3.5" />
               </Link>
             </div>
@@ -440,7 +443,7 @@ export function HomePageClient({
                 href="/marketplace"
                 className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-200 dark:border-indigo-800 bg-white dark:bg-[#11131c] hover:bg-indigo-50 dark:hover:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 px-5 py-2.5 text-xs font-bold transition-all active:scale-95 cursor-pointer shadow-xs"
               >
-                <span>Explore Marketplace Catalog</span>
+                <span>{t("cart.browseMarketplace")}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>

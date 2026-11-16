@@ -28,6 +28,7 @@ import {
   KeyRound,
 } from "lucide-react";
 import { useAuditLogs } from "@/features/admin/hooks/use-admin";
+import { useTranslation } from "@/store/language-store";
 import {
   AuditAction,
   AuditCategory,
@@ -219,6 +220,7 @@ function SkeletonRow() {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export function AdminAuditLogs() {
+  const { t } = useTranslation();
   const { logs, total, totalPages, loading, fetchLogs, refresh } = useAuditLogs();
 
   // Category tab
@@ -324,7 +326,7 @@ export function AdminAuditLogs() {
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search action, actor, IP, target…"
+                placeholder={t("admin.audit.searchPlaceholder", "Search action, actor, IP, target…")}
                 className="h-8 w-full rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition focus:border-indigo-500"
               />
             </div>
@@ -411,14 +413,14 @@ export function AdminAuditLogs() {
             <table className="w-full border-collapse text-left text-xs min-w-[780px]">
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                  <th className="py-2.5 px-3 whitespace-nowrap">Timestamp</th>
-                  <th className="py-2.5 px-3">Sev.</th>
-                  <th className="py-2.5 px-3">Action</th>
-                  <th className="py-2.5 px-3">Role</th>
-                  <th className="py-2.5 px-3">Actor ID</th>
-                  <th className="py-2.5 px-3">Target</th>
-                  <th className="py-2.5 px-3">IP Address</th>
-                  <th className="py-2.5 px-3 text-right">Detail</th>
+                  <th className="py-2.5 px-3 whitespace-nowrap">{t("admin.audit.colTimestamp", "Timestamp")}</th>
+                  <th className="py-2.5 px-3">{t("admin.audit.colSeverity", "Sev.")}</th>
+                  <th className="py-2.5 px-3">{t("admin.audit.colAction", "Action")}</th>
+                  <th className="py-2.5 px-3">{t("admin.users.colRole", "Role")}</th>
+                  <th className="py-2.5 px-3">{t("admin.audit.colActor", "Actor ID")}</th>
+                  <th className="py-2.5 px-3">{t("admin.audit.colDetails", "Target")}</th>
+                  <th className="py-2.5 px-3">IP</th>
+                  <th className="py-2.5 px-3 text-right">{t("admin.catalog.viewDetails", "Detail")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-mono text-[11px]">
@@ -429,7 +431,7 @@ export function AdminAuditLogs() {
                     <td colSpan={8} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-2 text-zinc-500">
                         <ShieldAlert size={28} className="opacity-30" />
-                        <p className="font-sans text-sm">No audit logs found</p>
+                        <p className="font-sans text-sm">{t("admin.audit.noLogs", "No audit logs found")}</p>
                         <p className="font-sans text-[11px] opacity-70">Try adjusting filters, date range, or category tab</p>
                       </div>
                     </td>

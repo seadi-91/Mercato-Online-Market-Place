@@ -17,6 +17,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { api } from "@/services/api/client";
 import type { BackendProduct } from "@/lib/api/catalog";
 import { useAdminUIStore } from "@/store/ui-store";
@@ -76,6 +77,7 @@ function formatDate(value?: string) {
 export default function AdminProductDetailPage() {
   const params = useParams<{ productId: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const setActiveTab = useAdminUIStore((state) => state.setActiveTab);
   const productId = Array.isArray(params.productId) ? params.productId[0] : params.productId;
   const [product, setProduct] = useState<BackendProduct | null>(null);
@@ -154,7 +156,7 @@ export default function AdminProductDetailPage() {
       <div className="flex min-h-[50vh] items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-          <p className="mt-3 text-sm text-zinc-400">Loading product and seller details...</p>
+          <p className="mt-3 text-sm text-zinc-400">{t("admin.details.loadingDetails", "Loading product and seller details...")}</p>
         </div>
       </div>
     );

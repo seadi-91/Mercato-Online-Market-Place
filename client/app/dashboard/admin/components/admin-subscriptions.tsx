@@ -41,9 +41,11 @@ import {
 } from "@/types/subscription";
 import { useSubscriptionStore } from "@/store/subscription-store";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { api } from "@/services/api/client";
 
 export function AdminSubscriptions() {
+  const { t } = useTranslation();
   const {
     plans,
     subscribers,
@@ -305,7 +307,7 @@ export function AdminSubscriptions() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-medium text-zinc-400">Total Active Plans</p>
+            <p className="text-[11px] font-medium text-zinc-400">{t("admin.subscriptions.title", "Total Active Plans")}</p>
             <p className="text-xl font-bold text-white mt-1">
               {plans.filter((p) => p.status === "ACTIVE").length} Plans
             </p>
@@ -317,7 +319,7 @@ export function AdminSubscriptions() {
 
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-medium text-zinc-400">Subscribed Merchants</p>
+            <p className="text-[11px] font-medium text-zinc-400">{t("admin.subscriptions.tabSubscribers", "Subscribed Merchants")}</p>
             <p className="text-xl font-bold text-white mt-1">
               {activeSubscribersCount} Active
             </p>
@@ -341,7 +343,7 @@ export function AdminSubscriptions() {
 
         <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4 flex items-center justify-between">
           <div>
-            <p className="text-[11px] font-medium text-zinc-400">Pending Slips</p>
+            <p className="text-[11px] font-medium text-zinc-400">{t("admin.slips.pendingSlips", "Pending Slips")}</p>
             <p className="text-xl font-bold text-amber-400 mt-1">
               {pendingSlipCount} To Verify
             </p>
@@ -376,7 +378,7 @@ export function AdminSubscriptions() {
                 : "text-zinc-400 hover:text-white"
             }`}
           >
-            <span>Subscribers & Audits</span>
+            <span>{t("admin.subscriptions.tabSubscribers", "Subscribers & Audits")}</span>
             {pendingSlipCount > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-black text-[10px] font-bold">
                 {pendingSlipCount}

@@ -16,6 +16,7 @@ import { toast } from "sonner";
 import { RevenueChart, ChartDataPoint } from "@/components/charts/revenue-chart";
 import { PaymentPieChart, ProviderSlice } from "@/components/charts/pie-chart";
 import { adminAnalyticsService } from "@/features/admin/services/admin.service";
+import { useTranslation } from "@/store/language-store";
 
 interface AdminStatsProps {
   onNavigateTab?: (tab: string) => void;
@@ -162,6 +163,7 @@ const DEFAULT_ANALYTICS: AnalyticsState = {
 };
 
 export function AdminStats({ onNavigateTab }: AdminStatsProps) {
+  const { t } = useTranslation();
   const [data, setData] = useState<AnalyticsState>(DEFAULT_ANALYTICS);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [lastRefreshedAt, setLastRefreshedAt] = useState<string>("Just now");
@@ -318,11 +320,11 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
   // The 4 requested cards: Total Products, Total Orders, Total Users (excluding admin), Total Sellers
   const stats = [
     {
-      title: "Total Products",
+      title: t("admin.overview.totalProducts", "Total Products"),
       value: (overview?.totalProducts ?? 0).toLocaleString(),
-      change: "Active Catalog",
+      change: t("admin.overview.activeInStock", "Active in store"),
       isPositive: true,
-      subtext: "Live items in store",
+      subtext: t("admin.overview.activeInStock", "Live items in store"),
       icon: Package,
       color: "from-blue-500/20 to-cyan-500/5",
       borderColor: "border-blue-500/30",
@@ -330,11 +332,11 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
       sparkline: [25, 40, 50, 65, 75, 85, 100],
     },
     {
-      title: "Total Orders",
+      title: t("admin.overview.totalOrders", "Total Orders"),
       value: (overview?.totalOrders ?? 0).toLocaleString(),
       change: `ETB ${(overview?.totalGmv ?? 0).toLocaleString()}`,
       isPositive: true,
-      subtext: "Customer orders processed",
+      subtext: t("admin.overview.ordersProcessed", "Customer orders processed"),
       icon: ShoppingBag,
       color: "from-emerald-500/20 to-teal-500/5",
       borderColor: "border-emerald-500/30",
@@ -342,11 +344,11 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
       sparkline: sparklines?.gmv || [15, 20, 15, 65, 15, 15, 100],
     },
     {
-      title: "Total Users",
+      title: t("admin.overview.totalUsers", "Total Users"),
       value: (overview?.totalUsers ?? 0).toLocaleString(),
-      change: "Regular Buyers",
+      change: t("admin.overview.regularBuyers", "Regular Buyers"),
       isPositive: true,
-      subtext: "Registered customers (excl. admin)",
+      subtext: t("admin.overview.registeredCustomers", "Registered customers (excl. admin)"),
       icon: Users,
       color: "from-violet-500/20 to-purple-500/5",
       borderColor: "border-violet-500/30",
@@ -354,11 +356,11 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
       sparkline: [30, 45, 55, 60, 70, 80, 95],
     },
     {
-      title: "Total Sellers",
+      title: t("admin.overview.totalSellers", "Total Sellers"),
       value: (overview?.totalSellers ?? 0).toLocaleString(),
-      change: "Verified Merchants",
+      change: t("admin.overview.verifiedMerchants", "Verified Merchants"),
       isPositive: true,
-      subtext: "Registered store merchants",
+      subtext: t("admin.overview.registeredMerchants", "Registered store merchants"),
       icon: Store,
       color: "from-amber-500/20 to-orange-500/5",
       borderColor: "border-amber-500/30",
@@ -378,7 +380,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
   const pipelineStatuses = [
     {
       key: "CONFIRMED",
-      label: "Confirmed Orders",
+      label: t("admin.overview.confirmedOrders", "Confirmed Orders"),
       count: statusBreakdown?.CONFIRMED?.count || 0,
       amount: statusBreakdown?.CONFIRMED?.totalAmount || 0,
       color: "border-sky-500/40 bg-sky-500/10 text-sky-300",
@@ -386,7 +388,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
     },
     {
       key: "PROCESSING",
-      label: "In Processing / Prep",
+      label: t("admin.overview.inProcessing", "In Processing / Prep"),
       count:
         (statusBreakdown?.PROCESSING?.count || 0) +
         (statusBreakdown?.READY_FOR_PICKUP?.count || 0),
@@ -398,7 +400,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
     },
     {
       key: "IN_TRANSIT",
-      label: "In Transit / Delivery",
+      label: t("admin.overview.inTransit", "In Transit / Delivery"),
       count: statusBreakdown?.IN_TRANSIT?.count || 0,
       amount: statusBreakdown?.IN_TRANSIT?.totalAmount || 0,
       color: "border-blue-500/40 bg-blue-500/10 text-blue-300",
@@ -406,7 +408,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
     },
     {
       key: "DELIVERED",
-      label: "Delivered & Cleared",
+      label: t("admin.overview.deliveredCleared", "Delivered & Cleared"),
       count: statusBreakdown?.DELIVERED?.count || 0,
       amount: statusBreakdown?.DELIVERED?.totalAmount || 0,
       color: "border-emerald-500/40 bg-emerald-500/10 text-emerald-300",
@@ -414,7 +416,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
     },
     {
       key: "CANCELLED",
-      label: "Cancelled / Returned",
+      label: t("admin.overview.cancelledReturned", "Cancelled / Returned"),
       count: statusBreakdown?.CANCELLED?.count || 0,
       amount: statusBreakdown?.CANCELLED?.totalAmount || 0,
       color: "border-rose-500/40 bg-rose-500/10 text-rose-300",
@@ -434,21 +436,21 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
               <h2 className="text-xs font-bold uppercase tracking-wider text-white">
-                Platform Analytics & Overview
+                {t("admin.overview.title", "Platform Analytics & Overview")}
               </h2>
               <span className="rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-300 border border-emerald-500/20">
-                Backend Synced
+                {t("admin.overview.backendSynced", "Backend Synced")}
               </span>
             </div>
             <p className="text-[10px] text-zinc-400 mt-0.5">
-              Real-time transaction volume, order pipelines, and marketplace metrics.
+              {t("admin.overview.subtitle", "Real-time transaction volume, order pipelines, and marketplace metrics.")}
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <span className="text-[10.5px] font-mono text-zinc-400">
-            Updated: <span className="text-zinc-200">{lastRefreshedAt}</span>
+            {t("admin.overview.updated", "Updated")}: <span className="text-zinc-200">{lastRefreshedAt}</span>
           </span>
           <button
             onClick={() => loadAnalytics(true)}
@@ -460,7 +462,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
                 isRefreshing ? "animate-spin text-cyan-400" : ""
               }`}
             />
-            <span>{isRefreshing ? "Refreshing..." : "Refresh"}</span>
+            <span>{isRefreshing ? t("admin.nav.refreshing", "Refreshing...") : t("admin.nav.refresh", "Refresh")}</span>
           </button>
         </div>
       </div>
@@ -545,17 +547,17 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
           <div className="flex items-center gap-2">
             <ShoppingBag className="h-4 w-4 text-sky-400" />
             <h4 className="text-xs font-semibold text-white">
-              Order Fulfillment Pipeline
+              {t("admin.overview.orderFulfillmentPipeline", "Order Fulfillment Pipeline")}
             </h4>
             <span className="rounded bg-sky-500/10 px-2 py-0.2 text-[9.5px] font-semibold text-sky-300 border border-sky-500/20">
-              {overview?.totalOrders ?? 0} Total Orders
+              {overview?.totalOrders ?? 0} {t("admin.overview.totalOrders", "Total Orders")}
             </span>
           </div>
           <button
             onClick={() => onNavigateTab && onNavigateTab("orders")}
             className="flex items-center gap-1 text-[10.5px] text-zinc-400 hover:text-white transition-colors cursor-pointer"
           >
-            <span>View All Orders</span>
+            <span>{t("admin.overview.viewAllOrders", "View All Orders")}</span>
             <ExternalLink className="h-2.5 w-2.5" />
           </button>
         </div>
@@ -578,7 +580,7 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
                 </span>
               </div>
               <div className="mt-1.5 flex items-baseline justify-between border-t border-white/5 pt-1">
-                <span className="text-[9.5px] text-zinc-400">Volume</span>
+                <span className="text-[9.5px] text-zinc-400">{t("admin.overview.volume", "Volume")}</span>
                 <span className="text-[10.5px] font-mono font-semibold text-white">
                   ETB {(st.amount ?? 0).toLocaleString()}
                 </span>
@@ -594,13 +596,13 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
           <div className="flex items-center gap-1.5">
             <Server className="h-3.5 w-3.5 text-emerald-400" />
             <h4 className="text-xs font-semibold text-white">
-              Cluster Microservices Fleet Health
+              {t("admin.overview.clusterFleetHealth", "Cluster Microservices Fleet Health")}
             </h4>
           </div>
           <div className="flex items-center gap-1">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
             <span className="text-[10px] font-mono text-emerald-300">
-              5 of 5 Operational · All Services Healthy
+              {t("admin.overview.operationalHealthy", "5 of 5 Operational · All Services Healthy")}
             </span>
           </div>
         </div>

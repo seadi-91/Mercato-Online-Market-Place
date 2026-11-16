@@ -24,6 +24,7 @@ import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useAuthStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import {
   fetchCustomerOrders,
   hideOrderForCustomer,
@@ -34,6 +35,7 @@ import { toast } from "sonner";
 
 function OrdersPageContent() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [orders, setOrders] = useState<CustomerOrder[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedOrderForView, setSelectedOrderForView] = useState<CustomerOrder | null>(null);
@@ -108,14 +110,14 @@ function OrdersPageContent() {
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
             <CheckCircle2 className="h-3 w-3" />
-            <span>Delivered</span>
+            <span>{t("orders.statusDelivered")}</span>
           </span>
         );
       case "IN_TRANSIT":
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-cyan-500/15 border border-cyan-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-cyan-600 dark:text-cyan-400">
             <Truck className="h-3 w-3" />
-            <span>In Transit</span>
+            <span>{t("orders.inTransit")}</span>
           </span>
         );
       case "READY_FOR_PICKUP":
@@ -123,14 +125,14 @@ function OrdersPageContent() {
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-600 dark:text-indigo-400">
             <Clock className="h-3 w-3" />
-            <span>Processing</span>
+            <span>{t("orders.statusProcessing")}</span>
           </span>
         );
       default:
         return (
           <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-semibold text-amber-600 dark:text-amber-400">
             <ShieldCheck className="h-3 w-3" />
-            <span>Confirmed & Paid</span>
+            <span>{t("orders.confirmedPaid")}</span>
           </span>
         );
     }
@@ -161,14 +163,14 @@ function OrdersPageContent() {
           <div>
             <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400 mb-1">
               <Link href="/profile" className="hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors">
-                Profile
+                {t("nav.profile")}
               </Link>
               <span>/</span>
-              <span className="text-zinc-800 dark:text-zinc-200 font-medium">Orders</span>
+              <span className="text-zinc-800 dark:text-zinc-200 font-medium">{t("orders.title")}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white flex items-center gap-2.5">
               <Package className="h-6 w-6 text-indigo-500 dark:text-indigo-400" />
-              <span>My Orders</span>
+              <span>{t("orders.title")}</span>
               <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-zinc-200 dark:bg-white/10 text-zinc-700 dark:text-zinc-300">
                 {orders.length}
               </span>
@@ -182,7 +184,7 @@ function OrdersPageContent() {
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-white/5 hover:bg-zinc-50 dark:hover:bg-white/10 text-xs font-semibold text-zinc-700 dark:text-zinc-300 shadow-sm active:scale-95 transition-all cursor-pointer self-start sm:self-auto"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? "animate-spin" : ""}`} />
-            <span>Refresh</span>
+            <span>{t("common.reset")}</span>
           </button>
         </div>
 
@@ -190,7 +192,7 @@ function OrdersPageContent() {
         {isLoading ? (
           <div className="py-20 text-center space-y-3">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-            <p className="text-xs text-zinc-500 dark:text-zinc-400">Loading your orders...</p>
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">{t("common.loading")}</p>
           </div>
         ) : orders.length === 0 ? (
           <div className="rounded-3xl border border-zinc-200 dark:border-white/10 bg-white dark:bg-[#0b101f] p-12 text-center space-y-4 shadow-xl">
@@ -198,9 +200,9 @@ function OrdersPageContent() {
               <Package className="h-8 w-8" />
             </div>
             <div className="space-y-1">
-              <h3 className="text-base font-bold text-zinc-900 dark:text-white">No orders placed yet</h3>
+              <h3 className="text-base font-bold text-zinc-900 dark:text-white">{t("orders.empty")}</h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                Your protected purchases will appear here sorted by order date.
+                {t("orders.emptySub")}
               </p>
             </div>
             <Link
@@ -208,7 +210,7 @@ function OrdersPageContent() {
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 px-5 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 hover:brightness-110 active:scale-95 transition-all"
             >
               <ShoppingBag className="h-4 w-4" />
-              <span>Explore Marketplace</span>
+              <span>{t("cart.browseMarketplace")}</span>
             </Link>
           </div>
         ) : (
@@ -229,7 +231,7 @@ function OrdersPageContent() {
                     <div className="space-y-1.5">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                          Order ID:
+                          {t("orders.orderId")}:
                         </span>
                         <span className="text-sm font-bold text-zinc-900 dark:text-white font-mono">
                           {order.orderNumber}
@@ -255,7 +257,7 @@ function OrdersPageContent() {
                         <span>•</span>
 
                         <div className="flex items-center gap-1.5 font-mono text-[11.5px]">
-                          <span className="text-zinc-400 dark:text-zinc-500 font-sans text-xs">Payment ID:</span>
+                          <span className="text-zinc-400 dark:text-zinc-500 font-sans text-xs">{t("orders.paymentId")}:</span>
                           <span className="text-zinc-700 dark:text-zinc-300 font-semibold truncate max-w-[170px] sm:max-w-xs">
                             {order.txRef}
                           </span>
@@ -267,7 +269,7 @@ function OrdersPageContent() {
                     <div className="flex items-center justify-between sm:justify-end gap-4 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-100 dark:border-white/5">
                       <div className="text-left sm:text-right">
                         <span className="text-[10px] text-zinc-400 uppercase font-semibold block">
-                          Total Price:
+                          {t("orders.totalPrice")}:
                         </span>
                         <span className="text-base sm:text-lg font-black text-indigo-600 dark:text-indigo-400 font-mono">
                           {order.totalAmount.toLocaleString()} ETB
@@ -281,7 +283,7 @@ function OrdersPageContent() {
                         className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white text-xs font-bold shadow-md shadow-indigo-500/20 active:scale-95 transition-all cursor-pointer shrink-0"
                       >
                         <Eye className="h-3.5 w-3.5" />
-                        <span>View Details</span>
+                        <span>{t("orders.viewDetails")}</span>
                       </button>
 
                       {/* Delete Order (Trash Icon) */}
@@ -292,7 +294,7 @@ function OrdersPageContent() {
                           setOrderToDelete(order);
                         }}
                         className="p-2 rounded-xl bg-rose-50 dark:bg-rose-950/40 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 border border-rose-200/60 dark:border-rose-800/60 transition-colors cursor-pointer shrink-0"
-                        title="Delete Order (Remove from list)"
+                        title={t("orders.deleteOrder")}
                       >
                         <Trash2 className="h-4 w-4" />
                       </button>
@@ -317,12 +319,12 @@ function OrdersPageContent() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wider">
-                      Order Details
+                      {t("orders.detailsTitle")}
                     </span>
                     {getStatusBadge(selectedOrderForView.status)}
                     <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10.5px] font-semibold text-indigo-600 dark:text-indigo-400">
                       <ShieldCheck className="h-3 w-3" />
-                      <span>100% Buyer Protected</span>
+                      <span>{t("orders.buyerProtected")}</span>
                     </span>
                   </div>
 
@@ -333,7 +335,7 @@ function OrdersPageContent() {
                   <p className="text-xs text-zinc-500 dark:text-zinc-400 flex items-center gap-1.5">
                     <Calendar className="h-3.5 w-3.5" />
                     <span>
-                      Ordered on{" "}
+                      {t("orders.orderedOn")}{" "}
                       {new Date(selectedOrderForView.createdAt).toLocaleDateString("en-US", {
                         weekday: "short",
                         month: "short",
@@ -350,7 +352,7 @@ function OrdersPageContent() {
                   type="button"
                   onClick={() => setSelectedOrderForView(null)}
                   className="p-1.5 rounded-xl bg-zinc-100 dark:bg-white/5 hover:bg-zinc-200 dark:hover:bg-white/10 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors cursor-pointer"
-                  title="Close"
+                  title={t("orders.closeModal")}
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -360,24 +362,24 @@ function OrdersPageContent() {
               <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200/80 dark:border-white/5 p-4 space-y-3 text-xs">
                 <div className="flex items-center gap-2 text-zinc-900 dark:text-white font-bold border-b border-zinc-200/60 dark:border-white/5 pb-2">
                   <CreditCard className="h-4 w-4 text-indigo-500" />
-                  <span>Payment & Transaction Identification</span>
+                  <span>{t("orders.paymentIdentification")}</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-zinc-400 block text-[10.5px]">Payment Method:</span>
+                    <span className="text-zinc-400 block text-[10.5px]">{t("orders.paymentMethod")}:</span>
                     <span className="font-semibold text-zinc-800 dark:text-zinc-200">
-                      {selectedOrderForView.paymentMethod || "Chapa Hosted Gateway (Telebirr / CBE / Card)"}
+                      {selectedOrderForView.paymentMethod || "Telebirr / CBE / Chapa"}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-zinc-400 block text-[10.5px]">Payment Status:</span>
+                    <span className="text-zinc-400 block text-[10.5px]">{t("orders.paymentStatus")}:</span>
                     <span className="font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
                       <CheckCircle2 className="h-3.5 w-3.5" />
                       <span>
                         {selectedOrderForView.paymentStatus === "PAID"
-                          ? "Paid & Secured in Escrow"
+                          ? t("orders.paidInEscrow")
                           : selectedOrderForView.paymentStatus}
                       </span>
                     </span>
@@ -385,88 +387,75 @@ function OrdersPageContent() {
 
                   <div className="sm:col-span-2 flex items-center justify-between p-2.5 rounded-xl bg-white dark:bg-black/30 border border-zinc-200 dark:border-white/10">
                     <div>
-                      <span className="text-zinc-400 block text-[10px]">Payment ID (Transaction Reference):</span>
+                      <span className="text-zinc-400 block text-[10px]">{t("orders.paymentId")}:</span>
                       <span className="font-mono font-bold text-zinc-900 dark:text-white text-xs">
                         {selectedOrderForView.txRef}
                       </span>
                     </div>
                     <button
                       type="button"
-                      onClick={() => handleCopyText(selectedOrderForView.txRef, "Transaction reference")}
+                      onClick={() => handleCopyText(selectedOrderForView.txRef, t("orders.paymentId"))}
                       className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-700 dark:text-zinc-200 text-xs transition-colors cursor-pointer"
                     >
                       <Copy className="h-3 w-3" />
-                      <span>{copiedTxRef ? "Copied!" : "Copy"}</span>
+                      <span>{copiedTxRef ? t("orders.copiedTx") : t("orders.copyTx")}</span>
                     </button>
                   </div>
                 </div>
               </div>
 
-              {/* Delivery Information Block ("delivery information hulum ymula") */}
+              {/* Delivery Information Block */}
               <div className="rounded-2xl bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200/80 dark:border-white/5 p-4 space-y-3 text-xs">
                 <div className="flex items-center gap-2 text-zinc-900 dark:text-white font-bold border-b border-zinc-200/60 dark:border-white/5 pb-2">
                   <Truck className="h-4 w-4 text-cyan-500" />
-                  <span>Doorstep Delivery Information</span>
+                  <span>{t("orders.doorstepDelivery")}</span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <span className="text-zinc-400 block text-[10.5px]">Recipient Full Name:</span>
+                    <span className="text-zinc-400 block text-[10.5px]">{t("orders.recipientName")}:</span>
                     <span className="font-semibold text-zinc-800 dark:text-zinc-200">
                       {selectedOrderForView.deliveryAddress?.recipientName || "Customer"}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-zinc-400 block text-[10.5px]">Phone Number (for SMS OTP):</span>
+                    <span className="text-zinc-400 block text-[10.5px]">{t("orders.phoneForOtp")}:</span>
                     <span className="font-mono font-semibold text-zinc-800 dark:text-zinc-200">
                       {selectedOrderForView.deliveryAddress?.phone || "Phone Provided"}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-zinc-400 block text-[10.5px]">City:</span>
+                    <span className="text-zinc-400 block text-[10.5px]">{t("orders.city")}:</span>
                     <span className="font-semibold text-zinc-800 dark:text-zinc-200">
                       {selectedOrderForView.deliveryAddress?.city || "Addis Ababa"}
                     </span>
                   </div>
 
                   <div>
-                    <span className="text-zinc-400 block text-[10.5px]">Addis Ababa Subcity:</span>
+                    <span className="text-zinc-400 block text-[10.5px]">{t("orders.subcity")}:</span>
                     <span className="font-semibold text-zinc-800 dark:text-zinc-200">
                       {selectedOrderForView.deliveryAddress?.subCity || "Addis Ababa"}
                     </span>
                   </div>
 
                   <div className="sm:col-span-2">
-                    <span className="text-zinc-400 block text-[10.5px]">Specific Address / Building / Landmark:</span>
+                    <span className="text-zinc-400 block text-[10.5px]">{t("orders.specificAddress")}:</span>
                     <span className="font-medium text-zinc-800 dark:text-zinc-200">
                       {selectedOrderForView.deliveryAddress?.specificLocation || "Specific Location Provided"}
                     </span>
                   </div>
-
-                  {selectedOrderForView.notes && (
-                    <div className="sm:col-span-2 p-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300">
-                      <span className="font-bold text-[10.5px] block">Courier Instructions:</span>
-                      <span>{selectedOrderForView.notes}</span>
-                    </div>
-                  )}
                 </div>
               </div>
 
-              {/* 
-                PRODUCTS WITH IMAGES & QUANTITIES:
-                Detailed list of all products, quantities, prices, and images ONLY shown here!
-              */}
+              {/* PRODUCTS LIST */}
               <div className="space-y-3">
                 <div className="flex items-center justify-between">
                   <h4 className="text-xs font-bold text-zinc-900 dark:text-white uppercase tracking-wider flex items-center gap-1.5">
                     <Package className="h-4 w-4 text-indigo-500" />
-                    <span>Ordered Products ({selectedOrderForView.items?.length || 0})</span>
+                    <span>{t("orders.orderedProducts")} ({selectedOrderForView.items?.length || 0})</span>
                   </h4>
-                  <span className="text-[11px] text-zinc-400 font-mono">
-                    Product Breakdown
-                  </span>
                 </div>
 
                 <div className="space-y-2">
@@ -488,15 +477,9 @@ function OrdersPageContent() {
                           <h5 className="font-bold text-zinc-900 dark:text-white truncate">
                             {it.productTitle}
                           </h5>
-                          {(it.selectedSize || it.selectedColor) && (
-                            <p className="text-[10.5px] text-zinc-500 dark:text-zinc-400">
-                              {it.selectedSize && `Size: ${it.selectedSize} `}
-                              {it.selectedColor && `Color: ${it.selectedColor}`}
-                            </p>
-                          )}
                           <div className="mt-1 flex items-center gap-2 font-mono text-[11.5px]">
                             <span className="px-2 py-0.5 rounded-md bg-zinc-200/70 dark:bg-white/10 text-zinc-800 dark:text-zinc-200 font-bold">
-                              Quantity: {it.quantity}
+                              {t("orders.quantity")}: {it.quantity}
                             </span>
                             <span className="text-zinc-400">
                               × {it.unitPrice.toLocaleString()} ETB
@@ -506,7 +489,7 @@ function OrdersPageContent() {
                       </div>
 
                       <div className="text-right shrink-0">
-                        <span className="text-[10px] text-zinc-400 block font-medium">Subtotal</span>
+                        <span className="text-[10px] text-zinc-400 block font-medium">{t("orders.subtotalPrice")}</span>
                         <span className="font-mono font-bold text-zinc-900 dark:text-white text-sm">
                           {it.totalPrice.toLocaleString()} ETB
                         </span>
@@ -519,25 +502,25 @@ function OrdersPageContent() {
               {/* Financial Calculation Breakdown */}
               <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-white/[0.02] border border-zinc-200/80 dark:border-white/5 space-y-2 text-xs">
                 <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                  <span>Items Subtotal</span>
+                  <span>{t("orders.subtotalPrice")}</span>
                   <span className="font-mono text-zinc-900 dark:text-white">
                     {selectedOrderForView.subtotalAmount.toLocaleString()} ETB
                   </span>
                 </div>
                 <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                  <span>Doorstep Courier Delivery</span>
+                  <span>{t("orders.courierFee")}</span>
                   <span className="font-mono text-zinc-900 dark:text-white">
-                    {selectedOrderForView.deliveryFee === 0 ? "FREE" : `${selectedOrderForView.deliveryFee.toLocaleString()} ETB`}
+                    {selectedOrderForView.deliveryFee === 0 ? t("orders.freeBadge") : `${selectedOrderForView.deliveryFee.toLocaleString()} ETB`}
                   </span>
                 </div>
                 <div className="flex justify-between text-zinc-500 dark:text-zinc-400">
-                  <span>Escrow Protection Protocol</span>
+                  <span>{t("orders.escrowProtocol")}</span>
                   <span className="font-bold text-indigo-600 dark:text-indigo-400">
-                    100% Covered (0 ETB)
+                    {t("orders.buyerProtected")}
                   </span>
                 </div>
                 <div className="pt-2 border-t border-zinc-200 dark:border-white/10 flex justify-between font-bold text-sm sm:text-base text-zinc-900 dark:text-white">
-                  <span>Total Amount Paid</span>
+                  <span>{t("orders.totalPaid")}</span>
                   <span className="font-mono text-indigo-600 dark:text-indigo-400">
                     {selectedOrderForView.totalAmount.toLocaleString()} ETB
                   </span>
@@ -557,7 +540,7 @@ function OrdersPageContent() {
                     className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-indigo-300 dark:border-indigo-500/30 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-500/10 dark:hover:bg-indigo-500/20 text-indigo-700 dark:text-indigo-400 text-xs font-bold transition-colors cursor-pointer"
                   >
                     <Printer className="h-3.5 w-3.5" />
-                    <span>Print Receipt</span>
+                    <span>{t("orders.printReceipt")}</span>
                   </button>
 
                   {/* Delete Order Button */}
@@ -567,10 +550,10 @@ function OrdersPageContent() {
                       setOrderToDelete(selectedOrderForView);
                     }}
                     className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-rose-200 dark:border-rose-800/60 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/40 dark:hover:bg-rose-900/60 text-rose-600 dark:text-rose-400 text-xs font-bold transition-colors cursor-pointer"
-                    title="Delete Order"
+                    title={t("orders.deleteOrder")}
                   >
                     <Trash2 className="h-3.5 w-3.5" />
-                    <span>Delete</span>
+                    <span>{t("orders.deleteOrder")}</span>
                   </button>
                 </div>
 
@@ -579,7 +562,7 @@ function OrdersPageContent() {
                   onClick={() => setSelectedOrderForView(null)}
                   className="px-6 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 dark:bg-white/10 dark:hover:bg-white/15 text-zinc-800 dark:text-white text-xs font-bold transition-colors cursor-pointer"
                 >
-                  Close
+                  {t("orders.closeModal")}
                 </button>
               </div>
             </div>

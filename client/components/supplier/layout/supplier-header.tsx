@@ -26,6 +26,7 @@ import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LanguageSelector } from "@/components/common/language-selector";
 import { toast } from "sonner";
 
 export function SupplierHeader() {
@@ -243,6 +244,11 @@ export function SupplierHeader() {
               </div>
             </>
           )}
+        </div>
+
+        {/* Multi-Language Selector */}
+        <div className="shrink-0">
+          <LanguageSelector />
         </div>
 
         {/* Theme Toggle (Light / Dark / System) */}

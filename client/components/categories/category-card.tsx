@@ -4,6 +4,7 @@ import React, { useMemo } from "react";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { CategoryItem, Product } from "@/constants/mock-data";
+import { useTranslation } from "@/store/language-store";
 
 export interface CategoryCardProps {
   category: CategoryItem;
@@ -18,6 +19,7 @@ export function CategoryCard({
   products = [],
   className = "",
 }: CategoryCardProps) {
+  const { t, tCategory } = useTranslation();
   // Strictly match real products belonging to this exact category
   const matchingProducts = useMemo(() => {
     return products.filter((p) => {
@@ -110,7 +112,7 @@ export function CategoryCard({
         {/* Top-left item count badge */}
         {displayCount > 0 && (
           <span className="absolute top-2.5 left-2.5 z-20 rounded-full bg-gradient-to-r from-indigo-600 to-indigo-500 px-2.5 py-0.5 text-[9.5px] sm:text-[10px] font-bold text-white shadow-md shadow-indigo-600/30 tracking-tight">
-            {displayCount}+ items
+            {displayCount}+ {t("categories.itemsCount")}
           </span>
         )}
 
@@ -118,11 +120,11 @@ export function CategoryCard({
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-300 z-20 flex flex-col items-center justify-end pb-3 sm:pb-3.5 px-2">
           <div className="text-center text-white transform translate-y-3 group-hover:translate-y-0 transition-transform duration-300 space-y-1">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/20 backdrop-blur-md border border-white/30 text-white text-[11px] font-bold shadow-lg">
-              <span>Explore Collection</span>
+              <span>{t("categories.exploreCollections")}</span>
               <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
             </div>
             <p className="text-[10px] font-medium opacity-85 truncate max-w-[140px] mx-auto text-zinc-200">
-              {category.name}
+              {tCategory(category.name)}
             </p>
           </div>
         </div>
@@ -132,10 +134,10 @@ export function CategoryCard({
       <div className="px-3.5 py-3.5 sm:py-4 flex items-center justify-between gap-2 bg-white/95 dark:bg-[#11131c]/95 backdrop-blur-sm">
         <div className="min-w-0 flex-1">
           <h3 className="text-xs sm:text-[13px] md:text-sm font-bold text-slate-900 dark:text-white line-clamp-1 leading-tight tracking-tight group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
-            {category.name}
+            {tCategory(category.name)}
           </h3>
           <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-0.5 truncate">
-            Explore verified collection
+            {t("categories.exploreVerified")}
           </p>
         </div>
 

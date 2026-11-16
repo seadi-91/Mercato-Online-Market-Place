@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Product } from "@/constants/mock-data";
 import { useCartStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import { toast } from "sonner";
 import { getProductTradeInfo } from "@/lib/product-classification";
 
@@ -32,6 +33,7 @@ export function QuickViewModal({
   isOpen,
   onClose,
 }: QuickViewModalProps) {
+  const { t, tCategory, tZone } = useTranslation();
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [isAdded, setIsAdded] = useState(false);
@@ -183,7 +185,7 @@ export function QuickViewModal({
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-                  {product.category || product.shopName}
+                  {tCategory(product.category || product.shopName)}
                 </span>
 
                 <button
@@ -238,16 +240,16 @@ export function QuickViewModal({
               <div className="pt-1">
                 {isSoldOut ? (
                   <span className="inline-block px-2 py-0.5 rounded-md bg-rose-100 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 text-xs font-bold">
-                    Currently Out of Stock
+                    {t("product.outOfStock")}
                   </span>
                 ) : product.stock <= 5 ? (
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 text-xs font-semibold">
                     <span className="h-1.5 w-1.5 rounded-full bg-rose-500 animate-pulse" />
-                    Only {product.stock} items left in stock
+                    {product.stock} {t("product.onlyLeft")}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
-                    In Stock · Ready to dispatch
+                    {t("product.inStock")}
                   </span>
                 )}
               </div>
@@ -262,7 +264,7 @@ export function QuickViewModal({
             {/* Delivery Promise */}
             <div className="rounded-xl border border-slate-100 dark:border-white/5 bg-slate-50/70 dark:bg-white/[0.02] p-2.5 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
               <Truck className="h-4 w-4 text-indigo-600 dark:text-indigo-400 shrink-0" />
-              <span>Fast local delivery across Addis Ababa (Express available)</span>
+              <span>{t("home.fastDelivery")}</span>
             </div>
 
             {/* Actions: Quantity Selector & Add to Cart */}
@@ -305,12 +307,12 @@ export function QuickViewModal({
                   {isAdded ? (
                     <>
                       <Check className="h-4 w-4" />
-                      <span>Added to Cart</span>
+                      <span>{t("product.addToCart")}</span>
                     </>
                   ) : (
                     <>
                       <ShoppingCart className="h-4 w-4" />
-                      <span>Add to Cart · ETB {(product.price * quantity).toLocaleString()}</span>
+                      <span>{t("product.addToCart")} · ETB {(product.price * quantity).toLocaleString()}</span>
                     </>
                   )}
                 </button>
@@ -322,7 +324,7 @@ export function QuickViewModal({
                 onClick={onClose}
                 className="w-full text-center text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline flex items-center justify-center gap-1 pt-1"
               >
-                <span>View Full Product Specifications</span>
+                <span>{t("home.viewProduct")}</span>
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>

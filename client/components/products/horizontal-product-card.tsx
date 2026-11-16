@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Product } from "@/constants/mock-data";
 import { useCartStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import { toast } from "sonner";
 import { getProductTradeInfo, TradeType } from "@/lib/product-classification";
 
@@ -32,6 +33,7 @@ export function HorizontalProductCard({
   hideBadges = false,
 }: HorizontalProductCardProps) {
   const router = useRouter();
+  const { t, tCategory } = useTranslation();
   const addItem = useCartStore((state) => state.addItem);
   const toggleFavorite = useCartStore((state) => state.toggleFavorite);
   const isFavorite = useCartStore((state) => state.isFavorite);
@@ -189,7 +191,7 @@ export function HorizontalProductCard({
         {isSoldOut && (
           <div className="absolute inset-0 bg-background/60 backdrop-blur-[1px] flex items-center justify-center z-15">
             <span className="bg-slate-900/90 dark:bg-white/90 text-white dark:text-slate-900 text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded shadow-xs">
-              Sold Out
+              {t("product.soldOut")}
             </span>
           </div>
         )}
@@ -198,7 +200,7 @@ export function HorizontalProductCard({
       {/* Center: Metadata, Product Name & Rating */}
       <div className="flex-1 min-w-0 space-y-1">
         <p className="text-[8px] sm:text-[9px] font-bold uppercase tracking-wider text-muted-foreground truncate">
-          {product.brand || product.category || product.shopName}
+          {tCategory(product.brand || product.category || product.shopName)}
         </p>
 
         <Link
@@ -252,12 +254,14 @@ export function HorizontalProductCard({
           {isAdded ? (
             <>
               <Check className="w-2.5 h-2.5" />
-              <span>Added</span>
+              <span>{t("common.inStock")}</span>
             </>
+          ) : isSoldOut ? (
+            <span>{t("product.soldOut")}</span>
           ) : (
             <>
               <ShoppingCart className="w-2.5 h-2.5" />
-              <span>+Add</span>
+              <span>{t("common.addToCart")}</span>
             </>
           )}
         </button>

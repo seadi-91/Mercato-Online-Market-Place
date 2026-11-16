@@ -80,10 +80,12 @@ export function RoleAuthGuard({
 
   if (!mounted || !hasHydrated) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-[#070a10]">
-        <div className="flex items-center gap-3 text-zinc-300">
+      <div suppressHydrationWarning className="flex h-screen w-full items-center justify-center bg-[#070a10]">
+        <div suppressHydrationWarning className="flex items-center gap-3 text-zinc-300">
           <RefreshCw className="h-5 w-5 animate-spin text-zinc-400" />
-          <span className="text-sm font-medium">{loadingMessage}</span>
+          <span suppressHydrationWarning className="text-sm font-medium">
+            {mounted ? loadingMessage : "Verifying security clearance..."}
+          </span>
         </div>
       </div>
     );

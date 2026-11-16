@@ -11,12 +11,14 @@ import {
   User,
 } from "lucide-react";
 import { useCartStore, useAuthStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 
 export function CustomerBottomNav() {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const cartCount = useCartStore((state) => state.getItemCount());
   const { isAuthenticated, user, hasHydrated } = useAuthStore();
+  const { t } = useTranslation();
 
   useEffect(() => {
     setMounted(true);
@@ -26,26 +28,26 @@ export function CustomerBottomNav() {
 
   const navItems = [
     {
-      label: "Home",
+      label: t("nav.home"),
       href: "/",
       icon: Home,
       isActive: pathname === "/",
     },
     {
-      label: "Explore",
+      label: t("nav.explore"),
       href: "/marketplace",
       icon: LayoutGrid,
       isActive: pathname === "/marketplace",
     },
     {
-      label: "Cart",
+      label: t("nav.cart"),
       href: "/cart",
       icon: ShoppingCart,
       isActive: pathname === "/cart",
       badge: mounted && cartCount > 0 ? cartCount : undefined,
     },
     {
-      label: "Orders",
+      label: t("nav.orders"),
       href: "/orders",
       icon: Package,
       isActive: pathname === "/orders",
@@ -53,13 +55,13 @@ export function CustomerBottomNav() {
     {
       label: isUserLoggedIn
         ? user?.role === "ADMIN"
-          ? "Admin"
+          ? t("nav.adminDashboard")
           : user?.role === "SUPPLIER"
-            ? "Supplier"
+            ? t("nav.supplierDashboard")
             : user?.role === "SELLER"
-              ? "Seller"
-              : "Profile"
-        : "Login",
+              ? t("nav.sellerDashboard")
+              : t("nav.profile")
+        : t("nav.signIn"),
       href: isUserLoggedIn
         ? user?.role === "ADMIN"
           ? "/dashboard/admin"

@@ -39,6 +39,7 @@ import {
   Search,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import {
   adminSupplierService,
   type SupplierStaff,
@@ -56,6 +57,7 @@ export function AdminSupplierDetail({
   supplierId,
   onBack,
 }: AdminSupplierDetailProps) {
+  const { t } = useTranslation();
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
@@ -192,7 +194,7 @@ export function AdminSupplierDetail({
       <div className={`flex flex-col items-center justify-center py-28 rounded-2xl border ${cardBg} space-y-4`}>
         <RefreshCw className="h-9 w-9 animate-spin text-indigo-500" />
         <div className="text-center">
-          <p className={`text-sm font-bold ${textHeading}`}>Loading Supplier Records...</p>
+          <p className={`text-sm font-bold ${textHeading}`}>{t("admin.details.loadingDetails", "Loading Supplier Records...")}</p>
           <p className={`text-xs ${textMuted} mt-0.5`}>Querying PostgreSQL &amp; compliance storage for {supplierId}</p>
         </div>
       </div>
@@ -212,7 +214,7 @@ export function AdminSupplierDetail({
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer active:scale-95"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>Back to Suppliers List</span>
+          <span>{t("admin.details.backToAdmin", "Back to Suppliers List")}</span>
         </button>
       </div>
     );

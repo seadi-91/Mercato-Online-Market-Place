@@ -15,6 +15,7 @@ import {
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { API_CONFIG } from "@/config/api.config";
 import { api } from "@/services/api/client";
 import { useAdminUIStore } from "@/store/ui-store";
@@ -126,6 +127,7 @@ function Section({
 export default function AdminUserDetailPage() {
   const params = useParams<{ userId: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const setActiveTab = useAdminUIStore((state) => state.setActiveTab);
   const userId = Array.isArray(params.userId) ? params.userId[0] : params.userId;
   const [user, setUser] = useState<AdminUserDetail | null>(null);
@@ -192,7 +194,7 @@ export default function AdminUserDetailPage() {
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="text-center">
           <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-          <p className="mt-3 text-sm text-zinc-400">Loading user details...</p>
+          <p className="mt-3 text-sm text-zinc-400">{t("admin.details.loadingDetails", "Loading user details...")}</p>
         </div>
       </div>
     );

@@ -26,6 +26,7 @@ import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useAuthStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import {
   fetchCustomerProfile,
   updateCustomerAddress,
@@ -37,6 +38,7 @@ import { toast } from "sonner";
 function ProfilePageContent() {
   const router = useRouter();
   const { user, token, isAuthenticated, hasHydrated, logout } = useAuthStore();
+  const { t } = useTranslation();
 
   const [profile, setProfile] = useState<CustomerProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -154,10 +156,12 @@ function ProfilePageContent() {
 
   if (!hasHydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#070a12]">
-        <div className="flex items-center gap-3 text-indigo-400">
+      <div suppressHydrationWarning className="min-h-screen flex items-center justify-center bg-[#070a12]">
+        <div suppressHydrationWarning className="flex items-center gap-3 text-indigo-400">
           <RefreshCw className="h-5 w-5 animate-spin" />
-          <span className="text-sm font-medium text-zinc-300">Verifying profile access...</span>
+          <span suppressHydrationWarning className="text-sm font-medium text-zinc-300">
+            {hasHydrated ? t("profile.verifyingAccess") : "Verifying access..."}
+          </span>
         </div>
       </div>
     );
@@ -193,7 +197,7 @@ function ProfilePageContent() {
                   <h1 className="text-base font-bold text-white truncate leading-tight">{displayName}</h1>
                   <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 text-[9.5px] font-semibold text-indigo-400 shrink-0">
                     <ShieldCheck className="h-2.5 w-2.5" />
-                    Verified
+                    {t("profile.verified")}
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-500 mt-0.5">
@@ -216,9 +220,9 @@ function ProfilePageContent() {
           <div className="rounded-2xl border border-white/10 bg-[#0b101f] p-4">
             <div className="grid grid-cols-3 divide-x divide-white/5">
               {[
-                { label: "Total Orders", value: isLoadingOrders ? "…" : orderStats.total, color: "text-white" },
-                { label: "Delivered", value: isLoadingOrders ? "…" : orderStats.delivered, color: "text-indigo-400" },
-                { label: "In Transit", value: isLoadingOrders ? "…" : orderStats.inTransit, color: "text-cyan-400" },
+                { label: t("profile.totalOrders"), value: isLoadingOrders ? "…" : orderStats.total, color: "text-white" },
+                { label: t("profile.delivered"), value: isLoadingOrders ? "…" : orderStats.delivered, color: "text-indigo-400" },
+                { label: t("profile.inTransit"), value: isLoadingOrders ? "…" : orderStats.inTransit, color: "text-cyan-400" },
               ].map((stat) => (
                 <div key={stat.label} className="text-center px-3 first:pl-0 last:pr-0">
                   <p className={`text-xl font-black font-mono ${stat.color}`}>{stat.value}</p>
@@ -233,7 +237,7 @@ function ProfilePageContent() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/5">
               <div className="flex items-center gap-2">
                 <User className="h-3.5 w-3.5 text-indigo-400" />
-                <span className="text-xs font-bold text-white">Personal Info</span>
+                <span className="text-xs font-bold text-white">{t("profile.personalInfo")}</span>
               </div>
               <button
                 type="button"
@@ -241,7 +245,7 @@ function ProfilePageContent() {
                 className="flex items-center gap-1 text-[11px] font-semibold cursor-pointer transition-colors"
                 style={{ color: isEditing ? "#ef4444" : "#818cf8" }}
               >
-                {isEditing ? <><X className="h-3 w-3" />Cancel</> : <><Edit2 className="h-3 w-3" />Edit</>}
+                {isEditing ? <><X className="h-3 w-3" />{t("profile.cancel")}</> : <><Edit2 className="h-3 w-3" />{t("profile.edit")}</>}
               </button>
             </div>
 
@@ -260,21 +264,21 @@ function ProfilePageContent() {
               </div>
             ) : (
               <form onSubmit={handleSave} className="p-4 space-y-2">
-                <CompactField icon={<User className="h-3.5 w-3.5" />} label="Full Name" value={form.fullName} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, fullName: v }))} placeholder="Your full name" />
-                <CompactField icon={<Mail className="h-3.5 w-3.5" />} label="Email" value={form.email} disabled={!isEditing} type="email" onChange={(v) => setForm((f) => ({ ...f, email: v }))} placeholder="your@email.com" mono />
+                <CompactField icon={<User className="h-3.5 w-3.5" />} label={t("profile.fullName")} value={form.fullName} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, fullName: v }))} placeholder="Your full name" />
+                <CompactField icon={<Mail className="h-3.5 w-3.5" />} label={t("profile.email")} value={form.email} disabled={!isEditing} type="email" onChange={(v) => setForm((f) => ({ ...f, email: v }))} placeholder="your@email.com" mono />
 
-                <CompactField icon={<Phone className="h-3.5 w-3.5" />} label="Alt. Phone" value={form.alternatePhone} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, alternatePhone: v }))} placeholder="+251..." mono />
+                <CompactField icon={<Phone className="h-3.5 w-3.5" />} label={t("profile.altPhone")} value={form.alternatePhone} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, alternatePhone: v }))} placeholder="+251..." mono />
 
                 {/* Section divider */}
                 <div className="flex items-center gap-2 pt-1 pb-0.5">
                   <MapPin className="h-3 w-3 text-zinc-600" />
-                  <span className="text-[9.5px] text-zinc-600 uppercase tracking-wider font-semibold">Delivery Address</span>
+                  <span className="text-[9.5px] text-zinc-600 uppercase tracking-wider font-semibold">{t("profile.deliveryAddress")}</span>
                   <div className="flex-1 h-px bg-white/5" />
                 </div>
 
-                <CompactField icon={<MapPin className="h-3.5 w-3.5" />} label="City" value={form.city} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Addis Ababa" />
-                <CompactField label="Subcity" value={form.subCity} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, subCity: v }))} placeholder="e.g. Bole" />
-                <CompactField label="Landmark / Woreda" value={form.specificLocation} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, specificLocation: v }))} placeholder="e.g. Woreda 03, near ..." />
+                <CompactField icon={<MapPin className="h-3.5 w-3.5" />} label={t("profile.city")} value={form.city} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, city: v }))} placeholder="Addis Ababa" />
+                <CompactField label={t("profile.subcity")} value={form.subCity} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, subCity: v }))} placeholder="e.g. Bole" />
+                <CompactField label={t("profile.landmark")} value={form.specificLocation} disabled={!isEditing} onChange={(v) => setForm((f) => ({ ...f, specificLocation: v }))} placeholder="e.g. Woreda 03, near ..." />
 
                 {isEditing && (
                   <button
@@ -283,8 +287,8 @@ function ProfilePageContent() {
                     className="w-full mt-1 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-600 hover:from-indigo-500 hover:to-cyan-500 px-4 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/20 active:scale-95 transition-all cursor-pointer disabled:opacity-60"
                   >
                     {isSaving
-                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />Saving...</>
-                      : <><Save className="h-3.5 w-3.5" />Save Changes</>
+                      ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />{t("profile.saving")}</>
+                      : <><Save className="h-3.5 w-3.5" />{t("profile.saveChanges")}</>
                     }
                   </button>
                 )}
@@ -296,9 +300,9 @@ function ProfilePageContent() {
           <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 px-4 py-3 flex items-start gap-2.5">
             <ShieldCheck className="h-4 w-4 text-indigo-400 mt-0.5 shrink-0" />
             <div>
-              <p className="text-xs font-bold text-indigo-300">Buyer Protected Account</p>
+              <p className="text-xs font-bold text-indigo-300">{t("profile.buyerProtected")}</p>
               <p className="text-[11px] text-indigo-400/70 mt-0.5 leading-relaxed">
-                Funds held securely — released only after doorstep OTP confirmation.
+                {t("profile.buyerProtectedSub")}
               </p>
             </div>
           </div>
@@ -306,9 +310,9 @@ function ProfilePageContent() {
           {/* ── Quick Links — vertical list ── */}
           <div className="rounded-2xl border border-white/10 bg-[#0b101f] overflow-hidden divide-y divide-white/5">
             {[
-              { href: "/orders",    icon: <Package  className="h-4 w-4 text-indigo-400" />,  label: "My Orders",  sub: "View all your purchases",  isLink: true  },
-              { href: "/favorites", icon: <Star     className="h-4 w-4 text-amber-400" />,   label: "Favorites",  sub: "Saved products",            isLink: true  },
-              { href: "/settings",  icon: <Settings className="h-4 w-4 text-zinc-400" />,    label: "Settings",   sub: "Account preferences",       isLink: true  },
+              { href: "/orders",    icon: <Package  className="h-4 w-4 text-indigo-400" />,  label: t("profile.myOrders"),  sub: t("profile.myOrdersSub"),  isLink: true  },
+              { href: "/favorites", icon: <Star     className="h-4 w-4 text-amber-400" />,   label: t("profile.favorites"), sub: t("profile.favoritesSub"), isLink: true  },
+              { href: "/settings",  icon: <Settings className="h-4 w-4 text-zinc-400" />,    label: t("profile.settings"),  sub: t("profile.settingsSub"),  isLink: true  },
             ].map((item) => (
               <Link
                 key={item.href}
@@ -336,8 +340,8 @@ function ProfilePageContent() {
                 <LogOut className="h-4 w-4 text-red-400" />
               </div>
               <div className="flex-1 min-w-0 text-left">
-                <p className="text-xs font-semibold text-red-400 group-hover:text-red-300 transition-colors">Sign Out</p>
-                <p className="text-[10px] text-zinc-600 mt-0.5">Log out of your account</p>
+                <p className="text-xs font-semibold text-red-400 group-hover:text-red-300 transition-colors">{t("profile.signOut")}</p>
+                <p className="text-[10px] text-zinc-600 mt-0.5">{t("profile.signOutSub")}</p>
               </div>
               <ChevronRight className="h-3.5 w-3.5 text-zinc-700 group-hover:text-red-500/50 transition-colors shrink-0" />
             </button>

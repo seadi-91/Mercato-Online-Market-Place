@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { FolderTree, MoreVertical, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import {
   createCategoryAdmin,
   deleteCategoryAdmin,
@@ -25,6 +26,7 @@ const formatDate = (value?: string) => {
 };
 
 export function AdminCategories() {
+  const { t, tCategory } = useTranslation();
   const [categories, setCategories] = useState<CategoryItem[]>([]);
   const [search, setSearch] = useState("");
   const [name, setName] = useState("");
@@ -201,8 +203,8 @@ export function AdminCategories() {
             <FolderTree className="h-4 w-4" />
           </div>
           <div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-300">Category management</p>
-            <h2 className="text-lg font-bold text-white">Categories</h2>
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-indigo-300">{t("admin.categories.subtitle", "Category management")}</p>
+            <h2 className="text-lg font-bold text-white">{t("admin.categories.title", "Categories")}</h2>
           </div>
         </div>
 
@@ -212,7 +214,7 @@ export function AdminCategories() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search categories..."
+              placeholder={t("admin.categories.searchPlaceholder", "Search categories...")}
               className="h-9 w-full rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-[11px] text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500"
             />
           </div>
@@ -226,7 +228,7 @@ export function AdminCategories() {
             className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500 cursor-pointer shrink-0"
           >
             <Plus className="h-3.5 w-3.5" />
-            {showForm ? "Close" : "Add category"}
+            {showForm ? t("admin.catalog.cancel", "Close") : t("admin.categories.addCategory", "Add category")}
           </button>
         </div>
       </div>
@@ -235,7 +237,7 @@ export function AdminCategories() {
         <form onSubmit={handleSubmit} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">Category name</label>
+              <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{t("admin.categories.categoryName", "Category name")}</label>
               <input
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -245,7 +247,7 @@ export function AdminCategories() {
             </div>
 
             <div>
-              <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">Slug</label>
+              <label className="mb-1 block text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">{t("admin.categories.categorySlug", "Slug")}</label>
               <input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value)}
@@ -262,7 +264,7 @@ export function AdminCategories() {
               className="inline-flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2 text-[11px] font-medium text-zinc-300 hover:text-white cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
-              Cancel
+              {t("admin.catalog.cancel", "Cancel")}
             </button>
             <button
               type="submit"
@@ -270,7 +272,7 @@ export function AdminCategories() {
               className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-semibold text-white transition-colors hover:bg-indigo-500 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer"
             >
               <Plus className="h-3.5 w-3.5" />
-              {creating ? (editingId ? "Updating..." : "Saving...") : editingId ? "Update category" : "Add category"}
+              {creating ? (editingId ? t("admin.categories.saving", "Updating...") : t("admin.categories.saving", "Saving...")) : editingId ? t("admin.categories.editCategory", "Update category") : t("admin.categories.addCategory", "Add category")}
             </button>
           </div>
         </form>
@@ -291,10 +293,10 @@ export function AdminCategories() {
           <table className="w-full border-collapse text-left text-xs min-w-[580px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="px-3 py-3">Category name</th>
-                <th className="px-3 py-3">Created at</th>
-                <th className="px-3 py-3">Status</th>
-                <th className="px-3 py-3 text-right">Action</th>
+                <th className="px-3 py-3">{t("admin.categories.colName", "Category name")}</th>
+                <th className="px-3 py-3">{t("admin.categories.colCreated", "Created at")}</th>
+                <th className="px-3 py-3">{t("admin.catalog.colStatus", "Status")}</th>
+                <th className="px-3 py-3 text-right">{t("admin.catalog.colAction", "Action")}</th>
               </tr>
             </thead>
 
@@ -302,13 +304,13 @@ export function AdminCategories() {
               {loading ? (
                 <tr>
                   <td colSpan={4} className="px-3 py-10 text-center text-zinc-500">
-                    Loading categories from backend...
+                    {t("admin.categories.loadingCategories", "Loading categories from backend...")}
                   </td>
                 </tr>
               ) : filteredCategories.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-3 py-10 text-center text-zinc-500">
-                    No categories found.
+                    {t("admin.categories.noCategories", "No categories found.")}
                   </td>
                 </tr>
               ) : (
@@ -320,7 +322,7 @@ export function AdminCategories() {
                           {category.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
-                          <p className="font-semibold text-white">{category.name}</p>
+                          <p className="font-semibold text-white">{tCategory(category.name)}</p>
                           <p className="mt-0.5 text-[10px] text-zinc-500">{category.slug}</p>
                         </div>
                       </div>
@@ -336,7 +338,7 @@ export function AdminCategories() {
                             : "border-emerald-500/30 bg-emerald-500/10 text-emerald-300"
                         }`}
                       >
-                        {category.isActive === false ? "Inactive" : "Active"}
+                        {category.isActive === false ? t("admin.users.blocked", "Inactive") : t("admin.users.active", "Active")}
                       </span>
                     </td>
 
@@ -361,7 +363,7 @@ export function AdminCategories() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 transition-colors hover:bg-white/10"
                               >
                                 <Pencil className="h-3.5 w-3.5 text-indigo-400" />
-                                Edit
+                                {t("admin.categories.editCategory", "Edit")}
                               </button>
 
                               <button
@@ -370,7 +372,7 @@ export function AdminCategories() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-200 transition-colors hover:bg-white/10"
                               >
                                 <span className="h-2 w-2 rounded-full bg-amber-400" />
-                                {category.isActive === false ? "Activate" : "Deactivate"}
+                                {category.isActive === false ? t("admin.catalog.activate", "Activate") : t("admin.catalog.suspend", "Deactivate")}
                               </button>
 
                               <button
@@ -379,7 +381,7 @@ export function AdminCategories() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-rose-300 transition-colors hover:bg-rose-500/10"
                               >
                                 <Trash2 className="h-3.5 w-3.5 text-rose-400" />
-                                Delete
+                                {t("admin.categories.deleteCategory", "Delete")}
                               </button>
                             </div>
                           </>

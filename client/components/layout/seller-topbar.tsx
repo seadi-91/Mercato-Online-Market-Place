@@ -21,6 +21,7 @@ import { useAuthStore } from "@/store/auth-store";
 import { usePlatformStore } from "@/store/platform-store";
 import { useSubscriptionStore } from "@/store/subscription-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
+import { LanguageSelector } from "@/components/common/language-selector";
 import { toast } from "sonner";
 
 export function SellerTopbar() {
@@ -150,6 +151,11 @@ export function SellerTopbar() {
               <span className="truncate max-w-[120px]">{mySubscription.planName}</span>
             </div>
           )}
+
+          {/* Multi-Language Selector */}
+          <div className="hidden sm:block">
+            <LanguageSelector />
+          </div>
 
           {/* Appearance / Theme Toggle */}
           <div className="hidden sm:block">

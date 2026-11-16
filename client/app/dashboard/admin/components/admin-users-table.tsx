@@ -20,6 +20,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { api } from "@/services/api/client";
 
 export interface AdminUserData {
@@ -92,6 +93,7 @@ const normalizeUsers = (list: any[]): AdminUserData[] =>
 
 export function AdminUsersTable() {
   const router = useRouter();
+  const { t } = useTranslation();
   const [users, setUsers] = useState<AdminUserData[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -272,7 +274,7 @@ export function AdminUsersTable() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, phone, email, TIN..."
+            placeholder={t("admin.users.searchPlaceholder", "Search by name, phone, email, TIN...")}
             className="w-full h-8 rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500"
           />
         </div>
@@ -285,10 +287,10 @@ export function AdminUsersTable() {
               onChange={(e) => setSelectedRole(e.target.value)}
               className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none cursor-pointer"
             >
-              <option value="ALL">All Users</option>
-              <option value="CUSTOMER">Customer</option>
-              <option value="SELLER">Seller</option>
-              <option value="DELIVERY">Driver</option>
+              <option value="ALL">{t("admin.users.roleAll", "All Users")}</option>
+              <option value="CUSTOMER">{t("admin.users.roleCustomer", "Customer")}</option>
+              <option value="SELLER">{t("admin.users.roleSeller", "Seller")}</option>
+              <option value="DELIVERY">{t("admin.users.roleDelivery", "Driver")}</option>
             </select>
           </label>
 
@@ -299,10 +301,10 @@ export function AdminUsersTable() {
               onChange={(e) => setSelectedStatus(e.target.value)}
               className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none cursor-pointer"
             >
-              <option value="ALL">All Status</option>
-              <option value="ACTIVE">Active</option>
-              <option value="BLOCKED">Blocked</option>
-              <option value="LOCKED">Locked (Cooldown)</option>
+              <option value="ALL">{t("admin.users.statusAll", "All Status")}</option>
+              <option value="ACTIVE">{t("admin.users.active", "Active")}</option>
+              <option value="BLOCKED">{t("admin.users.blocked", "Blocked")}</option>
+              <option value="LOCKED">{t("admin.users.locked", "Locked (Cooldown)")}</option>
             </select>
           </label>
 
@@ -313,9 +315,9 @@ export function AdminUsersTable() {
               onChange={(e) => setSelectedKyc(e.target.value)}
               className="rounded-md border border-white/10 bg-[#0b1220] px-2 py-1 text-[11px] text-white outline-none cursor-pointer"
             >
-              <option value="ALL">All KYC</option>
-              <option value="PENDING">Pending ({pendingKycCount})</option>
-              <option value="VERIFIED">Verified</option>
+              <option value="ALL">{t("admin.users.statusAll", "All KYC")}</option>
+              <option value="PENDING">{t("admin.users.statusPending", "Pending")} ({pendingKycCount})</option>
+              <option value="VERIFIED">{t("admin.users.statusVerified", "Verified")}</option>
             </select>
           </label>
         </div>
@@ -336,26 +338,26 @@ export function AdminUsersTable() {
           <table className="w-full text-left text-xs border-collapse min-w-[820px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="py-2.5 px-3">User & Store Info</th>
-                <th className="py-2.5 px-3">Role</th>
-                <th className="py-2.5 px-3">Contact</th>
-                <th className="py-2.5 px-3">KYC Audit</th>
-                <th className="py-2.5 px-3">Account Status</th>
-                <th className="py-2.5 px-3">Joined</th>
-                <th className="py-2.5 px-3 text-right">Actions</th>
+                <th className="py-2.5 px-3">{t("admin.users.colUser", "User & Store Info")}</th>
+                <th className="py-2.5 px-3">{t("admin.users.colRole", "Role")}</th>
+                <th className="py-2.5 px-3">{t("admin.users.colContact", "Contact")}</th>
+                <th className="py-2.5 px-3">{t("admin.users.colKyc", "KYC Audit")}</th>
+                <th className="py-2.5 px-3">{t("admin.users.colAccountStatus", "Account Status")}</th>
+                <th className="py-2.5 px-3">{t("admin.users.colJoined", "Joined")}</th>
+                <th className="py-2.5 px-3 text-right">{t("admin.users.colAction", "Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
               {loading ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-xs text-zinc-500">
-                    Loading users from backend...
+                    {t("admin.users.loadingUsers", "Loading users from backend...")}
                   </td>
                 </tr>
               ) : filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-8 text-center text-xs text-zinc-500">
-                    No users matching the selected filters.
+                    {t("admin.users.noUsers", "No users matching the selected filters.")}
                   </td>
                 </tr>
               ) : (
@@ -396,7 +398,7 @@ export function AdminUsersTable() {
                       {user.kycStatus === "VERIFIED" && (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
                           <CheckCircle2 className="h-3.5 w-3.5 shrink-0" />
-                          Verified
+                          {t("admin.users.statusVerified", "Verified")}
                         </span>
                       )}
                       {user.kycStatus === "PENDING" && (
@@ -405,13 +407,13 @@ export function AdminUsersTable() {
                           className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-400 hover:text-amber-300 transition-colors cursor-pointer"
                         >
                           <AlertTriangle className="h-3.5 w-3.5 shrink-0 animate-pulse" />
-                          Review KYC
+                          {t("admin.users.statusPending", "Review KYC")}
                         </button>
                       )}
                       {user.kycStatus === "REJECTED" && (
                         <span className="inline-flex items-center gap-1.5 text-[11px] font-medium text-rose-400">
                           <XCircle className="h-3.5 w-3.5 shrink-0" />
-                          Rejected
+                          {t("admin.users.statusRejected", "Rejected")}
                         </span>
                       )}
                     </td>
@@ -420,7 +422,7 @@ export function AdminUsersTable() {
                       {!user.isActive || user.isBlocked ? (
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-rose-500/10 border border-rose-500/30 text-rose-400 text-[11px] font-semibold">
                           <span className="h-1.5 w-1.5 rounded-full bg-rose-400" />
-                          <span>Blocked</span>
+                          <span>{t("admin.users.blocked", "Blocked")}</span>
                         </span>
                       ) : user.isLocked ? (
                         <span
@@ -433,7 +435,7 @@ export function AdminUsersTable() {
                       ) : (
                         <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-[11px] font-semibold">
                           <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-                          <span>Active</span>
+                          <span>{t("admin.users.active", "Active")}</span>
                         </span>
                       )}
                     </td>
@@ -515,7 +517,7 @@ export function AdminUsersTable() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-medium text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="h-3.5 w-3.5" />
-                                <span>Delete User</span>
+                                <span>{t("admin.users.deleteUser", "Delete User")}</span>
                               </button>
                             </div>
                           </>
@@ -595,7 +597,7 @@ export function AdminUsersTable() {
               </button>
               <button type="button" onClick={() => { if (!rejectionReason.trim()) { toast.error("Please specify a reason for KYC rejection"); return; } setReviewingUser(null); toast.error("KYC verification rejected"); setRejectionReason(""); }} className="flex items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 py-1.5 text-xs font-semibold text-rose-300 hover:bg-rose-500/20 transition-colors cursor-pointer">
                 <X className="h-3.5 w-3.5" />
-                <span>Reject KYC</span>
+                <span>{t("admin.users.rejectKyc", "Reject KYC")}</span>
               </button>
               <button type="button" onClick={() => { setReviewingUser(null); toast.success("KYC verified successfully"); }} className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3.5 py-1.5 text-xs font-semibold text-white shadow-md shadow-emerald-600/30 hover:bg-emerald-500 transition-colors cursor-pointer">
                 <Check className="h-3.5 w-3.5" />

@@ -14,6 +14,7 @@ import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useAuthStore } from "@/store";
 import { useThemeStore, ThemeMode } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
 import { API_CONFIG } from "@/config/api.config";
 import { toast } from "sonner";
 
@@ -271,6 +272,7 @@ function SettingsContent() {
   const router = useRouter();
   const { user, token, isAuthenticated, hasHydrated, logout } = useAuthStore();
   const { theme, setTheme } = useThemeStore();
+  const { t } = useTranslation();
 
   const [activeTab, setActiveTab] = useState<TabKey>("security");
 
@@ -408,10 +410,12 @@ function SettingsContent() {
 
   if (!hasHydrated) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#000000]">
-        <div className="flex items-center gap-3 text-indigo-400">
+      <div suppressHydrationWarning className="min-h-screen flex items-center justify-center bg-[#000000]">
+        <div suppressHydrationWarning className="flex items-center gap-3 text-indigo-400">
           <RefreshCw className="h-5 w-5 animate-spin" />
-          <span className="text-sm font-medium text-zinc-300">Verifying account settings access...</span>
+          <span suppressHydrationWarning className="text-sm font-medium text-zinc-300">
+            {hasHydrated ? t("settings.verifyingAccess") : "Verifying access..."}
+          </span>
         </div>
       </div>
     );
@@ -494,9 +498,9 @@ function SettingsContent() {
                   {user?.phoneNumber || user?.email || "MercatoX Account"}
                 </p>
                 <div className="flex items-center gap-2 mt-1">
-                  <p className="text-[10px] text-white/50">Account Settings</p>
+                  <p className="text-[10px] text-white/50">{t("settings.title")}</p>
                   <span className="text-[9px] px-1.5 py-0.2 rounded bg-white/10 text-white/70 font-mono capitalize">
-                    {theme} Mode
+                    {theme === "light" ? t("settings.modeLight") : theme === "dark" ? t("settings.modeDark") : t("settings.modeSystem")} {t("settings.mode")}
                   </span>
                 </div>
               </div>
@@ -507,25 +511,36 @@ function SettingsContent() {
           <div
             className={`flex gap-1 rounded-2xl border p-1.5 transition-colors duration-300 ${tabBarBg}`}
           >
-            {TABS.map(({ key, label, icon: Icon }) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => setActiveTab(key)}
-                className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all duration-200 cursor-pointer ${
-                  activeTab === key
-                    ? "bg-gradient-to-b from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/30"
-                    : tabInactiveColor
-                }`}
-              >
-                <Icon
-                  className={`h-4 w-4 ${
-                    activeTab === key ? "text-cyan-300" : ""
+            {TABS.map(({ key, label, icon: Icon }) => {
+              const tabLabel =
+                key === "security"
+                  ? t("settings.security")
+                  : key === "notifications"
+                  ? t("settings.alerts")
+                  : key === "appearance"
+                  ? t("settings.appearance")
+                  : t("settings.about");
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setActiveTab(key)}
+                  className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all duration-200 cursor-pointer ${
+                    activeTab === key
+                      ? "bg-gradient-to-b from-indigo-600 to-indigo-700 text-white shadow-lg shadow-indigo-500/30"
+                      : tabInactiveColor
                   }`}
-                />
-                {label}
-              </button>
-            ))}
+                >
+                  <Icon
+                    className={`h-4 w-4 ${
+                      activeTab === key ? "text-cyan-300" : ""
+                    }`}
+                  />
+                  {tabLabel}
+                </button>
+              );
+            })}
           </div>
 
           {/* ─── SECURITY TAB ─── */}
@@ -546,15 +561,15 @@ function SettingsContent() {
                     <Lock className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className={`text-sm ${cardHeaderTitle}`}>Password & Security</p>
-                    <p className={`text-[10px] ${cardHeaderSub}`}>Update your account credentials</p>
+                    <p className={`text-sm ${cardHeaderTitle}`}>{t("settings.passwordSecurity")}</p>
+                    <p className={`text-[10px] ${cardHeaderSub}`}>{t("settings.passwordSecuritySub")}</p>
                   </div>
                 </div>
 
                 <form onSubmit={handleChangePassword} className="p-5 space-y-3">
                   <FloatingInput
                     id="current-pw"
-                    label="Current Password"
+                    label={t("settings.currentPassword")}
                     value={currentPw}
                     onChange={setCurrentPw}
                     theme={theme}
@@ -579,7 +594,7 @@ function SettingsContent() {
                   <div>
                     <FloatingInput
                       id="new-pw"
-                      label="New Password"
+                      label={t("settings.newPassword")}
                       value={newPw}
                       onChange={setNewPw}
                       theme={theme}
@@ -615,7 +630,7 @@ function SettingsContent() {
                               : "text-indigo-400"
                           }`}
                         >
-                          Confirm Password
+                          {t("settings.confirmNewPassword")}
                         </span>
                       )}
                       <div className="flex items-center pr-3">
@@ -624,7 +639,7 @@ function SettingsContent() {
                           type={showPw ? "text" : "password"}
                           value={confirmPw}
                           onChange={(e) => setConfirmPw(e.target.value)}
-                          placeholder={confirmPw.length === 0 ? "Confirm new password" : ""}
+                          placeholder={confirmPw.length === 0 ? t("settings.confirmNewPassword") : ""}
                           autoComplete="off"
                           className={`flex-1 bg-transparent outline-none text-sm font-mono px-4 pb-3 ${
                             confirmPw.length > 0 ? "pt-6" : "pt-4"
@@ -660,12 +675,12 @@ function SettingsContent() {
                     {pwLoading ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
-                        Updating...
+                        {t("settings.updating")}
                       </>
                     ) : pwSuccess ? (
-                      "Password Updated!"
+                      t("settings.passwordUpdated")
                     ) : (
-                      "Update Password"
+                      t("settings.updatePassword")
                     )}
                   </button>
                 </form>
@@ -688,8 +703,8 @@ function SettingsContent() {
                           }`}
                         />
                       ),
-                      label: "Edit Profile",
-                      sub: "Name, email, shipping address",
+                      label: t("settings.editProfile"),
+                      sub: t("settings.editProfileSub"),
                     },
                     {
                       href: "/orders",
@@ -704,8 +719,8 @@ function SettingsContent() {
                           }`}
                         />
                       ),
-                      label: "My Orders",
-                      sub: "Track & manage your orders",
+                      label: t("settings.myOrders"),
+                      sub: t("settings.myOrdersSub"),
                     },
                   ].map((item) => (
                     <Link
@@ -784,7 +799,7 @@ function SettingsContent() {
                   <LogOut className="h-4 w-4" />
                 </div>
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-bold">Sign Out</p>
+                  <p className="text-sm font-bold">{t("settings.signOut")}</p>
                   <p
                     className={`text-[11px] ${
                       theme === "light"
@@ -794,7 +809,7 @@ function SettingsContent() {
                         : "text-rose-400/70"
                     }`}
                   >
-                    Log out of MercatoX
+                    {t("settings.signOutSub")}
                   </p>
                 </div>
                 <ChevronRight className="h-4 w-4 shrink-0 opacity-60 group-hover:opacity-100 transition-opacity" />
@@ -819,8 +834,8 @@ function SettingsContent() {
                     <Bell className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className={`text-sm ${cardHeaderTitle}`}>Notification Preferences</p>
-                    <p className={`text-[10px] ${cardHeaderSub}`}>Manage alerts & communications</p>
+                    <p className={`text-sm ${cardHeaderTitle}`}>{t("settings.notifications")}</p>
+                    <p className={`text-[10px] ${cardHeaderSub}`}>{t("settings.notificationsSub")}</p>
                   </div>
                 </div>
 
@@ -839,11 +854,11 @@ function SettingsContent() {
                           }`}
                         />
                       ),
-                      label: "SMS Handover OTP",
-                      sub: "4-digit OTP alert sent when courier arrives at your door",
+                      label: t("settings.smsOtp"),
+                      sub: t("settings.smsOtpSub"),
                       checked: smsOtp,
                       set: setSmsOtp,
-                      badge: "Required",
+                      badge: t("settings.requiredBadge"),
                     },
                     {
                       id: "email-invoice",
@@ -858,8 +873,8 @@ function SettingsContent() {
                           }`}
                         />
                       ),
-                      label: "Order & Invoice Emails",
-                      sub: "Escrow settlements & official receipts sent to your email",
+                      label: t("settings.emailInvoice"),
+                      sub: t("settings.emailInvoiceSub"),
                       checked: emailInvoice,
                       set: setEmailInvoice,
                       badge: null,
@@ -877,8 +892,8 @@ function SettingsContent() {
                           }`}
                         />
                       ),
-                      label: "Marketplace Deals",
-                      sub: "Highlights from Bole, Mercato & verified local sellers",
+                      label: t("settings.marketPromos"),
+                      sub: t("settings.marketPromosSub"),
                       checked: marketPromos,
                       set: setMarketPromos,
                       badge: null,
@@ -970,7 +985,7 @@ function SettingsContent() {
                           : "text-indigo-300"
                       }`}
                     >
-                      Escrow OTP Protection
+                      {t("settings.escrowOtpTitle")}
                     </p>
                     <p
                       className={`text-[11px] mt-1 leading-relaxed ${
@@ -981,8 +996,7 @@ function SettingsContent() {
                           : "text-zinc-400"
                       }`}
                     >
-                      Your SMS OTP is the final step in MercatoX's doorstep handover protocol.
-                      The courier cannot mark the order delivered without your verbal confirmation code.
+                      {t("settings.escrowOtpSub")}
                     </p>
                   </div>
                 </div>
@@ -1007,8 +1021,8 @@ function SettingsContent() {
                     <Palette className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className={`text-sm ${cardHeaderTitle}`}>Interface Theme</p>
-                    <p className={`text-[10px] ${cardHeaderSub}`}>Choose your preferred card and canvas color scheme</p>
+                    <p className={`text-sm ${cardHeaderTitle}`}>{t("settings.themeTitle")}</p>
+                    <p className={`text-[10px] ${cardHeaderSub}`}>{t("settings.themeSub")}</p>
                   </div>
                 </div>
 
@@ -1018,8 +1032,8 @@ function SettingsContent() {
                       {
                         key: "light" as ThemeMode,
                         icon: <Sun className="h-6 w-6 text-amber-500" />,
-                        label: "Light",
-                        sub: "Pure White Cards",
+                        label: t("settings.modeLight"),
+                        sub: t("settings.modeLightSub"),
                         preview: "bg-gradient-to-br from-white to-slate-200 border border-slate-300",
                         activeBorder: "border-amber-500",
                         activeRing: "ring-2 ring-amber-400/30",
@@ -1033,8 +1047,8 @@ function SettingsContent() {
                       {
                         key: "dark" as ThemeMode,
                         icon: <Moon className="h-6 w-6 text-zinc-300" />,
-                        label: "Dark",
-                        sub: "Charcoal Black Cards",
+                        label: t("settings.modeDark"),
+                        sub: t("settings.modeDarkSub"),
                         preview: "bg-gradient-to-br from-zinc-900 to-black border border-zinc-700",
                         activeBorder: "border-zinc-400",
                         activeRing: "ring-2 ring-zinc-400/30",
@@ -1048,8 +1062,8 @@ function SettingsContent() {
                       {
                         key: "system" as ThemeMode,
                         icon: <Monitor className="h-6 w-6 text-cyan-400" />,
-                        label: "System",
-                        sub: "Sapphire Blue Cards",
+                        label: t("settings.modeSystem"),
+                        sub: t("settings.modeSystemSub"),
                         preview: "bg-gradient-to-br from-[#0c1f4e] to-[#073b64] border border-blue-400/40",
                         activeBorder: "border-cyan-400",
                         activeRing: "ring-2 ring-cyan-400/40",
@@ -1060,21 +1074,21 @@ function SettingsContent() {
                             ? "bg-blue-600/20"
                             : "bg-blue-950/40",
                       },
-                    ].map((t) => {
-                      const active = theme === t.key;
+                    ].map((tTheme) => {
+                      const active = theme === tTheme.key;
                       return (
                         <button
-                          key={t.key}
+                          key={tTheme.key}
                           type="button"
                           onClick={() => {
-                            setTheme(t.key);
-                            toast.success(`${t.label} theme activated`, {
-                              description: `Cards now displaying in ${t.sub}.`,
+                            setTheme(tTheme.key);
+                            toast.success(`${tTheme.label}`, {
+                              description: `${tTheme.sub}`,
                             });
                           }}
                           className={`relative flex flex-col items-center gap-2.5 rounded-2xl border p-3.5 transition-all duration-200 cursor-pointer ${
                             active
-                              ? `${t.activeBorder} ${t.activeBg} ${t.activeRing} shadow-md`
+                              ? `${tTheme.activeBorder} ${tTheme.activeBg} ${tTheme.activeRing} shadow-md`
                               : theme === "light"
                               ? "border-slate-200 bg-slate-50 hover:bg-slate-100 hover:border-slate-300"
                               : theme === "system"
@@ -1083,9 +1097,9 @@ function SettingsContent() {
                           }`}
                         >
                           <div
-                            className={`w-full h-11 rounded-xl ${t.preview} flex items-center justify-center shadow-md`}
+                            className={`w-full h-11 rounded-xl ${tTheme.preview} flex items-center justify-center shadow-md`}
                           >
-                            {t.icon}
+                            {tTheme.icon}
                           </div>
                           <div className="text-center">
                             <p
@@ -1101,7 +1115,7 @@ function SettingsContent() {
                                   : "text-zinc-400"
                               }`}
                             >
-                              {t.label}
+                              {tTheme.label}
                             </p>
                             <p
                               className={`text-[9px] mt-0.5 leading-tight ${
@@ -1112,7 +1126,7 @@ function SettingsContent() {
                                   : "text-zinc-500"
                               }`}
                             >
-                              {t.sub}
+                              {tTheme.sub}
                             </p>
                           </div>
                           {active && (
@@ -1147,20 +1161,20 @@ function SettingsContent() {
                     <Info className="h-4 w-4" />
                   </div>
                   <div>
-                    <p className={`text-sm ${cardHeaderTitle}`}>Platform Information</p>
-                    <p className={`text-[10px] ${cardHeaderSub}`}>MercatoX marketplace system details</p>
+                    <p className={`text-sm ${cardHeaderTitle}`}>{t("settings.platformInfo")}</p>
+                    <p className={`text-[10px] ${cardHeaderSub}`}>{t("settings.platformInfoSub")}</p>
                   </div>
                 </div>
 
                 <div className={`divide-y ${listDivider}`}>
                   {[
-                    { label: "Platform",        value: "MercatoX v1.0",              icon: "🏪" },
-                    { label: "Currency",         value: "Ethiopian Birr (ETB)",       icon: "💵" },
-                    { label: "Delivery Region",  value: "Addis Ababa — 11 Subcities", icon: "📍" },
-                    { label: "Escrow System",    value: "OTP Doorstep Handover",      icon: "🔐" },
-                    { label: "Payment Gateway",  value: "Chapa · Telebirr · CBE",     icon: "💳" },
+                    { label: t("settings.platform"),        value: "MercatoX v1.0",              icon: "🏪" },
+                    { label: t("settings.currency"),        value: "Ethiopian Birr (ETB)",       icon: "💵" },
+                    { label: t("settings.deliveryRegion"),  value: "Addis Ababa — 11 Subcities", icon: "📍" },
+                    { label: t("settings.escrowSystem"),    value: "OTP Doorstep Handover",      icon: "🔐" },
+                    { label: t("settings.paymentGateway"),  value: "Chapa · Telebirr · CBE",     icon: "💳" },
                     {
-                      label: "Your Account ID",
+                      label: t("settings.accountId"),
                       value: user?.id ? `${user.id.slice(0, 8).toUpperCase()}…` : "—",
                       icon: "🆔",
                     },
@@ -1226,7 +1240,7 @@ function SettingsContent() {
                         : "text-white"
                     }`}
                   >
-                    Escrow Protected
+                    {t("settings.escrowProtectedTitle")}
                   </p>
                 </div>
                 <p
@@ -1238,15 +1252,14 @@ function SettingsContent() {
                       : "text-zinc-400"
                   }`}
                 >
-                  All transactions on MercatoX are protected by our escrow system. Funds are held
-                  securely and released to sellers only after you confirm receipt via a unique doorstep OTP code.
+                  {t("settings.escrowProtectedSub")}
                 </p>
 
                 <div className="mt-4 grid grid-cols-3 gap-2 text-center">
                   {[
-                    { label: "Secure", icon: "🔒" },
-                    { label: "OTP Verified", icon: "📱" },
-                    { label: "Escrow", icon: "🏛️" },
+                    { label: t("settings.secureBadge"), icon: "🔒" },
+                    { label: t("settings.otpVerifiedBadge"), icon: "📱" },
+                    { label: t("settings.escrowBadge"), icon: "🏛️" },
                   ].map((b) => (
                     <div
                       key={b.label}

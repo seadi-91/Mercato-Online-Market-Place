@@ -36,6 +36,7 @@ import { CustomerHeader } from "@/components/layout/customer-header";
 import { CustomerFooter } from "@/components/layout/footer";
 import { CustomerBottomNav } from "@/components/layout/customer-bottom-nav";
 import { useCartStore, useAuthStore } from "@/store";
+import { useTranslation } from "@/store/language-store";
 import {
   fetchCustomerProfile,
   updateCustomerAddress,
@@ -78,6 +79,7 @@ function formatPhoneForBackend(phone: string): string {
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { t } = useTranslation();
   const items = useCartStore((state) => state.items);
   const clearCart = useCartStore((state) => state.clearCart);
   const getTotalPrice = useCartStore((state) => state.getTotalPrice);
@@ -611,27 +613,27 @@ export default function CheckoutPage() {
             <div className="flex items-center gap-2 text-xs text-app-muted mb-1">
               <Link href="/cart" className="hover:text-indigo-500 dark:hover:text-indigo-300 transition-colors flex items-center gap-1">
                 <RotateCcw className="h-3 w-3" />
-                <span>Cart</span>
+                <span>{t("checkout.breadcrumbCart")}</span>
               </Link>
               <span>/</span>
-              <span className="text-app font-medium">Checkout &amp; Protected Payment</span>
+              <span className="text-app font-medium">{t("checkout.breadcrumbCheckout")}</span>
             </div>
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-app flex items-center gap-2.5">
               <Lock className="h-6 w-6 text-cyan-500 dark:text-cyan-400" />
-              <span>Buyer Protected Checkout</span>
+              <span>{t("checkout.title")}</span>
             </h1>
           </div>
 
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-semibold">
             <ShieldCheck className="h-4 w-4 shrink-0" />
-            <span>100% Buyer Protection Guaranteed</span>
+            <span>{t("checkout.protectionGuarantee")}</span>
           </div>
         </div>
 
         {!mounted ? (
           <div className="py-24 text-center">
             <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-indigo-500 border-t-transparent" />
-            <p className="mt-4 text-xs text-app-muted">Loading checkout session...</p>
+            <p className="mt-4 text-xs text-app-muted">{t("checkout.loadingSession")}</p>
           </div>
         ) : items.length === 0 ? (
           /* Empty Cart Notice */
@@ -640,16 +642,16 @@ export default function CheckoutPage() {
               <ShoppingBag className="h-8 w-8" />
             </div>
             <div className="space-y-1">
-              <h2 className="text-lg font-bold text-app">Your cart is currently empty</h2>
+              <h2 className="text-lg font-bold text-app">{t("checkout.cartEmptyTitle")}</h2>
               <p className="text-xs text-app-muted">
-                Please add items to your cart before proceeding to checkout.
+                {t("checkout.cartEmptySub")}
               </p>
             </div>
             <Link
               href="/marketplace"
               className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-cyan-500 px-6 py-2.5 text-xs font-bold text-white shadow-lg shadow-indigo-500/25 hover:brightness-110 active:scale-95 transition-all"
             >
-              <span>Explore Marketplace</span>
+              <span>{t("checkout.exploreMarketplace")}</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
           </div>
@@ -666,22 +668,22 @@ export default function CheckoutPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
                       <h2 className="text-sm sm:text-base font-bold text-app">
-                        1. Customer Information
+                        {t("checkout.customerInfo")}
                       </h2>
                       {profileLoadedFromDb ? (
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10.5px] font-semibold">
                           <CheckCircle2 className="h-3 w-3" />
-                          <span>Loaded from Database</span>
+                          <span>{t("checkout.loadedFromDb")}</span>
                         </span>
                       ) : isLoadingProfile ? (
                         <span className="inline-flex items-center gap-1.5 text-[10.5px] text-app-muted">
                           <div className="h-2.5 w-2.5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                          <span>Checking saved info...</span>
+                          <span>{t("checkout.checkingSaved")}</span>
                         </span>
                       ) : null}
                     </div>
                     <p className="text-[11px] text-app-muted">
-                      Who should we deliver to and contact for SMS OTP release?
+                      {t("checkout.contactSub")}
                     </p>
                   </div>
                 </div>
@@ -690,7 +692,7 @@ export default function CheckoutPage() {
                   {/* Full Name */}
                   <div className="space-y-1.5 sm:col-span-2">
                     <label className="text-xs font-semibold text-app block">
-                      Recipient Full Name <span className="text-rose-500 dark:text-rose-400">*</span>
+                      {t("checkout.recipientName")} <span className="text-rose-500 dark:text-rose-400">*</span>
                     </label>
                     <div className="relative">
                       <input
@@ -707,7 +709,7 @@ export default function CheckoutPage() {
                   {/* Phone Number */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-app block">
-                      Phone Number (for SMS OTP) <span className="text-rose-500 dark:text-rose-400">*</span>
+                      {t("checkout.phoneForOtp")} <span className="text-rose-500 dark:text-rose-400">*</span>
                     </label>
                     <div className="relative flex items-center">
                       <div className="absolute left-3 flex items-center gap-1.5 text-app-muted text-xs font-mono pointer-events-none">
@@ -728,7 +730,7 @@ export default function CheckoutPage() {
                   {/* Email Address */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-app block">
-                      Email Address <span className="text-app-muted text-[10px]">(for digital receipt)</span>
+                      {t("checkout.emailReceipt")} <span className="text-app-muted text-[10px]">{t("checkout.emailReceiptSub")}</span>
                     </label>
                     <div className="relative flex items-center">
                       <Mail className="absolute left-3 h-3.5 w-3.5 text-app-muted pointer-events-none" />
@@ -752,10 +754,10 @@ export default function CheckoutPage() {
                   </div>
                   <div>
                     <h2 className="text-sm sm:text-base font-bold text-app">
-                      2. Doorstep Delivery Details
+                      {t("checkout.deliveryDetails")}
                     </h2>
                     <p className="text-[11px] text-app-muted">
-                      Dispatched directly from verified local merchants in Addis Ababa.
+                      {t("checkout.dispatchedFrom")}
                     </p>
                   </div>
                 </div>
@@ -765,7 +767,7 @@ export default function CheckoutPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
                     <div className="space-y-1.5 sm:col-span-1">
                       <label className="text-xs font-semibold text-app block">
-                        City
+                        {t("checkout.city")}
                       </label>
                       <input
                         type="text"
@@ -777,7 +779,7 @@ export default function CheckoutPage() {
 
                     <div className="space-y-1.5 sm:col-span-2">
                       <label className="text-xs font-semibold text-app block">
-                        Addis Ababa Subcity <span className="text-rose-500 dark:text-rose-400">*</span>
+                        {t("checkout.subcity")} <span className="text-rose-500 dark:text-rose-400">*</span>
                       </label>
                       <select
                         value={subcity}
@@ -796,7 +798,7 @@ export default function CheckoutPage() {
                   {/* Specific Delivery Address / Landmark */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-app block">
-                      Specific Address / Building / Landmark / House No <span className="text-rose-500 dark:text-rose-400">*</span>
+                      {t("checkout.specificAddress")} <span className="text-rose-500 dark:text-rose-400">*</span>
                     </label>
                     <div className="relative flex items-center">
                       <MapPin className="absolute left-3 h-3.5 w-3.5 text-app-muted pointer-events-none" />
@@ -814,7 +816,7 @@ export default function CheckoutPage() {
                   {/* Delivery Notes */}
                   <div className="space-y-1.5">
                     <label className="text-xs font-semibold text-app block">
-                      Courier Delivery Instructions <span className="text-app-muted text-[10px]">(optional)</span>
+                      {t("checkout.deliveryInstructions")} <span className="text-app-muted text-[10px]">{t("checkout.optional")}</span>
                     </label>
                     <textarea
                       rows={2}
@@ -842,13 +844,13 @@ export default function CheckoutPage() {
                           htmlFor="save-future-address"
                           className="text-xs font-semibold text-app cursor-pointer select-none flex items-center gap-1.5 flex-wrap"
                         >
-                          <span>Save this delivery address &amp; contact info for future orders</span>
+                          <span>{t("checkout.saveAddressCheckbox")}</span>
                           <span className="rounded-full bg-cyan-500/15 border border-cyan-500/30 px-1.5 py-0.2 text-[9.5px] font-mono text-cyan-600 dark:text-cyan-300">
-                            Database Sync
+                            {t("checkout.dbSync")}
                           </span>
                         </label>
                         <p className="text-[11px] text-app-muted mt-0.5">
-                          Stores your address securely in the PostgreSQL database and pre-fills it automatically on your next order.
+                          {t("checkout.dbSyncSub")}
                         </p>
                       </div>
                     </div>
@@ -859,20 +861,20 @@ export default function CheckoutPage() {
                         {isAddressSavedInDb ? (
                           <span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
                             <CheckCircle2 className="h-3.5 w-3.5" />
-                            <span>Address is saved &amp; synced in database</span>
+                            <span>{t("checkout.addressSavedSynced")}</span>
                           </span>
                         ) : profileLoadedFromDb ? (
                           <span className="text-cyan-600 dark:text-cyan-400 font-medium flex items-center gap-1">
                             <Sparkles className="h-3.5 w-3.5" />
-                            <span>Loaded from database (Edit &amp; save if changed)</span>
+                            <span>{t("checkout.loadedFromDbHint")}</span>
                           </span>
                         ) : token ? (
                           <span className="text-app-muted">
-                            Check box or click button to save to your account
+                            {t("checkout.checkBoxToSave")}
                           </span>
                         ) : (
                           <span className="text-app-muted/80">
-                            (Optional: Sign in to save across devices)
+                            {t("checkout.signInToSave")}
                           </span>
                         )}
                       </div>
@@ -889,12 +891,12 @@ export default function CheckoutPage() {
                         {isSavingAddress ? (
                           <>
                             <div className="h-3 w-3 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                            <span>Saving in Database...</span>
+                            <span>{t("checkout.savingInDb")}</span>
                           </>
                         ) : (
                           <>
                             <Database className="h-3.5 w-3.5" />
-                            <span>Save Address to Database</span>
+                            <span>{t("checkout.saveAddressBtn")}</span>
                           </>
                         )}
                       </button>
@@ -911,10 +913,10 @@ export default function CheckoutPage() {
                   </div>
                   <div>
                     <h2 className="text-sm sm:text-base font-bold text-app">
-                      3. Protected Payment Method
+                      {t("checkout.paymentMethod")}
                     </h2>
                     <p className="text-[11px] text-app-muted">
-                      Choose your preferred payment service. Funds stay protected until OTP release.
+                      {t("checkout.paymentMethodSub")}
                     </p>
                   </div>
                 </div>
@@ -935,7 +937,7 @@ export default function CheckoutPage() {
                         <div className="h-7 w-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-500 dark:text-indigo-400">
                           <CreditCard className="h-3.5 w-3.5" />
                         </div>
-                        <span className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300">Chapa Gateway</span>
+                        <span className="font-bold text-xs sm:text-sm text-indigo-600 dark:text-indigo-300">{t("checkout.chapaGateway")}</span>
                         {hasCard && (
                           <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-1.5 py-0.5 text-[9px] font-extrabold text-amber-600 dark:text-amber-300 tracking-wider">
                             2% BONUS
@@ -947,9 +949,9 @@ export default function CheckoutPage() {
                       )}
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold text-app">Cards &amp; Mobile Banking</p>
+                      <p className="text-[11px] font-semibold text-app">{t("checkout.cardsAndMobile")}</p>
                       <p className="text-[10px] text-app-muted mt-0.5">
-                        Debit card, Visa, Mastercard, Awash &amp; Dashen
+                        {t("checkout.chapaDesc")}
                       </p>
                     </div>
                   </button>
@@ -968,7 +970,7 @@ export default function CheckoutPage() {
                         <div className="h-7 w-7 rounded-lg bg-gradient-to-tr from-cyan-500/20 to-indigo-500/20 border border-cyan-500/30 flex items-center justify-center text-cyan-500 dark:text-cyan-400">
                           <Sparkles className="h-3.5 w-3.5" />
                         </div>
-                        <span className="font-bold text-xs sm:text-sm text-cyan-600 dark:text-cyan-300">MercatoX Card</span>
+                        <span className="font-bold text-xs sm:text-sm text-cyan-600 dark:text-cyan-300">{t("checkout.mercatoxCard")}</span>
                         <span className="rounded-full bg-cyan-500/20 border border-cyan-500/40 px-1.5 py-0.5 text-[9px] font-extrabold text-cyan-600 dark:text-cyan-300 tracking-wider">
                           0% FEE
                         </span>
@@ -978,9 +980,9 @@ export default function CheckoutPage() {
                       )}
                     </div>
                     <div>
-                      <p className="text-[11px] font-semibold text-app">Digital Loyalty &amp; Wallet</p>
+                      <p className="text-[11px] font-semibold text-app">{t("checkout.digitalWallet")}</p>
                       <p className="text-[10px] text-app-muted mt-0.5">
-                        Zero-fee escrow pay, instant cashback &amp; reward points
+                        {t("checkout.mercatoxCardDesc")}
                       </p>
                     </div>
                   </button>
@@ -995,7 +997,7 @@ export default function CheckoutPage() {
                           <Sparkles className="h-3.5 w-3.5" />
                         </div>
                         <span className="text-xs font-bold text-app">
-                          Chapa Payment 2% Card Cashback Reward
+                          {t("checkout.cashbackRewardTitle")}
                         </span>
                       </div>
                       <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[10px] font-extrabold text-amber-500 dark:text-amber-300 font-mono">
@@ -1003,7 +1005,7 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                     <p className="text-[11px] text-app-muted leading-relaxed">
-                      Pay with Chapa and get <strong className="text-amber-500 dark:text-amber-300 font-bold">2% ({(total * 0.02).toFixed(2)} ETB)</strong> of your total order amount automatically saved to your <strong className="text-cyan-500 dark:text-cyan-300 font-bold">MercatoX Card</strong> as a bonus reward!
+                      {t("checkout.cashbackRewardDesc")}
                     </p>
                   </div>
                 )}
@@ -1014,7 +1016,7 @@ export default function CheckoutPage() {
                     {isLoadingCard ? (
                       <div className="rounded-xl border border-app bg-app-surface p-4 flex items-center justify-center gap-2.5 text-xs text-app-muted">
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-cyan-500 border-t-transparent" />
-                        <span>Checking MercatoX Card status...</span>
+                        <span>{t("checkout.checkingCard")}</span>
                       </div>
                     ) : !hasCard && cardChecked ? (
                       /* CASE 1: USER DOES NOT HAVE A CARD */
@@ -1026,14 +1028,14 @@ export default function CheckoutPage() {
                           <div className="flex-1 space-y-1">
                             <div className="flex items-center gap-2 flex-wrap">
                               <h3 className="font-bold text-app text-xs sm:text-sm">
-                                No MercatoX Card Found
+                                {t("checkout.noCardTitle")}
                               </h3>
                               <span className="rounded-full bg-rose-500/20 border border-rose-500/40 px-2 py-0.5 text-[9px] font-extrabold text-rose-600 dark:text-rose-300">
-                                Card Required
+                                {t("checkout.cardRequired")}
                               </span>
                             </div>
                             <p className="text-[11.5px] text-app-muted leading-relaxed">
-                              To use MercatoX Card payment, you must first purchase a card. Enjoy 0% transaction fees and 5% automatic cashback by ordering your card now.
+                              {t("checkout.noCardDesc")}
                             </p>
                           </div>
                         </div>
@@ -1044,7 +1046,7 @@ export default function CheckoutPage() {
                             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 text-white shadow-md shadow-rose-600/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
                           >
                             <Sparkles className="h-3.5 w-3.5" />
-                            <span>Buy MercatoX Card Now</span>
+                            <span>{t("checkout.buyCardNow")}</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Link>
 
@@ -1053,7 +1055,7 @@ export default function CheckoutPage() {
                             onClick={() => setPaymentMethod("chapa")}
                             className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium text-app-muted hover:text-app bg-app-surface hover:bg-app-card border border-app transition-colors cursor-pointer"
                           >
-                            <span>Switch to Chapa</span>
+                            <span>{t("checkout.switchToChapa")}</span>
                           </button>
                         </div>
                       </div>
@@ -1068,7 +1070,7 @@ export default function CheckoutPage() {
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-2">
                                 <h3 className="font-bold text-app text-xs sm:text-sm">
-                                  Insufficient Card Balance
+                                  {t("checkout.insufficientBalanceTitle")}
                                 </h3>
                                 <span className="rounded-full bg-amber-500/20 border border-amber-500/40 px-2 py-0.5 text-[9px] font-extrabold text-amber-600 dark:text-amber-300 font-mono">
                                   {userCard?.cardNumber ? `•••• ${userCard.cardNumber.slice(-4)}` : "CARD"}
@@ -1076,7 +1078,7 @@ export default function CheckoutPage() {
                               </div>
                             </div>
                             <p className="text-[11.5px] text-app-muted leading-relaxed">
-                              You do not have enough card balance to cover this order. Please top up your card or switch to another payment method.
+                              {t("checkout.insufficientBalanceDesc")}
                             </p>
                           </div>
                         </div>
@@ -1084,21 +1086,21 @@ export default function CheckoutPage() {
                         {/* Balance vs Requirement Comparison Grid */}
                         <div className="grid grid-cols-3 gap-2 pt-1 pb-1">
                           <div className="rounded-xl bg-app-surface border border-app p-2.5 text-center">
-                            <span className="text-[10px] text-app-muted block font-medium">Card Balance</span>
+                            <span className="text-[10px] text-app-muted block font-medium">{t("checkout.cardBalance")}</span>
                             <span className="font-mono font-bold text-xs sm:text-sm text-amber-600 dark:text-amber-400">
                               {cardBalance.toLocaleString()} ETB
                             </span>
                           </div>
 
                           <div className="rounded-xl bg-app-surface border border-app p-2.5 text-center">
-                            <span className="text-[10px] text-app-muted block font-medium">Order Total</span>
+                            <span className="text-[10px] text-app-muted block font-medium">{t("checkout.orderTotal")}</span>
                             <span className="font-mono font-bold text-xs sm:text-sm text-app">
                               {total.toLocaleString()} ETB
                             </span>
                           </div>
 
                           <div className="rounded-xl bg-app-surface border border-rose-500/30 p-2.5 text-center">
-                            <span className="text-[10px] text-rose-500 dark:text-rose-300 block font-medium">Shortage</span>
+                            <span className="text-[10px] text-rose-500 dark:text-rose-300 block font-medium">{t("checkout.shortage")}</span>
                             <span className="font-mono font-bold text-xs sm:text-sm text-rose-600 dark:text-rose-400">
                               -{shortageAmount.toLocaleString()} ETB
                             </span>
@@ -1111,7 +1113,7 @@ export default function CheckoutPage() {
                             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-600 to-yellow-600 text-white shadow-md shadow-amber-600/20 hover:brightness-110 active:scale-95 transition-all cursor-pointer"
                           >
                             <CreditCard className="h-3.5 w-3.5" />
-                            <span>Top Up / Manage Card</span>
+                            <span>{t("checkout.topUpCard")}</span>
                             <ArrowRight className="h-3.5 w-3.5" />
                           </Link>
 
@@ -1120,7 +1122,7 @@ export default function CheckoutPage() {
                             onClick={() => setPaymentMethod("chapa")}
                             className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium text-app-muted hover:text-app bg-app-surface hover:bg-app-card border border-app transition-colors cursor-pointer"
                           >
-                            <span>Pay with Chapa</span>
+                            <span>{t("checkout.payWithChapa")}</span>
                           </button>
                         </div>
                       </div>
@@ -1135,13 +1137,13 @@ export default function CheckoutPage() {
                             <div className="flex items-center justify-between gap-2 flex-wrap">
                               <div className="flex items-center gap-2">
                                 <h3 className="font-bold text-app text-xs sm:text-sm">
-                                  Sufficient Balance Available
+                                  {t("checkout.sufficientBalanceTitle")}
                                 </h3>
                                 <span className="rounded-full bg-cyan-500/20 border border-cyan-500/40 px-2 py-0.5 text-[9px] font-extrabold text-cyan-600 dark:text-cyan-300 font-mono">
                                   {userCard?.cardNumber ? `•••• ${userCard.cardNumber.slice(-4)}` : "CARD"}
                                 </span>
                                 <span className="rounded-full bg-emerald-500/20 border border-emerald-500/30 px-1.5 py-0.5 text-[9px] font-bold text-emerald-600 dark:text-emerald-400">
-                                  Ready to Pay
+                                  {t("checkout.readyToPay")}
                                 </span>
                               </div>
 
@@ -1149,12 +1151,12 @@ export default function CheckoutPage() {
                                 href="/card"
                                 className="hidden sm:inline-flex items-center gap-1 text-[11px] text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 hover:underline shrink-0 font-medium"
                               >
-                                <span>Manage Card</span>
+                                <span>{t("checkout.manageCard")}</span>
                                 <ArrowRight className="h-3 w-3" />
                               </Link>
                             </div>
                             <p className="text-[11.5px] text-app-muted leading-relaxed">
-                              You have sufficient card balance to complete this purchase with 0% transaction fees and instant escrow protection. Click 'Pay with MercatoX Card' and enter your 8-digit Card Password to authorize payment.
+                              {t("checkout.sufficientBalanceDesc")}
                             </p>
                           </div>
                         </div>
@@ -1162,21 +1164,21 @@ export default function CheckoutPage() {
                         {/* Balance Breakdown Grid */}
                         <div className="grid grid-cols-3 gap-2 pt-1">
                           <div className="rounded-xl bg-app-surface border border-app p-2.5 text-center">
-                            <span className="text-[10px] text-app-muted block font-medium">Card Balance</span>
+                            <span className="text-[10px] text-app-muted block font-medium">{t("checkout.cardBalance")}</span>
                             <span className="font-mono font-bold text-xs sm:text-sm text-cyan-600 dark:text-cyan-300">
                               {cardBalance.toLocaleString()} ETB
                             </span>
                           </div>
 
                           <div className="rounded-xl bg-app-surface border border-app p-2.5 text-center">
-                            <span className="text-[10px] text-app-muted block font-medium">Order Payment</span>
+                            <span className="text-[10px] text-app-muted block font-medium">{t("checkout.orderPayment")}</span>
                             <span className="font-mono font-bold text-xs sm:text-sm text-app">
                               -{total.toLocaleString()} ETB
                             </span>
                           </div>
 
                           <div className="rounded-xl bg-app-surface border border-emerald-500/30 p-2.5 text-center">
-                            <span className="text-[10px] text-emerald-600 dark:text-emerald-300 block font-medium">Remaining Balance</span>
+                            <span className="text-[10px] text-emerald-600 dark:text-emerald-300 block font-medium">{t("checkout.remainingBalance")}</span>
                             <span className="font-mono font-bold text-xs sm:text-sm text-emerald-600 dark:text-emerald-400">
                               {balanceAfterOrder.toLocaleString()} ETB
                             </span>
@@ -1192,10 +1194,10 @@ export default function CheckoutPage() {
                   <ShieldCheck className="h-5 w-5 text-emerald-500 dark:text-emerald-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="font-semibold text-app">
-                      100% Buyer Protection Protocol
+                      {t("checkout.escrowProtocolTitle")}
                     </p>
                     <p className="text-[11px] text-app-muted leading-relaxed">
-                      Your payment will be securely held in MercatoX protected account. The seller does <strong className="text-app font-bold">not</strong> receive payment until you inspect the package at your doorstep and verbally provide your 4-digit SMS OTP to the delivery agent.
+                      {t("checkout.escrowProtocolDesc")}
                     </p>
                   </div>
                 </div>
@@ -1208,10 +1210,10 @@ export default function CheckoutPage() {
                 {/* Header */}
                 <div className="flex items-center justify-between border-b border-app pb-3">
                   <h2 className="text-sm sm:text-base font-bold text-app">
-                    Order Summary
+                    {t("checkout.orderSummary")}
                   </h2>
                   <span className="text-[11px] text-app-muted font-medium">
-                    {items.length} {items.length === 1 ? "item" : "items"}
+                    {items.length} {items.length === 1 ? t("checkout.item") : t("checkout.items")}
                   </span>
                 </div>
 
@@ -1219,9 +1221,9 @@ export default function CheckoutPage() {
                 {items.length > 0 && (
                   <div className="space-y-2.5 pb-3 border-b border-app">
                     <div className="flex items-center justify-between text-[11px] font-semibold text-app-muted">
-                      <span>Products in Order</span>
+                      <span>{t("checkout.productsInOrder")}</span>
                       <span className="text-[10px] text-app-muted/80 font-mono">
-                        {Math.min(visibleSummaryCount, items.length)} of {items.length} shown
+                        {Math.min(visibleSummaryCount, items.length)} {t("checkout.of")} {items.length} {t("checkout.shown")}
                       </span>
                     </div>
 
@@ -1291,7 +1293,7 @@ export default function CheckoutPage() {
                             className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-cyan-600 dark:text-cyan-400 hover:text-cyan-500 bg-cyan-500/10 hover:bg-cyan-500/15 border border-cyan-500/20 px-3 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98"
                           >
                             <ChevronDown className="h-3.5 w-3.5" />
-                            <span>View More (+2)</span>
+                            <span>{t("checkout.viewMore")} (+2)</span>
                           </button>
                         ) : (
                           <div />
@@ -1304,7 +1306,7 @@ export default function CheckoutPage() {
                             className="inline-flex items-center gap-1.5 text-[11.5px] font-medium text-app-muted hover:text-app bg-app-surface hover:bg-app-card border border-app px-3 py-1.5 rounded-lg transition-all cursor-pointer active:scale-98 ml-auto"
                           >
                             <ChevronUp className="h-3.5 w-3.5" />
-                            <span>View Less (-2)</span>
+                            <span>{t("checkout.viewLess")} (-2)</span>
                           </button>
                         )}
                       </div>
@@ -1315,17 +1317,17 @@ export default function CheckoutPage() {
                 {/* Costs Breakdown */}
                 <div className="space-y-2 text-xs">
                   <div className="flex justify-between text-app-muted">
-                    <span>Items Subtotal</span>
+                    <span>{t("checkout.subtotal")}</span>
                     <span className="text-app font-mono font-semibold">
                       {subtotal.toLocaleString()} ETB
                     </span>
                   </div>
 
                   <div className="flex justify-between text-app-muted">
-                    <span>Doorstep Courier Delivery</span>
+                    <span>{t("checkout.courierDelivery")}</span>
                     <span className="text-app font-mono font-semibold">
                       {deliveryFee === 0 ? (
-                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">FREE (Over 5,000 ETB)</span>
+                        <span className="text-emerald-600 dark:text-emerald-400 font-bold">{t("checkout.freeOver5000")}</span>
                       ) : (
                         `${deliveryFee} ETB`
                       )}
@@ -1333,12 +1335,12 @@ export default function CheckoutPage() {
                   </div>
 
                   <div className="flex justify-between text-app-muted">
-                    <span>100% Buyer Protection</span>
-                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">Covered (0 ETB)</span>
+                    <span>{t("checkout.protectionGuarantee")}</span>
+                    <span className="text-emerald-600 dark:text-emerald-400 font-bold">{t("checkout.buyerProtectionCovered")}</span>
                   </div>
 
                   <div className="pt-2.5 border-t border-app flex justify-between text-sm sm:text-base font-bold text-app">
-                    <span>Total Amount</span>
+                    <span>{t("checkout.totalAmount")}</span>
                     <span className="font-mono text-cyan-600 dark:text-cyan-300">
                       {total.toLocaleString()} ETB
                     </span>
@@ -1347,7 +1349,7 @@ export default function CheckoutPage() {
 
                 {/* Selected Payment Summary Pill */}
                 <div className="rounded-xl bg-app-surface border border-app p-2.5 flex items-center justify-between text-xs">
-                  <span className="text-app-muted">Payment Gateway:</span>
+                  <span className="text-app-muted">{t("checkout.paymentGatewayLabel")}</span>
                   <span className="font-semibold text-app flex items-center gap-1.5 text-right">
                     <span
                       className={`h-2 w-2 rounded-full shrink-0 ${paymentMethod === "mercatox_card"
@@ -1362,11 +1364,11 @@ export default function CheckoutPage() {
                     <span>
                       {paymentMethod === "mercatox_card"
                         ? !hasCard
-                          ? "MercatoX Card (No Card)"
+                          ? `${t("checkout.mercatoxCard")} (${t("checkout.noCardTitle")})`
                           : !hasSufficientBalance
-                            ? `MercatoX Card (${cardBalance.toLocaleString()} ETB)`
-                            : "MercatoX Card (0% Fee)"
-                        : "Chapa Gateway (Cards & Banks)"}
+                            ? `${t("checkout.mercatoxCard")} (${cardBalance.toLocaleString()} ETB)`
+                            : `${t("checkout.mercatoxCard")} (0% Fee)`
+                        : `${t("checkout.chapaGateway")} (${t("checkout.cardsAndMobile")})`}
                     </span>
                   </span>
                 </div>
@@ -1379,7 +1381,7 @@ export default function CheckoutPage() {
                     className="w-full rounded-xl bg-gradient-to-r from-rose-600 via-rose-500 to-amber-600 py-3.5 text-xs sm:text-sm font-bold text-white shadow-xl shadow-rose-600/20 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer text-center"
                   >
                     <Sparkles className="h-4 w-4" />
-                    <span>Buy MercatoX Card First</span>
+                    <span>{t("checkout.buyCardNow")}</span>
                     <ArrowRight className="h-4 w-4" />
                   </Link>
                 ) : paymentMethod === "mercatox_card" && hasCard && !hasSufficientBalance ? (
@@ -1396,7 +1398,7 @@ export default function CheckoutPage() {
                   >
                     <AlertCircle className="h-4 w-4 text-amber-500 dark:text-amber-400" />
                     <span>
-                      Insufficient Balance ({cardBalance.toLocaleString()} / {total.toLocaleString()} ETB)
+                      {t("checkout.insufficientBalanceTitle")} ({cardBalance.toLocaleString()} / {total.toLocaleString()} ETB)
                     </span>
                   </button>
                 ) : (
@@ -1411,8 +1413,8 @@ export default function CheckoutPage() {
                         <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
                         <span>
                           {paymentMethod === "mercatox_card"
-                            ? "Authorizing MercatoX Card..."
-                            : "Redirecting to Chapa Gateway..."}
+                            ? t("checkout.authorizingCard")
+                            : t("checkout.redirectingChapa")}
                         </span>
                       </>
                     ) : (
@@ -1420,8 +1422,8 @@ export default function CheckoutPage() {
                         <Lock className="h-4 w-4" />
                         <span>
                           {paymentMethod === "mercatox_card"
-                            ? `Pay with MercatoX Card (${total.toLocaleString()} ETB)`
-                            : "Process to Pay with Chapa"}
+                            ? `${t("checkout.payWithCardBtn")} (${total.toLocaleString()} ETB)`
+                            : t("checkout.processToPayChapa")}
                         </span>
                         <ArrowRight className="h-4 w-4" />
                       </>
@@ -1435,7 +1437,7 @@ export default function CheckoutPage() {
                     className="inline-flex items-center gap-1.5 text-xs text-app-muted hover:text-app transition-colors"
                   >
                     <RotateCcw className="h-3 w-3" />
-                    <span>Return to Shopping Cart</span>
+                    <span>{t("checkout.returnToCart")}</span>
                   </Link>
                 </div>
               </div>
@@ -1444,10 +1446,10 @@ export default function CheckoutPage() {
               <div className="rounded-2xl border border-app bg-app-card/60 p-4 backdrop-blur-sm space-y-2 text-xs">
                 <div className="flex items-center gap-2 text-app">
                   <Truck className="h-4 w-4 text-cyan-500 dark:text-cyan-400" />
-                  <span className="font-semibold">Courier Delivery Commitment</span>
+                  <span className="font-semibold">{t("checkout.deliveryCommitment")}</span>
                 </div>
                 <p className="text-[11px] text-app-muted leading-relaxed">
-                  Average delivery speed within Addis Ababa is 2 to 4 hours. You will receive real-time SMS updates with courier phone number and tracking.
+                  {t("checkout.deliveryCommitmentSub")}
                 </p>
               </div>
             </div>
@@ -1459,7 +1461,7 @@ export default function CheckoutPage() {
       {mounted && items.length > 0 && (
         <div className="sm:hidden fixed bottom-14 left-0 right-0 z-30 border-t border-app bg-app-card/95 backdrop-blur-2xl px-4 py-2.5 shadow-2xl flex items-center justify-between gap-3 text-app">
           <div>
-            <span className="text-[10px] text-app-muted block uppercase font-medium">Total to Pay</span>
+            <span className="text-[10px] text-app-muted block uppercase font-medium">{t("checkout.totalToPay")}</span>
             <span className="text-sm font-black text-cyan-600 dark:text-cyan-300 font-mono">
               {total.toLocaleString()} ETB
             </span>
@@ -1471,7 +1473,7 @@ export default function CheckoutPage() {
               className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 px-4 py-2.5 text-xs font-bold text-white shadow-lg active:scale-95 transition-all cursor-pointer"
             >
               <Sparkles className="h-3.5 w-3.5" />
-              <span>Buy Card First</span>
+              <span>{t("checkout.buyCardNow")}</span>
             </Link>
           ) : paymentMethod === "mercatox_card" && hasCard && !hasSufficientBalance ? (
             <button
@@ -1480,7 +1482,7 @@ export default function CheckoutPage() {
               className="inline-flex items-center gap-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 px-3.5 py-2.5 text-xs font-bold text-amber-600 dark:text-amber-300 active:scale-95 transition-all cursor-pointer"
             >
               <AlertCircle className="h-3.5 w-3.5" />
-              <span>Top Up Card</span>
+              <span>{t("checkout.topUpCard")}</span>
             </button>
           ) : (
             <button
@@ -1492,15 +1494,15 @@ export default function CheckoutPage() {
               {isProcessing ? (
                 <>
                   <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                  <span>Processing...</span>
+                  <span>{t("common.loading")}</span>
                 </>
               ) : (
                 <>
                   <Lock className="h-3.5 w-3.5" />
                   <span>
                     {paymentMethod === "mercatox_card"
-                      ? "Pay with Card"
-                      : "Pay with Chapa"}
+                      ? t("checkout.payWithCardBtn")
+                      : t("checkout.processToPayChapa")}
                   </span>
                   <ArrowRight className="h-3.5 w-3.5" />
                 </>
@@ -1525,10 +1527,10 @@ export default function CheckoutPage() {
                 </div>
                 <div>
                   <h3 className="font-bold text-sm sm:text-base text-app">
-                    Card Security Password
+                    {t("checkout.cardPinTitle")}
                   </h3>
                   <p className="text-[11px] text-app-muted">
-                    Enter your 8-digit Card Password to authorize payment
+                    {t("checkout.cardPinSub")}
                   </p>
                 </div>
               </div>
@@ -1551,25 +1553,25 @@ export default function CheckoutPage() {
             {/* Mini Card & Payment Summary */}
             <div className="rounded-2xl bg-app-surface border border-cyan-500/20 p-3.5 space-y-2 text-xs">
               <div className="flex items-center justify-between">
-                <span className="text-app-muted">Cardholder:</span>
+                <span className="text-app-muted">{t("checkout.cardholder")}</span>
                 <span className="font-semibold text-app">
                   {userCard?.cardholderName || fullName || "Cardholder"}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-app-muted">Card Number:</span>
+                <span className="text-app-muted">{t("checkout.cardNumber")}</span>
                 <span className="font-mono font-bold text-cyan-600 dark:text-cyan-300">
                   {userCard?.cardNumber || "4892 •••• •••• ••••"}
                 </span>
               </div>
               <div className="pt-2 border-t border-app flex items-center justify-between font-bold">
-                <span className="text-app">Amount to Deduct:</span>
+                <span className="text-app">{t("checkout.amountToDeduct")}</span>
                 <span className="font-mono text-sm text-cyan-600 dark:text-cyan-400">
                   {total.toLocaleString()} ETB
                 </span>
               </div>
               <div className="flex items-center justify-between text-[11px] text-app-muted">
-                <span>Balance after deduction:</span>
+                <span>{t("checkout.balanceAfterDeduction")}</span>
                 <span className="font-mono text-emerald-600 dark:text-emerald-400 font-semibold">
                   {balanceAfterOrder.toLocaleString()} ETB
                 </span>
@@ -1579,7 +1581,7 @@ export default function CheckoutPage() {
             {/* 8-Digit PIN Input Box */}
             <div className="space-y-2">
               <label className="block text-xs font-semibold text-app">
-                Enter 8-Digit Card Password <span className="text-rose-500 dark:text-rose-400">*</span>
+                {t("checkout.enter8DigitPin")} <span className="text-rose-500 dark:text-rose-400">*</span>
               </label>
 
               <div className="relative flex items-center">
@@ -1632,13 +1634,13 @@ export default function CheckoutPage() {
                     className="text-[11px] font-semibold text-cyan-500 dark:text-cyan-400 hover:underline cursor-pointer inline-flex items-center gap-1"
                   >
                     <Mail className="h-3 w-3" />
-                    <span>{isResendingPin ? "Sending Email..." : "Resend 8-digit password to email"}</span>
+                    <span>{isResendingPin ? t("checkout.sendingEmail") : t("checkout.resendPinEmail")}</span>
                   </button>
                 </div>
               ) : (
                 <div className="space-y-1 pt-1 text-center">
                   <p className="text-[11px] text-app-muted">
-                    Enter the 8-digit card password sent to your email ({userCard?.email || email || user?.email || "your registered email"})
+                    {t("checkout.pinSentToEmail")} ({userCard?.email || email || user?.email || "your registered email"})
                   </p>
                   <button
                     type="button"
@@ -1647,7 +1649,7 @@ export default function CheckoutPage() {
                     className="text-[10.5px] font-medium text-cyan-500 hover:underline cursor-pointer inline-flex items-center gap-1"
                   >
                     <Mail className="h-3 w-3" />
-                    <span>{isResendingPin ? "Sending..." : "Forgot password? Resend to email"}</span>
+                    <span>{isResendingPin ? t("checkout.sendingEmail") : t("checkout.resendPinEmail")}</span>
                   </button>
                 </div>
               )}
@@ -1664,12 +1666,12 @@ export default function CheckoutPage() {
                 {isProcessing ? (
                   <>
                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
-                    <span>Deducting &amp; Confirming Order...</span>
+                    <span>{t("checkout.authorizingOrder")}</span>
                   </>
                 ) : (
                   <>
                     <Lock className="h-4 w-4" />
-                    <span>Authorize &amp; Pay {total.toLocaleString()} ETB</span>
+                    <span>{t("checkout.authorizeAndPay")} {total.toLocaleString()} ETB</span>
                     <ArrowRight className="h-4 w-4" />
                   </>
                 )}
@@ -1686,13 +1688,13 @@ export default function CheckoutPage() {
                 disabled={isProcessing}
                 className="w-full py-2.5 rounded-xl border border-app hover:bg-app-surface text-app-muted hover:text-app text-xs font-semibold transition-colors cursor-pointer"
               >
-                Cancel
+                {t("common.cancel")}
               </button>
             </div>
 
             <div className="flex items-center justify-center gap-1.5 text-[10.5px] text-app-muted pt-1">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-500 dark:text-emerald-400" />
-              <span>100% Escrow Protected · 0% Transaction Fee</span>
+              <span>{t("checkout.escrowBadge")}</span>
             </div>
           </div>
         </div>

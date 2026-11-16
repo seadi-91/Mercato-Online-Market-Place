@@ -24,6 +24,7 @@ import {
 import { useAdminUIStore, AdminTab } from "@/store/ui-store";
 import { useAuthStore } from "@/store/auth-store";
 import { usePlatformStore } from "@/store/platform-store";
+import { useTranslation } from "@/store/language-store";
 import { toast } from "sonner";
 
 interface NavItem {
@@ -44,6 +45,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const { user, logout } = useAuthStore();
   const { settings: platformSettings } = usePlatformStore();
+  const { t } = useTranslation();
   const {
     activeTab,
     setActiveTab,
@@ -65,72 +67,72 @@ export function AdminSidebar() {
 
   const navGroups: NavGroup[] = [
     {
-      title: "Core Monitoring",
+      title: t("admin.nav.coreMonitoring", "Core Monitoring"),
       items: [
         {
           id: "overview",
-          label: "Overview & Analytics",
+          label: t("admin.nav.overview", "Overview & Analytics"),
           icon: LayoutDashboard,
         },
       ],
     },
     {
-      title: "Commerce & Catalog",
+      title: t("admin.nav.commerceCatalog", "Commerce & Catalog"),
       items: [
         {
           id: "catalog",
-          label: "Products",
+          label: t("admin.nav.catalog", "Products"),
           icon: Tag,
           badge: pendingProductsCount,
           badgeColor: "bg-cyan-500/25 text-cyan-300 border-cyan-500/40",
         },
         {
           id: "categories",
-          label: "Categories",
+          label: t("admin.nav.categories", "Categories"),
           icon: FolderTree,
         },
         {
           id: "users",
-          label: "Users",
+          label: t("admin.nav.users", "Users"),
           icon: Users,
           badge: pendingKycCount,
           badgeColor: "bg-indigo-500/25 text-indigo-300 border-indigo-500/40",
         },
         {
           id: "suppliers",
-          label: "Suppliers & Fleet",
+          label: t("admin.nav.suppliers", "Suppliers & Fleet"),
           icon: Building2,
         },
         {
           id: "orders",
-          label: "Orders & Escrow",
+          label: t("admin.nav.orders", "Orders & Escrow"),
           icon: Package,
         },
         {
           id: "slips",
-          label: "Payments & Slips Audit",
+          label: t("admin.nav.slips", "Payments & Slips Audit"),
           icon: Receipt,
           badge: pendingSlipsCount,
           badgeColor: "bg-amber-500/25 text-amber-300 border-amber-500/40",
         },
         {
           id: "subscriptions",
-          label: "Subscriptions & Plans",
+          label: t("admin.nav.subscriptions", "Subscriptions & Plans"),
           icon: Sparkles,
         },
       ],
     },
     {
-      title: "Logistics & Care",
+      title: t("admin.nav.logisticsCare", "Logistics & Care"),
       items: [
         {
           id: "delivery",
-          label: "Delivery & Riders",
+          label: t("admin.nav.delivery", "Delivery & Riders"),
           icon: Bike,
         },
         {
           id: "disputes",
-          label: "Disputes & Refunds",
+          label: t("admin.nav.disputes", "Disputes & Refunds"),
           icon: Scale,
           badge: pendingDisputesCount,
           badgeColor: "bg-rose-500/25 text-rose-300 border-rose-500/40",
@@ -138,16 +140,16 @@ export function AdminSidebar() {
       ],
     },
     {
-      title: "Governance & System",
+      title: t("admin.nav.governanceSystem", "Governance & System"),
       items: [
         {
           id: "audit",
-          label: "Security Audit Logs",
+          label: t("admin.nav.audit", "Security Audit Logs"),
           icon: ShieldAlert,
         },
         {
           id: "settings",
-          label: "Platform Settings",
+          label: t("admin.nav.settings", "Platform Settings"),
           icon: Settings,
         },
       ],
@@ -301,13 +303,13 @@ export function AdminSidebar() {
             <div className="flex items-center justify-between rounded-xl bg-white/[0.02] border border-white/5 px-3 py-2 text-[10px]">
               <div className="flex items-center gap-2">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-zinc-300 font-medium">Cluster: Active</span>
+                <span className="text-zinc-300 font-medium">{t("admin.nav.clusterActive", "Cluster: Active")}</span>
               </div>
               <span className="font-mono text-indigo-400 font-semibold">ETB</span>
             </div>
           ) : (
             <div className="flex justify-center py-1.5">
-              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" title="Cluster Active" />
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse" title={t("admin.nav.clusterActive", "Cluster: Active")} />
             </div>
           )}
 
@@ -322,10 +324,10 @@ export function AdminSidebar() {
               {!isSidebarCollapsed && (
                 <div className="truncate">
                   <p className="text-xs font-semibold text-white leading-tight truncate">
-                    {user?.name || "System Admin"}
+                    {user?.name || t("admin.nav.adminConsole", "System Admin")}
                   </p>
                   <p className="text-[10px] font-mono text-indigo-400 leading-none mt-0.5">
-                    SUPER_ADMIN
+                    {t("admin.nav.superAdmin", "SUPER_ADMIN")}
                   </p>
                 </div>
               )}
@@ -334,7 +336,7 @@ export function AdminSidebar() {
             {!isSidebarCollapsed && (
               <button
                 onClick={handleLogout}
-                title="Sign Out"
+                title={t("admin.nav.signOut", "Sign Out")}
                 className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:bg-rose-500/10 hover:text-rose-400 transition-colors cursor-pointer"
               >
                 <LogOut className="h-3.5 w-3.5" />

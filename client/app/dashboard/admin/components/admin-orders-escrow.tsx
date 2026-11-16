@@ -29,6 +29,7 @@ import {
   UserCheck,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
 import { api } from "@/services/api/client";
 import { useAuthStore } from "@/store/auth-store";
 import {
@@ -108,6 +109,7 @@ const normalizeOrder = (order: any): AdminOrderRow => {
 
 export function AdminOrdersEscrow() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { token, logout } = useAuthStore();
   const [activeSubTab, setActiveSubTab] = useState<"ORDERS" | "PAYOUTS">("ORDERS");
 
@@ -529,7 +531,7 @@ export function AdminOrdersEscrow() {
         {/* Total Orders */}
         <div className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Total System Orders</span>
+            <span className="font-medium text-zinc-300">{t("admin.overview.totalOrders", "Total System Orders")}</span>
             <div className="rounded-lg bg-sky-500/20 p-1.5 text-sky-300">
               <Package className="h-4 w-4" />
             </div>
@@ -545,7 +547,7 @@ export function AdminOrdersEscrow() {
         {/* Escrow Held Vault */}
         <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Active Escrow Held</span>
+            <span className="font-medium text-zinc-300">{t("admin.orders.escrowBalance", "Active Escrow Held")}</span>
             <div className="rounded-lg bg-emerald-500/20 p-1.5 text-emerald-300">
               <ShieldCheck className="h-4 w-4" />
             </div>
@@ -554,7 +556,7 @@ export function AdminOrdersEscrow() {
             ETB {escrowHeld.toLocaleString()}
           </h3>
           <p className="text-[10px] text-emerald-300 mt-0.5">
-            Locked in platform escrow vault
+            {t("admin.orders.escrowFundsProtected", "Locked in platform escrow vault")}
           </p>
         </div>
 
@@ -645,7 +647,7 @@ export function AdminOrdersEscrow() {
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search order #, customer, address..."
+                  placeholder={t("admin.orders.searchPlaceholder", "Search order #, customer, address...")}
                   className="w-full h-8 rounded-lg border border-white/10 bg-white/[0.04] pl-8 pr-3 text-xs text-white placeholder-zinc-500 outline-none transition-all focus:border-indigo-500"
                 />
               </div>
@@ -716,14 +718,14 @@ export function AdminOrdersEscrow() {
               <table className="w-full text-left text-xs border-collapse min-w-[940px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                    <th className="py-2.5 px-3">Order Ref & Date</th>
-                    <th className="py-2.5 px-3">Customer</th>
-                    <th className="py-2.5 px-3">Delivery Destination</th>
-                    <th className="py-2.5 px-3">Amount (ETB)</th>
-                    <th className="py-2.5 px-3">Escrow Payment</th>
-                    <th className="py-2.5 px-3">Delivery Courier (አሽከርካሪ)</th>
-                    <th className="py-2.5 px-3">Order Status</th>
-                    <th className="py-2.5 px-3 text-right">Lifecycle Actions</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colOrder", "Order Ref & Date")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colCustomer", "Customer")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colAddress", "Delivery Destination")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colAmount", "Amount (ETB)")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colPayment", "Escrow Payment")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colRider", "Delivery Courier")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colStatus", "Order Status")}</th>
+                    <th className="py-2.5 px-3 text-right">{t("admin.orders.colAction", "Lifecycle Actions")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
@@ -1070,13 +1072,13 @@ export function AdminOrdersEscrow() {
               <table className="w-full text-left text-xs border-collapse min-w-[860px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                    <th className="py-2.5 px-3">Merchant Beneficiary</th>
-                    <th className="py-2.5 px-3">Destination Bank & Account</th>
-                    <th className="py-2.5 px-3">Gross Escrow</th>
-                    <th className="py-2.5 px-3">Platform Fee</th>
-                    <th className="py-2.5 px-3">Net Payout (ETB)</th>
-                    <th className="py-2.5 px-3">Vault Status</th>
-                    <th className="py-2.5 px-3 text-right">Escrow Release</th>
+                    <th className="py-2.5 px-3">{t("admin.catalog.colMerchant", "Merchant Beneficiary")}</th>
+                    <th className="py-2.5 px-3">{t("admin.slips.colBank", "Destination Bank & Account")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.escrowHeld", "Gross Escrow")}</th>
+                    <th className="py-2.5 px-3">{t("admin.settings.platformFee", "Platform Fee")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colAmount", "Net Payout (ETB)")}</th>
+                    <th className="py-2.5 px-3">{t("admin.orders.colStatus", "Vault Status")}</th>
+                    <th className="py-2.5 px-3 text-right">{t("admin.orders.releaseEscrow", "Escrow Release")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
