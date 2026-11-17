@@ -526,68 +526,76 @@ export function AdminOrdersEscrow() {
 
   return (
     <div className="space-y-3.5 animate-in fade-in duration-150">
-      {/* Overview Cards with Sleek Glowing Borders */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Overview Cards with Sleek Glowing Borders - Strictly 2 Column Grid */}
+      <div className="grid grid-cols-2 gap-2.5 sm:gap-3.5">
         {/* Total Orders */}
-        <div className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-500/15 via-[#0d121f] to-[#0d121f] p-3 sm:p-4 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">{t("admin.overview.totalOrders", "Total System Orders")}</span>
-            <div className="rounded-lg bg-sky-500/20 p-1.5 text-sky-300">
-              <Package className="h-4 w-4" />
+            <span className="font-semibold text-zinc-300 text-xs sm:text-sm truncate">
+              {t("admin.overview.totalOrders", "Total Orders")}
+            </span>
+            <div className="rounded-lg bg-sky-500/20 p-1 sm:p-1.5 text-sky-300 shrink-0">
+              <Package className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <h3 className="mt-2 text-2xl font-bold font-mono text-white">
-            {orders.length} Orders
+          <h3 className="mt-1.5 text-base sm:text-2xl font-bold font-mono text-white truncate">
+            {orders.length} <span className="text-xs sm:text-sm font-normal text-zinc-400">Orders</span>
           </h3>
-          <p className="text-[10px] text-sky-300 mt-0.5">
-            Gross Volume: ETB {totalGmv.toLocaleString()}
+          <p className="text-[10px] sm:text-xs text-sky-300 mt-0.5 truncate font-mono">
+            Volume: ETB {totalGmv.toLocaleString()}
           </p>
         </div>
 
         {/* Escrow Held Vault */}
-        <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-500/15 via-[#0d121f] to-[#0d121f] p-3 sm:p-4 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">{t("admin.orders.escrowBalance", "Active Escrow Held")}</span>
-            <div className="rounded-lg bg-emerald-500/20 p-1.5 text-emerald-300">
-              <ShieldCheck className="h-4 w-4" />
+            <span className="font-semibold text-zinc-300 text-xs sm:text-sm truncate">
+              {t("admin.orders.escrowBalance", "Active Escrow")}
+            </span>
+            <div className="rounded-lg bg-emerald-500/20 p-1 sm:p-1.5 text-emerald-300 shrink-0">
+              <ShieldCheck className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <h3 className="mt-2 text-2xl font-bold font-mono text-emerald-400">
+          <h3 className="mt-1.5 text-base sm:text-2xl font-bold font-mono text-emerald-400 truncate">
             ETB {escrowHeld.toLocaleString()}
           </h3>
-          <p className="text-[10px] text-emerald-300 mt-0.5">
-            {t("admin.orders.escrowFundsProtected", "Locked in platform escrow vault")}
+          <p className="text-[10px] sm:text-xs text-emerald-300 mt-0.5 truncate">
+            {t("admin.orders.escrowFundsProtected", "Locked in vault")}
           </p>
         </div>
 
         {/* Pending Merchant Payouts */}
-        <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/15 via-[#0d121f] to-[#0d121f] p-3 sm:p-4 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Pending Payouts</span>
-            <div className="rounded-lg bg-amber-500/20 p-1.5 text-amber-300">
-              <DollarSign className="h-4 w-4" />
+            <span className="font-semibold text-zinc-300 text-xs sm:text-sm truncate">
+              Pending Payouts
+            </span>
+            <div className="rounded-lg bg-amber-500/20 p-1 sm:p-1.5 text-amber-300 shrink-0">
+              <DollarSign className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <h3 className="mt-2 text-2xl font-bold font-mono text-amber-400">
-            {pendingPayoutCount} Pending
+          <h3 className="mt-1.5 text-base sm:text-2xl font-bold font-mono text-amber-400 truncate">
+            {pendingPayoutCount} <span className="text-xs sm:text-sm font-normal text-zinc-400">Pending</span>
           </h3>
-          <p className="text-[10px] text-amber-300 mt-0.5">
-            Awaiting admin bank disbursement
+          <p className="text-[10px] sm:text-xs text-amber-300 mt-0.5 truncate">
+            Awaiting bank disbursement
           </p>
         </div>
 
         {/* Platform Fee Captured */}
-        <div className="relative overflow-hidden rounded-xl border border-indigo-500/30 bg-gradient-to-b from-indigo-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
+        <div className="relative overflow-hidden rounded-xl border border-indigo-500/30 bg-gradient-to-b from-indigo-500/15 via-[#0d121f] to-[#0d121f] p-3 sm:p-4 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
-            <span className="font-medium text-zinc-300">Platform Commission (3.5%)</span>
-            <div className="rounded-lg bg-indigo-500/20 p-1.5 text-indigo-300">
-              <Receipt className="h-4 w-4" />
+            <span className="font-semibold text-zinc-300 text-xs sm:text-sm truncate">
+              Commission (3.5%)
+            </span>
+            <div className="rounded-lg bg-indigo-500/20 p-1 sm:p-1.5 text-indigo-300 shrink-0">
+              <Receipt className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
             </div>
           </div>
-          <h3 className="mt-2 text-2xl font-bold font-mono text-white">
+          <h3 className="mt-1.5 text-base sm:text-2xl font-bold font-mono text-white truncate">
             ETB {Math.round(totalGmv * 0.035).toLocaleString()}
           </h3>
-          <p className="text-[10px] text-indigo-300 mt-0.5">
+          <p className="text-[10px] sm:text-xs text-indigo-300 mt-0.5 truncate">
             Automated marketplace revenue
           </p>
         </div>
@@ -702,20 +710,23 @@ export function AdminOrdersEscrow() {
             </div>
           </div>
 
-          {/* Orders Table */}
-          <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-            {/* Mobile Swipe Hint */}
+          {/* Orders Container: Full Row & Column Table with Horizontal Scroll for Mobile & Desktop */}
+          <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
+            {/* Mobile Swipe Guidance Banner */}
             <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-              <span className="flex items-center gap-1.5 text-[10.5px]">
+              <span className="flex items-center gap-1.5 text-zinc-300">
                 <span>←</span>
-                <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+                <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full table)</span>
                 <span>→</span>
               </span>
-              <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredOrders.length} Orders</span>
+              <span className="font-mono text-[9.5px] text-indigo-400 font-bold uppercase tracking-wider">
+                {filteredOrders.length} Orders
+              </span>
             </div>
 
+            {/* Universal Table View */}
             <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
-              <table className="w-full text-left text-xs border-collapse min-w-[940px]">
+              <table className="w-full text-left text-xs border-collapse min-w-[960px]">
                 <thead>
                   <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                     <th className="py-2.5 px-3">{t("admin.orders.colOrder", "Order Ref & Date")}</th>
@@ -858,19 +869,9 @@ export function AdminOrdersEscrow() {
                         {/* Order Status */}
                         <td className="py-2.5 px-3">{renderStatusBadge(order.status)}</td>
 
-                        {/* Actions */}
+                        {/* Actions: Strictly 3-Dot Dropdown Only */}
                         <td className="py-2.5 px-3 text-right relative">
-                          <div className="flex items-center justify-end gap-1.5">
-                            {/* Inspect Quick Action */}
-                            <button
-                              type="button"
-                              onClick={() => setInspectingOrderModal(order)}
-                              className="inline-flex h-7 w-7 items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                              title="Inspect Order Breakdown"
-                            >
-                              <Eye className="h-3.5 w-3.5 text-indigo-400" />
-                            </button>
-
+                          <div className="flex items-center justify-end">
                             {/* Dropdown Menu */}
                             <div className="relative inline-block text-left">
                               <button
@@ -886,6 +887,20 @@ export function AdminOrdersEscrow() {
                                 <>
                                   <div className="fixed inset-0 z-30 cursor-default" onClick={() => setOpenMenuId(null)} />
                                   <div className="app-dropdown-panel absolute right-0 mt-1 w-56 rounded-xl border border-white/10 bg-[#0f172a] p-1.5 shadow-2xl z-40 space-y-0.5 text-left animate-in fade-in zoom-in-95 duration-100">
+                                    {/* 1. View Full Details Page Action */}
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setOpenMenuId(null);
+                                        router.push(`/dashboard/admin/orders/${order.id}`);
+                                      }}
+                                      className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-500/20 hover:text-white transition-colors cursor-pointer"
+                                    >
+                                      <Eye className="h-3.5 w-3.5 text-indigo-400" />
+                                      <span>View Details (ሙሉ ዝርዝር እይ)</span>
+                                    </button>
+
+                                    {/* 2. Quick Preview Items Modal */}
                                     <button
                                       type="button"
                                       onClick={() => {
@@ -894,8 +909,8 @@ export function AdminOrdersEscrow() {
                                       }}
                                       className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                                     >
-                                      <Eye className="h-3.5 w-3.5 text-indigo-400" />
-                                      <span>Inspect Order Items</span>
+                                      <Package className="h-3.5 w-3.5 text-cyan-400" />
+                                      <span>Quick Preview Items</span>
                                     </button>
 
                                     {/* Assign / Change Driver Action */}

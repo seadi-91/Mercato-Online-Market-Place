@@ -7,21 +7,87 @@ export const adminAuditService = {
   /**
    * Fetch paginated audit logs with optional filters.
    */
-  getAuditLogs: (params: FilterAuditLogsParams = {}): Promise<PaginatedAuditLogs> => {
+  getAuditLogs: async (params: FilterAuditLogsParams = {}): Promise<PaginatedAuditLogs> => {
     const qs = new URLSearchParams();
 
-    if (params.actorId)     qs.set('actorId', params.actorId);
-    if (params.actorRole)   qs.set('actorRole', params.actorRole);
-    if (params.action)      qs.set('action', params.action);
+    if (params.actorId)      qs.set('actorId', params.actorId);
+    if (params.actorRole)    qs.set('actorRole', String(params.actorRole));
+    if (params.action)       qs.set('action', String(params.action));
     if (params.targetEntity) qs.set('targetEntity', params.targetEntity);
-    if (params.targetId)    qs.set('targetId', params.targetId);
-    if (params.startDate)   qs.set('startDate', params.startDate);
-    if (params.endDate)     qs.set('endDate', params.endDate);
+    if (params.targetId)     qs.set('targetId', params.targetId);
+    if (params.startDate)    qs.set('startDate', params.startDate);
+    if (params.endDate)      qs.set('endDate', params.endDate);
     qs.set('page', String(params.page ?? 1));
     qs.set('limit', String(params.limit ?? 30));
 
     const query = qs.toString();
-    return api.get<PaginatedAuditLogs>(`${BASE}/audit-logs${query ? `?${query}` : ''}`);
+
+    try {
+      return await api.get<PaginatedAuditLogs>(`${BASE}/audit-logs${query ? `?${query}` : ''}`);
+    } catch {
+      // Fallback to Next.js persistent API
+      const res = await fetch(`/api/admin/audit-logs${query ? `?${query}` : ''}`);
+      if (res.ok) {
+        return await res.json();
+      }
+      return { data: [], total: 0, page: 1, limit: 30, totalPages: 1 };
+    }
+  },
+
+  /**
+   * Permanently delete a single audit log
+   */
+  deleteAuditLog: async (id: string): Promise<{ success: boolean; id: string }> => {
+    try {
+      return await api.delete(`${BASE}/audit-logs/${id}`);
+    } catch {
+      const res = await fetch(`/api/admin/audit-logs?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      throw new Error('Failed to delete audit log record');
+    }
+  },
+
+  /**
+   * Permanently delete selected audit logs or all audit logs
+   */
+  deleteAuditLogs: async (payload: { ids?: string[]; all?: boolean }): Promise<{ success: boolean; deletedCount: number; message: string }> => {
+    try {
+      return await api.delete(`${BASE}/audit-logs`, { data: payload });
+    } catch {
+      const res = await fetch('/api/admin/audit-logs', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+      throw new Error('Failed to permanently delete audit logs');
+    }
+  },
+
+  /**
+   * Record a new audit log entry
+   */
+  logEvent: async (data: Record<string, any>): Promise<any> => {
+    try {
+      return await api.post(`${BASE}/audit-logs`, data);
+    } catch {
+      try {
+        const res = await fetch('/api/admin/audit-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        if (res.ok) return await res.json();
+      } catch {
+        // Non-blocking log
+      }
+    }
   },
 };
 
@@ -416,12 +482,46 @@ export interface DisputeItem {
 }
 
 export const adminDisputesService = {
-  getDisputes: (params: { page?: number; limit?: number; status?: string } = {}): Promise<{ data: any[]; total: number }> => {
+  getDisputes: async (params: { page?: number; limit?: number; status?: string } = {}): Promise<{ data: any[]; total: number }> => {
     const qs = new URLSearchParams();
     if (params.page) qs.set('page', String(params.page));
     if (params.limit) qs.set('limit', String(params.limit));
     if (params.status) qs.set('status', params.status);
-    return api.get(`${BASE}/disputes?${qs.toString()}`);
+
+    try {
+      const res: any = await api.get(`${BASE}/disputes?${qs.toString()}`);
+      if (res && Array.isArray(res.data) && res.data.length > 0) {
+        return res;
+      }
+    } catch {
+      // Fall through to Next.js API
+    }
+
+    try {
+      const res = await fetch(`/api/admin/disputes?${qs.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        return { data: json.data || [], total: json.total || 0 };
+      }
+    } catch {
+      // Fall through to orders
+    }
+
+    try {
+      const ordRes = await fetch('/api/orders?admin=true');
+      if (ordRes.ok) {
+        const json = await ordRes.json();
+        const orders = Array.isArray(json) ? json : json?.orders || json?.data || [];
+        const disputed = orders.filter((o: any) =>
+          o.cancelReason || o.status === 'CANCELLED' || o.paymentStatus === 'REFUNDED' || o.status === 'DISPUTED'
+        );
+        return { data: disputed, total: disputed.length };
+      }
+    } catch {
+      // Empty fallback
+    }
+
+    return { data: [], total: 0 };
   },
 
   refundDispute: (orderId: string, reason?: string): Promise<any> => {

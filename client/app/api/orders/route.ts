@@ -314,24 +314,43 @@ export async function GET(req: Request) {
       });
     }
 
-    // Enrich customer profiles & payment details in batch
-    const customerIds = Array.from(
-      new Set(rows.map((r: any) => r.customerId).filter((id: any) => isValidUuid(id)))
-    );
+    // Enrich customer & seller profiles & payment details in batch
+    const customerIds = rows.map((r: any) => r.customerId).filter((id: any) => isValidUuid(id));
+    const sellerIds = rows.map((r: any) => r.sellerId).filter((id: any) => isValidUuid(id));
+    const allUserIds = Array.from(new Set([...customerIds, ...sellerIds]));
     const orderIds = Array.from(
       new Set(rows.map((r: any) => r.id).filter((id: any) => isValidUuid(id)))
     );
 
     const profileMap = new Map<string, any>();
-    if (customerIds.length > 0) {
+    if (allUserIds.length > 0) {
       try {
         const usersPool = getUsersDbPool();
         const profRes = await usersPool.query(
-          `SELECT id::text AS id, email, "fullName", "phoneNumber" FROM profiles WHERE id::text = ANY($1)`,
-          [customerIds]
+          `SELECT 
+            id::text AS id, 
+            "userId"::text AS "userId", 
+            email, 
+            "fullName", 
+            "phoneNumber", 
+            "alternatePhone",
+            role,
+            "shopName",
+            "businessType",
+            "isVerifiedMerchant",
+            "merchantKycStatus",
+            "tinNumber",
+            city,
+            "subCity",
+            "specificLocation",
+            "marketZone"
+          FROM profiles 
+          WHERE "userId"::text = ANY($1) OR id::text = ANY($1)`,
+          [allUserIds]
         );
         for (const p of profRes.rows) {
-          profileMap.set(p.id, p);
+          if (p.id) profileMap.set(String(p.id), p);
+          if (p.userId) profileMap.set(String(p.userId), p);
         }
       } catch (e) {
         console.warn("[Orders GET] Profile enrichment skipped:", e);
@@ -446,6 +465,14 @@ export async function GET(req: Request) {
           totalAmount: Number(row.totalAmount),
           deliveryAddress: enrichedDeliveryAddress,
           notes: row.notes,
+          customer: custProf || {
+            id: row.customerId,
+            fullName: resolvedCustomerName,
+            email: resolvedCustomerEmail,
+            phoneNumber: resolvedCustomerPhone,
+          },
+          seller: (row.sellerId ? profileMap.get(String(row.sellerId)) : null) || null,
+          payment: payRec || null,
           items: mappedItems.length > 0 ? mappedItems : snapshotList.map((s: any) => ({
             id: s.id || crypto.randomUUID(),
             productId: s.productId || s.id,

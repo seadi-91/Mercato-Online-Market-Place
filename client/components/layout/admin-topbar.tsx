@@ -110,6 +110,7 @@ export function AdminTopbar() {
     catalog: t("admin.nav.catalog", "Products Moderation"),
     categories: t("admin.nav.categories", "Categories Management"),
     users: t("admin.nav.users", "Merchants & KYC Verification"),
+    "sellers-suppliers": t("admin.nav.sellersSuppliers", "Sellers & Suppliers Payouts"),
     suppliers: t("admin.nav.suppliers", "Suppliers & Fleet Control"),
     orders: t("admin.nav.orders", "Orders & Escrow Operations"),
     slips: t("admin.nav.slips", "Bank Slip Verification Queue"),
@@ -125,6 +126,7 @@ export function AdminTopbar() {
     { id: "catalog", label: t("admin.nav.catalog", "Products"), icon: Tag },
     { id: "categories", label: t("admin.nav.categories", "Categories"), icon: FolderTree },
     { id: "users", label: t("admin.nav.users", "Users & KYC"), icon: Users },
+    { id: "sellers-suppliers", label: t("admin.nav.sellersSuppliers", "Sellers & Suppliers"), icon: Building2 },
     { id: "suppliers", label: t("admin.nav.suppliers", "Suppliers"), icon: Building2 },
     { id: "orders", label: t("admin.nav.orders", "Orders"), icon: Package },
     { id: "slips", label: t("admin.nav.slips", "Bank Slips"), icon: Receipt },
@@ -267,7 +269,7 @@ export function AdminTopbar() {
           </button>
 
           {showNotifications && (
-            <div className="app-dropdown-panel absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl border border-white/10 bg-[#0c101d] p-3.5 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in duration-150">
+            <div className="app-dropdown-panel fixed inset-x-2.5 top-14 sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 w-auto sm:w-96 max-w-md sm:max-w-none rounded-2xl border border-white/15 bg-[#0c101d]/98 p-3.5 shadow-2xl backdrop-blur-2xl z-50 animate-in fade-in duration-150">
               <div className="flex items-center justify-between pb-2.5 border-b border-white/10">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold text-white tracking-wide">
@@ -478,28 +480,6 @@ export function AdminTopbar() {
         </div>
       </div>
     </div>
-
-      {/* Mobile Horizontal Quick-Switch Navigation Ribbon */}
-      <div className="md:hidden flex items-center gap-1.5 overflow-x-auto px-3 py-1.5 border-t border-white/[0.06] bg-[#070b14]/95 backdrop-blur-xl scrollbar-none">
-        {quickTabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`inline-flex items-center gap-1.5 shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium transition-all active:scale-95 cursor-pointer ${
-                isActive
-                  ? "bg-gradient-to-r from-indigo-600 to-indigo-700 text-white font-semibold shadow-sm shadow-indigo-600/30 border border-indigo-400/40"
-                  : "text-zinc-400 bg-white/[0.03] hover:text-zinc-200 hover:bg-white/[0.07] border border-white/5"
-              }`}
-            >
-              <Icon className={`h-3 w-3 ${isActive ? "text-cyan-300" : "text-zinc-400"}`} />
-              <span>{tab.label}</span>
-            </button>
-          );
-        })}
-      </div>
-    </header>
+  </header>
   );
 }

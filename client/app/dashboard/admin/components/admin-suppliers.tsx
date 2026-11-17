@@ -330,8 +330,8 @@ export function AdminSuppliers() {
         </div>
       </div>
 
-      {/* Real DB Overview Stats */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Real DB Overview Stats (2x2 on Mobile, 4x1 on Desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {/* Suppliers in DB */}
         <div className={`relative overflow-hidden rounded-2xl border ${cardBg} p-4 backdrop-blur-md group hover:border-indigo-500/40 transition-all`}>
           <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-80" />
@@ -499,18 +499,21 @@ export function AdminSuppliers() {
         </div>
       </div>
 
-      {/* Suppliers Table */}
+      {/* Suppliers Container: Full Row & Column Table with Horizontal Scroll for Mobile & Desktop */}
       <div className={`overflow-visible rounded-2xl border ${cardBg} backdrop-blur-md`}>
-        {/* Mobile Swipe Hint */}
+        {/* Mobile Swipe Guidance Banner */}
         <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-          <span className="flex items-center gap-1.5 text-[10.5px]">
+          <span className="flex items-center gap-1.5 text-zinc-300">
             <span>←</span>
-            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full table)</span>
             <span>→</span>
           </span>
-          <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredSuppliers.length} Merchants</span>
+          <span className="font-mono text-[9.5px] text-indigo-400 font-bold uppercase tracking-wider">
+            {filteredSuppliers.length} Wholesalers
+          </span>
         </div>
 
+        {/* Universal Table View */}
         <div className="overflow-x-auto overflow-y-visible scrollbar-thin">
           <table className="w-full text-left text-xs min-w-[1240px]">
             <thead className={`border-b ${borderDivider} ${tableHeaderBg} text-[11px] font-semibold uppercase tracking-wider`}>

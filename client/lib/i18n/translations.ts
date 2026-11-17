@@ -565,6 +565,7 @@ export interface TranslationSchema {
       catalog: string;
       categories: string;
       users: string;
+      sellersSuppliers: string;
       suppliers: string;
       orders: string;
       slips: string;
@@ -593,6 +594,12 @@ export interface TranslationSchema {
       verifiedActive: string;
       accountStatus: string;
       verifyingClearance: string;
+      mobileOverview: string;
+      mobileOrders: string;
+      mobileCatalog: string;
+      mobileSlips: string;
+      mobilePayouts: string;
+      mobileMore: string;
     };
     overview: {
       title: string;
@@ -1418,6 +1425,7 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         catalog: "Products",
         categories: "Categories",
         users: "Users",
+        sellersSuppliers: "Sellers & Suppliers Payouts",
         suppliers: "Suppliers & Fleet",
         orders: "Orders & Escrow",
         slips: "Payments & Slips Audit",
@@ -1446,6 +1454,12 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         verifiedActive: "Verified & Active",
         accountStatus: "Account Status",
         verifyingClearance: "Initializing administrator security clearance...",
+        mobileOverview: "Overview",
+        mobileOrders: "Orders",
+        mobileCatalog: "Products",
+        mobileSlips: "Slips",
+        mobilePayouts: "Payouts",
+        mobileMore: "More",
       },
       overview: {
         title: "Platform Analytics & Overview",
@@ -2270,6 +2284,7 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         catalog: "ምርቶች",
         categories: "ምድቦች",
         users: "ተጠቃሚዎች",
+        sellersSuppliers: "የሻጮች እና አቅራቢዎች ክፍያ",
         suppliers: "አቅራቢዎች እና መርከቦች",
         orders: "ትዕዛዞች እና ኤስክሮው",
         slips: "ደረሰኞች እና ክፍያዎች ኦዲት",
@@ -2298,6 +2313,12 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         verifiedActive: "የተረጋገጠ እና ንቁ",
         accountStatus: "የመለያ ሁኔታ",
         verifyingClearance: "የአድሚን የደህንነት ፈቃድ በመፈተሽ ላይ...",
+        mobileOverview: "አጠቃላይ",
+        mobileOrders: "ትዕዛዞች",
+        mobileCatalog: "ምርቶች",
+        mobileSlips: "ደረሰኞች",
+        mobilePayouts: "ክፍያዎች",
+        mobileMore: "ተጨማሪ",
       },
       overview: {
         title: "የመድረክ ትንተና እና አጠቃላይ እይታ",
@@ -3122,6 +3143,7 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         catalog: "Oomishaalee",
         categories: "Gareewwan",
         users: "Fayyadamtoota",
+        sellersSuppliers: "Kaffaltii Daldaltootaa & Dhiyeessitootaa",
         suppliers: "Dhiyeessitoota & Konkolaattota",
         orders: "Ajajoota & Eeskiroo",
         slips: "Nagaheewwan & Oodiitii Kaffaltii",
@@ -3150,6 +3172,12 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         verifiedActive: "Mirkanaa'e & Hojiirra Jira",
         accountStatus: "Haala Herregaa",
         verifyingClearance: "Hayyama nageenyaa bulchaa mirkaneessaa jira...",
+        mobileOverview: "Cuunfaa",
+        mobileOrders: "Ajajoota",
+        mobileCatalog: "Oomisha",
+        mobileSlips: "Nagahee",
+        mobilePayouts: "Kaffaltii",
+        mobileMore: "Dabalata",
       },
       overview: {
         title: "Xiinxala & Waliigala Sirnichaa",
@@ -3974,6 +4002,7 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         catalog: "ፍርያታት",
         categories: "ምድባት",
         users: "ተጠቀምቲ",
+        sellersSuppliers: "ናይ ሸየጥትን ኣቕረብትን ክፍሊት",
         suppliers: "ኣቕረብትን መጓዓዝያን",
         orders: "ትእዛዛትን ኤስክሮውን",
         slips: "ቅብሊታትን ኦዲት ክፍሊትን",
@@ -4002,6 +4031,12 @@ export const translations: Record<LanguageCode, TranslationSchema> = {
         verifiedActive: "ዝተረጋገጸን ንጡፍን",
         accountStatus: "ኩነታት ኣካውንት",
         verifyingClearance: "ናይ ኣድሚን ድሕንነት ፍቓድ ይምርምር ኣሎ...",
+        mobileOverview: "ሓፈሻዊ",
+        mobileOrders: "ትእዛዛት",
+        mobileCatalog: "ፍርያት",
+        mobileSlips: "ቅብሲታት",
+        mobilePayouts: "ክፍሊት",
+        mobileMore: "ተወሳኺ",
       },
       overview: {
         title: "ሓፈሻዊ ትንተናን ርእይቶን መድረኽ",

@@ -1657,3 +1657,11 @@ html[data-theme="light"] .admin-platform-settings .admin-settings-dark-preview .
 html.theme-light .admin-platform-settings .admin-settings-dark-preview .text-white {
   color: #ffffff !important;
 }
+
+/* Dev indicator overlay safeguard so it never blocks admin mobile bottom dock */
+nextjs-portal,
+[data-nextjs-dev-tools-indicator],
+[data-nextjs-toast] {
+  display: none !important;
+  pointer-events: none !important;
+}

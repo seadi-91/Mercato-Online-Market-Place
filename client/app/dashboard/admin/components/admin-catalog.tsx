@@ -190,19 +190,22 @@ export function AdminCatalog() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        {/* Mobile Swipe Hint */}
-        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-          <span className="flex items-center gap-1.5 text-[10.5px]">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
+        {/* Mobile Swipe Guidance Banner */}
+        <div className="sm:hidden flex items-center justify-between px-3 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-zinc-300">
             <span>←</span>
-            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full table)</span>
             <span>→</span>
           </span>
-          <span className="text-[10px] font-mono text-cyan-400 font-semibold">{filtered.length} Items</span>
+          <span className="font-mono text-[9.5px] text-indigo-400 font-bold uppercase tracking-wider">
+            {filtered.length} Products
+          </span>
         </div>
 
+        {/* Universal Table View */}
         <div className="min-h-[260px] overflow-x-auto scrollbar-thin">
-          <table className="w-full border-collapse text-left text-xs min-w-[800px]">
+          <table className="w-full border-collapse text-left text-xs min-w-[840px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="px-3 py-2.5 min-w-[200px]">{t("admin.catalog.colProduct", "Product Listing")}</th>

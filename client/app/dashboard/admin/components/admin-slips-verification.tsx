@@ -823,20 +823,23 @@ export function AdminSlipsVerification() {
         </div>
       </div>
 
-      {/* Slips Table */}
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        {/* Mobile Swipe Hint */}
+      {/* Slips Container: Full Row & Column Table with Horizontal Scroll for Mobile & Desktop */}
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
+        {/* Mobile Swipe Guidance Banner */}
         <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-          <span className="flex items-center gap-1.5 text-[10.5px]">
+          <span className="flex items-center gap-1.5 text-zinc-300">
             <span>←</span>
-            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full table)</span>
             <span>→</span>
           </span>
-          <span className="text-[10px] font-mono text-amber-400 font-semibold">{filteredSlips.length} Deposits</span>
+          <span className="font-mono text-[9.5px] text-amber-400 font-bold uppercase tracking-wider">
+            {filteredSlips.length} Slips
+          </span>
         </div>
 
+        {/* Universal Table View */}
         <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
-          <table className="w-full text-left text-xs border-collapse min-w-[840px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[880px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
                 <th className="py-2.5 px-3">{t("admin.orders.colOrder", "Linked Order")}</th>

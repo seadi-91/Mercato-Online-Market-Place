@@ -18,6 +18,7 @@ import {
   Trash2,
   Clock,
   RotateCcw,
+  RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/store/language-store";
@@ -323,28 +324,31 @@ export function AdminUsersTable() {
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        {/* Mobile Swipe Hint */}
-        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-          <span className="flex items-center gap-1.5 text-[10.5px]">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
+        {/* Mobile Swipe Guidance Banner */}
+        <div className="sm:hidden flex items-center justify-between px-3 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-zinc-300">
             <span>←</span>
-            <span>Swipe to scroll horizontally</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full table)</span>
             <span>→</span>
           </span>
-          <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredUsers.length} Users</span>
+          <span className="font-mono text-[9.5px] text-purple-400 font-bold uppercase tracking-wider">
+            {filteredUsers.length} Users
+          </span>
         </div>
 
+        {/* Universal Table View */}
         <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
-          <table className="w-full text-left text-xs border-collapse min-w-[820px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[850px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="py-2.5 px-3">{t("admin.users.colUser", "User & Store Info")}</th>
-                <th className="py-2.5 px-3">{t("admin.users.colRole", "Role")}</th>
-                <th className="py-2.5 px-3">{t("admin.users.colContact", "Contact")}</th>
-                <th className="py-2.5 px-3">{t("admin.users.colKyc", "KYC Audit")}</th>
-                <th className="py-2.5 px-3">{t("admin.users.colAccountStatus", "Account Status")}</th>
-                <th className="py-2.5 px-3">{t("admin.users.colJoined", "Joined")}</th>
-                <th className="py-2.5 px-3 text-right">{t("admin.users.colAction", "Actions")}</th>
+                <th className="py-2.5 px-3 min-w-[200px]">{t("admin.users.colUser", "User & Store Info")}</th>
+                <th className="py-2.5 px-3 min-w-[110px] whitespace-nowrap">{t("admin.users.colRole", "Role")}</th>
+                <th className="py-2.5 px-3 min-w-[180px]">{t("admin.users.colContact", "Contact")}</th>
+                <th className="py-2.5 px-3 min-w-[120px] whitespace-nowrap">{t("admin.users.colKyc", "KYC Audit")}</th>
+                <th className="py-2.5 px-3 min-w-[140px] whitespace-nowrap">{t("admin.users.colAccountStatus", "Account Status")}</th>
+                <th className="py-2.5 px-3 min-w-[100px] whitespace-nowrap">{t("admin.users.colJoined", "Joined")}</th>
+                <th className="py-2.5 px-3 text-right min-w-[110px] whitespace-nowrap">{t("admin.users.colAction", "Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">

@@ -41,30 +41,35 @@ import { toast } from "sonner";
 import { useTranslation } from "@/store/language-store";
 import { useAuthStore, usePlatformStore } from "@/store";
 import { api } from "@/services/api/client";
+import {
+  SETTINGS_TRANSLATIONS,
+  type SettingsTranslationDictionary,
+} from "@/lib/i18n/settings-translations";
+import { LanguageSelector } from "@/components/common/language-selector";
 
 // Preset Logos for Instant Customization
 const LOGO_PRESETS = [
   {
     id: "gradient-m",
-    name: "Modern Gradient",
+    nameKey: "presetModernGradient" as const,
     bg: "from-indigo-600 via-indigo-500 to-cyan-400",
     letter: "M",
   },
   {
     id: "cyan-shield",
-    name: "Escrow Shield",
+    nameKey: "presetEscrowShield" as const,
     bg: "from-cyan-500 to-blue-600",
     letter: "X",
   },
   {
     id: "emerald-trade",
-    name: "Birr Green",
+    nameKey: "presetBirrGreen" as const,
     bg: "from-emerald-500 to-teal-700",
     letter: "M",
   },
   {
     id: "dark-monochrome",
-    name: "Onyx Minimal",
+    nameKey: "presetOnyxMinimal" as const,
     bg: "from-zinc-800 to-black",
     letter: "M",
   },
@@ -80,75 +85,8 @@ type SettingsSidebarTab =
   | "card"
   | "kyc";
 
-const SIDEBAR_ITEMS = [
-  {
-    id: "all" as SettingsSidebarTab,
-    label: "Compact Grid",
-    sub: "All settings overview",
-    icon: Layers,
-    color: "text-indigo-400",
-    badge: "ALL",
-  },
-  {
-    id: "brand" as SettingsSidebarTab,
-    label: "Brand & Identity",
-    sub: "Name, logo & meta",
-    icon: Sparkles,
-    color: "text-cyan-400",
-    badge: "CORE",
-  },
-  {
-    id: "contact" as SettingsSidebarTab,
-    label: "Footer & Contact",
-    sub: "Email, phone & address",
-    icon: Phone,
-    color: "text-emerald-400",
-    badge: "PUBLIC",
-  },
-  {
-    id: "admin-security" as SettingsSidebarTab,
-    label: "Admin Credentials",
-    sub: "Login email & password",
-    icon: Key,
-    color: "text-amber-400",
-    badge: "AUTH",
-  },
-  {
-    id: "escrow" as SettingsSidebarTab,
-    label: "Escrow & Finance",
-    sub: "Commission & release windows",
-    icon: Percent,
-    color: "text-indigo-400",
-    badge: "RULES",
-  },
-  {
-    id: "gateways" as SettingsSidebarTab,
-    label: "Gateways",
-    sub: "Telebirr, CBE & Chapa",
-    icon: CreditCard,
-    color: "text-emerald-400",
-    badge: "PAYMENTS",
-  },
-  {
-    id: "card" as SettingsSidebarTab,
-    label: "MercatoX Card",
-    sub: "Issuance price & limits",
-    icon: CreditCard,
-    color: "text-cyan-400",
-    badge: "PRICING",
-  },
-  {
-    id: "kyc" as SettingsSidebarTab,
-    label: "Merchant KYC",
-    sub: "TIN, license & couriers",
-    icon: Building,
-    color: "text-cyan-400",
-    badge: "GOVERNANCE",
-  },
-];
-
 export function AdminSettings() {
-  const { t } = useTranslation();
+  const { language } = useTranslation();
   const { user, setUser } = useAuthStore();
   const {
     settings: globalSettings,
@@ -157,6 +95,82 @@ export function AdminSettings() {
     fetchSettings,
     isLoading: isStoreLoading,
   } = usePlatformStore();
+
+  const tr = (key: keyof SettingsTranslationDictionary): string => {
+    const dict = SETTINGS_TRANSLATIONS[language] || SETTINGS_TRANSLATIONS.en;
+    return dict[key] || SETTINGS_TRANSLATIONS.en[key] || key;
+  };
+
+  const sidebarItems = useMemo(
+    () => [
+      {
+        id: "all" as SettingsSidebarTab,
+        label: tr("tabAllTitle"),
+        sub: tr("tabAllSub"),
+        icon: Layers,
+        color: "text-indigo-400",
+        badge: tr("tabAllBadge"),
+      },
+      {
+        id: "brand" as SettingsSidebarTab,
+        label: tr("tabBrandTitle"),
+        sub: tr("tabBrandSub"),
+        icon: Sparkles,
+        color: "text-cyan-400",
+        badge: tr("tabBrandBadge"),
+      },
+      {
+        id: "contact" as SettingsSidebarTab,
+        label: tr("tabContactTitle"),
+        sub: tr("tabContactSub"),
+        icon: Phone,
+        color: "text-emerald-400",
+        badge: tr("tabContactBadge"),
+      },
+      {
+        id: "admin-security" as SettingsSidebarTab,
+        label: tr("tabSecurityTitle"),
+        sub: tr("tabSecuritySub"),
+        icon: Key,
+        color: "text-amber-400",
+        badge: tr("tabSecurityBadge"),
+      },
+      {
+        id: "escrow" as SettingsSidebarTab,
+        label: tr("tabEscrowTitle"),
+        sub: tr("tabEscrowSub"),
+        icon: Percent,
+        color: "text-indigo-400",
+        badge: tr("tabEscrowBadge"),
+      },
+      {
+        id: "gateways" as SettingsSidebarTab,
+        label: tr("tabGatewaysTitle"),
+        sub: tr("tabGatewaysSub"),
+        icon: CreditCard,
+        color: "text-emerald-400",
+        badge: tr("tabGatewaysBadge"),
+      },
+      {
+        id: "card" as SettingsSidebarTab,
+        label: tr("tabCardTitle"),
+        sub: tr("tabCardSub"),
+        icon: CreditCard,
+        color: "text-cyan-400",
+        badge: tr("tabCardBadge"),
+      },
+      {
+        id: "kyc" as SettingsSidebarTab,
+        label: tr("tabKycTitle"),
+        sub: tr("tabKycSub"),
+        icon: Building,
+        color: "text-cyan-400",
+        badge: tr("tabKycBadge"),
+      },
+    ],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [language]
+  );
 
   const [activeTab, setActiveTab] = useState<SettingsSidebarTab>("all");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -275,17 +289,18 @@ export function AdminSettings() {
   const passwordStrengthLabel = useMemo(() => {
     switch (passwordStrength) {
       case 1:
-        return { text: "Weak", color: "text-rose-400", bg: "bg-rose-500" };
+        return { text: tr("passwordWeak"), color: "text-rose-400", bg: "bg-rose-500" };
       case 2:
-        return { text: "Fair", color: "text-amber-400", bg: "bg-amber-500" };
+        return { text: tr("passwordFair"), color: "text-amber-400", bg: "bg-amber-500" };
       case 3:
-        return { text: "Good", color: "text-cyan-400", bg: "bg-cyan-500" };
+        return { text: tr("passwordGood"), color: "text-cyan-400", bg: "bg-cyan-500" };
       case 4:
-        return { text: "Strong & Secure", color: "text-emerald-400", bg: "bg-emerald-500" };
+        return { text: tr("passwordStrong"), color: "text-emerald-400", bg: "bg-emerald-500" };
       default:
-        return { text: "Too Short", color: "text-zinc-500", bg: "bg-zinc-700" };
+        return { text: tr("passwordTooShort"), color: "text-zinc-500", bg: "bg-zinc-700" };
     }
-  }, [passwordStrength]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passwordStrength, language]);
 
   // Save All Settings to Backend
   const handleSaveAll = async (e?: React.FormEvent) => {
@@ -295,8 +310,8 @@ export function AdminSettings() {
       const saved = await saveSettingsToBackend(settings);
       setLocalSettings(saved);
       setHasUnsavedChanges(false);
-      toast.success("Platform Settings Saved to Backend", {
-        description: `All headers, footers, and customer views are now updated with '${saved.platformName}'.`,
+      toast.success(tr("saveToBackend"), {
+        description: `'${saved.platformName}' - ${tr("universalRealtimeEnabled")}`,
       });
     } catch {
       toast.error("Failed to save settings");
@@ -307,7 +322,7 @@ export function AdminSettings() {
 
   // Reset to Factory Defaults
   const handleResetDefaults = async () => {
-    if (confirm("Reset all platform settings to default values?")) {
+    if (confirm(tr("resetDefaultsConfirm"))) {
       const reset = await saveSettingsToBackend({
         platformName: "MercatoX",
         logoUrl: "",
@@ -317,7 +332,7 @@ export function AdminSettings() {
       });
       setLocalSettings(reset);
       setHasUnsavedChanges(false);
-      toast.info("Settings restored to factory defaults");
+      toast.info(tr("resetDefaults"));
     }
   };
 
@@ -414,7 +429,7 @@ export function AdminSettings() {
     }
   };
 
-  const currentTabItem = SIDEBAR_ITEMS.find((item) => item.id === activeTab);
+  const currentTabItem = sidebarItems.find((item) => item.id === activeTab);
 
   return (
     <div className="admin-platform-settings space-y-4 max-w-6xl mx-auto pb-12">
@@ -436,28 +451,31 @@ export function AdminSettings() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-base font-bold text-white tracking-tight">
-                {t("admin.settings.title", "Platform & Security Settings")}
+                {tr("pageTitle")}
               </h1>
               {isStoreLoading && (
                 <span className="flex items-center gap-1 text-[10px] text-zinc-400">
                   <RefreshCw className="h-2.5 w-2.5 animate-spin text-indigo-400" />
-                  Syncing...
+                  {tr("syncing")}
                 </span>
               )}
               {hasUnsavedChanges && (
                 <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-semibold text-amber-400 border border-amber-500/20 animate-pulse">
-                  Unsaved Changes
+                  {tr("unsavedChanges")}
                 </span>
               )}
             </div>
             <p className="text-xs text-zinc-400">
-              {t("admin.settings.subtitle", "Customize marketplace name, upload platform logo, configure contacts, and sync everywhere.")}
+              {tr("pageSubtitle")}
             </p>
           </div>
         </div>
 
-        {/* Global Save & Reset Actions */}
-        <div className="flex items-center gap-2">
+        {/* Global Save, Reset & Language Actions */}
+        <div className="flex items-center flex-wrap gap-2">
+          {/* In-page Language Selector */}
+          <LanguageSelector variant="compact" showLabel={true} />
+
           <button
             type="button"
             onClick={handleResetDefaults}
@@ -465,7 +483,7 @@ export function AdminSettings() {
             title="Reset to factory defaults"
           >
             <RotateCcw className="h-3 w-3" />
-            <span className="hidden sm:inline">{t("admin.settings.resetDefaults", "Reset Defaults")}</span>
+            <span className="hidden sm:inline">{tr("resetDefaults")}</span>
           </button>
 
           <button
@@ -475,7 +493,7 @@ export function AdminSettings() {
             className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-1.5 text-[11px] font-semibold text-white shadow-md shadow-indigo-500/25 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
           >
             <Save className="h-3.5 w-3.5" />
-            <span>{isSaving ? t("admin.settings.saving", "Saving...") : t("admin.settings.saveChanges", "Save to Backend")}</span>
+            <span>{isSaving ? tr("saving") : tr("saveToBackend")}</span>
           </button>
         </div>
       </div>
@@ -489,10 +507,10 @@ export function AdminSettings() {
             </div>
             <div>
               <p className="text-xs font-semibold text-rose-300">
-                {t("admin.settings.maintenanceMode", "Cluster Maintenance Mode is Currently Active")}
+                {tr("maintenanceActiveTitle")}
               </p>
               <p className="text-[10px] text-rose-300/80">
-                {t("admin.settings.maintenanceDesc", "Storefront checkout is paused. Escrow balances and administrative functions remain intact.")}
+                {tr("maintenanceActiveDesc")}
               </p>
             </div>
           </div>
@@ -501,7 +519,7 @@ export function AdminSettings() {
             onClick={() => updateSetting("maintenanceMode", false)}
             className="rounded-lg bg-rose-600 px-3 py-1 text-[11px] font-bold text-white hover:bg-rose-500 transition-colors cursor-pointer shrink-0"
           >
-            Disable
+            {tr("disable")}
           </button>
         </div>
       )}
@@ -512,7 +530,7 @@ export function AdminSettings() {
         {/* MOBILE: Horizontal Scrollable Quick-Switcher (< lg)         */}
         {/* ============================================================ */}
         <div className="flex lg:hidden overflow-x-auto scrollbar-none gap-1.5 w-full bg-[#0c101c]/80 border border-white/[0.08] p-1.5 rounded-xl backdrop-blur-xl shadow-lg shrink-0">
-          {SIDEBAR_ITEMS.map((item) => {
+          {sidebarItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
@@ -539,14 +557,14 @@ export function AdminSettings() {
         <aside className="hidden lg:block admin-settings-surface w-60 shrink-0 space-y-1 bg-[#0c101c]/80 border border-white/[0.08] p-2 rounded-xl backdrop-blur-xl shadow-lg">
           <div className="px-2.5 py-1.5 mb-1 border-b border-white/5 flex items-center justify-between">
             <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
-              Settings Navigation
+              {tr("settingsNav")}
             </span>
             <span className="text-[9px] font-mono px-1.5 py-0.2 rounded bg-indigo-500/20 text-indigo-300">
-              7 Sections
+              {tr("sectionsCount")}
             </span>
           </div>
 
-          {SIDEBAR_ITEMS.map((item) => {
+          {sidebarItems.map((item) => {
             const Icon = item.icon;
             const isActive = activeTab === item.id;
             return (
@@ -601,9 +619,9 @@ export function AdminSettings() {
           <div className="mt-3 pt-2.5 border-t border-white/5 px-2.5 flex items-center justify-between text-[10px] text-zinc-400">
             <span className="flex items-center gap-1.5">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>Universal Sync</span>
+              <span>{tr("universalSync")}</span>
             </span>
-            <span className="font-mono text-emerald-400 text-[9px]">LIVE</span>
+            <span className="font-mono text-emerald-400 text-[9px]">{tr("live")}</span>
           </div>
         </aside>
 
@@ -628,17 +646,17 @@ export function AdminSettings() {
                 </div>
                 <div>
                   <h2 className="text-xs sm:text-sm font-bold text-white tracking-tight">
-                    {currentTabItem?.label || "Platform Settings"}
+                    {currentTabItem?.label || tr("pageTitle")}
                   </h2>
                   <p className="text-[10px] text-zinc-400">
-                    {currentTabItem?.sub || "Configure system parameters"}
+                    {currentTabItem?.sub || tr("pageSubtitle")}
                   </p>
                 </div>
               </div>
 
               <div className="flex items-center gap-1.5">
                 <span className="rounded bg-indigo-500/10 px-2 py-0.5 text-[9px] font-mono font-medium text-indigo-300 border border-indigo-500/20">
-                  {currentTabItem?.badge || "ACTIVE"}
+                  {currentTabItem?.badge || tr("activeBadge")}
                 </span>
                 <button
                   type="button"
@@ -647,7 +665,7 @@ export function AdminSettings() {
                   className="flex items-center gap-1 rounded-md bg-indigo-600/80 px-2.5 py-1 text-[10px] font-semibold text-white hover:bg-indigo-600 transition-colors cursor-pointer"
                 >
                   <Save className="h-3 w-3" />
-                  <span>Save</span>
+                  <span>{tr("save")}</span>
                 </button>
               </div>
             </div>
@@ -660,14 +678,14 @@ export function AdminSettings() {
                 {activeTab === "all" && (
                   <div className="flex items-center gap-1.5 pb-1 border-b border-white/5 text-[11px] font-semibold text-cyan-300">
                     <Sparkles className="h-3.5 w-3.5" />
-                    <span>Brand & Identity</span>
+                    <span>{tr("brandSectionTitle")}</span>
                   </div>
                 )}
 
                 {/* Platform Name (Universal Update) */}
                 <div>
                   <label className="block text-[11px] font-medium text-zinc-300">
-                    Platform Brand Name
+                    {tr("platformBrandName")}
                   </label>
                   <div className="relative mt-1">
                     <input
@@ -676,19 +694,19 @@ export function AdminSettings() {
                       onChange={(e) =>
                         updateSetting("platformName", e.target.value)
                       }
-                      placeholder="e.g. MercatoX"
+                      placeholder={tr("platformNamePlaceholder")}
                       className="w-full rounded-lg border border-white/10 bg-black/40 py-1.5 px-2.5 text-xs font-semibold text-white outline-none focus:border-cyan-500"
                     />
                   </div>
                   <p className="mt-1 text-[10px] text-cyan-400 font-medium">
-                    ⚡ Modifying this name immediately updates all headers, footers, sidebars, and customer pages!
+                    {tr("brandNameHint")}
                   </p>
                 </div>
 
                 {/* Tagline */}
                 <div>
                   <label className="block text-[11px] font-medium text-zinc-300">
-                    Tagline / Subtitle
+                    {tr("taglineLabel")}
                   </label>
                   <input
                     type="text"
@@ -696,7 +714,7 @@ export function AdminSettings() {
                     onChange={(e) =>
                       updateSetting("platformTagline", e.target.value)
                     }
-                    placeholder="e.g. Unified Commerce & Escrow Control Center"
+                    placeholder={tr("taglinePlaceholder")}
                     className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 py-1.5 px-2.5 text-xs text-white outline-none focus:border-cyan-500"
                   />
                 </div>
@@ -704,7 +722,7 @@ export function AdminSettings() {
                 {/* Description */}
                 <div>
                   <label className="block text-[11px] font-medium text-zinc-300">
-                    Hero Section Description
+                    {tr("heroDescriptionLabel")}
                   </label>
                   <textarea
                     rows={2}
@@ -713,7 +731,7 @@ export function AdminSettings() {
                       updateSetting("heroSectionDescription", e.target.value);
                       updateSetting("platformDescription", e.target.value);
                     }}
-                    placeholder="Overview of platform for hero banner, SEO and customer showcase..."
+                    placeholder={tr("heroDescriptionPlaceholder")}
                     className="mt-1 w-full rounded-lg border border-white/10 bg-black/40 p-2 text-xs text-zinc-200 outline-none focus:border-cyan-500 resize-none leading-relaxed"
                   />
                 </div>
@@ -724,15 +742,15 @@ export function AdminSettings() {
                     <div>
                       <span className="text-[11px] font-bold text-white flex items-center gap-1.5">
                         <UploadCloud className="h-3.5 w-3.5 text-cyan-400" />
-                        Platform Logo Image Upload
+                        {tr("logoUploadTitle")}
                       </span>
                       <p className="text-[10px] text-zinc-400">
-                        Upload your official logo to be displayed across all headers & footers
+                        {tr("logoUploadDesc")}
                       </p>
                     </div>
                     {settings.logoUrl && (
                       <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                        Custom Logo Active
+                        {tr("customLogoActive")}
                       </span>
                     )}
                   </div>
@@ -762,7 +780,7 @@ export function AdminSettings() {
                         )}
                       </div>
                       <span className="text-[10px] text-zinc-400 font-mono">
-                        Dark Header
+                        {tr("darkHeaderPreview")}
                       </span>
                     </div>
 
@@ -789,7 +807,7 @@ export function AdminSettings() {
                         )}
                       </div>
                       <span className="text-[10px] text-zinc-400 font-mono">
-                        Light Mode
+                        {tr("lightModePreview")}
                       </span>
                     </div>
 
@@ -804,8 +822,8 @@ export function AdminSettings() {
                         <UploadCloud className="h-3.5 w-3.5" />
                         <span>
                           {isUploadingLogo
-                            ? "Uploading..."
-                            : "Upload Image Logo"}
+                            ? tr("uploading")
+                            : tr("uploadImageLogo")}
                         </span>
                       </button>
 
@@ -820,7 +838,7 @@ export function AdminSettings() {
                           className="flex items-center gap-1 rounded-lg border border-rose-500/20 bg-rose-500/10 px-2.5 py-1.5 text-[11px] font-medium text-rose-300 hover:bg-rose-500/20 transition-all cursor-pointer"
                         >
                           <Trash2 className="h-3 w-3" />
-                          <span>Remove</span>
+                          <span>{tr("removeLogo")}</span>
                         </button>
                       )}
                     </div>
@@ -829,7 +847,7 @@ export function AdminSettings() {
                   {/* Or Custom URL */}
                   <div>
                     <label className="block text-[10px] font-medium text-zinc-400 mb-1">
-                      Or Paste Direct Image URL (PNG/SVG/WebP)
+                      {tr("orPasteDirectUrl")}
                     </label>
                     <input
                       type="url"
@@ -844,7 +862,7 @@ export function AdminSettings() {
                   {!settings.logoUrl && (
                     <div>
                       <span className="text-[10px] text-zinc-400 mb-1 block">
-                        Fallback Monogram Color Schemes:
+                        {tr("fallbackMonograms")}
                       </span>
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                         {LOGO_PRESETS.map((preset) => (
@@ -864,7 +882,7 @@ export function AdminSettings() {
                               {preset.letter}
                             </div>
                             <span className="text-[9px] font-medium truncate">
-                              {preset.name}
+                              {tr(preset.nameKey)}
                             </span>
                           </button>
                         ))}
@@ -877,7 +895,7 @@ export function AdminSettings() {
                 <div className="grid grid-cols-2 gap-2 pt-1 border-t border-white/5">
                   <div>
                     <label className="block text-[10px] font-medium text-zinc-400">
-                      Base Currency
+                      {tr("baseCurrency")}
                     </label>
                     <input
                       type="text"
@@ -890,7 +908,7 @@ export function AdminSettings() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-medium text-zinc-400">
-                      Regional Timezone
+                      {tr("regionalTimezone")}
                     </label>
                     <input
                       type="text"
@@ -909,14 +927,14 @@ export function AdminSettings() {
                 {activeTab === "all" && (
                   <div className="flex items-center gap-1.5 pb-1 border-b border-white/5 text-[11px] font-semibold text-emerald-300">
                     <Phone className="h-3.5 w-3.5" />
-                    <span>Footer & Public Contact Info</span>
+                    <span>{tr("footerSectionTitle")}</span>
                   </div>
                 )}
 
                 {/* Footer Email */}
                 <div>
                   <label className="block text-[11px] font-medium text-zinc-300">
-                    Customer Support Email (Footer)
+                    {tr("customerSupportEmail")}
                   </label>
                   <div className="relative mt-1">
                     <Mail className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
@@ -931,7 +949,7 @@ export function AdminSettings() {
                     />
                   </div>
                   <p className="mt-1 text-[10px] text-zinc-400">
-                    Synchronized with the customer website footer in real time.
+                    {tr("supportEmailSyncHint")}
                   </p>
                 </div>
 
@@ -939,7 +957,7 @@ export function AdminSettings() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
                     <label className="block text-[11px] font-medium text-zinc-300">
-                      Primary Contact Phone
+                      {tr("primaryContactPhone")}
                     </label>
                     <div className="relative mt-1">
                       <Phone className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-zinc-500" />
@@ -956,7 +974,7 @@ export function AdminSettings() {
                   </div>
                   <div>
                     <label className="block text-[11px] font-medium text-zinc-300">
-                      Emergency Hotline
+                      {tr("emergencyHotline")}
                     </label>
                     <input
                       type="text"
@@ -973,7 +991,7 @@ export function AdminSettings() {
                 {/* Headquarters Address */}
                 <div>
                   <label className="block text-[11px] font-medium text-zinc-300">
-                    Physical Headquarters Address
+                    {tr("headquartersAddress")}
                   </label>
                   <div className="relative mt-1">
                     <MapPin className="absolute left-2.5 top-2 h-3.5 w-3.5 text-zinc-500" />
@@ -983,7 +1001,7 @@ export function AdminSettings() {
                       onChange={(e) =>
                         updateSetting("headquartersAddress", e.target.value)
                       }
-                      placeholder="Bole Medhanialem Commercial Plaza, Addis Ababa"
+                      placeholder={tr("headquartersPlaceholder")}
                       className="w-full rounded-lg border border-white/10 bg-black/40 py-1.5 pl-8 pr-2.5 text-xs text-white outline-none focus:border-emerald-500 resize-none leading-relaxed"
                     />
                   </div>
@@ -992,7 +1010,7 @@ export function AdminSettings() {
                 {/* Footer Copyright */}
                 <div>
                   <label className="block text-[11px] font-medium text-zinc-300">
-                    Footer Copyright Notice
+                    {tr("footerCopyrightNotice")}
                   </label>
                   <input
                     type="text"
@@ -1008,7 +1026,7 @@ export function AdminSettings() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
                   <div>
                     <label className="block text-[10px] font-medium text-zinc-400">
-                      Telegram Channel
+                      {tr("telegramChannel")}
                     </label>
                     <input
                       type="text"
@@ -1021,7 +1039,7 @@ export function AdminSettings() {
                   </div>
                   <div>
                     <label className="block text-[10px] font-medium text-zinc-400">
-                      LinkedIn Page
+                      {tr("linkedInPage")}
                     </label>
                     <input
                       type="text"
@@ -1042,7 +1060,7 @@ export function AdminSettings() {
                 {activeTab === "all" && (
                   <div className="flex items-center gap-1.5 pb-1 border-b border-white/5 text-[11px] font-semibold text-amber-300">
                     <Key className="h-3.5 w-3.5" />
-                    <span>Administrator Credentials & Security</span>
+                    <span>{tr("securitySectionTitle")}</span>
                   </div>
                 )}
 
@@ -1051,10 +1069,10 @@ export function AdminSettings() {
                   <div className="flex items-center justify-between pb-1 border-b border-white/5">
                     <span className="text-[11px] font-semibold text-white flex items-center gap-1.5">
                       <Mail className="h-3 w-3 text-amber-400" />
-                      Change Login Administrator Email
+                      {tr("changeEmailTitle")}
                     </span>
                     <span className="text-[9px] font-mono text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20">
-                      ACTIVE: {currentAdminEmail}
+                      {tr("activeStatus")}: {currentAdminEmail}
                     </span>
                   </div>
 
@@ -1062,7 +1080,7 @@ export function AdminSettings() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[10px] font-medium text-zinc-300">
-                          New Admin Email
+                          {tr("newAdminEmail")}
                         </label>
                         <input
                           type="email"
@@ -1075,7 +1093,7 @@ export function AdminSettings() {
                       </div>
                       <div>
                         <label className="block text-[10px] font-medium text-zinc-300">
-                          Confirm New Email
+                          {tr("confirmNewEmail")}
                         </label>
                         <input
                           type="email"
@@ -1097,8 +1115,8 @@ export function AdminSettings() {
                         <Save className="h-3 w-3" />
                         <span>
                           {isUpdatingEmail
-                            ? "Updating Email..."
-                            : "Update Login Email"}
+                            ? tr("updatingEmail")
+                            : tr("updateLoginEmail")}
                         </span>
                       </button>
                     </div>
@@ -1110,7 +1128,7 @@ export function AdminSettings() {
                   <div className="flex items-center justify-between pb-1 border-b border-white/5">
                     <span className="text-[11px] font-semibold text-white flex items-center gap-1.5">
                       <Lock className="h-3 w-3 text-purple-400" />
-                      Change Administrator Password
+                      {tr("changePasswordTitle")}
                     </span>
                     {newPassword && (
                       <span
@@ -1124,7 +1142,7 @@ export function AdminSettings() {
                   <form onSubmit={handleChangePassword} className="space-y-2.5">
                     <div>
                       <label className="block text-[10px] font-medium text-zinc-300">
-                        Current Password
+                        {tr("currentPassword")}
                       </label>
                       <div className="relative mt-1">
                         <input
@@ -1154,7 +1172,7 @@ export function AdminSettings() {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[10px] font-medium text-zinc-300">
-                          New Password (Min 8 chars)
+                          {tr("newPassword")}
                         </label>
                         <div className="relative mt-1">
                           <input
@@ -1181,7 +1199,7 @@ export function AdminSettings() {
 
                       <div>
                         <label className="block text-[10px] font-medium text-zinc-300">
-                          Confirm New Password
+                          {tr("confirmNewPassword")}
                         </label>
                         <input
                           type="password"
@@ -1221,8 +1239,8 @@ export function AdminSettings() {
                         <Lock className="h-3 w-3" />
                         <span>
                           {isUpdatingPassword
-                            ? "Updating Password..."
-                            : "Update Password"}
+                            ? tr("updatingPassword")
+                            : tr("updatePassword")}
                         </span>
                       </button>
                     </div>
@@ -1234,10 +1252,10 @@ export function AdminSettings() {
                   <div className="flex items-center justify-between p-2 rounded-lg bg-white/[0.02] border border-white/5">
                     <div>
                       <p className="text-[11px] font-medium text-white">
-                        Enforce 2FA
+                        {tr("enforce2FA")}
                       </p>
                       <p className="text-[9px] text-zinc-400">
-                        Disbursement protection
+                        {tr("disbursementProtection")}
                       </p>
                     </div>
                     <input
@@ -1253,10 +1271,10 @@ export function AdminSettings() {
                   <div className="p-2 rounded-lg bg-white/[0.02] border border-white/5 flex items-center justify-between">
                     <div>
                       <p className="text-[11px] font-medium text-white">
-                        Auto-Lock
+                        {tr("autoLock")}
                       </p>
                       <p className="text-[9px] text-zinc-400">
-                        Session timeout
+                        {tr("sessionTimeout")}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
@@ -1268,7 +1286,7 @@ export function AdminSettings() {
                         }
                         className="w-14 rounded border border-white/10 bg-black/40 py-0.5 px-1.5 text-xs font-mono text-center text-white"
                       />
-                      <span className="text-[10px] text-zinc-400">m</span>
+                      <span className="text-[10px] text-zinc-400">{tr("minutesUnit")}</span>
                     </div>
                   </div>
                 </div>
@@ -1278,21 +1296,21 @@ export function AdminSettings() {
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-bold text-rose-300 flex items-center gap-1.5">
                       <ShieldAlert className="h-3.5 w-3.5 text-rose-400" />
-                      Brute-Force Defense & Security Lockout Policy
+                      {tr("bruteForceTitle")}
                     </span>
                     <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                      DEFENSE
+                      {tr("defenseBadge")}
                     </span>
                   </div>
                   <p className="text-[10px] text-zinc-400 leading-tight">
-                    Configure thresholds for consecutive failed login attempts, temporary countdown lockout cooldowns, and permanent block rounds.
+                    {tr("bruteForceDesc")}
                   </p>
 
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
                     {/* Failed Attempts Threshold */}
                     <div className="p-2 rounded-lg bg-black/40 border border-white/10 space-y-1">
                       <label className="block text-[10px] font-medium text-zinc-300">
-                        Failed Attempts Limit
+                        {tr("failedAttemptsLimit")}
                       </label>
                       <div className="flex items-center gap-1">
                         <input
@@ -1305,17 +1323,17 @@ export function AdminSettings() {
                           }
                           className="w-full rounded border border-white/15 bg-black/60 py-1 px-2 text-xs font-mono text-center text-white outline-none focus:border-rose-500"
                         />
-                        <span className="text-[10px] text-zinc-400">tries</span>
+                        <span className="text-[10px] text-zinc-400">{tr("triesUnit")}</span>
                       </div>
                       <p className="text-[9px] text-zinc-500 leading-none">
-                        Triggers temporary cooldown
+                        {tr("failedAttemptsHint")}
                       </p>
                     </div>
 
                     {/* Cooldown Duration */}
                     <div className="p-2 rounded-lg bg-black/40 border border-white/10 space-y-1">
                       <label className="block text-[10px] font-medium text-amber-300">
-                        Cooldown Countdown
+                        {tr("cooldownCountdown")}
                       </label>
                       <div className="flex items-center gap-1">
                         <input
@@ -1328,17 +1346,17 @@ export function AdminSettings() {
                           }
                           className="w-full rounded border border-amber-500/30 bg-black/60 py-1 px-2 text-xs font-mono text-center text-amber-200 outline-none focus:border-amber-500"
                         />
-                        <span className="text-[10px] text-zinc-400">sec</span>
+                        <span className="text-[10px] text-zinc-400">{tr("secUnit")}</span>
                       </div>
                       <p className="text-[9px] text-zinc-500 leading-none">
-                        Temporary inactive duration
+                        {tr("cooldownHint")}
                       </p>
                     </div>
 
                     {/* Max Lockout Cycles */}
                     <div className="p-2 rounded-lg bg-black/40 border border-white/10 space-y-1">
                       <label className="block text-[10px] font-medium text-rose-300">
-                        Max Lockout Cycles
+                        {tr("maxLockoutCycles")}
                       </label>
                       <div className="flex items-center gap-1">
                         <input
@@ -1351,10 +1369,10 @@ export function AdminSettings() {
                           }
                           className="w-full rounded border border-rose-500/30 bg-black/60 py-1 px-2 text-xs font-mono text-center text-rose-200 outline-none focus:border-rose-500"
                         />
-                        <span className="text-[10px] text-zinc-400">rounds</span>
+                        <span className="text-[10px] text-zinc-400">{tr("roundsUnit")}</span>
                       </div>
                       <p className="text-[9px] text-zinc-500 leading-none">
-                        Permanently blocks user on 3rd
+                        {tr("maxLockoutHint")}
                       </p>
                     </div>
                   </div>
@@ -1368,7 +1386,7 @@ export function AdminSettings() {
                 {activeTab === "all" && (
                   <div className="flex items-center gap-1.5 pb-1 border-b border-white/5 text-[11px] font-semibold text-indigo-300">
                     <Percent className="h-3.5 w-3.5" />
-                    <span>Escrow & Commission Parameters</span>
+                    <span>{tr("escrowSectionTitle")}</span>
                   </div>
                 )}
 
@@ -1377,14 +1395,14 @@ export function AdminSettings() {
                   <div className="p-3 rounded-xl bg-indigo-500/[0.04] border border-indigo-500/20 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="block text-[11px] font-semibold text-indigo-300">
-                        Seller Sales Commission Rate (%)
+                        {tr("sellerCommissionRate")}
                       </label>
                       <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">
-                        COMMISSION
+                        {tr("commissionBadge")}
                       </span>
                     </div>
                     <p className="text-[10px] text-zinc-400 leading-tight">
-                      Platform commission percentage deducted from seller revenue upon successful product sale.
+                      {tr("commissionDesc")}
                     </p>
                     <div className="relative mt-1">
                       <input
@@ -1408,14 +1426,14 @@ export function AdminSettings() {
                   <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 space-y-1.5">
                     <div className="flex items-center justify-between">
                       <label className="block text-[11px] font-semibold text-zinc-300">
-                        Escrow Auto-Release Window
+                        {tr("escrowAutoRelease")}
                       </label>
                       <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/5 text-zinc-400 border border-white/10">
-                        HOLD DURATION
+                        {tr("holdDurationBadge")}
                       </span>
                     </div>
                     <p className="text-[10px] text-zinc-400 leading-tight">
-                      Duration the payment remains held in escrow after delivery before releasing to merchant.
+                      {tr("escrowHoldDesc")}
                     </p>
                     <div className="relative mt-1">
                       <input
@@ -1428,7 +1446,7 @@ export function AdminSettings() {
                         className="w-full rounded-lg border border-white/10 bg-black/40 py-1.5 pl-3 pr-11 text-xs font-mono text-white outline-none focus:border-indigo-500"
                       />
                       <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-mono text-zinc-500">
-                        HRS
+                        {tr("hrsUnit")}
                       </span>
                     </div>
                   </div>
@@ -1443,10 +1461,10 @@ export function AdminSettings() {
                   <div className="flex items-center justify-between pb-1 border-b border-white/5">
                     <div className="flex items-center gap-1.5 text-[11px] font-semibold text-cyan-300">
                       <CreditCard className="h-3.5 w-3.5 text-cyan-400" />
-                      <span>MercatoX Digital Card Pricing & Issuance Controls</span>
+                      <span>{tr("cardSectionTitle")}</span>
                     </div>
                     <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
-                      ADMIN PRICING
+                      {tr("adminPricingBadge")}
                     </span>
                   </div>
                 )}
@@ -1456,10 +1474,10 @@ export function AdminSettings() {
                     <div>
                       <h4 className="text-xs font-bold text-white flex items-center gap-1.5">
                         <Sparkles className="h-3.5 w-3.5 text-cyan-400" />
-                        Admin-Enforced Card Purchase Price
+                        {tr("cardPurchasePriceTitle")}
                       </h4>
                       <p className="text-[10px] text-zinc-400 mt-0.5">
-                        Define the official fixed price customers must pay via Chapa to issue their digital MercatoX Card. Customers purchase the card at this exact admin-specified rate.
+                        {tr("cardPurchasePriceDesc")}
                       </p>
                     </div>
                     <span className="text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/80 px-2 py-1 rounded-lg border border-cyan-500/40 shrink-0">
@@ -1472,14 +1490,14 @@ export function AdminSettings() {
                     <div className="p-3 rounded-xl bg-black/40 border border-cyan-500/20 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <label className="block text-[11px] font-semibold text-cyan-300">
-                          Digital Card Issuance Price (ETB)
+                          {tr("digitalCardPriceLabel")}
                         </label>
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-200">
-                          BASE PRICE
+                          {tr("basePriceBadge")}
                         </span>
                       </div>
                       <p className="text-[9.5px] text-zinc-400 leading-tight">
-                        Fixed issuance fee charged to customer when ordering an official MercatoX digital card.
+                        {tr("digitalCardPriceDesc")}
                       </p>
                       <div className="relative mt-1">
                         <input
@@ -1503,14 +1521,14 @@ export function AdminSettings() {
                     <div className="p-3 rounded-xl bg-black/40 border border-white/10 space-y-1.5">
                       <div className="flex items-center justify-between">
                         <label className="block text-[11px] font-semibold text-zinc-200">
-                          Recommended Default Balance (ETB)
+                          {tr("defaultBalanceLabel")}
                         </label>
                         <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-white/10 text-zinc-300">
-                          LOAD BALANCE
+                          {tr("loadBalanceBadge")}
                         </span>
                       </div>
                       <p className="text-[9.5px] text-zinc-400 leading-tight">
-                        Default starting load balance preset on the card purchase interface.
+                        {tr("defaultBalanceDesc")}
                       </p>
                       <div className="relative mt-1">
                         <input
@@ -1536,14 +1554,14 @@ export function AdminSettings() {
                     <div className="flex items-center gap-2">
                       <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                       <span className="text-zinc-300 text-[11px]">
-                        Customer Chapa Checkout Total:
+                        {tr("customerCheckoutTotal")}
                       </span>
                       <span className="font-mono text-cyan-300 font-bold text-xs">
                         ETB {(Number(settings.cardIssuanceFee || 150) + Number(settings.minCardLoadAmount || 500)).toLocaleString()}.00
                       </span>
                     </div>
                     <span className="text-[10px] text-zinc-400 font-mono">
-                      (Fee: ETB {settings.cardIssuanceFee || 150} + Balance: ETB {settings.minCardLoadAmount || 500})
+                      ({tr("feeLabel")}: ETB {settings.cardIssuanceFee || 150} + {tr("balanceLabel")}: ETB {settings.minCardLoadAmount || 500})
                     </span>
                   </div>
                 </div>
@@ -1556,7 +1574,7 @@ export function AdminSettings() {
                 {activeTab === "all" && (
                   <div className="flex items-center gap-1.5 pb-1 border-b border-white/5 text-[11px] font-semibold text-emerald-300">
                     <CreditCard className="h-3.5 w-3.5" />
-                    <span>National Payment Gateways</span>
+                    <span>{tr("gatewaysSectionTitle")}</span>
                   </div>
                 )}
 
@@ -1564,10 +1582,10 @@ export function AdminSettings() {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-white">
-                      Ethio Telecom Telebirr SuperApp
+                      {tr("telebirrTitle")}
                     </p>
                     <p className="text-[9px] text-zinc-400 font-mono">
-                      Shortcode: {settings.telebirrShortCode} · IPN Hook Active
+                      {tr("telebirrSub").replace("{shortcode}", String(settings.telebirrShortCode || "202401"))}
                     </p>
                   </div>
                   <button
@@ -1595,10 +1613,10 @@ export function AdminSettings() {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-white">
-                      Commercial Bank of Ethiopia (CBE Birr API)
+                      {tr("cbeBirrTitle")}
                     </p>
                     <p className="text-[9px] text-zinc-400 font-mono">
-                      Direct Core Banking IPN
+                      {tr("cbeBirrSub")}
                     </p>
                   </div>
                   <button
@@ -1626,10 +1644,10 @@ export function AdminSettings() {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                   <div className="space-y-0.5">
                     <p className="text-xs font-semibold text-white">
-                      Chapa Card Gateway (Visa / Master)
+                      {tr("chapaTitle")}
                     </p>
                     <p className="text-[9px] text-zinc-400 font-mono">
-                      Live Production Key Configured
+                      {tr("chapaSub")}
                     </p>
                   </div>
                   <button
@@ -1659,7 +1677,7 @@ export function AdminSettings() {
                 {activeTab === "all" && (
                   <div className="flex items-center gap-1.5 pb-1 border-b border-white/5 text-[11px] font-semibold text-cyan-300">
                     <Building className="h-3.5 w-3.5" />
-                    <span>Merchant KYC & Compliance Rules</span>
+                    <span>{tr("kycSectionTitle")}</span>
                   </div>
                 )}
 
@@ -1667,10 +1685,10 @@ export function AdminSettings() {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                   <div className="space-y-0.5 pr-2">
                     <p className="text-xs font-medium text-white">
-                      Mandatory Tax ID (TIN) Verification
+                      {tr("tinVerificationTitle")}
                     </p>
                     <p className="text-[9px] text-zinc-400">
-                      Validated with Ministry of Revenues registry
+                      {tr("tinVerificationDesc")}
                     </p>
                   </div>
                   <input
@@ -1687,10 +1705,10 @@ export function AdminSettings() {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                   <div className="space-y-0.5 pr-2">
                     <p className="text-xs font-medium text-white">
-                      Commercial Trade License Prerequisite
+                      {tr("tradeLicenseTitle")}
                     </p>
                     <p className="text-[9px] text-zinc-400">
-                      Merchants cannot publish products until verified
+                      {tr("tradeLicenseDesc")}
                     </p>
                   </div>
                   <input
@@ -1707,10 +1725,10 @@ export function AdminSettings() {
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-white/[0.02] border border-white/5">
                   <div className="space-y-0.5 pr-2">
                     <p className="text-xs font-medium text-white">
-                      Automated Rider License OCR
+                      {tr("riderOcrTitle")}
                     </p>
                     <p className="text-[9px] text-zinc-400">
-                      Motorcycle and courier license validation
+                      {tr("riderOcrDesc")}
                     </p>
                   </div>
                   <input
@@ -1727,10 +1745,10 @@ export function AdminSettings() {
                 <div className="pt-2 border-t border-white/5 flex items-center justify-between p-2 rounded-lg bg-rose-500/[0.04] border-rose-500/20">
                   <div>
                     <p className="text-xs font-semibold text-rose-300">
-                      Cluster Maintenance Mode
+                      {tr("clusterMaintenanceTitle")}
                     </p>
                     <p className="text-[9px] text-zinc-400">
-                      Halts public checkout while securing escrow
+                      {tr("clusterMaintenanceDesc")}
                     </p>
                   </div>
                   <button
@@ -1750,7 +1768,7 @@ export function AdminSettings() {
                         : "bg-white/10 text-zinc-300 hover:bg-white/15"
                     }`}
                   >
-                    {settings.maintenanceMode ? "ENABLED" : "Disable"}
+                    {settings.maintenanceMode ? tr("enabled") : tr("disable")}
                   </button>
                 </div>
               </div>
@@ -1760,7 +1778,7 @@ export function AdminSettings() {
             <div className="pt-3 border-t border-white/[0.08] flex items-center justify-between">
               <span className="text-[10px] text-zinc-400 flex items-center gap-1.5">
                 <Server className="h-3 w-3 text-indigo-400" />
-                Universal realtime update enabled
+                {tr("universalRealtimeEnabled")}
               </span>
               <button
                 type="button"
@@ -1769,7 +1787,7 @@ export function AdminSettings() {
                 className="flex items-center gap-1.5 rounded-lg bg-gradient-to-r from-indigo-500 to-cyan-500 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-500/25 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
               >
                 <Save className="h-3.5 w-3.5" />
-                <span>{isSaving ? "Saving..." : "Save Configuration"}</span>
+                <span>{isSaving ? tr("saving") : tr("saveConfiguration")}</span>
               </button>
             </div>
           </div>

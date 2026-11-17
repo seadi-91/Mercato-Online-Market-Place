@@ -1092,8 +1092,8 @@ export function AdminDelivery() {
 
       {activeDeliverySubTab === "FLEET" && (
         <>
-          {/* Overview Cards with Sleek Glowing Borders */}
-          <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {/* Overview Cards with Sleek Glowing Borders (2x2 on Mobile, 4x1 on Desktop) */}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Active Couriers on Duty */}
         <div className="relative overflow-hidden rounded-xl border border-cyan-500/30 bg-gradient-to-b from-cyan-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
@@ -1625,8 +1625,8 @@ export function AdminDelivery() {
 
   {activeDeliverySubTab === "TASKS" && (
     <div className="space-y-3.5 animate-in fade-in duration-150">
-      {/* Dispatch Overview KPI Cards */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Dispatch Overview KPI Cards (2x2 on Mobile, 4x1 on Desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Total Orders in Dispatch */}
         <div className="relative overflow-hidden rounded-xl border border-sky-500/30 bg-gradient-to-b from-sky-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuthStore, usePlatformStore } from "@/store";
 import { toast } from "sonner";
+import { LanguageSelector } from "@/components/common/language-selector";
 
 interface AdminHeaderProps {
   activeTab: string;
@@ -115,6 +116,9 @@ export function AdminHeader({
 
         {/* Right: Actions, Alerts & Profile */}
         <div className="flex items-center gap-2">
+          {/* Global Language Selector */}
+          <LanguageSelector variant="compact" showLabel={true} />
+
           {/* Refresh Button */}
           <button
             onClick={handleRefreshData}

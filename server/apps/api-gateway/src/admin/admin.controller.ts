@@ -1161,6 +1161,16 @@ export class AdminController {
     return this.usersClient.send('get_audit_logs', query);
   }
 
+  @Delete('audit-logs')
+  deleteAuditLogs(@Body() body: { ids?: string[]; all?: boolean }) {
+    return this.usersClient.send('delete_audit_logs', body);
+  }
+
+  @Delete('audit-logs/:id')
+  deleteAuditLog(@Param('id') id: string) {
+    return this.usersClient.send('delete_audit_log', { id });
+  }
+
   @Get('orders')
   getAllOrders(@Query() query: FilterOrdersDto) {
     return this.ordersClient.send('get_all_orders_admin', query);

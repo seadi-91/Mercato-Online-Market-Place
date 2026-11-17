@@ -278,17 +278,20 @@ export function AdminCategories() {
         </form>
       )}
 
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#090d16]">
-        {/* Mobile Swipe Hint */}
-        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-          <span className="flex items-center gap-1.5 text-[10.5px]">
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#090d16] shadow-xl">
+        {/* Mobile Swipe Guidance Banner */}
+        <div className="sm:hidden flex items-center justify-between px-3 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-zinc-300">
             <span>←</span>
-            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full table)</span>
             <span>→</span>
           </span>
-          <span className="text-[10px] font-mono text-indigo-400 font-semibold">{filteredCategories.length} Categories</span>
+          <span className="font-mono text-[9.5px] text-indigo-400 font-bold uppercase tracking-wider">
+            {filteredCategories.length} Categories
+          </span>
         </div>
 
+        {/* Universal Table View */}
         <div className="overflow-x-auto scrollbar-thin">
           <table className="w-full border-collapse text-left text-xs min-w-[580px]">
             <thead>

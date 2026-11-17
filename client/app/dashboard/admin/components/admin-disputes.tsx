@@ -54,7 +54,7 @@ export function AdminDisputes() {
   const [releaseModalItem, setReleaseModalItem] = useState<DisputeItem | null>(null);
   const [isProcessingRelease, setIsProcessingRelease] = useState(false);
 
-  // Fetch disputes from backend
+  // Fetch disputes from backend (100% REAL backend database data)
   const loadDisputes = useCallback(async (isManualRefresh = false) => {
     if (isManualRefresh) setIsRefreshing(true);
     else setLoading(true);
@@ -66,35 +66,35 @@ export function AdminDisputes() {
       if (rawOrders.length > 0) {
         const mapped: DisputeItem[] = rawOrders.map((ord: any) => {
           const delivery = ord.deliveryAddress || {};
-          const customerName = delivery.recipientName || "Customer";
-          const customerPhone = delivery.phoneNumber || "N/A";
+          const customerName = delivery.recipientName || delivery.buyerName || delivery.fullName || "Customer";
+          const customerPhone = delivery.phoneNumber || delivery.phone || "N/A";
           const address = [delivery.city, delivery.subCity, delivery.specificLocation]
             .filter(Boolean)
             .join(", ") || "Addis Ababa";
 
-          const isRefunded = ord.paymentStatus === "REFUNDED" || ord.status === "REFUNDED";
-          const isReleased = ord.paymentStatus === "RELEASED" || ord.paymentStatus === "PAID";
+          const isRefunded = ord.paymentStatus === "REFUNDED" || ord.status === "REFUNDED" || ord.status === "CANCELLED";
+          const isReleased = ord.paymentStatus === "RELEASED" || ord.escrowStatus === "RELEASED";
           const currentStatus: DisputeItem["status"] = isRefunded
             ? "RESOLVED_REFUND"
             : isReleased
-            ? "RESOLVED_RELEASED"
-            : "OPEN";
+              ? "RESOLVED_RELEASED"
+              : "OPEN";
 
           return {
-            id: ord.id,
-            orderId: ord.id,
+            id: ord.id || ord._id,
+            orderId: ord.id || ord._id,
             orderNumber: ord.orderNumber || "MX-REF",
             customerName,
             customerPhone,
             deliveryAddress: address,
-            merchantStore: ord.items?.[0]?.shopName || "Mercato Seller Hub",
+            merchantStore: ord.items?.[0]?.shopName || ord.merchantStore || "Mercato Seller Hub",
             merchantId: ord.sellerId,
             paymentId: ord.paymentId || ord.id,
             amount: Number(ord.totalAmount || 0),
             reason: ord.cancelReason || "Customer contested delivery condition / cancellation requested",
-            openedDate: ord.createdAt ? new Date(ord.createdAt).toISOString().slice(0, 10) : "2026-09-18",
-            paymentStatus: ord.paymentStatus,
-            escrowStatus: ord.paymentStatus === "PAID" ? "HELD" : ord.paymentStatus,
+            openedDate: ord.createdAt ? new Date(ord.createdAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+            paymentStatus: ord.paymentStatus || "PAID",
+            escrowStatus: isRefunded ? "REFUNDED" : isReleased ? "RELEASED" : "HELD",
             status: currentStatus,
             items: ord.items || [],
           };
@@ -225,8 +225,8 @@ export function AdminDisputes() {
 
   return (
     <div className="space-y-3.5 animate-in fade-in duration-150">
-      {/* Overview Cards with Sleek Glowing Borders */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      {/* Overview Cards with Sleek Glowing Borders (2x2 on Mobile, 4x1 on Desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
         {/* Open Arbitration Cases */}
         <div className="relative overflow-hidden rounded-xl border border-rose-500/30 bg-gradient-to-b from-rose-500/15 via-[#0d121f] to-[#0d121f] p-3.5 shadow-xl backdrop-blur-xl">
           <div className="flex items-center justify-between text-zinc-400 text-xs">
@@ -337,29 +337,32 @@ export function AdminDisputes() {
         </div>
       </div>
 
-      {/* Disputes Table */}
-      <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-        {/* Mobile Swipe Hint */}
-        <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-          <span className="flex items-center gap-1.5 text-[10.5px]">
+      {/* Disputes Container: Full Row & Column Table with Horizontal Scroll for Mobile & Desktop */}
+      <div className="overflow-hidden rounded-2xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
+        {/* Mobile Swipe Guidance Banner */}
+        <div className="sm:hidden flex items-center justify-between px-3 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
+          <span className="flex items-center gap-1.5 text-zinc-300">
             <span>←</span>
-            <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+            <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full row & columns)</span>
             <span>→</span>
           </span>
-          <span className="text-[10px] font-mono text-rose-400 font-semibold">{filtered.length} Disputes</span>
+          <span className="font-mono text-[9.5px] text-rose-400 font-bold uppercase tracking-wider">
+            {filtered.length} Cases
+          </span>
         </div>
 
+        {/* Universal Table View */}
         <div className="overflow-x-auto min-h-[260px] scrollbar-thin">
-          <table className="w-full text-left text-xs border-collapse min-w-[850px]">
+          <table className="w-full text-left text-xs border-collapse min-w-[920px]">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                <th className="py-2.5 px-3">{t("admin.disputes.colOrder", "Order Reference")}</th>
-                <th className="py-2.5 px-3">{t("admin.disputes.colParties", "Buyer vs Seller")}</th>
-                <th className="py-2.5 px-3">{t("admin.disputes.colAmount", "Locked Escrow Sum")}</th>
-                <th className="py-2.5 px-3">{t("admin.disputes.colReason", "Contested Grounds")}</th>
-                <th className="py-2.5 px-3">{t("admin.users.colJoined", "Filed Date")}</th>
-                <th className="py-2.5 px-3">{t("admin.disputes.colStatus", "Arbitration State")}</th>
-                <th className="py-2.5 px-3 text-right">{t("admin.disputes.colAction", "Rulings & Actions")}</th>
+                <th className="py-2.5 px-3 min-w-[140px] whitespace-nowrap">{t("admin.disputes.colOrder", "Order Reference")}</th>
+                <th className="py-2.5 px-3 min-w-[180px]">{t("admin.disputes.colParties", "Buyer vs Seller")}</th>
+                <th className="py-2.5 px-3 min-w-[140px] whitespace-nowrap">{t("admin.disputes.colAmount", "Locked Escrow Sum")}</th>
+                <th className="py-2.5 px-3 min-w-[220px]">{t("admin.disputes.colReason", "Contested Grounds")}</th>
+                <th className="py-2.5 px-3 min-w-[110px] whitespace-nowrap">{t("admin.users.colJoined", "Filed Date")}</th>
+                <th className="py-2.5 px-3 min-w-[150px] whitespace-nowrap">{t("admin.disputes.colStatus", "Arbitration State")}</th>
+                <th className="py-2.5 px-3 text-right min-w-[180px] whitespace-nowrap">{t("admin.disputes.colAction", "Rulings & Actions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -386,9 +389,9 @@ export function AdminDisputes() {
                 filtered.map((item) => (
                   <tr key={item.id} className="hover:bg-white/[0.02] transition-colors">
                     {/* Order Reference */}
-                    <td className="py-2.5 px-3">
+                    <td className="py-2.5 px-3 whitespace-nowrap">
                       <span className="font-mono font-bold text-white">{item.orderNumber}</span>
-                      <p className="text-[10px] text-zinc-500 font-mono">ID: {item.orderId?.slice(0, 8)}</p>
+                      <p className="text-[10px] text-zinc-500 font-mono">ID: {(item.orderId || item.id || "").slice(0, 8)}</p>
                     </td>
 
                     {/* Parties */}
@@ -398,24 +401,24 @@ export function AdminDisputes() {
                     </td>
 
                     {/* Amount */}
-                    <td className="py-2.5 px-3">
+                    <td className="py-2.5 px-3 whitespace-nowrap">
                       <span className="font-mono font-bold text-amber-400">
                         ETB {item.amount.toLocaleString()}
                       </span>
                     </td>
 
                     {/* Reason */}
-                    <td className="py-2.5 px-3 text-zinc-300 max-w-xs truncate" title={item.reason}>
-                      {item.reason}
+                    <td className="py-2.5 px-3 text-zinc-300 max-w-xs" title={item.reason}>
+                      <span className="line-clamp-2">{item.reason}</span>
                     </td>
 
                     {/* Filed On */}
-                    <td className="py-2.5 px-3 font-mono text-[10.5px] text-zinc-400">
+                    <td className="py-2.5 px-3 font-mono text-[10.5px] text-zinc-400 whitespace-nowrap">
                       {item.openedDate}
                     </td>
 
                     {/* Resolution Status */}
-                    <td className="py-2.5 px-3">
+                    <td className="py-2.5 px-3 whitespace-nowrap">
                       {item.status === "OPEN" && (
                         <span className="inline-flex items-center gap-1 rounded-md bg-rose-500/10 px-2 py-0.5 text-[10.5px] font-medium text-rose-400 border border-rose-500/20">
                           <AlertCircle className="h-3 w-3 shrink-0" />
@@ -437,7 +440,7 @@ export function AdminDisputes() {
                     </td>
 
                     {/* Quick Rulings */}
-                    <td className="py-2.5 px-3 text-right relative">
+                    <td className="py-2.5 px-3 text-right relative whitespace-nowrap">
                       <div className="flex items-center justify-end gap-1.5">
                         {item.status === "OPEN" && (
                           <>
@@ -447,21 +450,21 @@ export function AdminDisputes() {
                                 setRefundModalItem(item);
                                 setRefundReasonNote("");
                               }}
-                              className="flex items-center gap-1 rounded-md bg-rose-500/15 px-2 py-1 text-[10.5px] font-semibold text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-colors cursor-pointer"
+                              className="flex items-center gap-1 rounded-md bg-rose-500/15 px-2.5 py-1 text-[11px] font-semibold text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-colors cursor-pointer"
                               title="Refund Buyer"
                             >
                               <RotateCcw className="h-3 w-3" />
-                              <span className="hidden sm:inline">Refund</span>
+                              <span>Refund</span>
                             </button>
 
                             <button
                               type="button"
                               onClick={() => setReleaseModalItem(item)}
-                              className="flex items-center gap-1 rounded-md bg-emerald-500/15 px-2 py-1 text-[10.5px] font-semibold text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer"
+                              className="flex items-center gap-1 rounded-md bg-emerald-500/15 px-2.5 py-1 text-[11px] font-semibold text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-colors cursor-pointer"
                               title="Release to Seller"
                             >
                               <CheckCircle2 className="h-3 w-3" />
-                              <span className="hidden sm:inline">Release</span>
+                              <span>Release</span>
                             </button>
                           </>
                         )}
@@ -616,10 +619,9 @@ export function AdminDisputes() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Current Status:</span>
-                  <span className={`font-bold ${
-                    inspectingDispute.status === "OPEN" ? "text-rose-400" :
+                  <span className={`font-bold ${inspectingDispute.status === "OPEN" ? "text-rose-400" :
                     inspectingDispute.status === "RESOLVED_REFUND" ? "text-purple-400" : "text-emerald-400"
-                  }`}>
+                    }`}>
                     {inspectingDispute.status.replace(/_/g, " ")}
                   </span>
                 </div>

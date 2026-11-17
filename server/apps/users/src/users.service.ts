@@ -598,6 +598,23 @@ export class UsersService implements OnModuleInit {
     };
   }
 
+  async deleteAuditLogs(payload: { ids?: string[]; all?: boolean }) {
+    if (payload.all) {
+      await this.auditLogRepository.clear();
+      return { success: true, count: 'ALL' };
+    }
+    if (payload.ids && payload.ids.length > 0) {
+      await this.auditLogRepository.delete(payload.ids);
+      return { success: true, count: payload.ids.length };
+    }
+    return { success: false, count: 0 };
+  }
+
+  async deleteAuditLog(id: string) {
+    const res = await this.auditLogRepository.delete(id);
+    return { success: (res.affected ?? 0) > 0, id };
+  }
+
   async getUserMetrics() {
     const [
       totalUsers,

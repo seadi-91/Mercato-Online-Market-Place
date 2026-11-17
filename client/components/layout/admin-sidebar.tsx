@@ -99,8 +99,13 @@ export function AdminSidebar() {
           badgeColor: "bg-indigo-500/25 text-indigo-300 border-indigo-500/40",
         },
         {
+          id: "sellers-suppliers",
+          label: t("admin.nav.sellersSuppliers", "Sellers & Suppliers"),
+          icon: Building2,
+        },
+        {
           id: "suppliers",
-          label: t("admin.nav.suppliers", "Suppliers & Fleet"),
+          label: t("admin.nav.suppliers", "Wholesale & Fleet Hub"),
           icon: Building2,
         },
         {

@@ -1,6 +1,7 @@
 import React from "react";
 import { AdminSidebar } from "@/components/layout/admin-sidebar";
 import { AdminTopbar } from "@/components/layout/admin-topbar";
+import { AdminMobileNav } from "@/components/layout/admin-mobile-nav";
 import { AdminAuthGuard } from "@/components/auth/admin-auth-guard";
 
 export const metadata = {
@@ -24,7 +25,7 @@ export default function AdminLayout({
           <div className="absolute inset-0 bg-[radial-gradient(#ffffff05_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
         </div>
 
-        {/* Reusable Left Admin Sidebar */}
+        {/* Reusable Left Admin Sidebar (Desktop & Tablet Drawer) */}
         <AdminSidebar />
 
         {/* Main Content Area */}
@@ -33,11 +34,14 @@ export default function AdminLayout({
           <AdminTopbar />
 
           {/* Page Content Container */}
-          <main className="flex-1 p-2.5 sm:p-4 md:p-6 overflow-y-auto">
-            <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1600px] transition-all">
+          <main className="flex-1 p-2.5 sm:p-4 md:p-6 pb-28 md:pb-6 overflow-y-auto scroll-smooth">
+            <div className="mx-auto w-full max-w-7xl 2xl:max-w-[1600px] transition-all pb-16 md:pb-0">
               {children}
             </div>
           </main>
+
+          {/* Mobile Bottom Navigation Dock (Native App Feel on Mobile) */}
+          <AdminMobileNav />
         </div>
       </div>
     </AdminAuthGuard>

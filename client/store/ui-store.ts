@@ -5,6 +5,7 @@ export type AdminTab =
   | "catalog"
   | "categories"
   | "users"
+  | "sellers-suppliers"
   | "suppliers"
   | "orders"
   | "slips"

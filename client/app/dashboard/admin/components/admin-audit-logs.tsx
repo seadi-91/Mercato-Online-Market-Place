@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   ShieldAlert,
   Search,
@@ -26,6 +26,10 @@ import {
   ShoppingCart,
   CreditCard,
   KeyRound,
+  Trash2,
+  CheckSquare,
+  Square,
+  MinusSquare,
 } from "lucide-react";
 import { useAuditLogs } from "@/features/admin/hooks/use-admin";
 import { useTranslation } from "@/store/language-store";
@@ -56,7 +60,6 @@ const CATEGORY_TABS: { label: string; value: AuditCategory | "ALL"; icon: React.
   { label: "Profile", value: "PROFILE", icon: KeyRound },
 ];
 
-// Actions grouped by category for filtering
 const CATEGORY_ACTIONS: Record<AuditCategory | "ALL", (AuditAction | "")[]> = {
   ALL: [""],
   AUTH: ["", AuditAction.USER_REGISTERED, AuditAction.USER_LOGIN, AuditAction.USER_LOGIN_FAILED, AuditAction.USER_LOGOUT, AuditAction.PASSWORD_CHANGED],
@@ -136,7 +139,7 @@ function AuditLogModal({ log, onClose }: { log: AuditLog; onClose: () => void })
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
         className={`relative z-10 w-full max-w-lg rounded-2xl border bg-[#0d121f] shadow-2xl ${severityColors[sev]}`}
         onClick={(e) => e.stopPropagation()}
@@ -208,7 +211,7 @@ function DetailItem({ icon, label, value, mono = false }: { icon: React.ReactNod
 function SkeletonRow() {
   return (
     <tr className="animate-pulse border-b border-white/5">
-      {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((i) => (
         <td key={i} className="px-3 py-3">
           <div className="h-3 rounded bg-white/[0.05]" style={{ width: `${45 + (i * 11) % 45}%` }} />
         </td>
@@ -221,7 +224,7 @@ function SkeletonRow() {
 
 export function AdminAuditLogs() {
   const { t } = useTranslation();
-  const { logs, total, totalPages, loading, fetchLogs, refresh } = useAuditLogs();
+  const { logs, total, totalPages, loading, fetchLogs, refresh, deleteLog, deleteLogs } = useAuditLogs();
 
   // Category tab
   const [activeCategory, setActiveCategory] = useState<AuditCategory | "ALL">("ALL");
@@ -236,8 +239,19 @@ export function AdminAuditLogs() {
   const [severityFilter, setSeverityFilter] = useState<"ALL" | AuditSeverity>("ALL");
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Detail modal
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  // Modals
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{
+    isOpen: boolean;
+    type: "single" | "batch" | "all";
+    id?: string;
+    count?: number;
+    title?: string;
+  }>({ isOpen: false, type: "single" });
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const doFetch = useCallback(
     (pg: number) => {
@@ -254,6 +268,7 @@ export function AdminAuditLogs() {
 
   useEffect(() => {
     setCurrentPage(1);
+    setSelectedIds([]);
     doFetch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedAction, selectedRole, selectedEntity, startDate, endDate]);
@@ -262,40 +277,137 @@ export function AdminAuditLogs() {
   const handleCategoryChange = (cat: AuditCategory | "ALL") => {
     setActiveCategory(cat);
     setSelectedAction("");
+    setSelectedIds([]);
   };
 
   const goToPage = (pg: number) => {
     if (pg < 1 || pg > totalPages) return;
     setCurrentPage(pg);
+    setSelectedIds([]);
     doFetch(pg);
   };
 
   // Client-side: search + severity + category
-  const visibleLogs = logs.filter((log) => {
-    const q = search.toLowerCase();
-    const matchSearch =
-      !q ||
-      log.action.toLowerCase().includes(q) ||
-      log.actorId.toLowerCase().includes(q) ||
-      log.targetId.toLowerCase().includes(q) ||
-      log.targetEntity.toLowerCase().includes(q) ||
-      log.actorRole.toLowerCase().includes(q) ||
-      (log.ipAddress ?? "").toLowerCase().includes(q);
+  const visibleLogs = useMemo(() => {
+    return logs.filter((log) => {
+      const q = search.toLowerCase();
+      const matchSearch =
+        !q ||
+        log.action.toLowerCase().includes(q) ||
+        log.actorId.toLowerCase().includes(q) ||
+        log.targetId.toLowerCase().includes(q) ||
+        log.targetEntity.toLowerCase().includes(q) ||
+        log.actorRole.toLowerCase().includes(q) ||
+        (log.ipAddress ?? "").toLowerCase().includes(q);
 
-    const matchSeverity =
-      severityFilter === "ALL" || getAuditSeverity(log.action) === severityFilter;
+      const matchSeverity =
+        severityFilter === "ALL" || getAuditSeverity(log.action) === severityFilter;
 
-    const matchCategory =
-      activeCategory === "ALL" || getAuditCategory(log.action) === activeCategory;
+      const matchCategory =
+        activeCategory === "ALL" || getAuditCategory(log.action) === activeCategory;
 
-    return matchSearch && matchSeverity && matchCategory;
-  });
+      return matchSearch && matchSeverity && matchCategory;
+    });
+  }, [logs, search, severityFilter, activeCategory]);
 
   const actionsForTab = CATEGORY_ACTIONS[activeCategory] ?? [""];
+
+  // Checkbox helpers
+  const isAllSelected = visibleLogs.length > 0 && visibleLogs.every((l) => selectedIds.includes(l.id));
+  const isPartiallySelected = selectedIds.length > 0 && !isAllSelected;
+
+  const handleToggleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(visibleLogs.map((l) => l.id));
+    }
+  };
+
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  // Execute Deletion
+  const handleConfirmDelete = async () => {
+    setIsDeleting(true);
+    try {
+      if (deleteModal.type === "single" && deleteModal.id) {
+        await deleteLog(deleteModal.id);
+        setSelectedIds((prev) => prev.filter((id) => id !== deleteModal.id));
+      } else if (deleteModal.type === "batch" && selectedIds.length > 0) {
+        await deleteLogs({ ids: selectedIds });
+        setSelectedIds([]);
+      } else if (deleteModal.type === "all") {
+        await deleteLogs({ all: true });
+        setSelectedIds([]);
+      }
+      setDeleteModal({ isOpen: false, type: "single" });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   return (
     <>
       {selectedLog && <AuditLogModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
+
+      {/* Confirmation Modal for Permanent Deletion */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-150">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => !isDeleting && setDeleteModal({ isOpen: false, type: "single" })} />
+          <div className="relative z-10 w-full max-w-md rounded-2xl border border-rose-500/30 bg-[#0f172a] p-5 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-rose-500/15 text-rose-400 border border-rose-500/30">
+                <Trash2 size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-white">
+                  {deleteModal.type === "all"
+                    ? "Purge All Audit Logs Permanently"
+                    : deleteModal.type === "batch"
+                    ? `Delete ${selectedIds.length} Selected Logs`
+                    : "Delete Audit Log Record"}
+                </h3>
+                <p className="text-[11px] text-zinc-400">Irreversible Database Action</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-3 text-xs text-rose-200 space-y-1">
+              <p className="font-semibold text-rose-300">Warning: Permanent deletion cannot be undone.</p>
+              <p className="text-[11.5px] text-zinc-300">
+                {deleteModal.type === "all"
+                  ? `All ${total} audit history logs will be erased permanently from the system.`
+                  : deleteModal.type === "batch"
+                  ? `${selectedIds.length} selected audit entries will be permanently removed from the records.`
+                  : "This audit log entry will be permanently deleted from the database."}
+              </p>
+            </div>
+
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-white/10">
+              <button
+                type="button"
+                onClick={() => setDeleteModal({ isOpen: false, type: "single" })}
+                disabled={isDeleting}
+                className="rounded-lg px-3 py-1.5 text-xs text-zinc-400 hover:text-white cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-rose-600/30 hover:bg-rose-500 cursor-pointer disabled:opacity-50"
+              >
+                <Trash2 size={13} className={isDeleting ? "animate-spin" : ""} />
+                <span>{isDeleting ? "Deleting..." : "Permanently Delete"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-3">
         {/* ── Category Tabs ── */}
@@ -304,10 +416,11 @@ export function AdminAuditLogs() {
             <button
               key={value}
               onClick={() => handleCategoryChange(value)}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition shrink-0 cursor-pointer ${activeCategory === value
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition shrink-0 cursor-pointer ${
+                activeCategory === value
                   ? "bg-indigo-600 text-white shadow"
                   : "text-zinc-400 hover:bg-white/[0.06] hover:text-zinc-200"
-                }`}
+              }`}
             >
               <Icon size={12} />
               {label}
@@ -370,57 +483,132 @@ export function AdminAuditLogs() {
             </select>
 
             {/* Date range */}
-            <input id="audit-start-date" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-              className="h-8 rounded-lg border border-white/10 bg-[#0d121f] px-2 text-xs text-zinc-200 outline-none transition focus:border-indigo-500 [color-scheme:dark] cursor-pointer" />
-            <input id="audit-end-date" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)}
-              className="h-8 rounded-lg border border-white/10 bg-[#0d121f] px-2 text-xs text-zinc-200 outline-none transition focus:border-indigo-500 [color-scheme:dark] cursor-pointer" />
+            <input
+              id="audit-start-date"
+              type="date"
+              value={startDate}
+              onChange={(e) => setStartDate(e.target.value)}
+              className="h-8 rounded-lg border border-white/10 bg-[#0d121f] px-2 text-xs text-zinc-200 outline-none transition focus:border-indigo-500 [color-scheme:dark] cursor-pointer"
+            />
+            <input
+              id="audit-end-date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              className="h-8 rounded-lg border border-white/10 bg-[#0d121f] px-2 text-xs text-zinc-200 outline-none transition focus:border-indigo-500 [color-scheme:dark] cursor-pointer"
+            />
 
             {/* Refresh */}
-            <button id="audit-refresh-btn" onClick={refresh} disabled={loading}
-              className="flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs text-zinc-300 transition hover:bg-white/[0.08] disabled:opacity-50 cursor-pointer">
+            <button
+              id="audit-refresh-btn"
+              onClick={refresh}
+              disabled={loading}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 text-xs text-zinc-300 transition hover:bg-white/[0.08] disabled:opacity-50 cursor-pointer"
+            >
               <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
-              Refresh
+              <span>Refresh</span>
+            </button>
+
+            {/* Purge All Logs Permanently */}
+            <button
+              type="button"
+              onClick={() => setDeleteModal({ isOpen: true, type: "all" })}
+              disabled={loading || total === 0}
+              className="flex h-8 items-center gap-1.5 rounded-lg border border-rose-500/30 bg-rose-500/10 px-3 text-xs font-semibold text-rose-300 transition hover:bg-rose-500/20 active:scale-95 disabled:opacity-40 cursor-pointer"
+              title="Permanently erase all audit logs"
+            >
+              <Trash2 size={12} className="text-rose-400" />
+              <span>Delete All</span>
             </button>
           </div>
 
           {/* Severity + count */}
-          <div className="flex items-center gap-1 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap pt-0.5">
             {(["ALL", "INFO", "WARNING", "CRITICAL"] as const).map((sev) => (
-              <button key={sev} onClick={() => setSeverityFilter(sev)}
-                className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition cursor-pointer ${severityFilter === sev ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"}`}>
+              <button
+                key={sev}
+                onClick={() => setSeverityFilter(sev)}
+                className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition cursor-pointer ${
+                  severityFilter === sev ? "bg-indigo-600 text-white shadow-sm" : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
                 {sev}
               </button>
             ))}
-            <span className="ml-auto text-[11px] text-zinc-500">
-              {total.toLocaleString()} records • page {currentPage}/{totalPages}
+            <span className="ml-auto text-[11px] font-mono text-zinc-400">
+              {total.toLocaleString()} records • page {currentPage}/{totalPages || 1}
             </span>
           </div>
         </div>
 
-        {/* ── Table ── */}
+        {/* ── Selection Action Bar (Appears when items are selected) ── */}
+        {selectedIds.length > 0 && (
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-indigo-500/30 bg-indigo-500/10 px-4 py-2 text-xs shadow-lg animate-in fade-in slide-in-from-top-1 duration-150">
+            <div className="flex items-center gap-2 text-indigo-200 font-medium">
+              <CheckSquare size={15} className="text-indigo-400" />
+              <span>
+                <strong className="text-white">{selectedIds.length}</strong> of {visibleLogs.length} audit logs selected
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedIds([])}
+                className="rounded-lg border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition cursor-pointer"
+              >
+                Clear Selection
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDeleteModal({ isOpen: true, type: "batch" })}
+                className="flex items-center gap-1.5 rounded-lg bg-rose-600 px-3 py-1 text-xs font-semibold text-white shadow-sm shadow-rose-600/30 hover:bg-rose-500 active:scale-95 transition cursor-pointer"
+              >
+                <Trash2 size={12} />
+                <span>Delete Selected ({selectedIds.length})</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Universal Table with Row & Column Scroll ── */}
         <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0d121f]/90 shadow-xl backdrop-blur-xl">
-          {/* Mobile Swipe Hint */}
+          {/* Mobile Swipe Guidance Banner */}
           <div className="sm:hidden flex items-center justify-between px-3.5 py-2 border-b border-white/5 bg-white/[0.02] text-[11px] text-zinc-400">
-            <span className="flex items-center gap-1.5 text-[10.5px]">
+            <span className="flex items-center gap-1.5 text-zinc-300">
               <span>←</span>
-              <span>ወደ ጎን ያሸብልሉ (Swipe to scroll)</span>
+              <span>ወደ ጎን ያሸብልሉ (Swipe horizontally to view full table)</span>
               <span>→</span>
             </span>
-            <span className="text-[10px] font-mono text-indigo-400 font-semibold">{visibleLogs.length} Events</span>
+            <span className="text-[10px] font-mono text-indigo-400 font-bold">{visibleLogs.length} Logs</span>
           </div>
 
           <div className="overflow-x-auto scrollbar-thin">
-            <table className="w-full border-collapse text-left text-xs min-w-[780px]">
+            <table className="w-full border-collapse text-left text-xs min-w-[940px]">
               <thead>
                 <tr className="border-b border-white/10 bg-white/[0.02] text-[11px] font-semibold text-zinc-400">
-                  <th className="py-2.5 px-3 whitespace-nowrap">{t("admin.audit.colTimestamp", "Timestamp")}</th>
-                  <th className="py-2.5 px-3">{t("admin.audit.colSeverity", "Sev.")}</th>
-                  <th className="py-2.5 px-3">{t("admin.audit.colAction", "Action")}</th>
-                  <th className="py-2.5 px-3">{t("admin.users.colRole", "Role")}</th>
-                  <th className="py-2.5 px-3">{t("admin.audit.colActor", "Actor ID")}</th>
-                  <th className="py-2.5 px-3">{t("admin.audit.colDetails", "Target")}</th>
-                  <th className="py-2.5 px-3">IP</th>
-                  <th className="py-2.5 px-3 text-right">{t("admin.catalog.viewDetails", "Detail")}</th>
+                  {/* Select All Checkbox */}
+                  <th className="py-2.5 px-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(input) => {
+                        if (input) input.indeterminate = isPartiallySelected;
+                      }}
+                      onChange={handleToggleSelectAll}
+                      className="rounded border-white/20 bg-black/40 text-indigo-600 focus:ring-0 focus:ring-offset-0 h-4 w-4 cursor-pointer accent-indigo-600"
+                      title={isAllSelected ? "Deselect all" : "Select all on page"}
+                    />
+                  </th>
+                  <th className="py-2.5 px-3 min-w-[140px] whitespace-nowrap">{t("admin.audit.colTimestamp", "Timestamp")}</th>
+                  <th className="py-2.5 px-3 min-w-[90px] whitespace-nowrap">{t("admin.audit.colSeverity", "Sev.")}</th>
+                  <th className="py-2.5 px-3 min-w-[180px] whitespace-nowrap">{t("admin.audit.colAction", "Action")}</th>
+                  <th className="py-2.5 px-3 min-w-[90px] whitespace-nowrap">{t("admin.users.colRole", "Role")}</th>
+                  <th className="py-2.5 px-3 min-w-[130px]">{t("admin.audit.colActor", "Actor ID")}</th>
+                  <th className="py-2.5 px-3 min-w-[160px]">{t("admin.audit.colDetails", "Target")}</th>
+                  <th className="py-2.5 px-3 min-w-[110px] whitespace-nowrap">IP</th>
+                  <th className="py-2.5 px-3 text-right min-w-[110px] whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 font-mono text-[11px]">
@@ -428,48 +616,106 @@ export function AdminAuditLogs() {
                   Array.from({ length: 10 }).map((_, i) => <SkeletonRow key={i} />)
                 ) : visibleLogs.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-16 text-center">
+                    <td colSpan={9} className="py-16 text-center">
                       <div className="flex flex-col items-center gap-2 text-zinc-500">
                         <ShieldAlert size={28} className="opacity-30" />
                         <p className="font-sans text-sm">{t("admin.audit.noLogs", "No audit logs found")}</p>
-                        <p className="font-sans text-[11px] opacity-70">Try adjusting filters, date range, or category tab</p>
+                        <p className="font-sans text-[11px] opacity-70">
+                          {total === 0 ? "All audit logs are clean and cleared." : "Try adjusting filters, date range, or category tab"}
+                        </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  visibleLogs.map((log) => (
-                    <tr key={log.id} className="transition-colors hover:bg-white/[0.02]">
-                      <td className="py-2.5 px-3 text-zinc-400 whitespace-nowrap">
-                        {new Date(log.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "medium" })}
-                      </td>
-                      <td className="py-2.5 px-3 font-sans">
-                        <SeverityBadge action={log.action} />
-                      </td>
-                      <td className="py-2.5 px-3 font-semibold text-indigo-300 whitespace-nowrap">
-                        {getAuditActionLabel(log.action)}
-                      </td>
-                      <td className="py-2.5 px-3 font-sans">
-                        <RoleBadge role={log.actorRole} />
-                      </td>
-                      <td className="py-2.5 px-3 text-zinc-300 max-w-[120px]">
-                        <span className="truncate block" title={log.actorId}>{log.actorId}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-zinc-400 max-w-[160px]">
-                        <span className="text-white">{log.targetEntity}</span>
-                        <span className="text-zinc-600 mx-0.5">:</span>
-                        <span className="truncate">{log.targetId}</span>
-                      </td>
-                      <td className="py-2.5 px-3 text-zinc-400 whitespace-nowrap">
-                        {log.ipAddress ?? "—"}
-                      </td>
-                      <td className="py-2.5 px-3 text-right">
-                        <button onClick={() => setSelectedLog(log)}
-                          className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[10px] text-zinc-300 transition hover:bg-indigo-600/20 hover:border-indigo-500/40 hover:text-indigo-300 cursor-pointer">
-                          <Eye size={10} /> View
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                  visibleLogs.map((log) => {
+                    const isSelected = selectedIds.includes(log.id);
+                    return (
+                      <tr
+                        key={log.id}
+                        className={`transition-colors hover:bg-white/[0.03] ${
+                          isSelected ? "bg-indigo-500/10" : ""
+                        }`}
+                      >
+                        {/* Row Checkbox */}
+                        <td className="py-2.5 px-3 text-center">
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={() => handleToggleSelect(log.id)}
+                            className="rounded border-white/20 bg-black/40 text-indigo-600 focus:ring-0 focus:ring-offset-0 h-4 w-4 cursor-pointer accent-indigo-600"
+                          />
+                        </td>
+
+                        {/* Timestamp */}
+                        <td className="py-2.5 px-3 text-zinc-400 whitespace-nowrap">
+                          {new Date(log.createdAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "medium" })}
+                        </td>
+
+                        {/* Severity */}
+                        <td className="py-2.5 px-3 font-sans whitespace-nowrap">
+                          <SeverityBadge action={log.action} />
+                        </td>
+
+                        {/* Action Label */}
+                        <td className="py-2.5 px-3 font-semibold text-indigo-300 whitespace-nowrap">
+                          {getAuditActionLabel(log.action)}
+                        </td>
+
+                        {/* Actor Role */}
+                        <td className="py-2.5 px-3 font-sans whitespace-nowrap">
+                          <RoleBadge role={log.actorRole} />
+                        </td>
+
+                        {/* Actor ID */}
+                        <td className="py-2.5 px-3 text-zinc-300 max-w-[120px]">
+                          <span className="truncate block" title={log.actorId}>{log.actorId}</span>
+                        </td>
+
+                        {/* Target Entity & ID */}
+                        <td className="py-2.5 px-3 text-zinc-400 max-w-[160px]">
+                          <span className="text-white font-medium">{log.targetEntity}</span>
+                          <span className="text-zinc-600 mx-0.5">:</span>
+                          <span className="truncate" title={log.targetId}>{log.targetId}</span>
+                        </td>
+
+                        {/* IP Address */}
+                        <td className="py-2.5 px-3 text-zinc-400 whitespace-nowrap">
+                          {log.ipAddress ?? "—"}
+                        </td>
+
+                        {/* Row Actions: View Detail & Delete */}
+                        <td className="py-2.5 px-3 text-right whitespace-nowrap">
+                          <div className="flex items-center justify-end gap-1.5 font-sans">
+                            <button
+                              type="button"
+                              onClick={() => setSelectedLog(log)}
+                              className="inline-flex items-center gap-1 rounded-md border border-white/10 bg-white/[0.04] px-2 py-1 text-[10.5px] text-zinc-300 transition hover:bg-indigo-600/20 hover:border-indigo-500/40 hover:text-indigo-300 cursor-pointer"
+                              title="View full audit payload"
+                            >
+                              <Eye size={11} />
+                              <span>View</span>
+                            </button>
+
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setDeleteModal({
+                                  isOpen: true,
+                                  type: "single",
+                                  id: log.id,
+                                  title: log.action,
+                                })
+                              }
+                              className="inline-flex items-center justify-center h-6 w-6 rounded-md border border-white/10 bg-white/[0.04] text-zinc-400 hover:border-rose-500/30 hover:bg-rose-500/15 hover:text-rose-300 active:scale-95 transition cursor-pointer"
+                              title="Permanently delete this audit log"
+                            >
+                              <Trash2 size={11} />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
@@ -480,20 +726,32 @@ export function AdminAuditLogs() {
             <div className="flex items-center justify-between border-t border-white/10 px-4 py-2.5 font-sans text-xs text-zinc-400">
               <span>{total.toLocaleString()} total records</span>
               <div className="flex items-center gap-1">
-                <button id="audit-prev-page" onClick={() => goToPage(currentPage - 1)}
+                <button
+                  id="audit-prev-page"
+                  onClick={() => goToPage(currentPage - 1)}
                   disabled={currentPage <= 1 || loading}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 transition hover:bg-white/[0.06] disabled:opacity-40 cursor-pointer">
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 transition hover:bg-white/[0.06] disabled:opacity-40 cursor-pointer"
+                >
                   <ChevronLeft size={13} />
                 </button>
                 {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => i + 1).map((pg) => (
-                  <button key={pg} onClick={() => goToPage(pg)} disabled={loading}
-                    className={`h-7 min-w-[28px] rounded-md border px-1.5 text-[11px] transition cursor-pointer ${pg === currentPage ? "border-indigo-500 bg-indigo-600/30 text-indigo-300" : "border-white/10 hover:bg-white/[0.06]"}`}>
+                  <button
+                    key={pg}
+                    onClick={() => goToPage(pg)}
+                    disabled={loading}
+                    className={`h-7 min-w-[28px] rounded-md border px-1.5 text-[11px] transition cursor-pointer ${
+                      pg === currentPage ? "border-indigo-500 bg-indigo-600/30 text-indigo-300 font-bold" : "border-white/10 hover:bg-white/[0.06]"
+                    }`}
+                  >
                     {pg}
                   </button>
                 ))}
-                <button id="audit-next-page" onClick={() => goToPage(currentPage + 1)}
+                <button
+                  id="audit-next-page"
+                  onClick={() => goToPage(currentPage + 1)}
                   disabled={currentPage >= totalPages || loading}
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 transition hover:bg-white/[0.06] disabled:opacity-40 cursor-pointer">
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-white/10 transition hover:bg-white/[0.06] disabled:opacity-40 cursor-pointer"
+                >
                   <ChevronRight size={13} />
                 </button>
               </div>

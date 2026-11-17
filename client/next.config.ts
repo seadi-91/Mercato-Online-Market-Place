@@ -32,6 +32,7 @@ const prodCspHeader = `
 const cspHeader = isDev ? devCspHeader : prodCspHeader;
 
 const nextConfig: NextConfig = {
+  devIndicators: false,
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },

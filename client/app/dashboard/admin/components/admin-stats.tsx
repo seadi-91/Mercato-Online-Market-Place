@@ -467,47 +467,47 @@ export function AdminStats({ onNavigateTab }: AdminStatsProps) {
         </div>
       </div>
 
-      {/* 4 Cards: Total Products, Total Orders, Total Users, Total Sellers */}
-      <div className="grid grid-cols-1 xs:grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3">
+      {/* 4 Cards: Total Products, Total Orders, Total Users, Total Sellers (2x2 on Mobile, 4x1 on Desktop) */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
         {stats.map((stat, idx) => {
           const Icon = stat.icon;
           return (
             <div
               key={idx}
-              className={`relative overflow-hidden rounded-xl border ${stat.borderColor} bg-gradient-to-b ${stat.color} p-3 backdrop-blur-md transition-all hover:translate-y-[-1px] hover:shadow-lg hover:shadow-black/40`}
+              className={`relative overflow-hidden rounded-xl border ${stat.borderColor} bg-gradient-to-b ${stat.color} p-2.5 sm:p-3 backdrop-blur-md transition-all hover:translate-y-[-1px] hover:shadow-lg hover:shadow-black/40`}
             >
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-medium text-zinc-400">
+                <span className="text-[10px] sm:text-[11px] font-medium text-zinc-400 truncate max-w-[90px] sm:max-w-none">
                   {stat.title}
                 </span>
                 <div
-                  className={`rounded-lg bg-white/[0.05] p-1.5 ${stat.iconColor}`}
+                  className={`rounded-lg bg-white/[0.05] p-1 sm:p-1.5 ${stat.iconColor}`}
                 >
-                  <Icon className="h-3.5 w-3.5" />
+                  <Icon className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                 </div>
               </div>
 
-              <div className="mt-1.5 flex items-baseline justify-between">
-                <h3 className="text-lg font-bold tracking-tight text-white font-mono sm:text-xl">
+              <div className="mt-1 sm:mt-1.5 flex items-baseline justify-between gap-1 flex-wrap">
+                <h3 className="text-base sm:text-xl font-bold tracking-tight text-white font-mono">
                   {stat.value}
                 </h3>
-                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[9.5px] font-semibold bg-emerald-500/20 text-emerald-300">
-                  <ArrowUpRight className="h-2.5 w-2.5" />
-                  {stat.change}
+                <span className="inline-flex items-center gap-0.5 rounded px-1.5 py-0.2 text-[8.5px] sm:text-[9.5px] font-semibold bg-emerald-500/20 text-emerald-300 truncate">
+                  <ArrowUpRight className="h-2 w-2 sm:h-2.5 sm:w-2.5" />
+                  <span className="truncate">{stat.change}</span>
                 </span>
               </div>
 
               {/* Sparkline & Subtext */}
-              <div className="mt-2 flex items-center justify-between border-t border-white/5 pt-1.5">
-                <span className="text-[9.5px] text-zinc-400 truncate">
+              <div className="mt-1.5 sm:mt-2 flex items-center justify-between border-t border-white/5 pt-1.5">
+                <span className="text-[8.5px] sm:text-[9.5px] text-zinc-400 truncate max-w-[80px] sm:max-w-none">
                   {stat.subtext}
                 </span>
-                <div className="flex items-end gap-0.5 h-3">
+                <div className="flex items-end gap-0.5 h-2.5 sm:h-3">
                   {stat.sparkline.map((val, i) => (
                     <span
                       key={i}
                       style={{ height: `${Math.max(2, (val / 100) * 12)}px` }}
-                      className={`w-1 rounded-xs ${
+                      className={`w-0.5 sm:w-1 rounded-xs ${
                         i === stat.sparkline.length - 1
                           ? "bg-indigo-400"
                           : "bg-white/20"

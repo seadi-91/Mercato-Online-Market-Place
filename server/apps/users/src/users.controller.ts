@@ -135,6 +135,16 @@ export class UsersController {
     return this.usersService.getAuditLogs(query);
   }
 
+  @MessagePattern('delete_audit_logs')
+  deleteAuditLogs(@Payload() payload: { ids?: string[]; all?: boolean }) {
+    return this.usersService.deleteAuditLogs(payload);
+  }
+
+  @MessagePattern('delete_audit_log')
+  deleteAuditLog(@Payload() payload: { id: string }) {
+    return this.usersService.deleteAuditLog(payload.id);
+  }
+
   @MessagePattern('get_user_metrics')
   getUserMetrics() {
     return this.usersService.getUserMetrics();

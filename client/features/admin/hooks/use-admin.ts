@@ -15,6 +15,8 @@ interface UseAuditLogsState {
 interface UseAuditLogsReturn extends UseAuditLogsState {
   fetchLogs: (params?: FilterAuditLogsParams) => Promise<void>;
   refresh: () => void;
+  deleteLog: (id: string) => Promise<boolean>;
+  deleteLogs: (payload: { ids?: string[]; all?: boolean }) => Promise<boolean>;
 }
 
 /**
@@ -62,5 +64,53 @@ export function useAuditLogs(defaultParams: FilterAuditLogsParams = {}): UseAudi
     fetchLogs(lastParams.current);
   }, [fetchLogs]);
 
-  return { ...state, fetchLogs, refresh };
+  const deleteLog = useCallback(async (id: string): Promise<boolean> => {
+    try {
+      await adminAuditService.deleteAuditLog(id);
+      setState((s) => ({
+        ...s,
+        logs: s.logs.filter((l) => l.id !== id),
+        total: Math.max(0, s.total - 1),
+      }));
+      toast.success('Audit log record permanently deleted');
+      return true;
+    } catch (err: any) {
+      toast.error('Failed to delete audit log', {
+        description: err.message || 'Unable to delete audit record from database',
+      });
+      return false;
+    }
+  }, []);
+
+  const deleteLogs = useCallback(async (payload: { ids?: string[]; all?: boolean }): Promise<boolean> => {
+    try {
+      const res = await adminAuditService.deleteAuditLogs(payload);
+      if (payload.all) {
+        setState((s) => ({
+          ...s,
+          logs: [],
+          total: 0,
+          totalPages: 1,
+          page: 1,
+        }));
+        toast.success('All audit logs have been permanently deleted');
+      } else if (payload.ids && payload.ids.length > 0) {
+        const idSet = new Set(payload.ids);
+        setState((s) => ({
+          ...s,
+          logs: s.logs.filter((l) => !idSet.has(l.id)),
+          total: Math.max(0, s.total - payload.ids!.length),
+        }));
+        toast.success(`Permanently deleted ${payload.ids.length} audit logs`);
+      }
+      return true;
+    } catch (err: any) {
+      toast.error('Delete failed', {
+        description: err.message || 'Unable to permanently delete audit logs',
+      });
+      return false;
+    }
+  }, []);
+
+  return { ...state, fetchLogs, refresh, deleteLog, deleteLogs };
 }
