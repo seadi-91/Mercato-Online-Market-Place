@@ -18,6 +18,11 @@ import {
 import { PageHeader } from "../shared/page-header";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  PRICING_TRANSLATIONS,
+  PricingTranslationDictionary,
+} from "@/lib/i18n/pricing-translations";
 import { toast } from "sonner";
 
 export function SupplierPricingView() {
@@ -33,6 +38,12 @@ export function SupplierPricingView() {
     setActiveTab,
     updateProduct,
   } = useSupplierStore();
+
+  const { language } = useTranslation();
+  const tr = (key: keyof PricingTranslationDictionary): string => {
+    const dict = PRICING_TRANSLATIONS[language] || PRICING_TRANSLATIONS.en;
+    return dict[key] || PRICING_TRANSLATIONS.en[key] || key;
+  };
 
   const [activeTabSub, setActiveTabSub] = useState<"tiers" | "buyer_specific" | "regional">("tiers");
   const [selectedProductId, setSelectedProductId] = useState(products[0]?.id || "");
@@ -126,16 +137,16 @@ export function SupplierPricingView() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Wholesale Pricing Matrix & Contracts"
-        subtitle="Configure progressive volume tier discounts, minimum & maximum order quantities, corporate client contracts, and regional freight indexation"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Wholesale Pricing" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbPricing") }]}
         actions={
           <button
             onClick={() => toast.success("All wholesale price schedules published to MercatoX catalog!")}
             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 shadow-xs transition-colors cursor-pointer"
           >
             <Save className="h-4 w-4" />
-            <span>Save Pricing Changes</span>
+            <span>{tr("btnSavePricing")}</span>
           </button>
         }
       />
@@ -150,7 +161,7 @@ export function SupplierPricingView() {
               : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
-          Set MOQ & Volume Tier Matrix
+          {tr("tabTiers")}
         </button>
         <button
           onClick={() => setActiveTabSub("buyer_specific")}
@@ -160,7 +171,7 @@ export function SupplierPricingView() {
               : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
-          Buyer-Specific Contracts ({buyerRates.length})
+          {tr("tabBuyerContracts")} ({buyerRates.length})
         </button>
         <button
           onClick={() => setActiveTabSub("regional")}
@@ -170,7 +181,7 @@ export function SupplierPricingView() {
               : "bg-white border border-slate-200 text-slate-600 hover:bg-slate-50"
           }`}
         >
-          Regional Freight Differentials
+          {tr("tabRegional")}
         </button>
       </div>
 

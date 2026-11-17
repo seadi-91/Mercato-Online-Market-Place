@@ -46,6 +46,11 @@ import {
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  SUPPLIER_SETTINGS_TRANSLATIONS,
+  SupplierSettingsTranslationDictionary,
+} from "@/lib/i18n/supplier-settings-translations";
 import { toast } from "sonner";
 import { api } from "@/services/api/client";
 import { ENDPOINTS } from "@/services/api/endpoints";
@@ -452,29 +457,98 @@ export function SupplierSettingsView() {
     toast.success("Supplier ledger and configuration archive downloaded successfully.");
   };
 
+  const { language } = useTranslation();
+  const tr = (key: keyof SupplierSettingsTranslationDictionary): string => {
+    const dict = SUPPLIER_SETTINGS_TRANSLATIONS[language] || SUPPLIER_SETTINGS_TRANSLATIONS.en;
+    return dict[key] || SUPPLIER_SETTINGS_TRANSLATIONS.en[key] || key;
+  };
+
+  const tabs: TabMeta[] = useMemo(
+    () => [
+      {
+        id: "account",
+        label: tr("tabAccountTitle"),
+        shortLabel: tr("tabAccountShort"),
+        icon: User,
+        description: tr("tabAccountDesc"),
+      },
+      {
+        id: "storefront",
+        label: tr("tabStorefrontTitle"),
+        shortLabel: tr("tabStorefrontShort"),
+        icon: Store,
+        badge: "Public",
+        badgeColor: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+        description: tr("tabStorefrontDesc"),
+      },
+      {
+        id: "business",
+        label: tr("tabBusinessTitle"),
+        shortLabel: tr("tabBusinessShort"),
+        icon: Building2,
+        badge: "Verified",
+        badgeColor: "bg-sky-500/10 text-sky-400 border-sky-500/20",
+        description: tr("tabBusinessDesc"),
+      },
+      {
+        id: "payouts",
+        label: tr("tabPayoutsTitle"),
+        shortLabel: tr("tabPayoutsShort"),
+        icon: CreditCard,
+        badge: "Escrow",
+        badgeColor: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+        description: tr("tabPayoutsDesc"),
+      },
+      {
+        id: "orders",
+        label: tr("tabOrdersTitle"),
+        shortLabel: tr("tabOrdersShort"),
+        icon: FileCheck,
+        description: tr("tabOrdersDesc"),
+      },
+      {
+        id: "notifications",
+        label: tr("tabAlertsTitle"),
+        shortLabel: tr("tabAlertsShort"),
+        icon: Bell,
+        description: tr("tabAlertsDesc"),
+      },
+      {
+        id: "security",
+        label: tr("tabSecurityTitle"),
+        shortLabel: tr("tabSecurityShort"),
+        icon: ShieldCheck,
+        badge: "2FA On",
+        badgeColor: "bg-indigo-500/10 text-indigo-400 border-indigo-500/20",
+        description: tr("tabSecurityDesc"),
+      },
+    ],
+    [language]
+  );
+
   // Filter tabs or check search
   const filteredTabs = useMemo(() => {
-    if (!searchQuery.trim()) return TABS;
+    if (!searchQuery.trim()) return tabs;
     const q = searchQuery.toLowerCase();
-    return TABS.filter(
+    return tabs.filter(
       (t) =>
         t.label.toLowerCase().includes(q) ||
         t.shortLabel.toLowerCase().includes(q) ||
         t.description.toLowerCase().includes(q)
     );
-  }, [searchQuery]);
+  }, [searchQuery, tabs]);
 
   return (
     <div className="space-y-4 max-w-7xl mx-auto min-w-0">
       {/* 1. Modern Page Header with Dynamic Action Bar */}
       <PageHeader
-        title="Supplier Settings & Controls"
-        subtitle="Manage executive credentials, legal registration, automated quotes, settlement accounts, and multi-channel alerts"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Settings" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbSettings") }]}
         badge={
           <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
             <ShieldCheck className="h-3 w-3" />
-            <span>Escrow Protected Account</span>
+            <span>{tr("badgeEscrowProtected")}</span>
           </div>
         }
         actions={
@@ -482,7 +556,7 @@ export function SupplierSettingsView() {
             {hasUnsavedChanges && (
               <span className="hidden sm:inline-flex items-center gap-1 text-[11px] text-amber-400 font-medium">
                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
-                Unsaved edits
+                {tr("unsavedEdits")}
               </span>
             )}
             <button
@@ -496,12 +570,12 @@ export function SupplierSettingsView() {
               {isSaving ? (
                 <>
                   <RefreshCw className="h-3.5 w-3.5 animate-spin" />
-                  <span>Saving...</span>
+                  <span>{tr("btnSaving")}</span>
                 </>
               ) : (
                 <>
                   <Save className="h-3.5 w-3.5" />
-                  <span>Save Changes</span>
+                  <span>{tr("btnSaveChanges")}</span>
                 </>
               )}
             </button>
@@ -544,7 +618,7 @@ export function SupplierSettingsView() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Quick search settings (e.g. 2FA, CBE Bank, TIN, Lead Time, SMS, Vacation)..."
+            placeholder={tr("searchPlaceholder")}
             className="w-full bg-white/[0.04] border border-white/10 rounded-lg pl-8 pr-3 py-1.5 text-xs text-white placeholder-zinc-500 focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 transition-all font-medium"
           />
           {searchQuery && (
@@ -603,7 +677,7 @@ export function SupplierSettingsView() {
           {/* Desktop Master Navigation Rail (Compact, Modern Card) */}
           <div className="hidden lg:block rounded-xl border border-white/[0.08] bg-[#0d121c] p-2 space-y-1 shadow-sm sticky top-4">
             <div className="px-2.5 py-2 text-[10px] font-bold uppercase tracking-wider text-zinc-500">
-              Settings Navigation
+              {tr("navTitle")}
             </div>
             {filteredTabs.map((tab) => {
               const Icon = tab.icon;
@@ -647,7 +721,7 @@ export function SupplierSettingsView() {
             <div className="mt-3 pt-3 border-t border-white/[0.06] px-2.5 py-2 text-zinc-400 text-[11px] space-y-1.5">
               <div className="flex items-center gap-1.5 text-zinc-300 font-semibold">
                 <Info className="h-3.5 w-3.5 text-indigo-400" />
-                <span>Statutory Compliance</span>
+                <span>{tr("statutoryCompliance")}</span>
               </div>
               <p className="text-[10px] text-zinc-400 leading-normal">
                 Changes to TIN, Commercial License, or CBE bank details require automated KYC verification.

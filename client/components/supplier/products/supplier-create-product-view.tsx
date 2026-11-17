@@ -30,8 +30,15 @@ import { useAuthStore } from "@/store/auth-store";
 import { sellerService } from "@/services/seller/seller.service";
 import { Category } from "@/types/product";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
+import { PRODUCT_TRANSLATIONS, ProductTranslationDictionary } from "@/lib/i18n/product-translations";
 
 export function SupplierCreateProductView() {
+  const { language } = useTranslation();
+  const tr = (key: keyof ProductTranslationDictionary): string => {
+    return PRODUCT_TRANSLATIONS[language]?.[key] ?? PRODUCT_TRANSLATIONS.en[key] ?? "";
+  };
+
   const {
     addProduct,
     updateProduct,
@@ -660,10 +667,10 @@ export function SupplierCreateProductView() {
   };
 
   const stepsMeta = [
-    { number: 1, title: "Identity", subtitle: "Name & category" },
-    { number: 2, title: "Pricing", subtitle: "Base & tiers" },
-    { number: 3, title: "Stock", subtitle: "Depot inventory" },
-    { number: 4, title: "Photos", subtitle: "Product images" },
+    { number: 1, title: tr("stepIdentityTitle"), subtitle: tr("stepIdentitySub") },
+    { number: 2, title: tr("stepPricingTitle"), subtitle: tr("stepPricingSub") },
+    { number: 3, title: tr("stepStockTitle"), subtitle: tr("stepStockSub") },
+    { number: 4, title: tr("stepPhotosTitle"), subtitle: tr("stepPhotosSub") },
   ];
 
   return (
@@ -700,10 +707,10 @@ export function SupplierCreateProductView() {
               className="inline-flex items-center gap-1 text-[11px] text-zinc-400 hover:text-white transition-colors cursor-pointer mb-0.5"
             >
               <ArrowLeft className="h-3 w-3" />
-              <span>Back to Catalog</span>
+              <span>{tr("backToCatalog")}</span>
             </button>
             <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white">
-              {editingProduct ? "Edit Wholesale Commodity" : "Add Wholesale Product"}
+              {editingProduct ? tr("titleEditProduct") : tr("titleAddProduct")}
             </h1>
           </div>
 
@@ -714,7 +721,7 @@ export function SupplierCreateProductView() {
             className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer shadow-xs shrink-0"
           >
             <Eye className="h-3.5 w-3.5 text-indigo-400" />
-            <span className="hidden sm:inline">Preview</span>
+            <span className="hidden sm:inline">{tr("btnPreview")}</span>
           </button>
         </div>
 
@@ -777,14 +784,14 @@ export function SupplierCreateProductView() {
                 <div>
                   <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
                     <Package className="h-4 w-4 text-indigo-400" />
-                    <span>Commercial Identity</span>
+                    <span>{tr("sectionIdentity")}</span>
                   </h3>
-                  <p className="text-[11px] text-zinc-400">Official catalog naming and sourcing</p>
+                  <p className="text-[11px] text-zinc-400">{tr("sectionIdentityDesc")}</p>
                 </div>
 
                 {/* Quick Presets */}
                 <div className="flex items-center gap-1 overflow-x-auto pb-0.5 no-scrollbar">
-                  <span className="text-[10px] text-zinc-500 font-medium whitespace-nowrap">Fill:</span>
+                  <span className="text-[10px] text-zinc-500 font-medium whitespace-nowrap">{tr("fillSample")}</span>
                   <button
                     type="button"
                     onClick={() => fillSampleCommodity("coffee")}
@@ -819,13 +826,13 @@ export function SupplierCreateProductView() {
               <div className="space-y-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Product Commercial Name <span className="text-rose-400">*</span>
+                    {tr("productNameLabel")} <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="text"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Yirgacheffe Grade 1 Speciality Washed Arabica Coffee"
+                    placeholder={tr("productNamePlaceholder")}
                     className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden"
                     required
                   />
@@ -834,7 +841,7 @@ export function SupplierCreateProductView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                      SKU Code
+                      {tr("skuLabel")}
                     </label>
                     <input
                       type="text"
@@ -846,13 +853,13 @@ export function SupplierCreateProductView() {
 
                   <div>
                     <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                      Brand / Producer
+                      {tr("brandLabel")}
                     </label>
                     <input
                       type="text"
                       value={brand}
                       onChange={(e) => setBrand(e.target.value)}
-                      placeholder="e.g. Abyssinia Agro PLC"
+                      placeholder={tr("brandPlaceholder")}
                       className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden"
                     />
                   </div>
@@ -861,7 +868,7 @@ export function SupplierCreateProductView() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                      Marketplace Category
+                      {tr("categoryLabel")}
                     </label>
                     <select
                       value={selectedCategoryId || category}
@@ -909,13 +916,13 @@ export function SupplierCreateProductView() {
 
                   <div>
                     <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                      Subcategory
+                      {tr("subcategoryLabel")}
                     </label>
                     <input
                       type="text"
                       value={subcategory}
                       onChange={(e) => setSubcategory(e.target.value)}
-                      placeholder="e.g. Specialty Washed Arabica"
+                      placeholder={tr("subcategoryPlaceholder")}
                       className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden"
                     />
                   </div>
@@ -923,13 +930,13 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Regional Origin & Sourcing
+                    {tr("originLabel")}
                   </label>
                   <input
                     type="text"
                     value={origin}
                     onChange={(e) => setOrigin(e.target.value)}
-                    placeholder="e.g. Yirgacheffe, Gedeo Zone, SNNPR, Ethiopia"
+                    placeholder={tr("originPlaceholder")}
                     className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white focus:border-indigo-500 focus:outline-hidden"
                   />
                 </div>
@@ -939,17 +946,17 @@ export function SupplierCreateProductView() {
                   <div className="flex items-center justify-between">
                     <label className="text-[11px] font-semibold text-zinc-200 flex items-center gap-1.5">
                       <Building className="h-3.5 w-3.5 text-indigo-400" />
-                      <span>Fulfillment Branch / Depot (የሚለጠፍበት ቅርንጫፍ)</span>
+                      <span>{tr("fulfillmentBranchLabel")}</span>
                       <span className="text-rose-400">*</span>
                     </label>
                     {isBranchManager ? (
                       <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                         <Lock className="h-2.5 w-2.5" />
-                        <span>Branch Manager Locked</span>
+                        <span>{tr("branchManagerLocked")}</span>
                       </span>
                     ) : (
                       <span className="inline-flex items-center gap-1 text-[10px] font-medium text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                        👑 Main Supplier (Select Branch)
+                        {tr("mainSupplierSelectBranch")}
                       </span>
                     )}
                   </div>
@@ -966,7 +973,7 @@ export function SupplierCreateProductView() {
                         </div>
                       </div>
                       <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-500/30 font-bold shrink-0">
-                        Auto-Assigned
+                        {tr("autoAssigned")}
                       </span>
                     </div>
                   ) : (
@@ -1005,13 +1012,13 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Commercial Description
+                    {tr("descriptionLabel")}
                   </label>
                   <textarea
                     rows={2}
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    placeholder="Detailed specifications, processing method, moisture..."
+                    placeholder={tr("descriptionPlaceholder")}
                     className="w-full rounded-lg border border-white/10 bg-white/[0.04] p-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden"
                   />
                 </div>
@@ -1027,15 +1034,15 @@ export function SupplierCreateProductView() {
               <div className="border-b border-white/5 pb-2.5">
                 <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
                   <DollarSign className="h-4 w-4 text-indigo-400" />
-                  <span>Wholesale Pricing & Volume Tiers</span>
+                  <span>{tr("sectionPricing")}</span>
                 </h3>
-                <p className="text-[11px] text-zinc-400">Set base price and bulk order threshold</p>
+                <p className="text-[11px] text-zinc-400">{tr("sectionPricingDesc")}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Base Price (ETB) <span className="text-rose-400">*</span>
+                    {tr("basePriceLabel")} <span className="text-rose-400">*</span>
                   </label>
                   <div className="relative">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-500 font-mono">
@@ -1070,7 +1077,7 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    MOQ <span className="text-rose-400">*</span>
+                    {tr("moqInputLabel")} <span className="text-rose-400">*</span>
                   </label>
                   <input
                     type="number"
@@ -1093,7 +1100,7 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Pricing Unit
+                    {tr("unitLabel")}
                   </label>
                   <select
                     value={unit}
@@ -1114,13 +1121,13 @@ export function SupplierCreateProductView() {
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/5 pb-2.5">
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs sm:text-sm font-bold text-white">Wholesale Volume Tiers</span>
+                      <span className="text-xs sm:text-sm font-bold text-white">{tr("tierPricingTitle")}</span>
                       <span className="text-[10px] font-semibold text-indigo-300 bg-indigo-500/10 px-2 py-0.5 rounded-full border border-indigo-500/20">
-                        {tierPricing.length} {tierPricing.length === 1 ? "Tier (Default)" : "Tiers"}
+                        {tierPricing.length} {tierPricing.length === 1 ? `1 (${tr("defaultTier")})` : `${tierPricing.length}`}
                       </span>
                     </div>
                     <p className="text-[11px] text-zinc-400 mt-0.5">
-                      Base MOQ tier is active by default. Use <span className="text-indigo-400 font-medium">+ Add Tier</span> to incentivize large wholesale buyers with bulk discount rates.
+                      {tr("tierPricingDesc")}
                     </p>
                   </div>
 
@@ -1130,7 +1137,7 @@ export function SupplierCreateProductView() {
                     className="self-start sm:self-auto inline-flex items-center gap-1.5 rounded-lg border border-indigo-500/40 bg-indigo-500/15 px-3 py-1.5 text-xs font-semibold text-indigo-200 hover:bg-indigo-500/25 hover:border-indigo-500/60 transition-all cursor-pointer shadow-xs active:scale-95"
                   >
                     <Plus className="h-3.5 w-3.5 text-indigo-400" />
-                    <span>Add Tier</span>
+                    <span>{tr("addTierBtn")}</span>
                   </button>
                 </div>
 
@@ -1147,7 +1154,7 @@ export function SupplierCreateProductView() {
                         </span>
                         {idx === 0 && (
                           <span className="text-[9px] text-zinc-400 font-medium px-1.5 py-0.5 rounded bg-white/[0.04] border border-white/5">
-                            Default Tier
+                            {tr("defaultTier")}
                           </span>
                         )}
                         {tierPricing.length > 1 && (
@@ -1164,7 +1171,7 @@ export function SupplierCreateProductView() {
 
                       <div className="grid grid-cols-2 gap-2 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-semibold text-zinc-400 shrink-0">Min ({unit}):</span>
+                          <span className="text-[10px] font-semibold text-zinc-400 shrink-0">{tr("minQtyLabel")} ({unit}):</span>
                           <input
                             type="number"
                             min={1}
@@ -1183,7 +1190,7 @@ export function SupplierCreateProductView() {
                             type="number"
                             min={tier.minQty}
                             value={tier.maxQty ?? ""}
-                            placeholder="No limit (∞)"
+                            placeholder={tr("noLimit")}
                             onChange={(e) => {
                               const updated = [...tierPricing];
                               updated[idx].maxQty = e.target.value ? Number(e.target.value) : null;
@@ -1196,7 +1203,7 @@ export function SupplierCreateProductView() {
 
                       <div className="flex items-center justify-between sm:justify-end gap-2 shrink-0 pt-1 sm:pt-0">
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-semibold text-zinc-400">Price:</span>
+                          <span className="text-[10px] font-semibold text-zinc-400">{tr("unitPriceLabel")}:</span>
                           <div className="relative">
                             <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] text-zinc-500 font-mono font-bold">
                               ETB
@@ -1251,7 +1258,7 @@ export function SupplierCreateProductView() {
                   <div className="w-5 h-5 rounded-full bg-indigo-500/20 flex items-center justify-center group-hover:bg-indigo-500/30 transition-colors">
                     <Plus className="h-3.5 w-3.5 text-indigo-300 group-hover:scale-110 transition-transform" />
                   </div>
-                  <span>+ Add Volume Tier (#{tierPricing.length + 1})</span>
+                  <span>{tr("addTierNumbered")} (#{tierPricing.length + 1})</span>
                 </button>
               </div>
             </div>
@@ -1265,15 +1272,15 @@ export function SupplierCreateProductView() {
               <div className="border-b border-white/5 pb-2.5">
                 <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
                   <Boxes className="h-4 w-4 text-indigo-400" />
-                  <span>Warehouse & Stock Allocation</span>
+                  <span>{tr("sectionStock")}</span>
                 </h3>
-                <p className="text-[11px] text-zinc-400">Define available inventory and fulfillment depot</p>
+                <p className="text-[11px] text-zinc-400">{tr("sectionStockDesc")}</p>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Available Stock <span className="text-rose-400">*</span>
+                    {tr("initialStockLabel")} <span className="text-rose-400">*</span>
                   </label>
                   <div className="relative">
                     <input
@@ -1292,7 +1299,7 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Primary Depot / Assigned Branch <span className="text-rose-400">*</span>
+                    {tr("hubLocationLabel")} <span className="text-rose-400">*</span>
                   </label>
                   {isBranchManager ? (
                     <div className="p-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-100 text-xs flex items-center justify-between">
@@ -1306,7 +1313,7 @@ export function SupplierCreateProductView() {
                         </div>
                       </div>
                       <span className="text-[9px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-500/30 font-bold shrink-0">
-                        Locked
+                        {tr("branchManagerLocked")}
                       </span>
                     </div>
                   ) : (
@@ -1345,7 +1352,7 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Low Stock Threshold
+                    {tr("minStockLabel")}
                   </label>
                   <input
                     type="number"
@@ -1357,7 +1364,7 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Lead Time (Days)
+                    {tr("leadTimeDaysLabel")}
                   </label>
                   <input
                     type="number"
@@ -1372,10 +1379,10 @@ export function SupplierCreateProductView() {
               <div className="rounded-lg border border-white/10 bg-white/[0.02] p-3 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Building className="h-4 w-4 text-indigo-400" />
-                  <span className="text-xs text-zinc-300">Depot verified for buyer pickup & freight dispatch</span>
+                  <span className="text-xs text-zinc-300">{tr("depotVerified")}</span>
                 </div>
                 <span className="rounded bg-indigo-500/20 text-indigo-300 px-1.5 py-0.2 text-[10px] font-mono font-bold">
-                  Active
+                  {tr("activeStatus")}
                 </span>
               </div>
             </div>
@@ -1390,14 +1397,14 @@ export function SupplierCreateProductView() {
                 <div className="flex items-center justify-between">
                   <h3 className="text-xs sm:text-sm font-bold text-white flex items-center gap-1.5">
                     <ImageIcon className="h-4 w-4 text-indigo-400" />
-                    <span>Product Photos</span>
+                    <span>{tr("sectionPhotos")}</span>
                   </h3>
                   <span className="rounded bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2 py-0.5 text-[10px] font-mono font-bold">
                     {images.length}/8 Photos
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-400 mt-0.5">
-                  Upload multiple photos of your commodity, packaging, and export sacks
+                  {tr("sectionPhotosDesc")}
                 </p>
               </div>
 
@@ -1418,9 +1425,9 @@ export function SupplierCreateProductView() {
                   </div>
                   <div>
                     <p className="text-xs font-semibold text-white">
-                      Drop product images here, or <span className="text-indigo-400 underline">browse files</span>
+                      {tr("dragDropTitle")}
                     </p>
-                    <p className="text-[10px] text-zinc-400">JPG, PNG, WebP up to 10MB each</p>
+                    <p className="text-[10px] text-zinc-400">{tr("dragDropSubtitle")}</p>
                   </div>
 
                   <div className="flex items-center gap-2 pt-1" onClick={(e) => e.stopPropagation()}>
@@ -1430,7 +1437,7 @@ export function SupplierCreateProductView() {
                       className="rounded bg-indigo-600 hover:bg-indigo-500 px-3 py-1 text-xs font-semibold text-white shadow-xs cursor-pointer flex items-center gap-1"
                     >
                       <Plus className="h-3 w-3" />
-                      <span>Select Files</span>
+                      <span>{tr("browseFiles")}</span>
                     </button>
                     <button
                       type="button"
@@ -1438,7 +1445,7 @@ export function SupplierCreateProductView() {
                       className="sm:hidden rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:text-white cursor-pointer flex items-center gap-1"
                     >
                       <Camera className="h-3 w-3 text-cyan-400" />
-                      <span>Take Photo</span>
+                      <span>{tr("takePhoto")}</span>
                     </button>
                     <button
                       type="button"
@@ -1446,7 +1453,7 @@ export function SupplierCreateProductView() {
                       className="rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-semibold text-zinc-300 hover:text-white cursor-pointer flex items-center gap-1"
                     >
                       <LinkIcon className="h-3 w-3 text-indigo-400" />
-                      <span>Add URL</span>
+                      <span>{tr("addFromUrl")}</span>
                     </button>
                   </div>
                 </div>
@@ -1459,7 +1466,7 @@ export function SupplierCreateProductView() {
                     type="url"
                     value={urlInput}
                     onChange={(e) => setUrlInput(e.target.value)}
-                    placeholder="Paste image web link (https://...)"
+                    placeholder={tr("urlPlaceholder")}
                     className="w-full flex-1 rounded border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden"
                   />
                   <button
@@ -1501,23 +1508,23 @@ export function SupplierCreateProductView() {
                           {isCover ? (
                             <div className="absolute top-1 left-1 flex items-center gap-0.5 rounded bg-indigo-600/90 px-1.5 py-0.2 text-[8px] font-bold text-white shadow-xs">
                               <Star className="h-2.5 w-2.5 fill-amber-300 text-amber-300" />
-                              <span>COVER</span>
+                              <span>{tr("coverImageBadge")}</span>
                             </div>
                           ) : (
                             <button
                               type="button"
                               onClick={() => handleSetPrimary(idx)}
-                              title="Set as cover photo"
+                              title={tr("setAsCover")}
                               className="absolute top-1 left-1 opacity-0 group-hover:opacity-100 transition-opacity rounded bg-black/80 px-1 py-0.2 text-[8px] font-medium text-white cursor-pointer"
                             >
-                              Make Cover
+                              {tr("setAsCover")}
                             </button>
                           )}
 
                           <button
                             type="button"
                             onClick={() => handleRemoveImage(idx)}
-                            title="Remove photo"
+                            title={tr("removeImage")}
                             className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-black/75 text-zinc-300 hover:text-rose-400 cursor-pointer"
                           >
                             <Trash2 className="h-3 w-3" />
@@ -1544,7 +1551,7 @@ export function SupplierCreateProductView() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-white/5">
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Quality Grade / Standard
+                    {tr("gradeLabel")}
                   </label>
                   <input
                     type="text"
@@ -1557,7 +1564,7 @@ export function SupplierCreateProductView() {
 
                 <div>
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Packaging Specification
+                    {tr("shippingWeightLabel")}
                   </label>
                   <input
                     type="text"
@@ -1570,7 +1577,7 @@ export function SupplierCreateProductView() {
 
                 <div className="sm:col-span-2">
                   <label className="block text-[11px] font-semibold text-zinc-300 mb-1">
-                    Quality Certifications
+                    {tr("certificationsLabel")}
                   </label>
                   <input
                     type="text"
@@ -1586,7 +1593,7 @@ export function SupplierCreateProductView() {
               {/* Pre-Publish Checklist */}
               <div className="rounded-xl border border-white/10 bg-white/[0.02] p-3 space-y-2">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 block">
-                  Publish Fulfillment Checklist
+                  {tr("checklistTitle")}
                 </span>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs">
@@ -1622,7 +1629,7 @@ export function SupplierCreateProductView() {
                 className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
               >
                 <ArrowLeft className="h-3 w-3" />
-                <span>Back</span>
+                <span>{tr("btnBack")}</span>
               </button>
             ) : (
               <button
@@ -1633,7 +1640,7 @@ export function SupplierCreateProductView() {
                 }}
                 className="text-xs text-zinc-500 hover:text-zinc-300 py-1.5 transition-colors cursor-pointer"
               >
-                Cancel
+                {tr("cancelBtn")}
               </button>
             )}
 
@@ -1643,7 +1650,7 @@ export function SupplierCreateProductView() {
                 onClick={handleGoNext}
                 className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-semibold text-white shadow-xs transition-all cursor-pointer"
               >
-                <span>Next Step</span>
+                <span>{tr("btnNext")}</span>
                 <ArrowRight className="h-3 w-3" />
               </button>
             ) : (
@@ -1656,17 +1663,17 @@ export function SupplierCreateProductView() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    <span>Saving Product...</span>
+                    <span>{tr("btnSaving")}</span>
                   </>
                 ) : editingProduct ? (
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span>Save Changes</span>
+                    <span>{tr("btnSaveChanges")}</span>
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="h-3.5 w-3.5" />
-                    <span>Publish to Catalog</span>
+                    <span>{tr("btnPublish")}</span>
                   </>
                 )}
               </button>
@@ -1688,7 +1695,7 @@ export function SupplierCreateProductView() {
               <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
                 <span className="font-bold text-xs sm:text-sm text-white flex items-center gap-1.5">
                   <Eye className="h-4 w-4 text-indigo-400" />
-                  <span>Buyer Marketplace Preview</span>
+                  <span>{tr("previewTitle")}</span>
                 </span>
                 <button
                   onClick={() => setIsPreviewOpen(false)}
@@ -1710,7 +1717,7 @@ export function SupplierCreateProductView() {
                       />
                       <div className="absolute top-2 left-2 rounded bg-black/70 px-2 py-0.5 text-[9px] font-medium text-white flex items-center gap-1">
                         {activePreviewIndex === 0 && <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />}
-                        <span>{activePreviewIndex === 0 ? "Cover Photo" : `Photo ${activePreviewIndex + 1}`}</span>
+                        <span>{activePreviewIndex === 0 ? tr("coverImageBadge") : `Photo ${activePreviewIndex + 1}`}</span>
                       </div>
                       <div className="absolute bottom-2 right-2 rounded bg-black/70 px-1.5 py-0.5 text-[9px] font-mono text-zinc-300">
                         {activePreviewIndex + 1} / {images.length}
@@ -1742,7 +1749,7 @@ export function SupplierCreateProductView() {
                   ) : (
                     <div className="flex flex-col items-center justify-center text-center p-4 text-zinc-500">
                       <ImageIcon className="h-8 w-8 text-zinc-600 mb-1" />
-                      <p className="text-xs text-zinc-400">No photos uploaded</p>
+                      <p className="text-xs text-zinc-400">{tr("noPhotosUploaded")}</p>
                     </div>
                   )}
                 </div>

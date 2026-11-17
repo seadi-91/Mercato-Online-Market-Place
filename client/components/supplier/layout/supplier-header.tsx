@@ -27,10 +27,20 @@ import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
 import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { LanguageSelector } from "@/components/common/language-selector";
+import { useTranslation } from "@/store/language-store";
+import {
+  SUPPLIER_TRANSLATIONS,
+  type SupplierTranslationDictionary,
+} from "@/lib/i18n/supplier-translations";
 import { toast } from "sonner";
 
 export function SupplierHeader() {
   const router = useRouter();
+  const { language } = useTranslation();
+  const tr = (key: keyof SupplierTranslationDictionary): string => {
+    const dict = SUPPLIER_TRANSLATIONS[language] || SUPPLIER_TRANSLATIONS.en;
+    return dict[key] || SUPPLIER_TRANSLATIONS.en[key] || key;
+  };
   const { theme } = useThemeStore();
   const isLight = theme === "light";
 
@@ -131,7 +141,7 @@ export function SupplierHeader() {
             type="text"
             value={globalSearch}
             onChange={(e) => setGlobalSearch(e.target.value)}
-            placeholder="Search orders, RFQs, products, SKU (e.g. ETH-COF, Midroc)..."
+            placeholder={tr("headerSearchPlaceholder")}
             className="w-full rounded-lg border border-white/10 bg-white/[0.04] pl-9 pr-4 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:bg-white/[0.08] focus:outline-hidden focus:ring-1 focus:ring-indigo-500 transition-all"
           />
         </div>
@@ -155,7 +165,7 @@ export function SupplierHeader() {
                 autoFocus
                 value={globalSearch}
                 onChange={(e) => setGlobalSearch(e.target.value)}
-                placeholder="Search orders, RFQs, SKU, products..."
+                placeholder={tr("headerSearchPlaceholder")}
                 className="w-full rounded-lg border border-white/10 bg-white/[0.06] pl-9 pr-8 py-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden"
               />
               {globalSearch && (
@@ -189,7 +199,7 @@ export function SupplierHeader() {
             className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 px-2.5 sm:px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-indigo-600/30 hover:bg-indigo-500 transition-colors cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            <span className="hidden sm:inline">Quick Action</span>
+            <span className="hidden sm:inline">{tr("headerQuickAction")}</span>
             <ChevronDown className="h-3.5 w-3.5 opacity-80" />
           </button>
 
@@ -201,44 +211,44 @@ export function SupplierHeader() {
               />
               <div className="app-dropdown-panel absolute right-0 mt-2 z-50 w-56 max-w-[calc(100vw-1.5rem)] rounded-2xl border border-white/10 bg-[#0d121f] p-1.5 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
                 <div className="px-2 py-1 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                  Create / Manage
+                  {tr("headerCreateManage")}
                 </div>
                 <button
                   onClick={() => handleQuickAction("add-product")}
                   className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white cursor-pointer transition-colors"
                 >
                   <Plus className="h-4 w-4 text-indigo-400" />
-                  <span>Add New Product</span>
+                  <span>{tr("headerAddNewProduct")}</span>
                 </button>
                 <button
                   onClick={() => handleQuickAction("create-quotation")}
                   className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white cursor-pointer transition-colors"
                 >
                   <span className="text-xs font-bold text-blue-400 font-mono">QT</span>
-                  <span>Create Quotation</span>
+                  <span>{tr("headerCreateQuotation")}</span>
                 </button>
                 <button
                   onClick={() => handleQuickAction("transfer-stock")}
                   className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white cursor-pointer transition-colors"
                 >
                   <Building className="h-4 w-4 text-amber-400" />
-                  <span>Transfer Warehouse Stock</span>
+                  <span>{tr("headerTransferStock")}</span>
                 </button>
                 <button
                   onClick={() => handleQuickAction("adjust-stock")}
                   className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white cursor-pointer transition-colors"
                 >
                   <span className="text-xs font-bold text-purple-400 font-mono">+/-</span>
-                  <span>Adjust Inventory Stock</span>
+                  <span>{tr("headerAdjustStock")}</span>
                 </button>
                 <div className="my-1 border-t border-white/10" />
                 <button
                   onClick={() => handleQuickAction("view-rfqs")}
                   className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.06] hover:text-white cursor-pointer transition-colors"
                 >
-                  <span>View Pending RFQs</span>
+                  <span>{tr("headerViewRfqs")}</span>
                   <span className="rounded bg-indigo-500/20 border border-indigo-500/30 px-1.5 py-0.5 text-[10px] font-bold text-indigo-300">
-                    Live
+                    {tr("headerLiveBadge")}
                   </span>
                 </button>
               </div>
@@ -367,7 +377,7 @@ export function SupplierHeader() {
 
                   {/* Scoped Role Badge Strip */}
                   <div className="mt-2.5 pt-2 border-t border-white/10 flex items-center justify-between text-[11px]">
-                    <span className="text-zinc-400">Role Authority:</span>
+                    <span className="text-zinc-400">{tr("headerRoleAuthority")}</span>
                     <span
                       className={`inline-flex items-center gap-1 font-semibold px-2 py-0.5 rounded-md text-[10px] ${
                         isBranchManager
@@ -376,13 +386,13 @@ export function SupplierHeader() {
                       }`}
                     >
                       <Building className="h-3 w-3" />
-                      <span>{isBranchManager ? "Branch Manager" : "Super Supplier HQ"}</span>
+                      <span>{isBranchManager ? tr("headerBranchManager") : tr("headerSuperSupplierHq")}</span>
                     </span>
                   </div>
 
                   {userBranchName && (
                     <div className="mt-1 flex items-center justify-between text-[11px]">
-                      <span className="text-zinc-400">Branch Depot:</span>
+                      <span className="text-zinc-400">{tr("headerBranchDepot")}</span>
                       <span className="font-medium text-zinc-300 text-[10px] truncate max-w-[160px]">
                         {userBranchName}
                       </span>
@@ -404,7 +414,7 @@ export function SupplierHeader() {
                     }`}
                   >
                     <User className="h-4 w-4 text-indigo-400" />
-                    <span>Business Profile</span>
+                    <span>{tr("headerBusinessProfile")}</span>
                   </button>
 
                   <button
@@ -420,7 +430,7 @@ export function SupplierHeader() {
                   >
                     <span className="flex items-center gap-2.5">
                       <Truck className="h-4 w-4 text-cyan-400" />
-                      <span>{isBranchManager ? "My Branch Drivers" : "Team & Fleet Drivers"}</span>
+                      <span>{isBranchManager ? tr("headerBranchDrivers") : tr("headerTeamFleet")}</span>
                     </span>
                     <span className="text-[10px] font-mono text-zinc-400">Manage</span>
                   </button>
@@ -437,7 +447,7 @@ export function SupplierHeader() {
                     }`}
                   >
                     <Building className="h-4 w-4 text-amber-400" />
-                    <span>Depots & Warehouses</span>
+                    <span>{tr("headerDepotsWarehouses")}</span>
                   </button>
 
                   <button
@@ -452,7 +462,7 @@ export function SupplierHeader() {
                     }`}
                   >
                     <Settings className="h-4 w-4 text-emerald-400" />
-                    <span>Portal Settings</span>
+                    <span>{tr("headerPortalSettings")}</span>
                   </button>
                 </div>
 
@@ -464,7 +474,7 @@ export function SupplierHeader() {
                   className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                 >
                   <LogOut className="h-4 w-4 text-rose-400" />
-                  <span>Sign Out</span>
+                  <span>{tr("headerSignOut")}</span>
                 </button>
               </div>
             </>

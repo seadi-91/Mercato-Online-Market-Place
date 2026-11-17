@@ -36,6 +36,11 @@ import { PageHeader } from "../shared/page-header";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  TEAM_TRANSLATIONS,
+  TeamTranslationDictionary,
+} from "@/lib/i18n/team-translations";
 import { SupplierStaff, StaffRole } from "@/types/supplier";
 import { toast } from "sonner";
 
@@ -67,6 +72,12 @@ export function SupplierTeamView() {
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
+  const { language } = useTranslation();
+
+  const tr = (key: keyof TeamTranslationDictionary): string => {
+    const dict = TEAM_TRANSLATIONS[language] || TEAM_TRANSLATIONS.en;
+    return dict[key] || TEAM_TRANSLATIONS.en[key] || key;
+  };
 
   // Filter States
   const [activeRoleTab, setActiveRoleTab] = useState<"all" | "branch_manager" | "driver" | "warehouse_lead">("all");
@@ -220,20 +231,20 @@ export function SupplierTeamView() {
     <div className="space-y-6 pb-16 animate-in fade-in duration-200">
       {/* 1. Header with Breadcrumbs & Actions */}
       <PageHeader
-        title={isBranchManager ? `${userBranchName || "Branch"} Fleet Drivers` : "Enterprise Staff & Fleet Management"}
+        title={isBranchManager ? `${userBranchName || "Branch"} ${tr("tabFleetDrivers")}` : tr("title")}
         subtitle={
           isBranchManager
             ? `Manage commercial drivers assigned to ${userBranchName}. Branch managers can only view and register drivers under this branch.`
-            : "Manage regional branch managers across Addis Ababa, Modjo, and Hawassa, and oversee commercial transport drivers."
+            : tr("subtitle")
         }
         breadcrumbs={[
-          { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
-          { label: isBranchManager ? "Branch Drivers" : "Staff Directory" },
+          { label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") },
+          { label: isBranchManager ? tr("tabFleetDrivers") : tr("breadcrumbStaff") },
         ]}
         badge={
           <span className="inline-flex items-center gap-1.5 rounded-full bg-indigo-500/20 border border-indigo-500/30 px-3 py-1 text-xs font-bold text-indigo-300">
             <Users className="h-3.5 w-3.5 text-indigo-400" />
-            <span>{totalStaff} {isBranchManager ? "Branch Drivers" : "Active Personnel"}</span>
+            <span>{totalStaff} {isBranchManager ? tr("badgeBranchDrivers") : tr("badgePersonnel")}</span>
           </span>
         }
         actions={
@@ -243,7 +254,7 @@ export function SupplierTeamView() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-2 text-xs font-semibold text-emerald-300 transition-colors cursor-pointer"
             >
               <Truck className="h-4 w-4 text-emerald-400" />
-              <span>+ Add Fleet Driver</span>
+              <span>{tr("btnAddDriver")}</span>
             </button>
 
             {!isBranchManager && (
@@ -252,7 +263,7 @@ export function SupplierTeamView() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-xs transition-all cursor-pointer"
               >
                 <UserPlus className="h-4 w-4" />
-                <span>+ Add Branch Manager</span>
+                <span>{tr("btnAddManager")}</span>
               </button>
             )}
           </div>
@@ -274,7 +285,7 @@ export function SupplierTeamView() {
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-zinc-400">
-              {isBranchManager ? "Branch Drivers" : "Total Personnel"}
+              {isBranchManager ? tr("kpiBranchDrivers") : tr("kpiTotalPersonnel")}
             </span>
             <div className="h-8 w-8 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400">
               {isBranchManager ? <Truck className="h-4 w-4" /> : <Users className="h-4 w-4" />}
@@ -300,7 +311,7 @@ export function SupplierTeamView() {
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-zinc-400">
-              {isBranchManager ? "Available in Depot" : "Branch Managers"}
+              {isBranchManager ? tr("kpiAvailableDepot") : tr("kpiBranchManagers")}
             </span>
             <div className="h-8 w-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
               {isBranchManager ? <CheckCircle2 className="h-4 w-4" /> : <Building className="h-4 w-4" />}
@@ -311,7 +322,7 @@ export function SupplierTeamView() {
               {isBranchManager ? driversAvailableCount : branchManagers.length}
             </span>
             <span className="text-[11px] text-blue-400 font-medium">
-              {isBranchManager ? "Ready for Dispatch" : "3 Hubs Covered"}
+              {isBranchManager ? tr("readyDispatch") : tr("hubsCovered")}
             </span>
           </div>
         </div>
@@ -328,7 +339,7 @@ export function SupplierTeamView() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">Commercial Fleet</span>
+            <span className="text-xs font-medium text-zinc-400">{tr("kpiCommercialFleet")}</span>
             <div className="h-8 w-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
               <Truck className="h-4 w-4" />
             </div>
@@ -337,7 +348,7 @@ export function SupplierTeamView() {
             <span className="text-2xl font-bold font-mono tracking-tight text-white">
               {fleetDrivers.length}
             </span>
-            <span className="text-[11px] text-emerald-400 font-medium">Assigned Vehicles</span>
+            <span className="text-[11px] text-emerald-400 font-medium">{tr("assignedVehicles")}</span>
           </div>
         </div>
 
@@ -350,7 +361,7 @@ export function SupplierTeamView() {
           }`}
         >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-zinc-400">Drivers On Route</span>
+            <span className="text-xs font-medium text-zinc-400">{tr("kpiDriversOnRoute")}</span>
             <div className="h-8 w-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
               <Navigation className="h-4 w-4" />
             </div>
@@ -359,7 +370,7 @@ export function SupplierTeamView() {
             <span className="text-2xl font-bold font-mono tracking-tight text-white">
               {driversOnRouteCount}
             </span>
-            <span className="text-[11px] text-amber-400 font-medium">Active Transit Runs</span>
+            <span className="text-[11px] text-amber-400 font-medium">{tr("activeTransit")}</span>
           </div>
         </div>
       </div>
@@ -381,7 +392,7 @@ export function SupplierTeamView() {
               <div className="flex items-center gap-1.5">
                 <span className="rounded-xl px-3.5 py-2 text-xs font-bold bg-emerald-600 text-white shadow-sm flex items-center gap-1.5">
                   <Truck className="h-3.5 w-3.5 text-white" />
-                  <span>Branch Drivers ({fleetDrivers.length})</span>
+                  <span>{tr("tabFleetDrivers")} ({fleetDrivers.length})</span>
                 </span>
                 <span className="text-[11px] text-zinc-400 px-2 py-1 rounded-lg bg-white/5 border border-white/10">
                   Depot: <strong>{userBranchName}</strong>
@@ -397,7 +408,7 @@ export function SupplierTeamView() {
                       : "border border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
                   }`}
                 >
-                  All Personnel ({totalStaff})
+                  {tr("tabAll")} ({totalStaff})
                 </button>
 
                 <button
@@ -409,7 +420,7 @@ export function SupplierTeamView() {
                   }`}
                 >
                   <Building className="h-3.5 w-3.5 text-blue-400" />
-                  <span>Branch Managers ({branchManagers.length})</span>
+                  <span>{tr("tabBranchManagers")} ({branchManagers.length})</span>
                 </button>
 
                 <button
@@ -421,7 +432,7 @@ export function SupplierTeamView() {
                   }`}
                 >
                   <Truck className="h-3.5 w-3.5 text-emerald-400" />
-                  <span>Fleet Drivers ({fleetDrivers.length})</span>
+                  <span>{tr("tabFleetDrivers")} ({fleetDrivers.length})</span>
                 </button>
 
                 <button
@@ -432,7 +443,7 @@ export function SupplierTeamView() {
                       : "border border-white/10 bg-white/5 text-zinc-400 hover:text-white hover:bg-white/10"
                   }`}
                 >
-                  <span>Warehouse Operations ({warehouseLeads.length})</span>
+                  <span>{tr("tabWarehouseLeads")} ({warehouseLeads.length})</span>
                 </button>
               </>
             )}
@@ -445,7 +456,7 @@ export function SupplierTeamView() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search by name, email, phone, or vehicle plate..."
+              placeholder={tr("searchPlaceholder")}
               className="w-full rounded-xl border border-white/10 bg-white/5 pl-10 pr-10 py-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:bg-white/10 focus:outline-hidden transition-all"
             />
             {searchQuery && (
@@ -464,7 +475,7 @@ export function SupplierTeamView() {
           <div className="flex items-center gap-2 overflow-x-auto pt-2 border-t border-white/5 pb-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-500 mr-1 flex items-center gap-1">
               <Filter className="h-3 w-3" />
-              <span>Branch Depot:</span>
+              <span>{tr("branchDepot")}</span>
             </span>
 
             <button
@@ -475,7 +486,7 @@ export function SupplierTeamView() {
                   : "border border-transparent text-zinc-400 hover:text-white hover:bg-white/5"
               }`}
             >
-              All Regional Hubs ({warehouses.length})
+              {tr("allHubs")} ({warehouses.length})
             </button>
 
             {warehouses.map((wh) => (
@@ -501,7 +512,7 @@ export function SupplierTeamView() {
                 className="ml-auto inline-flex items-center gap-1 text-[11px] font-semibold text-rose-400 hover:text-rose-300 transition-colors cursor-pointer whitespace-nowrap"
               >
                 <RotateCcw className="h-3 w-3" />
-                <span>Reset</span>
+                <span>{tr("resetFilter")}</span>
               </button>
             )}
           </div>
@@ -513,16 +524,16 @@ export function SupplierTeamView() {
         {displayedAll.length === 0 ? (
           <div className="p-12 text-center rounded-2xl border border-white/10 bg-[#10131c] space-y-3">
             <Users className="h-10 w-10 text-zinc-500 mx-auto" />
-            <p className="text-sm font-bold text-white">No Personnel Found</p>
+            <p className="text-sm font-bold text-white">{tr("emptyTitle")}</p>
             <p className="text-xs text-zinc-400">
-              Try adjusting your search query or role filter, or register a new team member.
+              {tr("emptyDescription")}
             </p>
             <button
               onClick={() => handleOpenAddStaff()}
               className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-semibold text-white transition-colors cursor-pointer"
             >
               <UserPlus className="h-4 w-4" />
-              <span>Add Staff Member</span>
+              <span>{tr("btnAddStaff")}</span>
             </button>
           </div>
         ) : (

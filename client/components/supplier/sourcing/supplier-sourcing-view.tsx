@@ -51,6 +51,11 @@ import { SupplierSourcingNegotiateModal } from "./supplier-sourcing-negotiate-mo
 import { SupplierSourcingPaymentModal } from "./supplier-sourcing-payment-modal";
 import { SupplierSourcingRFQModal } from "./supplier-sourcing-rfq-modal";
 import { SupplierMyOrdersView } from "./supplier-my-orders-view";
+import { useTranslation } from "@/store/language-store";
+import {
+  SOURCING_TRANSLATIONS,
+  SourcingTranslationDictionary,
+} from "@/lib/i18n/sourcing-translations";
 import { toast } from "sonner";
 import { getAccurateProductImage } from "@/lib/utils/product-image";
 
@@ -69,6 +74,12 @@ export function SupplierSourcingView() {
     setActiveTab,
     fetchSourcingOrders,
   } = useSupplierStore();
+
+  const { language } = useTranslation();
+  const tr = (key: keyof SourcingTranslationDictionary): string => {
+    const dict = SOURCING_TRANSLATIONS[language] || SOURCING_TRANSLATIONS.en;
+    return dict[key] || SOURCING_TRANSLATIONS.en[key] || key;
+  };
 
   // Fetch real products from backend database on mount
   useEffect(() => {
@@ -267,14 +278,13 @@ export function SupplierSourcingView() {
           <div className="flex items-center gap-2 text-xs text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-wider mb-1">
             <span>B2B Procurement Hub</span>
             <span>•</span>
-            <span>MercatoX Verified Sourcing</span>
+            <span>{tr("verifiedBadge")}</span>
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-3">
-            Sourcing & Procurement Marketplace
+            {tr("title")}
           </h1>
           <p className="text-xs sm:text-sm text-zinc-600 dark:text-zinc-400 mt-1 max-w-2xl">
-            Discover bulk agro-commodities and industrial supplies directly from verified producers across Ethiopia,
-            negotiate volume prices, and complete secure Escrow orders via Chapa.
+            {tr("subtitle")}
           </p>
         </div>
 
@@ -284,7 +294,7 @@ export function SupplierSourcingView() {
             className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs sm:text-sm flex items-center gap-2 transition-all shadow-lg shadow-indigo-600/20 hover:scale-[1.02]"
           >
             <FileQuestion className="w-4 h-4" />
-            Broadcast Custom RFQ
+            {tr("btnBroadcastRfq")}
           </button>
         </div>
       </div>
@@ -293,13 +303,13 @@ export function SupplierSourcingView() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800/80 shadow-xs dark:shadow-none backdrop-blur-sm space-y-1">
           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Marketplace Catalog</span>
+            <span>{tr("cardCatalog")}</span>
             <Boxes className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div className="text-xl sm:text-2xl font-bold text-zinc-900 dark:text-zinc-100 font-mono">
             {sourcingProducts.length} <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Items</span>
           </div>
-          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">Direct Origin Guaranteed</div>
+          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">{tr("cardCatalogSub")}</div>
         </div>
 
         <div
@@ -307,7 +317,7 @@ export function SupplierSourcingView() {
           className="p-4 rounded-2xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800/80 hover:border-amber-500/50 shadow-xs dark:shadow-none backdrop-blur-sm space-y-1 cursor-pointer transition-all group"
         >
           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Price Negotiations</span>
+            <span>{tr("cardNegotiations")}</span>
             <Handshake className="w-4 h-4 text-amber-500 dark:text-amber-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-xl sm:text-2xl font-bold text-amber-600 dark:text-amber-300 font-mono">
@@ -315,7 +325,7 @@ export function SupplierSourcingView() {
             <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Active</span>
           </div>
           <div className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-            {sourcingNegotiations.filter((n) => n.status === "counter_offered").length} Counter-Offers Received
+            {sourcingNegotiations.filter((n) => n.status === "counter_offered").length} {tr("cardNegotiationsSub")}
           </div>
         </div>
 
@@ -324,25 +334,25 @@ export function SupplierSourcingView() {
           className="p-4 rounded-2xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800/80 hover:border-emerald-500/50 shadow-xs dark:shadow-none backdrop-blur-sm space-y-1 cursor-pointer transition-all group"
         >
           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>In-Transit Deliveries</span>
+            <span>{tr("cardDeliveries")}</span>
             <Truck className="w-4 h-4 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
           </div>
           <div className="text-xl sm:text-2xl font-bold text-emerald-600 dark:text-emerald-300 font-mono">
             {inTransitOrdersCount}{" "}
             <span className="text-xs font-normal text-zinc-500 dark:text-zinc-400">Shipments</span>
           </div>
-          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">En Route to Receiving Hubs</div>
+          <div className="text-[11px] text-zinc-500 dark:text-zinc-400 font-medium">{tr("cardDeliveriesSub")}</div>
         </div>
 
         <div className="p-4 rounded-2xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800/80 shadow-xs dark:shadow-none backdrop-blur-sm space-y-1">
           <div className="flex items-center justify-between text-xs text-zinc-500 dark:text-zinc-400">
-            <span>Protected Escrow Volume</span>
+            <span>{tr("cardEscrowVolume")}</span>
             <Lock className="w-4 h-4 text-indigo-600 dark:text-cyan-400" />
           </div>
           <div className="text-xl sm:text-2xl font-bold text-indigo-600 dark:text-cyan-300 font-mono">
             ETB {(totalSourcedValueETB / 1000).toFixed(0)}k
           </div>
-          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">100% Chapa Trust Vault</div>
+          <div className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">{tr("cardEscrowSub")}</div>
         </div>
       </div>
 
@@ -358,7 +368,7 @@ export function SupplierSourcingView() {
             }`}
           >
             <Search className="w-4 h-4" />
-            Explore Wholesale Market
+            {tr("tabMarket")}
             <span className="px-2 py-0.5 rounded-full text-[10px] bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-semibold">
               {filteredProducts.length}
             </span>
@@ -373,7 +383,7 @@ export function SupplierSourcingView() {
             }`}
           >
             <Handshake className="w-4 h-4" />
-            Active Negotiations & Offers
+            {tr("tabNegotiations")}
             {activeNegotiationsCount > 0 && (
               <span className="px-2 py-0.5 rounded-full text-[10px] bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold">
                 {activeNegotiationsCount}
@@ -390,7 +400,7 @@ export function SupplierSourcingView() {
             }`}
           >
             <ShoppingCart className="w-4 h-4" />
-            Procurement Orders & Inbound
+            {tr("tabMyOrders")}
             {sourcingOrders.length > 0 && (
               <span className="px-2 py-0.5 rounded-full text-[10px] bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 font-bold">
                 {sourcingOrders.length}

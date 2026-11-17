@@ -45,6 +45,11 @@ import {
   type SupplierStaff,
 } from "@/features/admin/services/admin.service";
 import { useThemeStore } from "@/store/theme-store";
+import {
+  SUPPLIER_TRANSLATIONS,
+  type SupplierTranslationDictionary,
+} from "@/lib/i18n/supplier-translations";
+import { LanguageSelector } from "@/components/common/language-selector";
 
 interface AdminSupplierDetailProps {
   supplierId: string;
@@ -57,11 +62,16 @@ export function AdminSupplierDetail({
   supplierId,
   onBack,
 }: AdminSupplierDetailProps) {
-  const { t } = useTranslation();
+  const { language } = useTranslation();
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
   const isDark = !isLight && !isSystem;
+
+  const tr = (key: keyof SupplierTranslationDictionary): string => {
+    const dict = SUPPLIER_TRANSLATIONS[language] || SUPPLIER_TRANSLATIONS.en;
+    return dict[key] || SUPPLIER_TRANSLATIONS.en[key] || key;
+  };
 
   const [activeTab, setActiveTab] = useState<DetailTab>("overview");
   const [profile, setProfile] = useState<any>(null);
@@ -194,8 +204,8 @@ export function AdminSupplierDetail({
       <div className={`flex flex-col items-center justify-center py-28 rounded-2xl border ${cardBg} space-y-4`}>
         <RefreshCw className="h-9 w-9 animate-spin text-indigo-500" />
         <div className="text-center">
-          <p className={`text-sm font-bold ${textHeading}`}>{t("admin.details.loadingDetails", "Loading Supplier Records...")}</p>
-          <p className={`text-xs ${textMuted} mt-0.5`}>Querying PostgreSQL &amp; compliance storage for {supplierId}</p>
+          <p className={`text-sm font-bold ${textHeading}`}>{tr("loadingSupplierDetails")}</p>
+          <p className={`text-xs ${textMuted} mt-0.5`}>{tr("queryingDatabase")} {supplierId}</p>
         </div>
       </div>
     );
@@ -205,16 +215,16 @@ export function AdminSupplierDetail({
     return (
       <div className={`rounded-2xl border p-10 text-center space-y-4 ${cardBg}`}>
         <Building2 className={`mx-auto h-12 w-12 ${textMuted}`} />
-        <h2 className={`text-lg font-bold ${textHeading}`}>Supplier Profile Not Found</h2>
+        <h2 className={`text-lg font-bold ${textHeading}`}>{tr("supplierNotFound")}</h2>
         <p className={`text-xs ${textMuted} max-w-md mx-auto`}>
-          The requested supplier record could not be found or has been deleted from the database.
+          {tr("supplierNotFoundDesc")}
         </p>
         <button
           onClick={onBack}
           className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-indigo-600 to-indigo-700 hover:from-indigo-500 hover:to-indigo-600 px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-indigo-600/25 transition-all cursor-pointer active:scale-95"
         >
           <ArrowLeft className="h-4 w-4" />
-          <span>{t("admin.details.backToAdmin", "Back to Suppliers List")}</span>
+          <span>{tr("backToListBtn")}</span>
         </button>
       </div>
     );
@@ -223,7 +233,7 @@ export function AdminSupplierDetail({
   // 4 Core Rectangular Compliance Documents
   const documents = [
     {
-      title: "Trade / Business License",
+      title: tr("docTradeLicense"),
       type: "Trade License",
       docNumber: profile.tradeLicenseNumber,
       url: profile.businessLicenseUrl,
@@ -231,7 +241,7 @@ export function AdminSupplierDetail({
       icon: Building2,
     },
     {
-      title: "Tax Identification Certificate (TIN)",
+      title: tr("docTinCertificate"),
       type: "TIN Certificate",
       docNumber: profile.tinNumber,
       url: profile.tinCertificateUrl,
@@ -239,7 +249,7 @@ export function AdminSupplierDetail({
       icon: CreditCard,
     },
     {
-      title: "Commercial Registration (MOTRI)",
+      title: tr("docCommercialRegistration"),
       type: "Commercial Registration",
       docNumber: profile.tradeLicenseNumber,
       url: profile.commercialRegistrationUrl,
@@ -247,7 +257,7 @@ export function AdminSupplierDetail({
       icon: FileText,
     },
     {
-      title: "Owner / Manager Fayda ID",
+      title: tr("docOwnerId"),
       type: "Owner ID",
       docNumber: profile.nationalIdNumber || profile.nationalIdOrFayda,
       url: profile.ownerIdUrl,
@@ -276,14 +286,14 @@ export function AdminSupplierDetail({
           <button
             onClick={onBack}
             className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border transition-all cursor-pointer active:scale-95 shrink-0 ${neutralBtn}`}
-            title="Return to Suppliers List"
+            title={tr("backToListBtn")}
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
           <div className="min-w-0">
             <div className={`flex items-center gap-2 text-xs ${textMuted} truncate`}>
               <span className="cursor-pointer hover:underline" onClick={onBack}>
-                Suppliers &amp; Fleet
+                {tr("detailBreadcrumbRoot")}
               </span>
               <span>/</span>
               <span className="text-indigo-600 dark:text-indigo-400 font-semibold truncate max-w-[220px]">
@@ -293,7 +303,7 @@ export function AdminSupplierDetail({
             <h1 className={`text-xl sm:text-2xl font-bold ${textHeading} flex items-center gap-2 mt-0.5 truncate`}>
               <span className="truncate">{profile.shopName || profile.fullName}</span>
               {isApprovedKyc && (
-                <span title="Verified Wholesale Merchant" className="shrink-0">
+                <span title={tr("verifiedWholesaleBadge")} className="shrink-0">
                   <BadgeCheck className="h-5 w-5 text-emerald-500" />
                 </span>
               )}
@@ -303,13 +313,15 @@ export function AdminSupplierDetail({
 
         {/* Action Controls */}
         <div className="flex flex-wrap items-center gap-2 shrink-0">
+          <LanguageSelector variant="compact" showLabel={true} />
+
           <button
             onClick={loadSupplierData}
-            title="Refresh Supplier Data"
+            title={tr("refresh")}
             className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-medium transition-all cursor-pointer ${neutralBtn}`}
           >
             <RefreshCw className="h-3.5 w-3.5" />
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline">{tr("refresh")}</span>
           </button>
 
           {/* KYC Moderate Button */}
@@ -318,7 +330,7 @@ export function AdminSupplierDetail({
             className="inline-flex items-center gap-1.5 rounded-xl border border-emerald-500/40 bg-emerald-500/10 hover:bg-emerald-500/20 px-3.5 py-2 text-xs font-bold text-emerald-600 dark:text-emerald-300 transition-all cursor-pointer active:scale-95 shadow-sm"
           >
             <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
-            <span>Moderate KYC</span>
+            <span>{tr("actionReviewKyc")}</span>
           </button>
 
           {/* Account Status Toggle Button */}
@@ -333,12 +345,12 @@ export function AdminSupplierDetail({
             {profile.isActive ? (
               <>
                 <XCircle className="h-4 w-4 text-rose-500 shrink-0" />
-                <span>Suspend Account</span>
+                <span>{tr("actionSuspendAccount")}</span>
               </>
             ) : (
               <>
                 <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0" />
-                <span>Activate Account</span>
+                <span>{tr("actionActivateAccount")}</span>
               </>
             )}
           </button>
@@ -537,11 +549,11 @@ export function AdminSupplierDetail({
       {/* ───────────────────────────────────────────────────────────────────────── */}
       <div className={`flex items-center gap-1.5 p-1.5 rounded-2xl border ${borderDivider} ${subCardBg} overflow-x-auto scrollbar-none`}>
         {[
-          { id: "overview", label: "Overview & Legal Identity", icon: Building2 },
-          { id: "staff", label: `Personnel & Fleet (${staffList.length})`, icon: Users },
-          { id: "catalog", label: `Catalog Items (${profile.stats?.postedProducts ?? 0})`, icon: ShoppingBag },
-          { id: "orders", label: `Wholesale Orders (${profile.stats?.totalOrders ?? 0})`, icon: Receipt },
-          { id: "audit", label: `Audit Trail (${auditLogs.length})`, icon: History },
+          { id: "overview", label: tr("detailTabOverview"), icon: Building2 },
+          { id: "staff", label: `${tr("detailTabStaff")} (${staffList.length})`, icon: Users },
+          { id: "catalog", label: `${tr("detailTabCatalog")} (${profile.stats?.postedProducts ?? 0})`, icon: ShoppingBag },
+          { id: "orders", label: `${tr("detailTabOrders")} (${profile.stats?.totalOrders ?? 0})`, icon: Receipt },
+          { id: "audit", label: `${tr("detailTabAudit")} (${auditLogs.length})`, icon: History },
         ].map((t) => {
           const isActive = activeTab === t.id;
           const Icon = t.icon;
@@ -1250,7 +1262,7 @@ export function AdminSupplierDetail({
             <div className={`flex items-center justify-between pb-3 border-b ${borderDivider}`}>
               <h3 className={`text-sm font-bold ${textHeading} flex items-center gap-2`}>
                 <ShieldCheck className="h-5 w-5 text-emerald-500" />
-                <span>Moderate Supplier Verification</span>
+                <span>{tr("kycModalTitle")}</span>
               </h3>
               <button
                 onClick={() => setIsKycModalOpen(false)}
@@ -1263,19 +1275,19 @@ export function AdminSupplierDetail({
             <div className="mt-4 space-y-3.5 text-xs">
               <div className={`rounded-2xl border p-3.5 space-y-1 ${subCardBg}`}>
                 <div className={`font-bold ${textHeading} text-sm`}>{profile.shopName || profile.fullName}</div>
-                <div className={textMuted}>Trade License: <strong className={textHeading}>{profile.tradeLicenseNumber || "—"}</strong></div>
-                <div className={textMuted}>TIN Number: <strong className={textHeading}>{profile.tinNumber || "—"}</strong></div>
+                <div className={textMuted}>{tr("labelTradeLicense")} <strong className={textHeading}>{profile.tradeLicenseNumber || "—"}</strong></div>
+                <div className={textMuted}>{tr("labelTinNumber")} <strong className={textHeading}>{profile.tinNumber || "—"}</strong></div>
               </div>
 
               <div>
                 <label className={`block mb-1 font-semibold ${textHeading}`}>
-                  Rejection Reason (if rejecting):
+                  {tr("rejectionReasonLabel")}
                 </label>
                 <textarea
                   rows={2}
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="e.g. Invalid trade license expiry or tax registration mismatch..."
+                  placeholder={tr("rejectionReasonPlaceholder")}
                   className={`w-full rounded-xl border p-2.5 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 ${
                     isLight
                       ? "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
@@ -1296,7 +1308,7 @@ export function AdminSupplierDetail({
                       : "border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300"
                   }`}
                 >
-                  Cancel
+                  {tr("cancelBtn")}
                 </button>
                 <button
                   type="button"
@@ -1304,7 +1316,7 @@ export function AdminSupplierDetail({
                   onClick={() => handleVerifyKyc(false)}
                   className="rounded-xl border border-rose-500/40 bg-rose-500/15 hover:bg-rose-500/25 px-3.5 py-2 font-bold text-rose-500 dark:text-rose-300 disabled:opacity-50 cursor-pointer"
                 >
-                  Reject Application
+                  {tr("rejectBtn")}
                 </button>
                 <button
                   type="button"
@@ -1312,7 +1324,7 @@ export function AdminSupplierDetail({
                   onClick={() => handleVerifyKyc(true)}
                   className="rounded-xl bg-emerald-500 hover:bg-emerald-400 px-4 py-2 font-bold text-neutral-950 disabled:opacity-50 shadow-md shadow-emerald-500/20 cursor-pointer"
                 >
-                  {submittingKyc ? "Processing..." : "Approve & Activate"}
+                  {submittingKyc ? tr("approvingBtn") : tr("approveBtn")}
                 </button>
               </div>
             </div>
@@ -1335,7 +1347,7 @@ export function AdminSupplierDetail({
             <div className={`flex items-center justify-between pb-3 border-b ${borderDivider}`}>
               <h3 className={`text-sm font-bold ${textHeading} flex items-center gap-2`}>
                 <AlertTriangle className="h-5 w-5 text-indigo-500" />
-                <span>{profile.isActive ? "Suspend Supplier Account" : "Activate Supplier Account"}</span>
+                <span>{profile.isActive ? tr("suspendModalTitle") : tr("activateModalTitle")}</span>
               </h3>
               <button
                 onClick={() => setIsStatusModalOpen(false)}
@@ -1347,21 +1359,18 @@ export function AdminSupplierDetail({
 
             <div className="mt-4 space-y-3.5 text-xs">
               <p className={textSub}>
-                Are you sure you want to{" "}
-                <strong className={profile.isActive ? "text-rose-500" : "text-emerald-500"}>
-                  {profile.isActive ? "SUSPEND" : "ACTIVATE"}
-                </strong>{" "}
-                the wholesale workspace for <strong className={textHeading}>{profile.shopName || profile.fullName}</strong>?
+                {profile.isActive ? tr("suspendModalDesc") : tr("activateModalDesc")}{" "}
+                <strong className={textHeading}>{profile.shopName || profile.fullName}</strong>?
               </p>
 
               {profile.isActive && (
                 <div>
-                  <label className={`block mb-1 font-semibold ${textHeading}`}>Reason for suspension:</label>
+                  <label className={`block mb-1 font-semibold ${textHeading}`}>{tr("suspensionReasonLabel")}</label>
                   <textarea
                     rows={2}
                     value={suspensionReason}
                     onChange={(e) => setSuspensionReason(e.target.value)}
-                    placeholder="e.g. Failure to comply with platform wholesale service level agreement..."
+                    placeholder={tr("suspensionReasonPlaceholder")}
                     className={`w-full rounded-xl border p-2.5 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500/30 ${
                       isLight
                         ? "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
@@ -1383,7 +1392,7 @@ export function AdminSupplierDetail({
                       : "border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300"
                   }`}
                 >
-                  Cancel
+                  {tr("cancelBtn")}
                 </button>
                 <button
                   type="button"
@@ -1396,10 +1405,10 @@ export function AdminSupplierDetail({
                   }`}
                 >
                   {submittingStatus
-                    ? "Updating..."
+                    ? tr("submittingBtn")
                     : profile.isActive
-                    ? "Confirm Suspension"
-                    : "Activate Supplier"}
+                    ? tr("confirmSuspendBtn")
+                    : tr("confirmActivateBtn")}
                 </button>
               </div>
             </div>

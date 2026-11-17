@@ -36,8 +36,15 @@ import { useAuthStore } from "@/store/auth-store";
 import { B2BProduct, ProductStatus } from "@/types/supplier";
 import { ProductDetailModal } from "./supplier-product-detail-modal";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
+import { PRODUCT_TRANSLATIONS, ProductTranslationDictionary } from "@/lib/i18n/product-translations";
 
 export function SupplierProductsView() {
+  const { language } = useTranslation();
+  const tr = (key: keyof ProductTranslationDictionary): string => {
+    return PRODUCT_TRANSLATIONS[language]?.[key] ?? PRODUCT_TRANSLATIONS.en[key] ?? "";
+  };
+
   const {
     products,
     isLoadingProducts,
@@ -178,22 +185,22 @@ export function SupplierProductsView() {
               onClick={() => setActiveTab("dashboard")}
               className="hover:text-white transition-colors cursor-pointer"
             >
-              Dashboard
+              {tr("dashboardBreadcrumb")}
             </button>
             <ChevronRight className="h-3 w-3 text-zinc-600" />
-            <span className="text-zinc-200">Products</span>
+            <span className="text-zinc-200">{tr("productsBreadcrumb")}</span>
             <span className="ml-1 rounded-full bg-indigo-500/15 border border-indigo-500/25 px-1.5 py-0.2 text-[10px] text-indigo-300 font-mono">
-              {scopedProducts.length} items
+              {scopedProducts.length} {tr("itemsLabel")}
             </span>
             {isLoadingProducts && (
               <span className="inline-flex items-center gap-1 text-[10px] text-indigo-400 ml-1">
                 <Loader2 className="h-2.5 w-2.5 animate-spin" />
-                <span>Syncing DB...</span>
+                <span>{tr("syncingDb")}</span>
               </span>
             )}
           </nav>
           <h1 className="text-lg sm:text-xl font-bold tracking-tight text-white flex items-center gap-2 flex-wrap">
-            <span>Wholesale Product Catalog</span>
+            <span>{tr("pageTitle")}</span>
             {isBranchManager && (
               <span className="text-xs font-semibold px-2 py-0.5 rounded-md bg-amber-500/15 border border-amber-500/30 text-amber-300 font-mono flex items-center gap-1">
                 <Building className="h-3 w-3" />
@@ -209,7 +216,7 @@ export function SupplierProductsView() {
             type="button"
             onClick={() => fetchProducts(isBranchManager ? userBranchId : undefined)}
             disabled={isLoadingProducts}
-            title="Refresh Product Catalog"
+            title={tr("refreshCatalog")}
             className="p-1.5 rounded-lg border border-white/10 bg-white/[0.03] text-zinc-400 hover:text-white transition-colors cursor-pointer disabled:opacity-50"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoadingProducts ? "animate-spin text-indigo-400" : ""}`} />
@@ -220,7 +227,7 @@ export function SupplierProductsView() {
             <button
               type="button"
               onClick={() => setViewMode("table")}
-              title="Compact Table View"
+              title={tr("compactTable")}
               className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "table"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-zinc-400 hover:text-white"
@@ -231,7 +238,7 @@ export function SupplierProductsView() {
             <button
               type="button"
               onClick={() => setViewMode("grid")}
-              title="Grid Card View"
+              title={tr("gridCards")}
               className={`p-1.5 rounded-md text-xs transition-colors cursor-pointer ${viewMode === "grid"
                   ? "bg-indigo-600 text-white shadow-xs"
                   : "text-zinc-400 hover:text-white"
@@ -250,7 +257,7 @@ export function SupplierProductsView() {
             className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3 py-1.5 text-xs font-semibold text-white shadow-sm shadow-indigo-600/30 transition-all cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>Add Wholesale Product</span>
+            <span>{tr("addProductBtn")}</span>
           </button>
         </div>
       </div>
@@ -262,15 +269,15 @@ export function SupplierProductsView() {
             <Building className="h-4 w-4 text-amber-400 shrink-0" />
             <div>
               <p className="font-bold text-white text-xs">
-                Branch Manager Scoped Catalog: {userBranchName || "Assigned Depot"} ({userBranchId || "wh-aa"})
+                {tr("branchScopedNotice")}: {userBranchName || "Assigned Depot"} ({userBranchId || "wh-aa"})
               </p>
               <p className="text-[11px] text-amber-300/80">
-                ለእርስዎ ቅርንጫፍ የተመደቡ እና የተለቀቁ ምርቶች ብቻ ይታያሉ። የሌሎች ቅርንጫፎች ምርቶች እንዳይታዩ ተደርገዋል።
+                {tr("branchScopedDesc")}
               </p>
             </div>
           </div>
           <span className="text-[10px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded border border-amber-500/30 shrink-0 font-bold hidden sm:inline-block">
-            🔒 Branch Scoped
+            {tr("branchScopedBadge")}
           </span>
         </div>
       )}
@@ -279,7 +286,7 @@ export function SupplierProductsView() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c]/80 px-3 py-2 flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Catalog SKUs</p>
+            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">{tr("statSkus")}</p>
             <p className="text-base font-bold text-white font-mono mt-0.5">{stats.total}</p>
           </div>
           <div className="h-7 w-7 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center">
@@ -289,7 +296,7 @@ export function SupplierProductsView() {
 
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c]/80 px-3 py-2 flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Live in B2B</p>
+            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">{tr("statLive")}</p>
             <p className="text-base font-bold text-emerald-400 font-mono mt-0.5">{stats.published}</p>
           </div>
           <div className="h-7 w-7 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
@@ -299,7 +306,7 @@ export function SupplierProductsView() {
 
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c]/80 px-3 py-2 flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Low Stock</p>
+            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">{tr("statLowStock")}</p>
             <p className="text-base font-bold text-amber-400 font-mono mt-0.5">{stats.lowStock}</p>
           </div>
           <div className="h-7 w-7 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center">
@@ -309,7 +316,7 @@ export function SupplierProductsView() {
 
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c]/80 px-3 py-2 flex items-center justify-between">
           <div>
-            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">Total Depot Units</p>
+            <p className="text-[10px] font-medium text-zinc-400 uppercase tracking-wider">{tr("statDepotUnits")}</p>
             <p className="text-base font-bold text-zinc-200 font-mono mt-0.5">
               {stats.totalUnits >= 1000 ? `${(stats.totalUnits / 1000).toFixed(1)}k` : stats.totalUnits}
             </p>
@@ -326,7 +333,7 @@ export function SupplierProductsView() {
           <div className="flex items-center gap-2 text-blue-300">
             <Building className="h-3.5 w-3.5 shrink-0 text-blue-400" />
             <span>
-              Managing inventory for <strong>{user?.branchName || currentStaffUser?.branchName}</strong>
+              {tr("managingInventoryFor")} <strong>{user?.branchName || currentStaffUser?.branchName}</strong>
             </span>
           </div>
           <button
@@ -334,7 +341,7 @@ export function SupplierProductsView() {
             className="inline-flex items-center gap-1 rounded-md bg-blue-600 hover:bg-blue-500 text-white font-medium px-2 py-1 text-[11px] cursor-pointer"
           >
             <Plus className="h-3 w-3" />
-            <span>Add for Branch</span>
+            <span>{tr("addForBranch")}</span>
           </button>
         </div>
       )}
@@ -348,7 +355,7 @@ export function SupplierProductsView() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by title, SKU, category, origin..."
+            placeholder={tr("searchPlaceholder")}
             className="w-full rounded-lg border border-white/10 bg-black/30 pl-8 pr-7 py-1.5 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden"
           />
           {searchQuery && (
@@ -368,12 +375,12 @@ export function SupplierProductsView() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs font-medium text-zinc-300 focus:border-indigo-500 focus:outline-hidden cursor-pointer"
           >
-            <option value="all">All Status</option>
-            <option value="published">Published</option>
-            <option value="draft">Draft</option>
-            <option value="pending_approval">Pending</option>
-            <option value="out_of_stock">Out of Stock</option>
-            <option value="archived">Archived</option>
+            <option value="all">{tr("allStatus")}</option>
+            <option value="published">{tr("statusPublished")}</option>
+            <option value="draft">{tr("statusDraft")}</option>
+            <option value="pending_approval">{tr("statusPending")}</option>
+            <option value="out_of_stock">{tr("statusOutOfStock")}</option>
+            <option value="archived">{tr("statusArchived")}</option>
           </select>
 
           <select
@@ -381,7 +388,7 @@ export function SupplierProductsView() {
             onChange={(e) => setCategoryFilter(e.target.value)}
             className="rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs font-medium text-zinc-300 focus:border-indigo-500 focus:outline-hidden cursor-pointer max-w-[150px] truncate"
           >
-            <option value="all">All Categories</option>
+            <option value="all">{tr("allCategories")}</option>
             {categories.map((c) => (
               <option key={c} value={c}>
                 {c}
@@ -394,11 +401,11 @@ export function SupplierProductsView() {
             onChange={(e) => setSortOption(e.target.value)}
             className="rounded-lg border border-white/10 bg-black/30 px-2.5 py-1.5 text-xs font-medium text-zinc-300 focus:border-indigo-500 focus:outline-hidden cursor-pointer"
           >
-            <option value="newest">Newest</option>
-            <option value="sales_desc">Top Sales</option>
-            <option value="price_desc">Price: High</option>
-            <option value="price_asc">Price: Low</option>
-            <option value="stock_desc">Max Stock</option>
+            <option value="newest">{tr("sortNewest")}</option>
+            <option value="sales_desc">{tr("sortTopSales")}</option>
+            <option value="price_desc">{tr("sortPriceHigh")}</option>
+            <option value="price_asc">{tr("sortPriceLow")}</option>
+            <option value="stock_desc">{tr("sortMaxStock")}</option>
           </select>
 
           {hasActiveFilters && (
@@ -410,7 +417,7 @@ export function SupplierProductsView() {
                 setSortOption("newest");
               }}
               className="p-1.5 rounded-lg border border-white/10 bg-white/5 text-zinc-400 hover:text-white cursor-pointer"
-              title="Reset Filters"
+              title={tr("resetFilters")}
             >
               <SlidersHorizontal className="h-3.5 w-3.5" />
             </button>
@@ -419,10 +426,10 @@ export function SupplierProductsView() {
           <button
             onClick={() => toast.success("Exporting catalog CSV...")}
             className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white transition-colors cursor-pointer"
-            title="Export CSV"
+            title={tr("exportCsv")}
           >
             <Download className="h-3 w-3" />
-            <span className="hidden sm:inline">Export</span>
+            <span className="hidden sm:inline">{tr("exportCsv")}</span>
           </button>
         </div>
       </div>
@@ -433,9 +440,9 @@ export function SupplierProductsView() {
           <div className="h-10 w-10 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
             <Loader2 className="h-5 w-5 text-indigo-400 animate-spin" />
           </div>
-          <h3 className="text-sm font-semibold text-white">Loading Products Catalog...</h3>
+          <h3 className="text-sm font-semibold text-white">{tr("loadingCatalog")}</h3>
           <p className="text-xs text-zinc-400 max-w-sm">
-            Fetching active wholesale commodities and inventory.
+            {tr("loadingCatalogDesc")}
           </p>
         </div>
       ) : productsError && products.length === 0 ? (
@@ -456,9 +463,9 @@ export function SupplierProductsView() {
       ) : paginated.length === 0 ? (
         <div className="rounded-2xl border border-white/10 bg-[#0d121c] p-8 shadow-xs">
           <EmptyState
-            title="No Products Found"
-            description="No catalog items match your search and filter criteria. Adjust your filters or add a new wholesale product."
-            actionLabel="Add New Wholesale Product"
+            title={tr("noProductsFound")}
+            description={tr("noProductsDesc")}
+            actionLabel={tr("addWholesaleProduct")}
             onAction={() => setSubView("create-product")}
           />
         </div>
@@ -517,14 +524,14 @@ export function SupplierProductsView() {
                           ETB {prod.basePrice.toLocaleString()}
                         </span>
                         <span className="text-[10px] text-zinc-400">
-                          MOQ: {prod.moq.toLocaleString()} {prod.unit}
+                          {tr("moqLabel")} {prod.moq.toLocaleString()} {prod.unit}
                         </span>
                       </div>
                     </div>
 
                     <div className="space-y-1.5 pt-1 border-t border-white/[0.06]">
                       <div className="flex items-center justify-between text-[11px] font-mono">
-                        <span className="text-zinc-400">Stock:</span>
+                        <span className="text-zinc-400">{tr("stockLabel")}</span>
                         <span className="font-medium text-white">
                           {prod.stock.toLocaleString()} {prod.unit}
                         </span>
@@ -550,7 +557,7 @@ export function SupplierProductsView() {
                             type="button"
                             onClick={() => setActiveActionMenuId(isMenuOpen ? null : prod.id)}
                             className="p-1 rounded text-zinc-400 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
-                            title="More Actions"
+                            title={tr("colActions")}
                           >
                             <MoreVertical className="h-4 w-4" />
                           </button>
@@ -572,7 +579,7 @@ export function SupplierProductsView() {
                                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/20 transition-colors cursor-pointer"
                                 >
                                   <Eye className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                                  <span>View Detail</span>
+                                  <span>{tr("viewDetails")}</span>
                                 </button>
 
                                 <button
@@ -581,7 +588,7 @@ export function SupplierProductsView() {
                                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                                 >
                                   <Edit className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                  <span>Edit Product</span>
+                                  <span>{tr("editProduct")}</span>
                                 </button>
 
                                 <button
@@ -592,12 +599,12 @@ export function SupplierProductsView() {
                                   {prod.status === "published" ? (
                                     <>
                                       <XCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                                      <span>Move to Draft</span>
+                                      <span>{tr("moveToDraft")}</span>
                                     </>
                                   ) : (
                                     <>
                                       <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                                      <span className="text-emerald-300">Publish Live</span>
+                                      <span className="text-emerald-300">{tr("publishLive")}</span>
                                     </>
                                   )}
                                 </button>
@@ -608,7 +615,7 @@ export function SupplierProductsView() {
                                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                                 >
                                   <Copy className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                                  <span>Duplicate</span>
+                                  <span>{tr("duplicate")}</span>
                                 </button>
 
                                 <button
@@ -617,7 +624,7 @@ export function SupplierProductsView() {
                                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                                 >
                                   <Archive className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                  <span>Archive Product</span>
+                                  <span>{tr("archiveProduct")}</span>
                                 </button>
 
                                 <div className="my-1 border-t border-white/10" />
@@ -628,7 +635,7 @@ export function SupplierProductsView() {
                                   className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                                 >
                                   <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                                  <span>Delete Product</span>
+                                  <span>{tr("deleteProduct")}</span>
                                 </button>
                               </div>
                             </>
@@ -660,12 +667,12 @@ export function SupplierProductsView() {
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="border-b border-white/[0.08] bg-white/[0.02] text-zinc-400 font-semibold uppercase text-[10px] tracking-wider select-none">
-                  <th className="py-2.5 px-3.5 min-w-[240px]">Product & SKU</th>
-                  <th className="py-2.5 px-3 min-w-[140px]">Wholesale Price & MOQ</th>
-                  <th className="py-2.5 px-3 min-w-[140px]">Available Stock</th>
-                  <th className="py-2.5 px-3 min-w-[120px]">Sales & Reviews</th>
-                  <th className="py-2.5 px-3 min-w-[90px]">Status</th>
-                  <th className="py-2.5 px-3.5 w-16 text-right">Actions</th>
+                  <th className="py-2.5 px-3.5 min-w-[240px]">{tr("colProductSku")}</th>
+                  <th className="py-2.5 px-3 min-w-[140px]">{tr("colPriceMoq")}</th>
+                  <th className="py-2.5 px-3 min-w-[140px]">{tr("colStock")}</th>
+                  <th className="py-2.5 px-3 min-w-[120px]">{tr("colSalesReviews")}</th>
+                  <th className="py-2.5 px-3 min-w-[90px]">{tr("colStatus")}</th>
+                  <th className="py-2.5 px-3.5 w-16 text-right">{tr("colActions")}</th>
                 </tr>
               </thead>
 
@@ -732,11 +739,11 @@ export function SupplierProductsView() {
                             ETB {prod.basePrice.toLocaleString()} <span className="text-[10px] font-normal text-zinc-400">/{prod.unit}</span>
                           </div>
                           <div className="text-[10px] text-zinc-400 font-mono">
-                            MOQ: <span className="text-white font-medium">{prod.moq.toLocaleString()} {prod.unit}</span>
+                            {tr("moqLabel")} <span className="text-white font-medium">{prod.moq.toLocaleString()} {prod.unit}</span>
                           </div>
                           {prod.tierPricing && prod.tierPricing.length > 1 && (
                             <span className="inline-block text-[9px] text-indigo-300 font-medium">
-                              ✓ {prod.tierPricing.length} volume tiers
+                              ✓ {prod.tierPricing.length} {tr("volumeTiers")}
                             </span>
                           )}
                         </div>
@@ -750,7 +757,7 @@ export function SupplierProductsView() {
                               {prod.stock.toLocaleString()} <span className="text-zinc-400 text-[10px]">{prod.unit}</span>
                             </span>
                             {prod.stock < 30000 && (
-                              <span className="text-[9px] text-amber-400 font-sans font-semibold">Low</span>
+                              <span className="text-[9px] text-amber-400 font-sans font-semibold">{tr("lowBadge")}</span>
                             )}
                           </div>
                           {/* Visual Stock Meter (Thin 1.5px) */}
@@ -763,7 +770,7 @@ export function SupplierProductsView() {
                           </div>
                           {prod.reservedStock > 0 && (
                             <div className="text-[9px] text-zinc-400 font-mono">
-                              Res: {prod.reservedStock.toLocaleString()} {prod.unit}
+                              {tr("resLabel")} {prod.reservedStock.toLocaleString()} {prod.unit}
                             </div>
                           )}
                         </div>
@@ -773,7 +780,7 @@ export function SupplierProductsView() {
                       <td className="py-2.5 px-3 align-middle">
                         <div className="space-y-0.5">
                           <div className="font-mono text-white text-xs font-medium">
-                            {prod.salesCount.toLocaleString()} sold
+                            {prod.salesCount.toLocaleString()} {tr("soldCount")}
                           </div>
                           <div className="flex items-center gap-1 text-[10px] text-amber-400">
                             <Star className="h-2.5 w-2.5 fill-amber-400 text-amber-400" />
@@ -794,7 +801,7 @@ export function SupplierProductsView() {
                           <button
                             type="button"
                             onClick={() => setActiveActionMenuId(isMenuOpen ? null : prod.id)}
-                            title="More Actions"
+                            title={tr("colActions")}
                             className={`rounded-lg p-1.5 text-zinc-400 hover:text-white transition-all cursor-pointer ${isMenuOpen
                                 ? "bg-white/15 text-white shadow-xs ring-1 ring-white/20"
                                 : "hover:bg-white/10"
@@ -822,7 +829,7 @@ export function SupplierProductsView() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-600/20 hover:text-indigo-200 transition-colors cursor-pointer"
                               >
                                 <Eye className="h-4 w-4 text-indigo-400 shrink-0" />
-                                <span>Product Detail</span>
+                                <span>{tr("viewDetails")}</span>
                               </button>
 
                               {/* Edit Specifications */}
@@ -832,7 +839,7 @@ export function SupplierProductsView() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                               >
                                 <Edit className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                <span>Edit Product</span>
+                                <span>{tr("editProduct")}</span>
                               </button>
 
                               {/* Publish / Draft Toggle */}
@@ -844,12 +851,12 @@ export function SupplierProductsView() {
                                 {prod.status === "published" ? (
                                   <>
                                     <XCircle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
-                                    <span>Move to Draft</span>
+                                    <span>{tr("moveToDraft")}</span>
                                   </>
                                 ) : (
                                   <>
                                     <CheckCircle className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-                                    <span className="text-emerald-300">Publish Live</span>
+                                    <span className="text-emerald-300">{tr("publishLive")}</span>
                                   </>
                                 )}
                               </button>
@@ -861,7 +868,7 @@ export function SupplierProductsView() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                               >
                                 <Copy className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
-                                <span>Duplicate Draft</span>
+                                <span>{tr("duplicate")}</span>
                               </button>
 
                               {/* Archive */}
@@ -871,7 +878,7 @@ export function SupplierProductsView() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-zinc-300 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
                               >
                                 <Archive className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
-                                <span>Archive Product</span>
+                                <span>{tr("archiveProduct")}</span>
                               </button>
 
                               <div className="my-1 border-t border-white/10" />
@@ -883,7 +890,7 @@ export function SupplierProductsView() {
                                 className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
                               >
                                 <Trash2 className="h-3.5 w-3.5 shrink-0" />
-                                <span>Delete Product</span>
+                                <span>{tr("deleteProduct")}</span>
                               </button>
                             </div>
                           </>

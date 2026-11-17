@@ -59,10 +59,21 @@ import { EmptyState } from "../shared/empty-state";
 import { ModalDialog } from "../shared/modal-dialog";
 import { useSupplierStore, getBankShortCode, getBankAccentColor } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  PAYMENT_PORTAL_TRANSLATIONS,
+  type PaymentPortalDictionary,
+} from "@/lib/i18n/payment-portal-translations";
 import { PaymentTransaction, SettlementAccount } from "@/types/supplier";
 import { toast } from "sonner";
 
 export function SupplierPaymentsView() {
+  const { language } = useTranslation();
+  const tr = (key: keyof PaymentPortalDictionary): string => {
+    const dict = PAYMENT_PORTAL_TRANSLATIONS[language] || PAYMENT_PORTAL_TRANSLATIONS.en;
+    return dict[key] || PAYMENT_PORTAL_TRANSLATIONS.en[key] || key;
+  };
+
   const {
     transactions,
     isLoadingTransactions,
@@ -569,11 +580,11 @@ export function SupplierPaymentsView() {
     <div className="space-y-6">
       {/* 1. Page Header with Live Rail Telemetry */}
       <PageHeader
-        title="Treasury Settlements & Escrow Engine"
-        subtitle="National Bank of Ethiopia (NBE) RTGS Integrated • CBE Corporate Tripartite Escrow • Telebirr SuperApp Rails"
+        title={tr("title")}
+        subtitle={tr("subtitle")}
         breadcrumbs={[
-          { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
-          { label: "Treasury & Payments" },
+          { label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") },
+          { label: tr("breadcrumbPayments") },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -620,7 +631,7 @@ export function SupplierPaymentsView() {
               }`}
             >
               <Download className="h-3.5 w-3.5" />
-              <span>Export</span>
+              <span>{tr("btnExport")}</span>
             </button>
 
             {/* Toggle Accounts Strip */}
@@ -641,7 +652,7 @@ export function SupplierPaymentsView() {
               }`}
             >
               <Landmark className="h-3.5 w-3.5" />
-              <span>{showAccountsStrip ? "Hide Banks" : "Bank Rails"}</span>
+              <span>{showAccountsStrip ? tr("btnHideBanks") : tr("btnShowBanks")}</span>
             </button>
 
             {/* Primary Withdraw Action */}
@@ -659,7 +670,7 @@ export function SupplierPaymentsView() {
               }`}
             >
               <Wallet className="h-4 w-4" />
-              <span>Withdraw to Bank</span>
+              <span>{tr("btnWithdrawToBank")}</span>
             </button>
           </div>
         }
@@ -681,20 +692,20 @@ export function SupplierPaymentsView() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <strong>NBE RTGS Clearing Engine:</strong> Operational (Latency &lt;140ms)
+            <strong>{tr("nbeEngine")}</strong>
           </span>
           <span className="hidden sm:inline-flex items-center gap-1.5 opacity-80">
             <ShieldCheck className="h-3.5 w-3.5" />
-            CBE Tripartite Escrow Vault: Synchronized
+            {tr("cbeVault")}
           </span>
           <span className="hidden md:inline-flex items-center gap-1.5 opacity-80">
             <Smartphone className="h-3.5 w-3.5" />
-            Telebirr B2B Direct Gateway: 99.98% SLA
+            {tr("telebirrGateway")}
           </span>
         </div>
 
         <div className="flex items-center gap-2 font-mono text-[10px] opacity-75">
-          <span>Exchange Rate: 1 USD ≈ 132.50 ETB</span>
+          <span>{tr("exchangeRateLabel")}</span>
           <span>•</span>
           <button
             onClick={() => toast.success("Gateway ping refreshed. All banking rails operational.")}
@@ -745,16 +756,16 @@ export function SupplierPaymentsView() {
                     isSystem ? "bg-blue-400" : "bg-emerald-400"
                   }`}
                 />
-                Live Treasury Balance
+                {tr("liveTreasuryBalance")}
               </span>
               <span className="text-xs text-white/70 font-mono">
-                Tax ID: 0019283419 • Corporate Tier A
+                {tr("tierBadge")}
               </span>
             </div>
 
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
-                Available for Immediate Payout & RTGS Sweep
+                {tr("availableForImmediate")}
               </p>
               <div className="mt-1 flex flex-wrap items-baseline gap-3">
                 <span className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight font-mono text-white drop-shadow-xs">
@@ -767,7 +778,7 @@ export function SupplierPaymentsView() {
                 )}
               </div>
               <p className="mt-1.5 text-xs text-white/80 max-w-xl leading-relaxed">
-                Settled net revenues cleared via National Bank of Ethiopia interbank switch. Ready for instant Telebirr sweep or automated corporate wire.
+                {tr("settledNetDescription")}
               </p>
             </div>
 
@@ -787,7 +798,7 @@ export function SupplierPaymentsView() {
                 }`}
               >
                 <ArrowUpRight className="h-4 w-4 stroke-[2.5]" />
-                <span>Withdraw to Bank Account</span>
+                <span>{tr("btnWithdrawHero")}</span>
               </button>
 
               <button
@@ -798,7 +809,7 @@ export function SupplierPaymentsView() {
                 className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3.5 py-2.5 text-xs font-semibold text-white transition-all cursor-pointer backdrop-blur-xs"
               >
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
-                <span>View Locked Escrow</span>
+                <span>{tr("btnViewLockedEscrow")}</span>
               </button>
 
               <button
@@ -806,7 +817,7 @@ export function SupplierPaymentsView() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2.5 text-xs font-medium text-white/90 transition-all cursor-pointer"
               >
                 <TrendingUp className="h-3.5 w-3.5" />
-                <span>{showAnalyticsStrip ? "Hide Trends" : "Cashflow Trends"}</span>
+                <span>{showAnalyticsStrip ? tr("btnHideTrends") : tr("btnShowTrends")}</span>
               </button>
 
               <button
@@ -819,7 +830,7 @@ export function SupplierPaymentsView() {
                 className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2.5 text-xs font-medium text-white/90 transition-all cursor-pointer disabled:opacity-60"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isLoadingTransactions ? "animate-spin" : ""}`} />
-                <span>{isLoadingTransactions ? "Syncing..." : "Refresh"}</span>
+                <span>{isLoadingTransactions ? tr("btnSyncing") : tr("btnRefresh")}</span>
               </button>
             </div>
           </div>
@@ -836,7 +847,7 @@ export function SupplierPaymentsView() {
             >
               <div className="flex items-center justify-between text-emerald-300">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80 group-hover:text-white">
-                  Secured in Escrow
+                  {tr("cardSecuredEscrow")}
                 </span>
                 <ShieldCheck className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition-transform" />
               </div>
@@ -846,7 +857,7 @@ export function SupplierPaymentsView() {
               <div className="mt-1 flex items-center gap-1.5 text-[11px] text-white/80">
                 <span>{transactions.filter((t) => t.status === "escrow_held").length} Orders</span>
                 <span className="text-white/40">•</span>
-                <span className="text-[10px] text-emerald-300 font-medium">100% Guaranteed</span>
+                <span className="text-[10px] text-emerald-300 font-medium">{tr("cardGuaranteed")}</span>
               </div>
             </div>
 
@@ -854,7 +865,7 @@ export function SupplierPaymentsView() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-blue-400/40 hover:bg-white/10">
               <div className="flex items-center justify-between text-blue-300">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                  30-Day Gross Volume
+                  {tr("cardGrossVolume")}
                 </span>
                 <TrendingUp className="h-4 w-4 text-blue-400" />
               </div>
@@ -863,7 +874,7 @@ export function SupplierPaymentsView() {
               </p>
               <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-300">
                 <span className="font-semibold">+18.4%</span>
-                <span className="text-white/60 text-[10px]">vs previous cycle</span>
+                <span className="text-white/60 text-[10px]">{tr("cardVsCycle")}</span>
               </div>
             </div>
 
@@ -871,14 +882,14 @@ export function SupplierPaymentsView() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-amber-400/40 hover:bg-white/10">
               <div className="flex items-center justify-between text-amber-300">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                  Settlement SLA
+                  {tr("cardSettlementSla")}
                 </span>
                 <Clock className="h-4 w-4 text-amber-400" />
               </div>
               <p className="mt-2 text-xl font-bold font-mono text-white">Instant – 2.4 hrs</p>
               <div className="mt-1 flex items-center gap-1 text-[11px] text-white/80">
                 <span className="text-emerald-400 font-medium">99.8%</span>
-                <span className="text-white/60 text-[10px]">RTGS on-time speed</span>
+                <span className="text-white/60 text-[10px]">{tr("cardRtgsSpeed")}</span>
               </div>
             </div>
 
@@ -892,7 +903,7 @@ export function SupplierPaymentsView() {
             >
               <div className="flex items-center justify-between text-purple-300">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80 group-hover:text-white">
-                  Paid Out & Settled
+                  {tr("cardPaidOut")}
                 </span>
                 <BadgeCheck className="h-4 w-4 text-purple-400 group-hover:scale-110 transition-transform" />
               </div>
@@ -901,7 +912,7 @@ export function SupplierPaymentsView() {
               </p>
               <div className="mt-1 flex items-center gap-1 text-[11px] text-white/80">
                 <span className="text-white/60 text-[10px]">
-                  {transactions.filter((t) => t.status === "completed").length} Disbursed Vouchers
+                  {transactions.filter((t) => t.status === "completed").length} {tr("cardDisbursedVouchers")}
                 </span>
               </div>
             </div>
@@ -930,14 +941,14 @@ export function SupplierPaymentsView() {
                 <TrendingUp
                   className={`h-4 w-4 ${isSystem ? "text-blue-400" : "text-emerald-500"}`}
                 />
-                <span>Treasury Inflow & Escrow Velocity</span>
+                <span>{tr("chartTitle")}</span>
               </h3>
               <p
                 className={`text-[11px] mt-0.5 ${
                   isLight ? "text-slate-500" : isSystem ? "text-blue-200/70" : "text-zinc-400"
                 }`}
               >
-                Daily settled disbursements vs active escrow reserves across Ethiopian banking rails
+                {tr("chartSubtitle")}
               </p>
             </div>
 
@@ -977,11 +988,11 @@ export function SupplierPaymentsView() {
                 <div className="flex items-center gap-3 text-[11px]">
                   <span className="flex items-center gap-1">
                     <span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />
-                    <span>Disbursed Inflow</span>
+                    <span>{tr("legendInflow")}</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <span className="h-2.5 w-2.5 rounded-sm bg-blue-500" />
-                    <span>Escrow Reserve</span>
+                    <span>{tr("legendEscrow")}</span>
                   </span>
                 </div>
               </div>
@@ -1037,13 +1048,13 @@ export function SupplierPaymentsView() {
                   isLight ? "text-slate-500" : isSystem ? "text-blue-200/70" : "text-zinc-400"
                 }`}
               >
-                <span>Platform Escrow Tech Fee: Fixed 1.5%</span>
+                <span>{tr("platformFee")}</span>
                 <span
                   className={`font-semibold ${
                     isSystem ? "text-blue-400" : "text-emerald-600 dark:text-emerald-400"
                   }`}
                 >
-                  Settlement Success Rate: 100%
+                  {tr("successRate")}
                 </span>
               </div>
             </div>
@@ -1055,14 +1066,14 @@ export function SupplierPaymentsView() {
               }`}
             >
               <h4 className="text-xs font-bold uppercase tracking-wider">
-                Settlement Channel Share
+                {tr("channelShareTitle")}
               </h4>
 
               <div className="space-y-3">
                 {channelDistribution.length === 0 ? (
                   <div className="py-5 text-center">
                     <p className={`text-xs ${isLight ? "text-slate-400" : "text-zinc-500"}`}>
-                      No settlement volume recorded yet across banking rails.
+                      {tr("noChannelsRecorded")}
                     </p>
                   </div>
                 ) : (
@@ -1099,7 +1110,7 @@ export function SupplierPaymentsView() {
                     : "bg-white/5 text-zinc-400"
                 }`}
               >
-                <span className="font-semibold">Daily RTGS Sweep:</span> Automated batch processing occurs every hour between 08:00 and 17:00 EAT.
+                <span className="font-semibold">{tr("dailyRtgsSweep")}</span> {tr("dailyRtgsSchedule")}
               </div>
             </div>
           </div>
@@ -1119,14 +1130,14 @@ export function SupplierPaymentsView() {
                 <Building2
                   className={`h-4 w-4 ${isSystem ? "text-blue-400" : "text-emerald-500"}`}
                 />
-                <span>Verified Ethiopian Settlement Terminals</span>
+                <span>{tr("bankShelfTitle")}</span>
               </h3>
               <p
                 className={`text-[11px] mt-0.5 ${
                   isLight ? "text-slate-500" : isSystem ? "text-blue-200/70" : "text-zinc-400"
                 }`}
               >
-                Authorized corporate bank accounts linked for RTGS settlement and instant Telebirr disbursements
+                {tr("bankShelfSubtitle")}
               </p>
             </div>
 
@@ -1141,7 +1152,7 @@ export function SupplierPaymentsView() {
               }`}
             >
               <Plus className="h-3.5 w-3.5" />
-              <span>Link Bank Rail</span>
+              <span>{tr("btnLinkBankRail")}</span>
             </button>
           </div>
 
@@ -1159,13 +1170,13 @@ export function SupplierPaymentsView() {
                 <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 mb-3">
                   <Landmark className="w-6 h-6" />
                 </div>
-                <h4 className="font-bold text-sm">No Settlement Accounts Linked</h4>
+                <h4 className="font-bold text-sm">{tr("noBanksLinkedTitle")}</h4>
                 <p
                   className={`text-xs max-w-md mt-1 mb-4 ${
                     isLight ? "text-slate-500" : "text-zinc-400"
                   }`}
                 >
-                  Add your preferred commercial bank, microfinance account, or mobile money merchant ID to receive automated treasury payouts.
+                  {tr("noBanksLinkedDesc")}
                 </p>
                 <button
                   type="button"
@@ -1173,7 +1184,7 @@ export function SupplierPaymentsView() {
                   className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
                 >
                   <Plus className="w-4 h-4" />
-                  <span>Link Bank / Account</span>
+                  <span>{tr("btnLinkAccount")}</span>
                 </button>
               </div>
             ) : (
@@ -1237,13 +1248,13 @@ export function SupplierPaymentsView() {
                         {acc.isDefault ? (
                           <span className="inline-flex items-center gap-1 rounded-lg px-2 py-0.5 text-[10px] font-bold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
                             <BadgeCheck className="h-3 w-3" />
-                            Default
+                            {tr("defaultBadge")}
                           </span>
                         ) : (
                           <button
                             type="button"
                             onClick={() => setDefaultSettlementAccount(acc.id)}
-                            title="Set as Default"
+                            title={tr("setDefaultAction")}
                             className="p-1 rounded-md text-zinc-400 hover:text-amber-400 transition-colors cursor-pointer"
                           >
                             <Star className="h-3.5 w-3.5" />
@@ -1256,7 +1267,7 @@ export function SupplierPaymentsView() {
                               deleteSettlementAccount(acc.id);
                             }
                           }}
-                          title="Remove Account"
+                          title={tr("removeAccountAction")}
                           className="p-1 rounded-md text-zinc-400 hover:text-rose-400 transition-colors cursor-pointer"
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -1299,7 +1310,7 @@ export function SupplierPaymentsView() {
                         }}
                         className={`text-xs font-bold hover:underline cursor-pointer ${linkColor}`}
                       >
-                        Withdraw Here →
+                        {tr("withdrawHere")}
                       </button>
                     </div>
                   </div>
@@ -1331,7 +1342,7 @@ export function SupplierPaymentsView() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h4 className="text-xs font-bold">CBE Tripartite Escrow Clearing Pipeline</h4>
+                <h4 className="text-xs font-bold">{tr("escrowPipelineTitle")}</h4>
                 <span
                   className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
                     isLight
@@ -1341,7 +1352,7 @@ export function SupplierPaymentsView() {
                       : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
                   }`}
                 >
-                  100% Capital Guaranteed
+                  {tr("cardGuaranteed")}
                 </span>
               </div>
               <p
@@ -1349,7 +1360,7 @@ export function SupplierPaymentsView() {
                   isLight ? "text-slate-500" : isSystem ? "text-blue-200/70" : "text-zinc-400"
                 }`}
               >
-                Buyer deposits locked securely at Commercial Bank of Ethiopia Corporate Branch until verified delivery.
+                {tr("escrowPipelineSubtitle")}
               </p>
             </div>
           </div>
@@ -1367,7 +1378,7 @@ export function SupplierPaymentsView() {
                 }`}
               >
                 <X className="h-3 w-3" />
-                <span>Clear Milestone Filter</span>
+                <span>{tr("clearFilter")}</span>
               </button>
             )}
           </div>
@@ -1408,7 +1419,7 @@ export function SupplierPaymentsView() {
                 >
                   1
                 </span>
-                Buyer Funds Escrow
+                {tr("stage1Title")}
               </span>
               <Lock className="h-3.5 w-3.5 text-emerald-500" />
             </div>
@@ -1424,7 +1435,7 @@ export function SupplierPaymentsView() {
                 isLight ? "text-slate-400" : isSystem ? "text-blue-200/60" : "text-zinc-500"
               }`}
             >
-              {escrowStageStats.deposit.count} Orders Awaiting Dispatch
+              {escrowStageStats.deposit.count} {tr("stage1Desc")}
             </div>
           </button>
 
@@ -1459,7 +1470,7 @@ export function SupplierPaymentsView() {
                 >
                   2
                 </span>
-                Dispatched & In Transit
+                {tr("stage2Title")}
               </span>
               <Clock className="h-3.5 w-3.5 text-blue-500" />
             </div>
@@ -1475,7 +1486,7 @@ export function SupplierPaymentsView() {
                 isLight ? "text-slate-400" : isSystem ? "text-blue-200/60" : "text-zinc-500"
               }`}
             >
-              {escrowStageStats.transit.count} Cargo Shipments Moving
+              {escrowStageStats.transit.count} {tr("stage2Desc")}
             </div>
           </button>
 
@@ -1510,7 +1521,7 @@ export function SupplierPaymentsView() {
                 >
                   3
                 </span>
-                Buyer POD & Inspect
+                {tr("stage3Title")}
               </span>
               <Eye className="h-3.5 w-3.5 text-amber-500" />
             </div>
@@ -1526,7 +1537,7 @@ export function SupplierPaymentsView() {
                 isLight ? "text-slate-400" : isSystem ? "text-blue-200/60" : "text-zinc-500"
               }`}
             >
-              {escrowStageStats.inspection.count} Awaiting Buyer Signoff
+              {escrowStageStats.inspection.count} {tr("stage3Desc")}
             </div>
           </button>
 
@@ -1563,7 +1574,7 @@ export function SupplierPaymentsView() {
                 >
                   4
                 </span>
-                Automated Release
+                {tr("stage4Title")}
               </span>
               <Unlock className="h-3.5 w-3.5 text-emerald-500" />
             </div>
@@ -1579,7 +1590,7 @@ export function SupplierPaymentsView() {
                 isLight ? "text-slate-400" : isSystem ? "text-blue-200/60" : "text-zinc-500"
               }`}
             >
-              {escrowStageStats.released.count} Cleared to Available Balance
+              {escrowStageStats.released.count} {tr("stage4Desc")}
             </div>
           </button>
         </div>
@@ -1595,25 +1606,25 @@ export function SupplierPaymentsView() {
         >
           <div className="flex flex-wrap items-center gap-1.5">
             {[
-              { id: "all", label: "All Transactions", count: transactions.length },
+              { id: "all", label: tr("tabAll"), count: transactions.length },
               {
                 id: "escrow_held",
-                label: "Secured in Escrow",
+                label: tr("tabEscrow"),
                 count: transactions.filter((t) => t.status === "escrow_held").length,
               },
               {
                 id: "completed",
-                label: "Settled & Paid",
+                label: tr("tabCompleted"),
                 count: transactions.filter((t) => t.status === "completed").length,
               },
               {
                 id: "pending",
-                label: "Pending Clearance",
+                label: tr("tabPending"),
                 count: transactions.filter((t) => t.status === "pending").length,
               },
               {
                 id: "refunded",
-                label: "Refunded",
+                label: tr("tabRefunded"),
                 count: transactions.filter((t) => t.status === "refunded").length,
               },
             ].map((tab) => {
@@ -1661,7 +1672,7 @@ export function SupplierPaymentsView() {
               title="Table View"
             >
               <List className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Table</span>
+              <span className="hidden sm:inline">{tr("viewTable")}</span>
             </button>
 
             <button
@@ -1672,7 +1683,7 @@ export function SupplierPaymentsView() {
               title="Card Grid View"
             >
               <Grid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Cards</span>
+              <span className="hidden sm:inline">{tr("viewCards")}</span>
             </button>
           </div>
         </div>
@@ -1688,7 +1699,7 @@ export function SupplierPaymentsView() {
                 setSearchQuery(e.target.value);
                 setCurrentPage(1);
               }}
-              placeholder="Search by transaction ID, buyer enterprise, order #, TIN, or bank ref..."
+              placeholder={tr("searchPlaceholder")}
               className={`w-full rounded-xl border pl-9 pr-8 py-2 text-xs focus:outline-hidden shadow-xs transition-colors ${
                 isLight
                   ? "border-slate-200 bg-white text-slate-900 placeholder:text-slate-400 focus:border-emerald-600"
@@ -1723,7 +1734,7 @@ export function SupplierPaymentsView() {
                   : "border-white/10 bg-[#12161f] text-zinc-300 focus:border-emerald-500"
               }`}
             >
-              <option value="all">All Banking Rails</option>
+              <option value="all">{tr("allBankingRails")}</option>
               {availableFilterMethods.map((m) => (
                 <option key={m} value={m}>
                   {m}
@@ -1747,11 +1758,11 @@ export function SupplierPaymentsView() {
                   : "border-white/10 bg-[#12161f] text-zinc-300 focus:border-emerald-500"
               }`}
             >
-              <option value="date-desc">Newest First</option>
-              <option value="date-asc">Oldest First</option>
-              <option value="amount-desc">Amount: High to Low</option>
-              <option value="amount-asc">Amount: Low to High</option>
-              <option value="company-asc">Buyer: A to Z</option>
+              <option value="date-desc">{tr("sortNewest")}</option>
+              <option value="date-asc">{tr("sortOldest")}</option>
+              <option value="amount-desc">{tr("sortAmountHigh")}</option>
+              <option value="amount-asc">{tr("sortAmountLow")}</option>
+              <option value="company-asc">{tr("sortBuyerAz")}</option>
             </select>
 
             {(searchQuery || statusFilter !== "all" || methodFilter !== "all" || milestoneFilter) && (
@@ -1772,7 +1783,7 @@ export function SupplierPaymentsView() {
                 }`}
               >
                 <RotateCcw className="h-3.5 w-3.5" />
-                <span>Reset</span>
+                <span>{tr("btnReset")}</span>
               </button>
             )}
           </div>
@@ -1791,9 +1802,9 @@ export function SupplierPaymentsView() {
           }`}
         >
           <EmptyState
-            title="No Transactions Found"
-            description="No settlement records match your active search terms or selected filters."
-            actionLabel="Reset All Filters"
+            title={tr("emptyTitle")}
+            description={tr("emptyDesc")}
+            actionLabel={tr("btnResetFilters")}
             onAction={() => {
               setSearchQuery("");
               setStatusFilter("all");
@@ -1825,15 +1836,15 @@ export function SupplierPaymentsView() {
                       : "border-white/10 bg-white/5 text-zinc-400"
                   }`}
                 >
-                  <th className="py-3.5 px-5 min-w-[190px] whitespace-nowrap">Payment ID & Date</th>
-                  <th className="py-3.5 px-4 min-w-[215px] whitespace-nowrap">Who Paid (Payer)</th>
-                  <th className="py-3.5 px-4 min-w-[235px] whitespace-nowrap">Order & What Paid For</th>
-                  <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">Amount Paid</th>
-                  <th className="py-3.5 px-4 min-w-[155px] whitespace-nowrap">Net Payout (ETB)</th>
-                  <th className="py-3.5 px-4 min-w-[165px] whitespace-nowrap">Payment Channel</th>
-                  <th className="py-3.5 px-4 min-w-[170px] whitespace-nowrap">Gateway / Tx Ref</th>
-                  <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">Status</th>
-                  <th className="py-3.5 px-5 min-w-[140px] text-right whitespace-nowrap">Actions</th>
+                  <th className="py-3.5 px-5 min-w-[190px] whitespace-nowrap">{tr("colPaymentIdDate")}</th>
+                  <th className="py-3.5 px-4 min-w-[215px] whitespace-nowrap">{tr("colPayer")}</th>
+                  <th className="py-3.5 px-4 min-w-[235px] whitespace-nowrap">{tr("colOrderPurpose")}</th>
+                  <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">{tr("colAmountPaid")}</th>
+                  <th className="py-3.5 px-4 min-w-[155px] whitespace-nowrap">{tr("colNetPayout")}</th>
+                  <th className="py-3.5 px-4 min-w-[165px] whitespace-nowrap">{tr("colChannel")}</th>
+                  <th className="py-3.5 px-4 min-w-[170px] whitespace-nowrap">{tr("colGatewayRef")}</th>
+                  <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">{tr("colStatus")}</th>
+                  <th className="py-3.5 px-5 min-w-[140px] text-right whitespace-nowrap">{tr("colActions")}</th>
                 </tr>
               </thead>
               <tbody
@@ -2052,7 +2063,7 @@ export function SupplierPaymentsView() {
                               title="Track Escrow Milestones"
                             >
                               <ShieldCheck className="h-3 w-3" />
-                              <span>Track</span>
+                              <span>{tr("btnTrack")}</span>
                             </button>
                           )}
 
@@ -2068,7 +2079,7 @@ export function SupplierPaymentsView() {
                             title="View Full Payment Details & Official Voucher"
                           >
                             <Eye className="h-3 w-3" />
-                            <span>Details</span>
+                            <span>{tr("btnDetails")}</span>
                           </button>
                         </div>
                       </td>
@@ -2290,8 +2301,8 @@ export function SupplierPaymentsView() {
       <ModalDialog
         isOpen={isWithdrawModalOpen}
         onClose={() => setIsWithdrawModalOpen(false)}
-        title="Withdraw Treasury Funds"
-        subtitle="Transfer settled balance directly to your verified Ethiopian corporate bank or Telebirr account"
+        title={tr("modalWithdrawTitle")}
+        subtitle={tr("modalWithdrawSubtitle")}
         maxWidth="md"
         footer={
           <>
@@ -2582,7 +2593,7 @@ export function SupplierPaymentsView() {
         <ModalDialog
           isOpen={!!selectedReceiptTx}
           onClose={() => setSelectedReceiptTx(null)}
-          title="Official Fiscal Settlement Voucher"
+          title={tr("modalVoucherTitle")}
           subtitle={`National Bank of Ethiopia & MercatoX Escrow record for ${selectedReceiptTx.transactionNumber}`}
           maxWidth="lg"
           footer={
@@ -2917,7 +2928,7 @@ export function SupplierPaymentsView() {
         <ModalDialog
           isOpen={!!selectedEscrowTx}
           onClose={() => setSelectedEscrowTx(null)}
-          title="CBE Escrow Milestone Tracker"
+          title={tr("modalEscrowTitle")}
           subtitle={`Order #${selectedEscrowTx.orderNumber} • ${selectedEscrowTx.buyerCompany}`}
           maxWidth="md"
           footer={
@@ -3041,8 +3052,8 @@ export function SupplierPaymentsView() {
       <ModalDialog
         isOpen={isAddAccountModalOpen}
         onClose={() => setIsAddAccountModalOpen(false)}
-        title="Link Verified Settlement Account"
-        subtitle="Connect an authorized Ethiopian commercial bank or mobile money terminal for automated treasury payouts"
+        title={tr("modalLinkBankTitle")}
+        subtitle={tr("modalLinkBankSubtitle")}
         maxWidth="md"
         footer={
           <>

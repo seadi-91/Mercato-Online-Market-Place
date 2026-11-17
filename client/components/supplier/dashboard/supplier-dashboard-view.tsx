@@ -23,8 +23,25 @@ import {
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  DASHBOARD_TRANSLATIONS,
+  type DashboardTranslationDictionary,
+} from "@/lib/i18n/dashboard-translations";
 
 export function SupplierDashboardView() {
+  const { language } = useTranslation();
+
+  const tr = (key: keyof DashboardTranslationDictionary, params?: Record<string, string | number>): string => {
+    const dict = DASHBOARD_TRANSLATIONS[language] || DASHBOARD_TRANSLATIONS.en;
+    let text = dict[key] || DASHBOARD_TRANSLATIONS.en[key] || key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+      });
+    }
+    return text;
+  };
   const {
     profile,
     products,
@@ -116,13 +133,13 @@ export function SupplierDashboardView() {
     const deliveredCount = orders.filter((o) => o.orderStatus === "delivered").length;
 
     return [
-      { label: "New & Confirmed", count: newCount, percent: orders.length > 0 ? Math.round((newCount / totalCount) * 100) : 0, color: "bg-amber-400" },
-      { label: "Processing & QC", count: procCount, percent: orders.length > 0 ? Math.round((procCount / totalCount) * 100) : 0, color: "bg-blue-400" },
-      { label: "Packed & Depot Ready", count: packedCount, percent: orders.length > 0 ? Math.round((packedCount / totalCount) * 100) : 0, color: "bg-indigo-400" },
-      { label: "Shipped & In Transit", count: shippedCount, percent: orders.length > 0 ? Math.round((shippedCount / totalCount) * 100) : 0, color: "bg-cyan-400" },
-      { label: "Delivered & Settled", count: deliveredCount, percent: orders.length > 0 ? Math.round((deliveredCount / totalCount) * 100) : 0, color: "bg-emerald-400" },
+      { label: tr("stageNewConfirmed"), count: newCount, percent: orders.length > 0 ? Math.round((newCount / totalCount) * 100) : 0, color: "bg-amber-400" },
+      { label: tr("stageProcessingQc"), count: procCount, percent: orders.length > 0 ? Math.round((procCount / totalCount) * 100) : 0, color: "bg-blue-400" },
+      { label: tr("stagePackedReady"), count: packedCount, percent: orders.length > 0 ? Math.round((packedCount / totalCount) * 100) : 0, color: "bg-indigo-400" },
+      { label: tr("stageShippedTransit"), count: shippedCount, percent: orders.length > 0 ? Math.round((shippedCount / totalCount) * 100) : 0, color: "bg-cyan-400" },
+      { label: tr("stageDeliveredSettled"), count: deliveredCount, percent: orders.length > 0 ? Math.round((deliveredCount / totalCount) * 100) : 0, color: "bg-emerald-400" },
     ];
-  }, [orders]);
+  }, [orders, language]);
 
   // Dynamic Chart Datasets based on exact calendar dates of live orders
   const chartDatasets = useMemo(() => {
@@ -252,9 +269,9 @@ export function SupplierDashboardView() {
       list.push({
         id: `ord-${o.id}`,
         type: "order",
-        title: `Order #${o.orderNumber || o.id.slice(0, 8)} secured`,
+        title: tr("orderSecuredEvent", { num: o.orderNumber || o.id.slice(0, 8) }),
         subtitle: `${o.buyerCompany || "Buyer"}: ETB ${(o.total || 0).toLocaleString()}`,
-        time: o.orderDate || "Recently",
+        time: o.orderDate || tr("recently"),
         tab: "orders",
       });
     });
@@ -263,9 +280,9 @@ export function SupplierDashboardView() {
       list.push({
         id: `rfq-${r.id}`,
         type: "rfq",
-        title: `New RFQ inquiry received`,
+        title: tr("rfqInquiryEvent"),
         subtitle: `${r.buyerCompany}: ${r.requestedQty?.toLocaleString() || ""} ${r.unit || ""} ${r.productName || ""}`,
-        time: r.createdAt || "Recently",
+        time: r.createdAt || tr("recently"),
         tab: "rfqs",
       });
     });
@@ -274,23 +291,23 @@ export function SupplierDashboardView() {
       list.push({
         id: `quote-${q.id}`,
         type: "quote",
-        title: `Quotation #${q.quoteNumber} issued`,
+        title: tr("quoteIssuedEvent", { num: q.quoteNumber }),
         subtitle: `${q.buyerCompany}: ETB ${(q.total || 0).toLocaleString()}`,
-        time: q.createdAt || "Recently",
+        time: q.createdAt || tr("recently"),
         tab: "quotations",
       });
     });
 
     return list.slice(0, 4);
-  }, [orders, rfqs, quotations]);
+  }, [orders, rfqs, quotations, language]);
 
   return (
     <div className="space-y-6">
       {/* 1. Page Header */}
       <PageHeader
-        title="Supplier Dashboard"
-        subtitle={`Welcome back, ${profile.businessName}. Here is your commercial trade and escrow performance.`}
-        breadcrumbs={[{ label: "MercatoX B2B" }, { label: "Overview" }]}
+        title={tr("dashboardTitle")}
+        subtitle={tr("welcomeBack", { businessName: profile.businessName })}
+        breadcrumbs={[{ label: tr("breadcrumbMercatoX") }, { label: tr("breadcrumbOverview") }]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -301,7 +318,7 @@ export function SupplierDashboardView() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs font-medium text-white hover:bg-indigo-500 transition-colors shadow-xs cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>Add Product</span>
+              <span>{tr("addProductBtn")}</span>
             </button>
 
             <button
@@ -309,7 +326,7 @@ export function SupplierDashboardView() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
             >
               <FileText className="h-4 w-4 text-zinc-400" />
-              <span>Create Quote</span>
+              <span>{tr("createQuoteBtn")}</span>
             </button>
 
             <button
@@ -317,7 +334,7 @@ export function SupplierDashboardView() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3.5 py-2 text-xs font-medium text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
             >
               <FileQuestion className="h-4 w-4 text-emerald-400" />
-              <span>Review RFQs ({pendingRFQs})</span>
+              <span>{tr("reviewRfqsBtn", { count: pendingRFQs })}</span>
             </button>
           </div>
         }
@@ -331,14 +348,14 @@ export function SupplierDashboardView() {
           className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Total Revenue</span>
+            <span>{tr("statTotalRevenue")}</span>
             <TrendingUp className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
             ETB {totalRevenue > 0 ? (totalRevenue / 1000000).toFixed(2) + "M" : "0.00"}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-[11px] text-zinc-400">
-            <span>Settled orders volume</span>
+            <span>{tr("statRevenueSub")}</span>
           </div>
         </div>
 
@@ -348,7 +365,7 @@ export function SupplierDashboardView() {
           className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Available Balance</span>
+            <span>{tr("statAvailableBalance")}</span>
             <Wallet className="h-4 w-4 text-indigo-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
@@ -356,7 +373,7 @@ export function SupplierDashboardView() {
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span>Ready for payout</span>
+            <span>{tr("statReadyPayout")}</span>
           </div>
         </div>
 
@@ -366,14 +383,18 @@ export function SupplierDashboardView() {
           className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>In Escrow</span>
+            <span>{tr("statInEscrow")}</span>
             <Clock className="h-4 w-4 text-amber-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
             ETB {pendingPayments > 0 ? (pendingPayments / 1000000).toFixed(2) + "M" : "0.00"}
           </div>
           <div className="mt-2 text-[11px] text-zinc-400">
-            <span>{orders.filter((o) => o.paymentStatus === "escrow_secured").length} active orders secured</span>
+            <span>
+              {tr("statOrdersSecured", {
+                count: orders.filter((o) => o.paymentStatus === "escrow_secured").length,
+              })}
+            </span>
           </div>
         </div>
 
@@ -383,14 +404,14 @@ export function SupplierDashboardView() {
           className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Pending Orders</span>
+            <span>{tr("statPendingOrders")}</span>
             <ShoppingCart className="h-4 w-4 text-blue-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
             {pendingOrders}
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-blue-400">
-            <span>{pendingOrders} require dispatch</span>
+            <span>{tr("statRequireDispatch", { count: pendingOrders })}</span>
           </div>
         </div>
 
@@ -400,14 +421,14 @@ export function SupplierDashboardView() {
           className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer col-span-2 sm:col-span-1"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Buyer RFQs</span>
+            <span>{tr("statBuyerRfqs")}</span>
             <FileQuestion className="h-4 w-4 text-purple-400" />
           </div>
           <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
             {pendingRFQs}
           </div>
           <div className="mt-2 text-[11px] text-zinc-400">
-            <span>Awaiting quotations</span>
+            <span>{tr("statAwaitingQuotes")}</span>
           </div>
         </div>
       </div>
@@ -418,25 +439,35 @@ export function SupplierDashboardView() {
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-5 lg:col-span-2 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
             <div>
-              <h3 className="text-sm font-semibold text-white">Wholesale Trade Volume</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Billed trade across regional warehouses</p>
+              <h3 className="text-sm font-semibold text-white">{tr("wholesaleTradeVolume")}</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">{tr("tradeVolumeSub")}</p>
             </div>
 
             {/* Linear-style clean timeframe toggle */}
             <div className="flex items-center rounded-lg border border-white/10 bg-white/[0.02] p-0.5 text-xs">
-              {(["7D", "30D", "12M", "All"] as const).map((tf) => (
-                <button
-                  key={tf}
-                  onClick={() => setTimeframe(tf)}
-                  className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${
-                    timeframe === tf
-                      ? "bg-white/10 text-white font-semibold"
-                      : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  {tf}
-                </button>
-              ))}
+              {(["7D", "30D", "12M", "All"] as const).map((tf) => {
+                const tfLabel =
+                  tf === "7D"
+                    ? tr("timeframe7D")
+                    : tf === "30D"
+                    ? tr("timeframe30D")
+                    : tf === "12M"
+                    ? tr("timeframe12M")
+                    : tr("timeframeAll");
+                return (
+                  <button
+                    key={tf}
+                    onClick={() => setTimeframe(tf)}
+                    className={`rounded-md px-2.5 py-1 font-medium transition-colors cursor-pointer ${
+                      timeframe === tf
+                        ? "bg-white/10 text-white font-semibold"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {tfLabel}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -455,7 +486,7 @@ export function SupplierDashboardView() {
                         ETB {item.value.toLocaleString()}
                       </p>
                       <p className="text-[9px] text-zinc-400">
-                        {item.orders} order{item.orders === 1 ? "" : "s"}
+                        {item.orders} {tr("ordersCountUnit")}
                       </p>
                     </div>
 
@@ -482,19 +513,19 @@ export function SupplierDashboardView() {
           {/* Footer Sub-metrics */}
           <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.06] text-xs">
             <div>
-              <span className="text-zinc-400 block">Avg. Order Value</span>
+              <span className="text-zinc-400 block">{tr("avgOrderValue")}</span>
               <span className="font-mono font-semibold text-white mt-0.5 block">
                 ETB {avgOrderValue.toLocaleString()}
               </span>
             </div>
             <div>
-              <span className="text-zinc-400 block">Settlement Rate</span>
+              <span className="text-zinc-400 block">{tr("settlementRate")}</span>
               <span className="font-mono font-semibold text-emerald-400 mt-0.5 block">
                 {settlementRate}
               </span>
             </div>
             <div>
-              <span className="text-zinc-400 block">Fulfillment SLA</span>
+              <span className="text-zinc-400 block">{tr("fulfillmentSla")}</span>
               <span className="font-mono font-semibold text-white mt-0.5 block">
                 {fulfillmentSla}
               </span>
@@ -506,14 +537,14 @@ export function SupplierDashboardView() {
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
             <div>
-              <h3 className="text-sm font-semibold text-white">Order Pipeline</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Active fulfillment stages</p>
+              <h3 className="text-sm font-semibold text-white">{tr("orderPipelineTitle")}</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">{tr("orderPipelineSub")}</p>
             </div>
             <button
               onClick={() => setActiveTab("orders")}
               className="text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer"
             >
-              View Orders
+              {tr("viewOrdersLink")}
             </button>
           </div>
 
@@ -538,9 +569,9 @@ export function SupplierDashboardView() {
             <div className="flex items-center justify-between text-xs text-zinc-400">
               <span className="flex items-center gap-1.5">
                 <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />
-                <span>CBE Escrow Protection</span>
+                <span>{tr("cbeEscrowProtection")}</span>
               </span>
-              <span className="text-zinc-300 font-medium">100% Secured</span>
+              <span className="text-zinc-300 font-medium">{tr("secured100")}</span>
             </div>
           </div>
         </div>
@@ -552,14 +583,14 @@ export function SupplierDashboardView() {
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-5 lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
             <div>
-              <h3 className="text-sm font-semibold text-white">Top Performing Catalog Items</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Wholesale items with highest commercial order volume</p>
+              <h3 className="text-sm font-semibold text-white">{tr("topItemsTitle")}</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">{tr("topItemsSub")}</p>
             </div>
             <button
               onClick={() => setActiveTab("products")}
               className="text-xs text-indigo-400 hover:text-indigo-300 font-medium cursor-pointer"
             >
-              All Products ({products.length})
+              {tr("allProductsBtn", { count: products.length })}
             </button>
           </div>
 
@@ -568,18 +599,18 @@ export function SupplierDashboardView() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-white/[0.06] text-zinc-400 font-medium uppercase text-[10px] tracking-wider">
-                  <th className="pb-2.5">Product</th>
-                  <th className="pb-2.5">Stock</th>
-                  <th className="pb-2.5">Wholesale Base</th>
-                  <th className="pb-2.5">Sold</th>
-                  <th className="pb-2.5">Rating</th>
+                  <th className="pb-2.5">{tr("colProduct")}</th>
+                  <th className="pb-2.5">{tr("colStock")}</th>
+                  <th className="pb-2.5">{tr("colWholesaleBase")}</th>
+                  <th className="pb-2.5">{tr("colSold")}</th>
+                  <th className="pb-2.5">{tr("colRating")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/[0.04]">
                 {products.length === 0 ? (
                   <tr>
                     <td colSpan={5} className="py-8 text-center text-xs text-zinc-500">
-                      No products found in catalog. Click &quot;Add Product&quot; to list your first item.
+                      {tr("noProductsInCatalog")}
                     </td>
                   </tr>
                 ) : (
@@ -635,15 +666,15 @@ export function SupplierDashboardView() {
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-5 space-y-4">
           <div className="flex items-center justify-between border-b border-white/[0.06] pb-3">
             <div>
-              <h3 className="text-sm font-semibold text-white">Recent Activity</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Commercial events & alerts</p>
+              <h3 className="text-sm font-semibold text-white">{tr("recentActivityTitle")}</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">{tr("recentActivitySub")}</p>
             </div>
           </div>
 
           <div className="space-y-3.5 text-xs">
             {recentEvents.length === 0 ? (
               <div className="py-8 text-center text-xs text-zinc-500">
-                No recent activity recorded yet.
+                {tr("noRecentActivity")}
               </div>
             ) : (
               recentEvents.map((evt) => (

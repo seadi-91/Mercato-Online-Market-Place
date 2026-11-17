@@ -23,6 +23,11 @@ import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  QUOTATION_TRANSLATIONS,
+  QuotationTranslationDictionary,
+} from "@/lib/i18n/quotation-translations";
 import { Quotation } from "@/types/supplier";
 import { toast } from "sonner";
 
@@ -31,6 +36,12 @@ export function SupplierQuotationsView() {
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
+  const { language } = useTranslation();
+
+  const tr = (key: keyof QuotationTranslationDictionary): string => {
+    const dict = QUOTATION_TRANSLATIONS[language] || QUOTATION_TRANSLATIONS.en;
+    return dict[key] || QUOTATION_TRANSLATIONS.en[key] || key;
+  };
 
   useEffect(() => {
     fetchQuotations();
@@ -74,9 +85,9 @@ export function SupplierQuotationsView() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Commercial Quotations"
-        subtitle="Issue legally binding commercial proposals with Ethiopian VAT, Incoterms, and Escrow payment guarantees"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Quotations" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbQuotations") }]}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -92,7 +103,7 @@ export function SupplierQuotationsView() {
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 shadow-xs transition-colors cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>Create New Quotation</span>
+              <span>{tr("btnCreateQuote")}</span>
             </button>
           </div>
         }
@@ -102,15 +113,15 @@ export function SupplierQuotationsView() {
       <DataFilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Filter quotes by number, buyer company, or product..."
+        searchPlaceholder={tr("searchPlaceholder")}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         statusOptions={[
-          { value: "sent", label: "Sent / Pending" },
-          { value: "accepted", label: "Accepted by Buyer" },
-          { value: "negotiating", label: "Counter Negotiating" },
-          { value: "rejected", label: "Rejected" },
-          { value: "withdrawn", label: "Withdrawn" },
+          { value: "sent", label: tr("filterSent") },
+          { value: "accepted", label: tr("filterAccepted") },
+          { value: "negotiating", label: tr("filterNegotiating") },
+          { value: "rejected", label: tr("filterRejected") },
+          { value: "withdrawn", label: tr("filterWithdrawn") },
         ]}
         onReset={() => {
           setSearchQuery("");
@@ -125,9 +136,9 @@ export function SupplierQuotationsView() {
           {paginated.length === 0 ? (
             <div className="p-8">
               <EmptyState
-                title="No Quotations Found"
-                description="You haven't issued any quotations matching your search criteria."
-                actionLabel="Create Quotation"
+                title={tr("emptyTitle")}
+                description={tr("emptyDescription")}
+                actionLabel={tr("btnCreateQuote")}
                 onAction={() => openModal("create-quotation")}
               />
             </div>
@@ -135,14 +146,14 @@ export function SupplierQuotationsView() {
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
-                  <th className="py-3 px-4">Quote Number</th>
-                  <th className="py-3 px-3">Buyer Company</th>
-                  <th className="py-3 px-3">Products & Volume</th>
-                  <th className="py-3 px-3">Subtotal</th>
-                  <th className="py-3 px-3">Total (inc. VAT)</th>
-                  <th className="py-3 px-3">Valid Until</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">{tr("thQuoteNumber")}</th>
+                  <th className="py-3 px-3">{tr("thBuyerCompany")}</th>
+                  <th className="py-3 px-3">{tr("thProductsVolume")}</th>
+                  <th className="py-3 px-3">{tr("thSubtotal")}</th>
+                  <th className="py-3 px-3">{tr("thTotal")}</th>
+                  <th className="py-3 px-3">{tr("thValidUntil")}</th>
+                  <th className="py-3 px-3">{tr("thStatus")}</th>
+                  <th className="py-3 px-4 text-right">{tr("thActions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">

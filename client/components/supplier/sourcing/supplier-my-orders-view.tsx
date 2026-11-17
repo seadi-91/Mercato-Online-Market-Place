@@ -36,6 +36,11 @@ import {
 import { SourcingOrder, SourcingOrderStatus } from "@/types/supplier";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  SOURCING_TRANSLATIONS,
+  SourcingTranslationDictionary,
+} from "@/lib/i18n/sourcing-translations";
 import { SupplierOrderDetailView } from "./supplier-order-detail-view";
 import { toast } from "sonner";
 import { getAccurateProductImage } from "@/lib/utils/product-image";
@@ -57,6 +62,12 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
     profile,
   } = useSupplierStore();
   const { user } = useAuthStore();
+  const { language } = useTranslation();
+
+  const tr = (key: keyof SourcingTranslationDictionary): string => {
+    const dict = SOURCING_TRANSLATIONS[language] || SOURCING_TRANSLATIONS.en;
+    return dict[key] || SOURCING_TRANSLATIONS.en[key] || key;
+  };
 
   useEffect(() => {
     fetchSourcingOrders();
@@ -245,14 +256,14 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
           <div className="flex items-center gap-2">
             <h1 className="text-lg sm:text-xl font-bold text-zinc-900 dark:text-zinc-100 tracking-tight flex items-center gap-2">
               <ShoppingBag className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
-              My Sourcing Purchases
+              {tr("myOrdersTitle")}
             </h1>
             <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-500/20">
               {sourcingOrders.length} Orders
             </span>
           </div>
           <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">
-            Track bulk procurement orders, logistics waybills, and verify 4-digit Handover OTPs.
+            {tr("myOrdersSubtitle")}
           </p>
         </div>
 
@@ -275,7 +286,7 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
             className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-1.5 transition-all shadow-xs"
           >
             <Boxes className="w-3.5 h-3.5" />
-            Browse Marketplace
+            {tr("btnBrowseMarketplace")}
           </button>
         </div>
       </div>
@@ -284,7 +295,7 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5">
         <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-2xs">
           <div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Total Spend</div>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("lblTotalSpend")}</div>
             <div className="text-sm sm:text-base font-extrabold text-zinc-900 dark:text-zinc-100 font-mono">
               ETB {metrics.totalSpend.toLocaleString()}
             </div>
@@ -296,7 +307,7 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
 
         <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-2xs">
           <div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Active Transit</div>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("lblActiveTransit")}</div>
             <div className="text-sm sm:text-base font-extrabold text-indigo-600 dark:text-indigo-400 font-mono">
               {metrics.activeOrders} Active
             </div>
@@ -308,7 +319,7 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
 
         <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-2xs">
           <div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Awaiting OTP</div>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("lblAwaitingOtp")}</div>
             <div className="text-sm sm:text-base font-extrabold text-amber-600 dark:text-amber-400 font-mono">
               {metrics.awaitingOtp} Orders
             </div>
@@ -320,7 +331,7 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
 
         <div className="p-3 rounded-xl bg-white dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 flex items-center justify-between shadow-2xs">
           <div>
-            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">Settled</div>
+            <div className="text-[11px] text-zinc-500 dark:text-zinc-400">{tr("lblSettled")}</div>
             <div className="text-sm sm:text-base font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
               {metrics.completed} Completed
             </div>
@@ -338,7 +349,7 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
           <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
           <input
             type="text"
-            placeholder="Search PO #, commodity, seller, waybill..."
+            placeholder={tr("searchOrdersPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-8 pr-3 py-1.5 rounded-lg bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 text-xs text-zinc-900 dark:text-zinc-100 outline-none focus:border-indigo-500 placeholder:text-zinc-400"
@@ -349,10 +360,10 @@ export function SupplierMyOrdersView({ onNavigateToSourcing, onReorderProduct }:
         <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-2 overflow-x-auto">
           <div className="flex items-center gap-1">
             {[
-              { id: "all", label: "All" },
-              { id: "active", label: "Active" },
-              { id: "delivered", label: "At Hub (OTP)" },
-              { id: "completed", label: "Completed" },
+              { id: "all", label: tr("statusAll") },
+              { id: "active", label: tr("statusActive") },
+              { id: "delivered", label: tr("statusAtHub") },
+              { id: "completed", label: tr("statusCompleted") },
             ].map((tab) => (
               <button
                 key={tab.id}

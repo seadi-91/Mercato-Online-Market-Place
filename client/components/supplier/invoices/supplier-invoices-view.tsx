@@ -21,6 +21,11 @@ import { StatusBadge } from "../shared/status-badge";
 import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  INVOICE_TRANSLATIONS,
+  InvoiceTranslationDictionary,
+} from "@/lib/i18n/invoice-translations";
 import { Invoice } from "@/types/supplier";
 import { useAuthStore } from "@/store/auth-store";
 import { toast } from "sonner";
@@ -28,6 +33,12 @@ import { toast } from "sonner";
 export function SupplierInvoicesView() {
   const { invoices, markInvoicePaid, createInvoice, orders, fetchOrders, profile, setActiveTab } = useSupplierStore();
   const { user } = useAuthStore();
+  const { language } = useTranslation();
+
+  const tr = (key: keyof InvoiceTranslationDictionary): string => {
+    const dict = INVOICE_TRANSLATIONS[language] || INVOICE_TRANSLATIONS.en;
+    return dict[key] || INVOICE_TRANSLATIONS.en[key] || key;
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -141,20 +152,20 @@ export function SupplierInvoicesView() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Commercial Tax Invoices & Billing"
-        subtitle="Issue compliant value-added tax (15% VAT) invoices with Ministry of Revenues electronic TIN validation"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Invoices" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbInvoices") }]}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
             <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
-              {invoices.length} Registered Invoices
+              {invoices.length} {tr("badgeRegisteredInvoices")}
             </span>
             <button
               onClick={() => setIsCreateModalOpen(true)}
               className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-indigo-500 shadow-xs cursor-pointer transition-colors"
             >
               <Plus className="h-4 w-4" />
-              <span>Create Tax Invoice</span>
+              <span>{tr("btnCreateTaxInvoice")}</span>
             </button>
           </div>
         }
@@ -164,16 +175,16 @@ export function SupplierInvoicesView() {
       <DataFilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search invoices by invoice number, order #, buyer enterprise, or TIN..."
+        searchPlaceholder={tr("searchPlaceholder")}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         statusOptions={[
-          { value: "paid", label: "Paid in Full" },
-          { value: "partially_paid", label: "Partially Paid" },
-          { value: "sent", label: "Sent / Pending" },
-          { value: "overdue", label: "Overdue" },
-          { value: "draft", label: "Draft" },
-          { value: "cancelled", label: "Cancelled" },
+          { value: "paid", label: tr("filterPaid") },
+          { value: "partially_paid", label: tr("filterPartiallyPaid") },
+          { value: "sent", label: tr("filterSent") },
+          { value: "overdue", label: tr("filterOverdue") },
+          { value: "draft", label: tr("filterDraft") },
+          { value: "cancelled", label: tr("filterCancelled") },
         ]}
         onReset={() => {
           setSearchQuery("");
@@ -188,24 +199,24 @@ export function SupplierInvoicesView() {
           {paginated.length === 0 ? (
             <div className="p-8">
               <EmptyState
-                title="No Invoices Found"
-                description="No tax invoices match your search criteria."
+                title={tr("emptyTitle")}
+                description={tr("emptyDescription")}
               />
             </div>
           ) : (
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
-                  <th className="py-3 px-4">Invoice #</th>
-                  <th className="py-3 px-3">Order Ref</th>
-                  <th className="py-3 px-3">Buyer Enterprise</th>
-                  <th className="py-3 px-3">Buyer TIN</th>
-                  <th className="py-3 px-3">Subtotal</th>
-                  <th className="py-3 px-3">15% VAT</th>
-                  <th className="py-3 px-3">Total Amount</th>
-                  <th className="py-3 px-3">Due Date</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-4 text-right">Actions</th>
+                  <th className="py-3 px-4">{tr("thInvoiceNumber")}</th>
+                  <th className="py-3 px-3">{tr("thOrderRef")}</th>
+                  <th className="py-3 px-3">{tr("thBuyerEnterprise")}</th>
+                  <th className="py-3 px-3">{tr("thBuyerTin")}</th>
+                  <th className="py-3 px-3">{tr("thSubtotal")}</th>
+                  <th className="py-3 px-3">{tr("thVat")}</th>
+                  <th className="py-3 px-3">{tr("thTotalAmount")}</th>
+                  <th className="py-3 px-3">{tr("thDueDate")}</th>
+                  <th className="py-3 px-3">{tr("thStatus")}</th>
+                  <th className="py-3 px-4 text-right">{tr("thActions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">

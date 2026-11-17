@@ -1,4 +1,4 @@
-import type { LanguageCode } from "./translations";
+﻿import type { LanguageCode } from "./translations";
 
 export interface SettingsTranslationDictionary {
   // Top Header & Actions

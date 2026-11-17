@@ -39,6 +39,11 @@ import { StatusBadge } from "../shared/status-badge";
 import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  SHIPMENT_TRANSLATIONS,
+  ShipmentTranslationDictionary,
+} from "@/lib/i18n/shipment-translations";
 import { Shipment, ShipmentStatus, ShipmentItem } from "@/types/supplier";
 import { toast } from "sonner";
 
@@ -57,6 +62,12 @@ export function SupplierShipmentsView() {
     updateShipmentDeliveryDate,
     deleteShipment,
   } = useSupplierStore();
+
+  const { language } = useTranslation();
+  const tr = (key: keyof ShipmentTranslationDictionary): string => {
+    const dict = SHIPMENT_TRANSLATIONS[language] || SHIPMENT_TRANSLATIONS.en;
+    return dict[key] || SHIPMENT_TRANSLATIONS.en[key] || key;
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -951,10 +962,10 @@ export function SupplierShipmentsView() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-200 dark:border-white/10 pb-3">
         <div>
           <h1 className="text-[22px] sm:text-[24px] font-bold text-slate-900 dark:text-white tracking-tight leading-tight">
-            Shipment Management
+            {tr("title")}
           </h1>
           <p className="text-[12px] sm:text-[13px] text-slate-500 dark:text-zinc-400 mt-0.5">
-            Track deliveries, manage dispatches, and monitor shipment status.
+            {tr("subtitle")}
           </p>
         </div>
 
@@ -969,7 +980,7 @@ export function SupplierShipmentsView() {
             }`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" />
-            <span>Filters</span>
+            <span>{tr("btnFilters")}</span>
           </button>
 
           <button
@@ -977,7 +988,7 @@ export function SupplierShipmentsView() {
             className="inline-flex items-center gap-1.5 h-[34px] sm:h-[36px] px-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-[12px] sm:text-[13px] font-medium text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
             <Download className="h-3.5 w-3.5" />
-            <span>Export</span>
+            <span>{tr("btnExport")}</span>
           </button>
 
           <button
@@ -985,7 +996,7 @@ export function SupplierShipmentsView() {
             className="inline-flex items-center gap-1.5 h-[34px] sm:h-[36px] px-3.5 rounded-lg bg-[#2E7D32] hover:bg-[#256629] text-white text-[12px] sm:text-[13px] font-semibold transition-colors shadow-xs cursor-pointer"
           >
             <Plus className="h-4 w-4" />
-            <span>+ Create Shipment</span>
+            <span>{tr("btnCreateShipment")}</span>
           </button>
         </div>
       </div>
@@ -995,7 +1006,7 @@ export function SupplierShipmentsView() {
         {/* KPI 1: Total Shipments */}
         <div className="h-[84px] p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d121f] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">Total Shipments</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">{tr("kpiTotal")}</span>
             <Truck className="h-3.5 w-3.5 text-slate-400" />
           </div>
           <div className="flex items-baseline justify-between mt-1">
@@ -1009,7 +1020,7 @@ export function SupplierShipmentsView() {
         {/* KPI 2: Pending */}
         <div className="h-[84px] p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d121f] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">Pending</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">{tr("kpiPending")}</span>
             <Clock className="h-3.5 w-3.5 text-amber-500" />
           </div>
           <div className="flex items-baseline justify-between mt-1">
@@ -1023,7 +1034,7 @@ export function SupplierShipmentsView() {
         {/* KPI 3: Preparing */}
         <div className="h-[84px] p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d121f] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">Preparing</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">{tr("kpiPreparing")}</span>
             <Package className="h-3.5 w-3.5 text-blue-500" />
           </div>
           <div className="flex items-baseline justify-between mt-1">
@@ -1037,7 +1048,7 @@ export function SupplierShipmentsView() {
         {/* KPI 4: In Transit */}
         <div className="h-[84px] p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d121f] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">In Transit</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">{tr("kpiInTransit")}</span>
             <Navigation className="h-3.5 w-3.5 text-indigo-500" />
           </div>
           <div className="flex items-baseline justify-between mt-1">
@@ -1051,7 +1062,7 @@ export function SupplierShipmentsView() {
         {/* KPI 5: Delivered */}
         <div className="h-[84px] p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d121f] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">Delivered</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">{tr("kpiDelivered")}</span>
             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
           </div>
           <div className="flex items-baseline justify-between mt-1">
@@ -1065,7 +1076,7 @@ export function SupplierShipmentsView() {
         {/* KPI 6: Delayed */}
         <div className="h-[84px] p-3 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0d121f] shadow-xs flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">Delayed</span>
+            <span className="text-[11px] font-medium text-slate-500 dark:text-zinc-400 truncate">{tr("kpiDelayed")}</span>
             <AlertTriangle className="h-3.5 w-3.5 text-rose-500" />
           </div>
           <div className="flex items-baseline justify-between mt-1">
@@ -1220,9 +1231,9 @@ export function SupplierShipmentsView() {
           {paginated.length === 0 ? (
             <div className="p-8">
               <EmptyState
-                title="No shipments yet"
-                description="Shipments created from confirmed orders will appear here."
-                actionLabel="Create Shipment"
+                title={tr("emptyTitle")}
+                description={tr("emptyDescription")}
+                actionLabel={tr("btnCreateShipment")}
                 onAction={() => setIsCreateModalOpen(true)}
               />
             </div>
@@ -1230,16 +1241,16 @@ export function SupplierShipmentsView() {
             <table className="w-full text-left text-[12px]">
               <thead>
                 <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50/75 dark:bg-white/[0.03] text-slate-500 dark:text-zinc-400 font-semibold uppercase text-[10px] tracking-wider select-none">
-                  <th className="py-2.5 px-3">Shipment</th>
-                  <th className="py-2.5 px-2.5">Order</th>
-                  <th className="py-2.5 px-3">Buyer</th>
-                  <th className="py-2.5 px-2.5">Origin</th>
-                  <th className="py-2.5 px-2.5">Destination</th>
-                  <th className="py-2.5 px-2.5">Items</th>
-                  <th className="py-2.5 px-3">Carrier</th>
-                  <th className="py-2.5 px-2.5">Expected Delivery</th>
-                  <th className="py-2.5 px-2.5">Status</th>
-                  <th className="py-2.5 px-3 text-right">Actions</th>
+                  <th className="py-2.5 px-3">{tr("thShipment")}</th>
+                  <th className="py-2.5 px-2.5">{tr("thOrder")}</th>
+                  <th className="py-2.5 px-3">{tr("thBuyer")}</th>
+                  <th className="py-2.5 px-2.5">{tr("thOrigin")}</th>
+                  <th className="py-2.5 px-2.5">{tr("thDestination")}</th>
+                  <th className="py-2.5 px-2.5">{tr("thItems")}</th>
+                  <th className="py-2.5 px-3">{tr("thCarrier")}</th>
+                  <th className="py-2.5 px-2.5">{tr("thExpectedDelivery")}</th>
+                  <th className="py-2.5 px-2.5">{tr("thStatus")}</th>
+                  <th className="py-2.5 px-3 text-right">{tr("thActions")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-white/5">

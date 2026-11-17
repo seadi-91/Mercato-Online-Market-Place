@@ -57,6 +57,8 @@ import { EmptyState } from "../shared/empty-state";
 import { Pagination } from "../shared/pagination";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import { PROMOTION_TRANSLATIONS, PromotionTranslationDictionary } from "@/lib/i18n/promotion-translations";
 import { PromotionCampaign } from "@/types/supplier";
 import { toast } from "sonner";
 
@@ -72,6 +74,12 @@ export function SupplierPromotionsView() {
     setActiveTab,
   } = useSupplierStore();
   const { theme } = useThemeStore();
+  const { language } = useTranslation();
+
+  const tr = (key: keyof PromotionTranslationDictionary): string => {
+    const dict = PROMOTION_TRANSLATIONS[language] || PROMOTION_TRANSLATIONS.en;
+    return dict[key] || PROMOTION_TRANSLATIONS.en[key] || key;
+  };
 
   const isLight = theme === "light";
   const isSystem = theme === "system";
@@ -412,11 +420,11 @@ export function SupplierPromotionsView() {
     <div className="space-y-6">
       {/* 1. Page Header with Actions */}
       <PageHeader
-        title="Promotions & Wholesale Rebate Engine"
-        subtitle="Create volume tier rebates, harvest flash sales, buyer coupon codes, and logistics subsidies across MercatoX"
+        title={tr("title")}
+        subtitle={tr("subtitle")}
         breadcrumbs={[
-          { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
-          { label: "Promotions & Rebates" },
+          { label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") },
+          { label: tr("breadcrumbPromotions") },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -437,7 +445,7 @@ export function SupplierPromotionsView() {
               }`}
             >
               <Ticket className="h-3.5 w-3.5" />
-              <span>Create Coupon Code</span>
+              <span>{tr("btnCreateCoupon")}</span>
             </button>
 
             <button
@@ -456,7 +464,7 @@ export function SupplierPromotionsView() {
               }`}
             >
               <Plus className="h-4 w-4 stroke-[2.5]" />
-              <span>Launch Promotion Campaign</span>
+              <span>{tr("btnLaunchCampaign")}</span>
             </button>
           </div>
         }
@@ -475,7 +483,7 @@ export function SupplierPromotionsView() {
           )}`}
         >
           <Layers className="h-4 w-4" />
-          <span>All Campaigns & Rebates</span>
+          <span>{tr("tabAllCampaigns")}</span>
           <span className="rounded-full bg-current/10 px-1.5 py-0.2 text-[10px] font-bold">
             {promotions.length}
           </span>
@@ -488,7 +496,7 @@ export function SupplierPromotionsView() {
           )}`}
         >
           <Ticket className="h-4 w-4" />
-          <span>Coupons & Promo Codes</span>
+          <span>{tr("tabCoupons")}</span>
           <span className="rounded-full bg-purple-500/20 text-purple-400 px-1.5 py-0.2 text-[10px] font-bold">
             {couponCampaigns.length}
           </span>
@@ -501,7 +509,7 @@ export function SupplierPromotionsView() {
           )}`}
         >
           <BarChart3 className="h-4 w-4" />
-          <span>Promotion ROI & Conversion</span>
+          <span>{tr("tabAnalytics")}</span>
         </button>
 
         <button
@@ -511,7 +519,7 @@ export function SupplierPromotionsView() {
           )}`}
         >
           <Store className="h-4 w-4" />
-          <span>Storefront Banner Preview</span>
+          <span>{tr("tabPreview")}</span>
         </button>
       </div>
 
@@ -556,27 +564,27 @@ export function SupplierPromotionsView() {
                     isSystem ? "bg-blue-400" : isLight ? "bg-indigo-400" : "bg-emerald-400"
                   }`}
                 />
-                Live Promotion Engine
+                {tr("liveEngine")}
               </span>
               <span className="text-xs text-white/70 font-mono">
-                {activeCount} Active • {scheduledCount} Scheduled • {pausedCount} Paused
+                {activeCount} {tr("active")} • {scheduledCount} {tr("scheduled")} • {pausedCount} {tr("paused")}
               </span>
             </div>
 
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
-                Total Promotional Sales Generated
+                {tr("totalSalesGenerated")}
               </p>
               <div className="mt-1 flex flex-wrap items-baseline gap-3">
                 <span className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight font-mono text-white drop-shadow-xs">
                   ETB {(totalGeneratedRevenue / 1000000).toFixed(2)}M
                 </span>
                 <span className="text-xs font-mono font-medium text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
-                  +{overallConversionRate}% Conversion Lift
+                  +{overallConversionRate}% {tr("conversionLift")}
                 </span>
               </div>
               <p className="mt-1.5 text-xs text-white/80 max-w-xl leading-relaxed">
-                Wholesale volume discounts, coupon codes, and harvest flash sales incentivize commercial buyers to place larger bulk purchase orders on MercatoX.
+                {tr("heroDescription")}
               </p>
             </div>
 
@@ -596,7 +604,7 @@ export function SupplierPromotionsView() {
                 }`}
               >
                 <Plus className="h-4 w-4 stroke-[2.5]" />
-                <span>Create New Campaign</span>
+                <span>{tr("btnLaunchCampaign")}</span>
               </button>
 
               <button
@@ -608,7 +616,7 @@ export function SupplierPromotionsView() {
                 className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3.5 py-2.5 text-xs font-semibold text-white transition-all cursor-pointer backdrop-blur-xs"
               >
                 <Flame className="h-4 w-4 text-amber-300" />
-                <span>View Live Promotions</span>
+                <span>{tr("active")}</span>
               </button>
             </div>
           </div>
@@ -619,7 +627,7 @@ export function SupplierPromotionsView() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-white/20 hover:bg-white/10">
               <div className="flex items-center justify-between text-emerald-300">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                  Wholesale Orders
+                  {tr("conversions")}
                 </span>
                 <ShoppingBag className="h-4 w-4 text-emerald-400" />
               </div>
@@ -633,7 +641,7 @@ export function SupplierPromotionsView() {
             <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-white/20 hover:bg-white/10">
               <div className="flex items-center justify-between text-blue-300">
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                  Buyer Views
+                  {tr("views")}
                 </span>
                 <Eye className="h-4 w-4 text-blue-400" />
               </div>

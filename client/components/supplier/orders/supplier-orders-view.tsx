@@ -52,8 +52,25 @@ import { useThemeStore } from "@/store/theme-store";
 import { B2BOrder, B2BOrderStatus } from "@/types/supplier";
 import { getAccurateProductImage } from "@/lib/utils/product-image";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
+import {
+  ORDERS_TRANSLATIONS,
+  type OrdersTranslationDictionary,
+} from "@/lib/i18n/order-translations";
 
 export function SupplierOrdersView() {
+  const { language } = useTranslation();
+
+  const tr = (key: keyof OrdersTranslationDictionary, params?: Record<string, string | number>): string => {
+    const dict = ORDERS_TRANSLATIONS[language] || ORDERS_TRANSLATIONS.en;
+    let text = dict[key] || ORDERS_TRANSLATIONS.en[key] || key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+      });
+    }
+    return text;
+  };
   const {
     orders,
     sourcingOrders,
@@ -163,15 +180,15 @@ export function SupplierOrdersView() {
 
   const selectedOrder = orders.find((o) => o.id === selectedOrderId);
 
-  const orderStages: { stage: B2BOrderStatus; label: string }[] = [
-    { stage: "pending", label: "Pending" },
-    { stage: "confirmed", label: "Confirmed" },
-    { stage: "processing", label: "Processing" },
-    { stage: "packed", label: "Packed" },
-    { stage: "shipped", label: "Shipped" },
-    { stage: "delivered", label: "Delivered" },
-    { stage: "completed", label: "Completed" },
-  ];
+  const orderStages: { stage: B2BOrderStatus; label: string }[] = useMemo(() => [
+    { stage: "pending", label: tr("statusPending") },
+    { stage: "confirmed", label: tr("statusConfirmed") },
+    { stage: "processing", label: tr("statusProcessing") },
+    { stage: "packed", label: tr("statusPacked") },
+    { stage: "shipped", label: tr("statusShipped") },
+    { stage: "delivered", label: tr("statusDelivered") },
+    { stage: "completed", label: tr("statusCompleted") },
+  ], [language]);
 
   const getStageIndex = (status: B2BOrderStatus) => {
     return orderStages.findIndex((s) => s.stage === status);
@@ -180,7 +197,7 @@ export function SupplierOrdersView() {
   const handleCopy = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     setCopiedText(text);
-    toast.success(`Copied ${label} to clipboard!`);
+    toast.success(tr("copiedToClipboard", { label }));
     setTimeout(() => setCopiedText(null), 2000);
   };
 
@@ -210,7 +227,7 @@ export function SupplierOrdersView() {
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer mb-1"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to All Orders</span>
+              <span>{tr("backToAllOrders")}</span>
             </button>
 
             <div className="flex items-center gap-3 flex-wrap">
@@ -223,7 +240,7 @@ export function SupplierOrdersView() {
             </div>
 
             <p className="text-xs text-zinc-400">
-              Placed on <strong className="text-zinc-200">{selectedOrder.orderDate}</strong> • Expected Delivery:{" "}
+              {tr("placedOn")} <strong className="text-zinc-200">{selectedOrder.orderDate}</strong> • Expected Delivery:{" "}
               <strong className="text-white font-mono">{selectedOrder.expectedDelivery}</strong>
             </p>
           </div>
@@ -235,7 +252,7 @@ export function SupplierOrdersView() {
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3.5 py-2 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer"
             >
               <Printer className="h-3.5 w-3.5 text-zinc-400" />
-              <span>Print Invoice</span>
+              <span>{tr("printWaybillInvoice")}</span>
             </button>
 
             {selectedOrder.orderStatus === "pending" ? (
@@ -244,7 +261,7 @@ export function SupplierOrdersView() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
               >
                 <Check className="h-4 w-4" />
-                <span>Review & Accept Order</span>
+                <span>{tr("updateFulfillment")}</span>
               </button>
             ) : (
               <button
@@ -252,7 +269,7 @@ export function SupplierOrdersView() {
                 className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
               >
                 <Truck className="h-4 w-4" />
-                <span>Track Freight Dispatch</span>
+                <span>{tr("statusShipped")}</span>
               </button>
             )}
 
@@ -262,7 +279,7 @@ export function SupplierOrdersView() {
               title="Delete this order"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              <span>Delete</span>
+              <span>{tr("actionDeleteOrder")}</span>
             </button>
           </div>
         </div>
@@ -813,7 +830,7 @@ export function SupplierOrdersView() {
                   </p>
                 )}
                 <p className="text-[11px] text-zinc-400 pt-1">
-                  Commercial Bank of Ethiopia holds full deposit in an irrevocable escrow account. Payout is automatically released to your supplier account upon destination delivery inspection signoff.
+                  {tr("escrowGuaranteeNotice")}
                 </p>
               </div>
             </div>
@@ -830,7 +847,7 @@ export function SupplierOrdersView() {
               <div className="flex items-center justify-between">
                 <h4 className="font-bold text-white flex items-center gap-1.5 text-sm">
                   <Truck className="h-4 w-4 text-cyan-400" />
-                  <span>Freight Logistics & Assigned Driver</span>
+                  <span>{tr("freightLogisticsDriver")}</span>
                 </h4>
                 <button
                   type="button"
@@ -840,7 +857,7 @@ export function SupplierOrdersView() {
                   }}
                   className="px-3 py-1 rounded-lg border border-cyan-500/30 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 font-semibold text-xs transition-colors cursor-pointer"
                 >
-                  {selectedOrder.assignedDriverName ? "Change Driver" : "+ Assign Driver"}
+                  {selectedOrder.assignedDriverName ? tr("changeDriver") : `+ ${tr("assignDriverNow")}`}
                 </button>
               </div>
 
@@ -854,24 +871,24 @@ export function SupplierOrdersView() {
                       <div className="flex items-center justify-between">
                         <p className="font-bold text-white text-sm truncate">{selectedOrder.assignedDriverName}</p>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                          Dispatched On-Route
+                          {tr("dispatchedOnRoute")}
                         </span>
                       </div>
                       <p className="text-[11px] text-zinc-400">
-                        Assigned Vehicle: <strong className="text-zinc-200">{selectedOrder.assignedVehicleType || "Freight Transport"}</strong>
+                        {tr("assignedVehicleLabel")} <strong className="text-zinc-200">{selectedOrder.assignedVehicleType || "Freight Transport"}</strong>
                       </p>
                     </div>
                   </div>
 
                   <div className="pt-2 border-t border-white/5 grid grid-cols-2 gap-2 text-[11px]">
                     <div>
-                      <span className="text-zinc-400 block text-[10px] uppercase font-bold">Vehicle Plate</span>
+                      <span className="text-zinc-400 block text-[10px] uppercase font-bold">{tr("vehiclePlateLabel")}</span>
                       <span className="font-mono font-bold text-cyan-300">
                         {selectedOrder.assignedVehiclePlate || "Plate AA-3-98210"}
                       </span>
                     </div>
                     <div>
-                      <span className="text-zinc-400 block text-[10px] uppercase font-bold">Driver Mobile</span>
+                      <span className="text-zinc-400 block text-[10px] uppercase font-bold">{tr("driverMobileLabel")}</span>
                       <a
                         href={`tel:${selectedOrder.assignedDriverPhone}`}
                         className="font-mono font-bold text-emerald-400 hover:underline flex items-center gap-1"
@@ -884,9 +901,9 @@ export function SupplierOrdersView() {
                 </div>
               ) : (
                 <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 text-amber-200 text-center space-y-2">
-                  <p className="font-medium text-xs">No driver assigned to this order yet.</p>
+                  <p className="font-medium text-xs">{tr("noDriverAssignedYet")}</p>
                   <p className="text-[11px] text-zinc-400">
-                    Assign a fleet driver registered under {selectedOrder.branchName || "this branch"} to generate waybill and begin shipment.
+                    {tr("assignDriverInstructions")}
                   </p>
                   <button
                     type="button"
@@ -897,21 +914,21 @@ export function SupplierOrdersView() {
                     className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs transition-colors cursor-pointer"
                   >
                     <Truck className="h-3.5 w-3.5" />
-                    <span>Assign Driver Now</span>
+                    <span>{tr("assignDriverNow")}</span>
                   </button>
                 </div>
               )}
 
               <div className="space-y-1.5 text-zinc-400 pt-1 border-t border-white/5">
                 <p>
-                  Carrier / Fleet: <strong className="text-white">{selectedOrder.carrierName || "Pending Carrier Assignment"}</strong>
+                  {tr("carrierFleetLabel")} <strong className="text-white">{selectedOrder.carrierName || tr("pendingCarrierAssignment")}</strong>
                 </p>
                 <p>
-                  Waybill Number:{" "}
-                  <strong className="text-white font-mono">{selectedOrder.trackingNumber || "Pending Booking"}</strong>
+                  {tr("waybillNumberLabel")}{" "}
+                  <strong className="text-white font-mono">{selectedOrder.trackingNumber || tr("pendingBooking")}</strong>
                 </p>
                 <p>
-                  Origin Depot: <strong className="text-white">{selectedOrder.branchName || "Central Logistics Hub"}</strong>
+                  {tr("originDepotLabel")} <strong className="text-white">{selectedOrder.branchName || "Central Logistics Hub"}</strong>
                 </p>
               </div>
             </div>
@@ -928,22 +945,22 @@ export function SupplierOrdersView() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="B2B Purchase Orders Management"
-        subtitle="Process commercial purchase orders, review Escrow fund guarantees, update packaging milestones, and dispatch freight carriers"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Orders" }]}
+        title={tr("ordersTitle")}
+        subtitle={tr("ordersSubtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbOrders") }]}
         actions={
           <div className="flex items-center gap-2">
             <button
               onClick={() => fetchOrders()}
               disabled={isLoadingOrders}
               className="inline-flex items-center gap-1.5 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 text-xs font-semibold text-zinc-200 transition-colors cursor-pointer disabled:opacity-50"
-              title="Refresh orders from database"
+              title={tr("refreshBtn")}
             >
               <RotateCcw className={`h-3.5 w-3.5 text-zinc-400 ${isLoadingOrders ? "animate-spin" : ""}`} />
-              <span>Refresh</span>
+              <span>{tr("refreshBtn")}</span>
             </button>
             <span className="rounded-lg border border-emerald-200/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-bold text-emerald-400">
-              {orders.length} Active Orders
+              {tr("activeOrdersBadge", { count: orders.length })}
             </span>
           </div>
         }
@@ -960,7 +977,7 @@ export function SupplierOrdersView() {
           }`}
         >
           <ShoppingCart className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span>Customer Sales Orders ({orders.length})</span>
+          <span>{tr("perspectiveSales", { count: orders.length })}</span>
         </button>
 
         <button
@@ -972,7 +989,7 @@ export function SupplierOrdersView() {
           }`}
         >
           <PackageCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
-          <span>My Sourcing Purchases ({sourcingOrders.length})</span>
+          <span>{tr("perspectivePurchases", { count: sourcingOrders.length })}</span>
         </button>
       </div>
 
@@ -987,11 +1004,11 @@ export function SupplierOrdersView() {
           <div className="flex items-center gap-2.5 text-blue-300">
             <Building className="h-4 w-4 shrink-0 text-blue-400" />
             <span>
-              Branch Operations View: Managing orders strictly scoped to <strong>{userBranchName}</strong> (Logged in as {user?.name || currentStaffUser?.fullName}).
+              {tr("branchOpsView")} <strong>{userBranchName}</strong> ({tr("loggedInAs")} {user?.name || currentStaffUser?.fullName}).
             </span>
           </div>
           <span className="rounded-md bg-blue-600/30 border border-blue-500/40 px-2.5 py-0.5 text-[10px] font-bold text-blue-200">
-            Isolated Branch Scope
+            {tr("isolatedBranchScope")}
           </span>
         </div>
       ) : (
@@ -999,7 +1016,7 @@ export function SupplierOrdersView() {
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="text-zinc-400 font-semibold flex items-center gap-1.5 text-xs mr-1">
             <Building className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Regional Hub Filter:</span>
+            <span>{tr("regionalHubFilter")}</span>
           </span>
           <button
             type="button"
@@ -1009,7 +1026,7 @@ export function SupplierOrdersView() {
                 : "border-white/10 bg-white/[0.03] text-zinc-300 hover:bg-white/[0.08]"
               }`}
           >
-            All Enterprise Hubs ({orders.length})
+            {tr("allEnterpriseHubs", { count: orders.length })}
           </button>
           {warehouses.map((wh) => {
             const count = orders.filter((o) => o.branchId === wh.id).length;
@@ -1034,24 +1051,24 @@ export function SupplierOrdersView() {
       <DataFilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search orders by Order ID, buyer enterprise, commodity, or contact person..."
+        searchPlaceholder={tr("searchOrdersPlaceholder")}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         statusOptions={[
-          { value: "pending", label: "Pending Review" },
-          { value: "confirmed", label: "Confirmed" },
-          { value: "processing", label: "Processing & Milling" },
-          { value: "packed", label: "Packed & Weighed" },
-          { value: "shipped", label: "Shipped in Transit" },
-          { value: "delivered", label: "Delivered" },
-          { value: "completed", label: "Completed" },
-          { value: "cancelled", label: "Cancelled / Rejected" },
+          { value: "pending", label: tr("statusPending") },
+          { value: "confirmed", label: tr("statusConfirmed") },
+          { value: "processing", label: tr("statusProcessing") },
+          { value: "packed", label: tr("statusPacked") },
+          { value: "shipped", label: tr("statusShipped") },
+          { value: "delivered", label: tr("statusDelivered") },
+          { value: "completed", label: tr("statusCompleted") },
+          { value: "cancelled", label: tr("statusCancelled") },
         ]}
         onReset={() => {
           setSearchQuery("");
           setStatusFilter("all");
         }}
-        onExport={() => toast.success("Exporting purchase orders register...")}
+        onExport={() => toast.success(tr("exportRegisterSuccess"))}
       />
 
       {/* Orders Data Table: Spacious horizontal layout so columns never squeeze */}
@@ -1066,14 +1083,14 @@ export function SupplierOrdersView() {
         {isLoadingOrders && orders.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 space-y-3">
             <Loader2 className="h-8 w-8 text-indigo-500 animate-spin" />
-            <p className="text-xs text-zinc-400 font-medium">Fetching real purchase orders from database...</p>
+            <p className="text-xs text-zinc-400 font-medium">{tr("loadingOrdersDb")}</p>
           </div>
         ) : ordersError && orders.length === 0 ? (
           <div className="p-6 rounded-2xl border border-rose-500/20 bg-rose-500/5 flex flex-col sm:flex-row items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <AlertCircle className="h-5 w-5 text-rose-400 shrink-0" />
               <div>
-                <p className="text-xs font-bold text-rose-300">Unable to load purchase orders</p>
+                <p className="text-xs font-bold text-rose-300">{tr("unableToLoadOrders")}</p>
                 <p className="text-[11px] text-zinc-400 mt-0.5">{ordersError}</p>
               </div>
             </div>
@@ -1082,30 +1099,30 @@ export function SupplierOrdersView() {
               className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-xs font-semibold text-white transition-colors cursor-pointer flex items-center gap-1.5"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span>Retry</span>
+              <span>{tr("retryBtn")}</span>
             </button>
           </div>
         ) : paginated.length === 0 ? (
           <div className="p-8">
             <EmptyState
-              title="No Orders Found"
-              description="No purchase orders match your active filter parameters."
+              title={tr("noOrdersFoundTitle")}
+              description={tr("noOrdersFoundDesc")}
             />
           </div>
         ) : (
           <table className="w-full min-w-[1460px] text-left text-xs border-collapse">
             <thead>
               <tr className="border-b border-white/10 bg-white/[0.02] text-zinc-400 font-semibold uppercase text-[10px] tracking-wider select-none">
-                <th className="py-4 px-5 min-w-[160px] whitespace-nowrap">Order ID</th>
-                <th className="py-4 px-5 min-w-[220px] whitespace-nowrap">Buyer / Customer</th>
-                <th className="py-4 px-5 min-w-[250px] whitespace-nowrap">Commodity & Volume</th>
-                <th className="py-4 px-5 min-w-[150px] whitespace-nowrap">Order Total (ETB)</th>
-                <th className="py-4 px-5 min-w-[130px] whitespace-nowrap">Branch Hub</th>
-                <th className="py-4 px-5 min-w-[175px] whitespace-nowrap">Fleet Driver</th>
-                <th className="py-4 px-5 min-w-[175px] whitespace-nowrap">Payment & Ref</th>
-                <th className="py-4 px-5 min-w-[140px] whitespace-nowrap">Status</th>
-                <th className="py-4 px-5 min-w-[120px] whitespace-nowrap">Date</th>
-                <th className="py-4 px-5 min-w-[85px] text-right whitespace-nowrap">Actions</th>
+                <th className="py-4 px-5 min-w-[160px] whitespace-nowrap">{tr("colOrderId")}</th>
+                <th className="py-4 px-5 min-w-[220px] whitespace-nowrap">{tr("colBuyerCustomer")}</th>
+                <th className="py-4 px-5 min-w-[250px] whitespace-nowrap">{tr("colCommodityVolume")}</th>
+                <th className="py-4 px-5 min-w-[150px] whitespace-nowrap">{tr("colOrderTotal")}</th>
+                <th className="py-4 px-5 min-w-[130px] whitespace-nowrap">{tr("colBranchHub")}</th>
+                <th className="py-4 px-5 min-w-[175px] whitespace-nowrap">{tr("colFleetDriver")}</th>
+                <th className="py-4 px-5 min-w-[175px] whitespace-nowrap">{tr("colPaymentRef")}</th>
+                <th className="py-4 px-5 min-w-[140px] whitespace-nowrap">{tr("colStatus")}</th>
+                <th className="py-4 px-5 min-w-[120px] whitespace-nowrap">{tr("colDate")}</th>
+                <th className="py-4 px-5 min-w-[85px] text-right whitespace-nowrap">{tr("colActions")}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -1233,7 +1250,7 @@ export function SupplierOrdersView() {
                             className="w-full px-3.5 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-white/10 transition-colors text-left cursor-pointer"
                           >
                             <Eye className="h-3.5 w-3.5 text-indigo-400" />
-                            <span>View Detail</span>
+                            <span>{tr("actionViewDetail")}</span>
                           </button>
 
                           {/* Assign Driver Action */}
@@ -1246,7 +1263,7 @@ export function SupplierOrdersView() {
                             className="w-full px-3.5 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-white/10 transition-colors text-left cursor-pointer text-cyan-400"
                           >
                             <Truck className="h-3.5 w-3.5" />
-                            <span>{order.assignedDriverName ? "Re-assign Driver" : "Assign Driver"}</span>
+                            <span>{tr("actionAssignDriver")}</span>
                           </button>
 
                           {/* Review & Accept (if pending) */}
@@ -1259,7 +1276,7 @@ export function SupplierOrdersView() {
                               className="w-full px-3.5 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-white/10 transition-colors text-left cursor-pointer text-emerald-400"
                             >
                               <Check className="h-3.5 w-3.5" />
-                              <span>Review & Accept</span>
+                              <span>{tr("actionUpdateStatus")}</span>
                             </button>
                           )}
 
@@ -1273,7 +1290,7 @@ export function SupplierOrdersView() {
                               className="w-full px-3.5 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-white/10 transition-colors text-left cursor-pointer"
                             >
                               <Truck className="h-3.5 w-3.5 text-cyan-400" />
-                              <span>Track Freight</span>
+                              <span>{tr("statusShipped")}</span>
                             </button>
                           )}
 
@@ -1288,7 +1305,7 @@ export function SupplierOrdersView() {
                             className="w-full px-3.5 py-2 text-xs font-semibold flex items-center gap-2 hover:bg-rose-500/10 text-rose-400 transition-colors text-left cursor-pointer"
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                            <span>Delete Order</span>
+                            <span>{tr("actionDeleteOrder")}</span>
                           </button>
                         </div>
                       )}
@@ -1328,7 +1345,7 @@ export function SupplierOrdersView() {
                   <Truck className="h-5 w-5" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-white">Assign Fleet Driver</h3>
+                  <h3 className="text-sm font-bold text-white">{tr("assignDriverModalTitle")}</h3>
                   <p className="text-[11px] text-zinc-400 font-mono">
                     Order {assigningOrder.orderNumber} · {assigningOrder.branchName || "Branch Depot"}
                   </p>
@@ -1346,17 +1363,17 @@ export function SupplierOrdersView() {
             {/* Order Destination Strip */}
             <div className="p-3 rounded-xl border border-white/10 bg-white/[0.02] text-xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Buyer Destination:</span>
+                <span className="text-zinc-400">{tr("colBuyerCustomer")}:</span>
                 <span className="font-semibold text-white">{assigningOrder.buyerCompany}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Cargo Volume:</span>
+                <span className="text-zinc-400">{tr("colCommodityVolume")}:</span>
                 <span className="font-mono font-bold text-indigo-300">
                   {assigningOrder.quantity.toLocaleString()} {assigningOrder.unit} {assigningOrder.productName}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-zinc-400">Delivery Address:</span>
+                <span className="text-zinc-400">{tr("deliveryDestination")}:</span>
                 <span className="font-medium text-zinc-200 truncate max-w-[260px]">{assigningOrder.buyerLocation}</span>
               </div>
             </div>
@@ -1364,16 +1381,13 @@ export function SupplierOrdersView() {
             {/* Driver Selection List */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-zinc-300">
-                Select Fleet Driver from {assigningOrder.branchName || "Assigned Branch"}:
+                {tr("selectDriverLabel")} {assigningOrder.branchName || "Assigned Branch"}:
               </label>
 
               {eligibleDrivers.length === 0 ? (
                 <div className="p-5 rounded-xl border border-amber-500/20 bg-amber-500/5 text-center text-xs text-amber-300 space-y-2">
                   <AlertCircle className="h-5 w-5 mx-auto text-amber-400" />
-                  <p className="font-semibold">No fleet drivers registered under this branch.</p>
-                  <p className="text-[11px] text-zinc-400">
-                    Go to <strong>Staff & Fleet Management</strong> to register a driver for {assigningOrder.branchName}.
-                  </p>
+                  <p className="font-semibold">{tr("noDriversRegisteredBranch")}</p>
                 </div>
               ) : (
                 <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
@@ -1440,7 +1454,7 @@ export function SupplierOrdersView() {
                 onClick={() => setAssigningOrder(null)}
                 className="px-4 py-2 rounded-xl border border-white/10 text-xs font-semibold text-zinc-300 hover:bg-white/5 transition-colors cursor-pointer"
               >
-                Cancel
+                {tr("cancelBtn")}
               </button>
               <button
                 type="button"
@@ -1449,7 +1463,7 @@ export function SupplierOrdersView() {
                 className="px-5 py-2 rounded-xl bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:cursor-not-allowed text-xs font-bold text-white shadow-md transition-all cursor-pointer flex items-center gap-1.5"
               >
                 <Truck className="h-3.5 w-3.5" />
-                <span>Confirm Assignment</span>
+                <span>{tr("confirmAssignBtn")}</span>
               </button>
             </div>
           </div>

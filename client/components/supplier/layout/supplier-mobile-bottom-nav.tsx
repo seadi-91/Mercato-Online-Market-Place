@@ -10,9 +10,20 @@ import {
   PlusCircle,
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  SUPPLIER_TRANSLATIONS,
+  type SupplierTranslationDictionary,
+} from "@/lib/i18n/supplier-translations";
 import { SupplierTab } from "@/types/supplier";
 
 export function SupplierMobileBottomNav() {
+  const { language } = useTranslation();
+  const tr = (key: keyof SupplierTranslationDictionary): string => {
+    const dict = SUPPLIER_TRANSLATIONS[language] || SUPPLIER_TRANSLATIONS.en;
+    return dict[key] || SUPPLIER_TRANSLATIONS.en[key] || key;
+  };
+
   const {
     activeTab,
     setActiveTab,
@@ -35,7 +46,7 @@ export function SupplierMobileBottomNav() {
   }[] = [
     {
       id: "dashboard",
-      label: "Home",
+      label: tr("navDashboard"),
       icon: LayoutDashboard,
       onClick: () => {
         setActiveTab("dashboard");
@@ -44,7 +55,7 @@ export function SupplierMobileBottomNav() {
     },
     {
       id: "products",
-      label: "Catalog",
+      label: tr("navProducts"),
       icon: Package,
       onClick: () => {
         setActiveTab("products");
@@ -53,7 +64,7 @@ export function SupplierMobileBottomNav() {
     },
     {
       id: "add",
-      label: "Add Item",
+      label: tr("bottomNavAddItem"),
       icon: PlusCircle,
       onClick: () => {
         setActiveTab("products");
@@ -62,7 +73,7 @@ export function SupplierMobileBottomNav() {
     },
     {
       id: "orders",
-      label: "Orders",
+      label: tr("navOrders"),
       icon: ShoppingCart,
       badge: pendingOrders,
       onClick: () => {
@@ -72,7 +83,7 @@ export function SupplierMobileBottomNav() {
     },
     {
       id: "rfqs",
-      label: "RFQs",
+      label: tr("navRFQs"),
       icon: FileQuestion,
       badge: unreadRFQs,
       onClick: () => {
@@ -82,7 +93,7 @@ export function SupplierMobileBottomNav() {
     },
     {
       id: "menu",
-      label: "Menu",
+      label: tr("bottomNavMenu"),
       icon: Menu,
       onClick: () => {
         setMobileDrawerOpen(true);

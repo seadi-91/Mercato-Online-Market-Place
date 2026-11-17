@@ -24,12 +24,19 @@ import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
+import { useTranslation } from "@/store/language-store";
+import { RFQ_TRANSLATIONS, type RFQTranslationDictionary } from "@/lib/i18n/rfq-translations";
 import { RFQItem, RFQStatus } from "@/types/supplier";
 import { toast } from "sonner";
 
 export function SupplierRFQView() {
   const { rfqs, isLoadingRFQs, fetchRFQs, openModal, setActiveTab, currentStaffUser } = useSupplierStore();
   const { user } = useAuthStore();
+  const { language } = useTranslation();
+  const tr = (key: keyof RFQTranslationDictionary): string => {
+    const dict = RFQ_TRANSLATIONS[language] || RFQ_TRANSLATIONS.en;
+    return dict[key] || RFQ_TRANSLATIONS.en[key] || key;
+  };
   const isBranchManager = user?.staffRole === "branch_manager" || currentStaffUser?.role === "branch_manager";
 
   useEffect(() => {
@@ -65,9 +72,9 @@ export function SupplierRFQView() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Request for Quotations (RFQ) Inbox"
-        subtitle="Review inbound commercial procurement tenders, custom specifications, and target pricing from verified corporate buyers"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "RFQs" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbRfq") }]}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -76,10 +83,10 @@ export function SupplierRFQView() {
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-white/10 bg-white dark:bg-white/[0.04] text-xs font-semibold text-slate-700 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-white/[0.08] transition-colors disabled:opacity-50"
             >
               <RotateCcw className={`h-3.5 w-3.5 ${isLoadingRFQs ? "animate-spin text-emerald-600" : "text-slate-500"}`} />
-              <span>Refresh</span>
+              <span>{tr("btnRefresh")}</span>
             </button>
             <span className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700 dark:bg-emerald-950/40 dark:border-emerald-800/40 dark:text-emerald-400">
-              {rfqs.filter((r) => r.status === "new").length} New Inquiries
+              {rfqs.filter((r) => r.status === "new").length} {tr("newInquiries")}
             </span>
           </div>
         }
@@ -90,7 +97,7 @@ export function SupplierRFQView() {
         <div className="p-3.5 rounded-2xl border border-blue-500/30 bg-blue-500/10 flex items-center gap-2.5 text-xs text-blue-300">
           <Building className="h-4 w-4 shrink-0 text-blue-400" />
           <span>
-            Executive Commercial Notice: Formal RFQ negotiations, commercial quotations, and contracts are managed exclusively by <strong>Super Supplier Enterprise HQ</strong>. Branch managers hold localized fulfillment oversight.
+            {tr("branchNotice")}
           </span>
         </div>
       )}
@@ -99,17 +106,18 @@ export function SupplierRFQView() {
       <DataFilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Filter RFQs by RFQ number, buyer company, commodity, or delivery location..."
+        searchPlaceholder={tr("searchPlaceholder")}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         statusOptions={[
-          { value: "new", label: "New / Unread" },
-          { value: "viewed", label: "Viewed" },
-          { value: "responded", label: "Responded" },
-          { value: "negotiating", label: "In Negotiation" },
-          { value: "accepted", label: "Accepted" },
-          { value: "rejected", label: "Rejected" },
-          { value: "expired", label: "Expired" },
+          { value: "all", label: tr("statusAll") },
+          { value: "new", label: tr("statusNew") },
+          { value: "viewed", label: tr("statusViewed") },
+          { value: "responded", label: tr("statusResponded") },
+          { value: "negotiating", label: tr("statusNegotiating") },
+          { value: "accepted", label: tr("statusAccepted") },
+          { value: "rejected", label: tr("statusRejected") },
+          { value: "expired", label: tr("statusExpired") },
         ]}
         onReset={() => {
           setSearchQuery("");
@@ -124,23 +132,23 @@ export function SupplierRFQView() {
           {paginated.length === 0 ? (
             <div className="p-8">
               <EmptyState
-                title="No RFQs Found"
-                description="There are currently no RFQ inquiries matching your search criteria."
+                title={tr("emptyTitle")}
+                description={tr("emptyDesc")}
               />
             </div>
           ) : (
             <table className="w-full text-left text-xs">
               <thead>
                 <tr className="border-b border-slate-200 bg-slate-50/75 text-slate-500 font-semibold uppercase text-[10px] tracking-wider select-none">
-                  <th className="py-3 px-4">RFQ ID</th>
-                  <th className="py-3 px-3">Buyer Enterprise</th>
-                  <th className="py-3 px-3">Requested Commodity</th>
-                  <th className="py-3 px-3">Target Volume</th>
-                  <th className="py-3 px-3">Buyer Target Price</th>
-                  <th className="py-3 px-3">Delivery Location</th>
-                  <th className="py-3 px-3">Required Date</th>
-                  <th className="py-3 px-3">Status</th>
-                  <th className="py-3 px-4 text-right">Action</th>
+                  <th className="py-3 px-4">{tr("colRfqId")}</th>
+                  <th className="py-3 px-3">{tr("colBuyerEnterprise")}</th>
+                  <th className="py-3 px-3">{tr("colCommodity")}</th>
+                  <th className="py-3 px-3">{tr("colTargetVolume")}</th>
+                  <th className="py-3 px-3">{tr("colTargetPrice")}</th>
+                  <th className="py-3 px-3">{tr("colLocation")}</th>
+                  <th className="py-3 px-3">{tr("colRequiredDate")}</th>
+                  <th className="py-3 px-3">{tr("colStatus")}</th>
+                  <th className="py-3 px-4 text-right">{tr("colAction")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -190,7 +198,7 @@ export function SupplierRFQView() {
                           className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-2.5 py-1 text-xs font-semibold text-white hover:bg-indigo-500 shadow-xs cursor-pointer"
                         >
                           <FileText className="h-3.5 w-3.5" />
-                          <span>Quote</span>
+                          <span>{tr("btnQuote")}</span>
                         </button>
                       </td>
                     </tr>
@@ -226,7 +234,7 @@ export function SupplierRFQView() {
                     <h3 className="text-base font-bold text-slate-900">{selectedRFQ.rfqNumber}</h3>
                     <StatusBadge status={selectedRFQ.status} size="sm" />
                   </div>
-                  <p className="text-slate-500 mt-0.5">Received on {selectedRFQ.createdAt}</p>
+                  <p className="text-slate-500 mt-0.5">{tr("drawerReceivedOn")} {selectedRFQ.createdAt}</p>
                 </div>
                 <button
                   onClick={() => setSelectedRFQ(null)}
@@ -240,23 +248,23 @@ export function SupplierRFQView() {
               <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 space-y-2">
                 <p className="font-bold text-slate-900 flex items-center gap-1.5">
                   <Building className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                  <span>Buyer Organization</span>
+                  <span>{tr("drawerBuyerOrg")}</span>
                 </p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
                   <div>
-                    <span className="text-slate-500">Company:</span>
+                    <span className="text-slate-500">{tr("drawerCompany")}</span>
                     <p className="font-bold text-slate-900">{selectedRFQ.buyerCompany}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Contact Officer:</span>
+                    <span className="text-slate-500">{tr("drawerProcurementLead")}</span>
                     <p className="font-bold text-slate-900">{selectedRFQ.buyerName}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Delivery Site:</span>
+                    <span className="text-slate-500">{tr("drawerDestination")}</span>
                     <p className="font-bold text-slate-900">{selectedRFQ.deliveryLocation}</p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Required By:</span>
+                    <span className="text-slate-500">{tr("drawerExpectedDate")}</span>
                     <p className="font-bold text-slate-900 font-mono">{selectedRFQ.requiredDate}</p>
                   </div>
                 </div>
@@ -264,18 +272,18 @@ export function SupplierRFQView() {
 
               {/* Product & Volume Box */}
               <div className="rounded-xl border border-slate-200 p-4 space-y-2">
-                <span className="text-slate-500">Requested Commodity:</span>
+                <span className="text-slate-500">{tr("drawerSpecifications")}</span>
                 <p className="text-sm font-bold text-slate-900">{selectedRFQ.productName}</p>
 
                 <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-100">
                   <div>
-                    <span className="text-slate-500">Requested Volume:</span>
+                    <span className="text-slate-500">{tr("drawerTargetQuantity")}</span>
                     <p className="font-mono font-bold text-slate-900 text-sm">
                       {selectedRFQ.requestedQty.toLocaleString()} {selectedRFQ.unit}
                     </p>
                   </div>
                   <div>
-                    <span className="text-slate-500">Buyer Target Price:</span>
+                    <span className="text-slate-500">{tr("drawerTargetBudget")}</span>
                     <p className="font-mono font-bold text-indigo-600 dark:text-indigo-400 text-sm">
                       ETB {selectedRFQ.targetPrice.toLocaleString()} / {selectedRFQ.unit}
                     </p>
@@ -307,7 +315,7 @@ export function SupplierRFQView() {
 
               {/* Buyer Notes */}
               <div>
-                <h4 className="font-bold text-slate-900 mb-1">Procurement Officer Notes:</h4>
+                <h4 className="font-bold text-slate-900 mb-1">{tr("drawerNotes")}</h4>
                 <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-slate-700 leading-relaxed">
                   {selectedRFQ.notes}
                 </div>
@@ -328,7 +336,7 @@ export function SupplierRFQView() {
                     className="rounded-lg bg-indigo-600 px-5 py-2 font-bold text-white hover:bg-indigo-500 shadow-xs cursor-pointer flex items-center gap-1.5"
                   >
                     <FileText className="h-4 w-4" />
-                    <span>Generate Quotation</span>
+                    <span>{tr("drawerBtnQuote")}</span>
                   </button>
                 ) : (
                   <span className="text-xs text-slate-500 font-semibold px-3 py-2 rounded-lg bg-slate-100 border border-slate-200">

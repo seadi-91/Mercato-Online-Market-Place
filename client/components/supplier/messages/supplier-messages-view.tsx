@@ -25,6 +25,11 @@ import { PageHeader } from "../shared/page-header";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  MESSAGE_TRANSLATIONS,
+  MessageTranslationDictionary,
+} from "@/lib/i18n/message-translations";
 import { toast } from "sonner";
 
 interface MessageItem {
@@ -54,6 +59,12 @@ export function SupplierMessagesView() {
   const isLight = theme === "light";
   const isSystem = theme === "system";
   const isDark = theme === "dark";
+  const { language } = useTranslation();
+
+  const tr = (key: keyof MessageTranslationDictionary): string => {
+    const dict = MESSAGE_TRANSLATIONS[language] || MESSAGE_TRANSLATIONS.en;
+    return dict[key] || MESSAGE_TRANSLATIONS.en[key] || key;
+  };
 
   const [messageInput, setMessageInput] = useState("");
   const [chatSearch, setChatSearch] = useState("");
@@ -168,17 +179,17 @@ export function SupplierMessagesView() {
     return (
       <div className="space-y-6">
         <PageHeader
-          title="Direct B2B Commercial Messaging"
-          subtitle="Real-time procurement communications with authenticated enterprise buyers, instant quotation sharing, and order milestone context"
+          title={tr("title")}
+          subtitle={tr("subtitle")}
           breadcrumbs={[
-            { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
-            { label: "Messages" },
+            { label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") },
+            { label: tr("breadcrumbMessages") },
           ]}
         />
         <div className="rounded-2xl border border-slate-200 dark:border-white/10 bg-white dark:bg-[#0e1118] p-12 flex flex-col items-center justify-center text-center shadow-xs">
           <EmptyState
-            title="No Conversations Yet"
-            description="There are currently no active communication channels with buyers. When buyers message your sales desk or submit RFQs, real-time message channels will appear here."
+            title={tr("emptyTitle")}
+            description={tr("emptyDescription")}
           />
         </div>
       </div>
@@ -189,11 +200,11 @@ export function SupplierMessagesView() {
     <div className="space-y-6">
       {/* 1. Page Header with Actions */}
       <PageHeader
-        title="Direct B2B Commercial Messaging"
-        subtitle="Real-time procurement communications with authenticated enterprise buyers, instant quotation sharing, and order milestone context"
+        title={tr("title")}
+        subtitle={tr("subtitle")}
         breadcrumbs={[
-          { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
-          { label: "Messages" },
+          { label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") },
+          { label: tr("breadcrumbMessages") },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -207,7 +218,7 @@ export function SupplierMessagesView() {
               }`}
             >
               <MessageCircle className="h-3.5 w-3.5 text-indigo-500" />
-              <span>{totalUnreadCount} Unread Inquiry Messages</span>
+              <span>{totalUnreadCount} {tr("badgeUnread")}</span>
             </span>
 
             <button

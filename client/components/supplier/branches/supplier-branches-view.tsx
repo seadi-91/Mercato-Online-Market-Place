@@ -37,10 +37,21 @@ import { StatusBadge } from "../shared/status-badge";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  BRANCHES_TRANSLATIONS,
+  type BranchesTranslationDictionary,
+} from "@/lib/i18n/branches-translations";
 import { toast } from "sonner";
 import { Warehouse as BranchWarehouse } from "@/types/supplier";
 
 export function SupplierBranchesView() {
+  const { language } = useTranslation();
+  const tr = (key: keyof BranchesTranslationDictionary): string => {
+    const dict = BRANCHES_TRANSLATIONS[language] || BRANCHES_TRANSLATIONS.en;
+    return dict[key] || BRANCHES_TRANSLATIONS.en[key] || key;
+  };
+
   const {
     warehouses,
     isLoadingWarehouses,
@@ -259,11 +270,11 @@ export function SupplierBranchesView() {
     <div className="space-y-6">
       {/* 1. Header with Title & Create Branch Action */}
       <PageHeader
-        title="Branch Management & Regional Hubs"
-        subtitle="Create, configure, and monitor your enterprise wholesale branches, regional distribution centers, and bonded dry port yards across Ethiopia"
+        title={tr("title")}
+        subtitle={tr("subtitle")}
         breadcrumbs={[
-          { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
-          { label: "Branch Management" },
+          { label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") },
+          { label: tr("breadcrumbBranches") },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2.5">
@@ -273,7 +284,7 @@ export function SupplierBranchesView() {
               className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-zinc-300 hover:bg-white/[0.08] hover:text-white transition-colors cursor-pointer"
             >
               <RotateCcw className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Refresh</span>
+              <span className="hidden sm:inline">{tr("btnRefresh")}</span>
             </button>
 
             <button
@@ -281,7 +292,7 @@ export function SupplierBranchesView() {
               className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2 text-xs font-bold text-white hover:bg-indigo-500 shadow-sm shadow-indigo-600/30 transition-all cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>Create New Branch</span>
+              <span>{tr("btnCreateBranch")}</span>
             </button>
           </div>
         }
@@ -292,7 +303,7 @@ export function SupplierBranchesView() {
         {/* Metric 1: Total Active Branches */}
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20">
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Operating Branches</span>
+            <span>{tr("kpiOperatingBranches")}</span>
             <Building2 className="h-4 w-4 text-indigo-400" />
           </div>
           <div className="mt-2 text-2xl font-bold font-mono tracking-tight text-white">
@@ -300,35 +311,35 @@ export function SupplierBranchesView() {
           </div>
           <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
-            <span>Active Nationwide</span>
+            <span>{tr("kpiActiveNationwide")}</span>
           </div>
         </div>
 
         {/* Metric 2: Storage Floor Capacity */}
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20">
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Total Floor Area</span>
+            <span>{tr("kpiTotalFloorArea")}</span>
             <Layers className="h-4 w-4 text-cyan-400" />
           </div>
           <div className="mt-2 text-2xl font-bold font-mono tracking-tight text-white">
             {(totalCapacityM2Sum / 1000).toFixed(1)}k m²
           </div>
           <div className="mt-1 text-[11px] text-zinc-400">
-            Across {totalBranchesCount} commercial sites
+            Across {totalBranchesCount} {tr("kpiAcrossSites")}
           </div>
         </div>
 
         {/* Metric 3: Network Utilization */}
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20">
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Capacity Utilized</span>
+            <span>{tr("kpiCapacityUtilized")}</span>
             <BarChart3 className="h-4 w-4 text-amber-400" />
           </div>
           <div className="mt-2 text-2xl font-bold font-mono tracking-tight text-white">
             {overallUtilizationPercent}%
           </div>
           <div className="mt-1 text-[11px] text-zinc-400">
-            {totalUsedCapacityM2Sum.toLocaleString()} m² occupied
+            {totalUsedCapacityM2Sum.toLocaleString()} m² {tr("kpiOccupied")}
           </div>
         </div>
 
@@ -338,14 +349,14 @@ export function SupplierBranchesView() {
           className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
-            <span>Branch Personnel</span>
+            <span>{tr("kpiBranchPersonnel")}</span>
             <Users className="h-4 w-4 text-emerald-400" />
           </div>
           <div className="mt-2 text-2xl font-bold font-mono tracking-tight text-white">
             {totalStaffStationed || totalBranchesCount * 3} Staff
           </div>
           <div className="mt-1 flex items-center gap-1 text-[11px] text-indigo-400 font-medium">
-            <span>Manage Branch Staff</span>
+            <span>{tr("kpiManageStaff")}</span>
             <ArrowRight className="h-3 w-3" />
           </div>
         </div>
@@ -361,7 +372,7 @@ export function SupplierBranchesView() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search branches by name, code, city, manager, or address..."
+              placeholder={tr("searchPlaceholder")}
               className="w-full rounded-lg border border-white/10 bg-white/[0.04] pl-9 pr-3 py-2 text-xs text-white placeholder-zinc-500 focus:border-indigo-500 focus:outline-hidden"
             />
             {searchQuery && (
@@ -381,7 +392,7 @@ export function SupplierBranchesView() {
               onChange={(e) => setRegionFilter(e.target.value)}
               className="rounded-lg border border-white/10 bg-[#121826] px-3 py-2 text-xs text-zinc-200 focus:border-indigo-500 cursor-pointer"
             >
-              <option value="all">All Regions</option>
+              <option value="all">{tr("regionAll")}</option>
               <option value="Addis Ababa">Addis Ababa Hubs</option>
               <option value="Oromia">Oromia / Mojo Corridor</option>
               <option value="Sidama">Sidama / Hawassa Hub</option>
@@ -396,7 +407,7 @@ export function SupplierBranchesView() {
               onChange={(e) => setFacilityFilter(e.target.value)}
               className="rounded-lg border border-white/10 bg-[#121826] px-3 py-2 text-xs text-zinc-200 focus:border-indigo-500 cursor-pointer"
             >
-              <option value="all">All Facility Types</option>
+              <option value="all">{tr("facilityAll")}</option>
               <option value="Central">Central Logistics Hub</option>
               <option value="Wholesale">Wholesale Branch Depot</option>
               <option value="Regional">Regional Distribution Center</option>
@@ -411,7 +422,7 @@ export function SupplierBranchesView() {
                   viewMode === "cards" ? "bg-indigo-600 text-white" : "text-zinc-400 hover:text-white"
                 }`}
               >
-                Grid
+                {tr("viewGrid")}
               </button>
               <button
                 onClick={() => setViewMode("table")}
@@ -419,7 +430,7 @@ export function SupplierBranchesView() {
                   viewMode === "table" ? "bg-indigo-600 text-white" : "text-zinc-400 hover:text-white"
                 }`}
               >
-                Table
+                {tr("viewTable")}
               </button>
             </div>
           </div>
@@ -436,9 +447,9 @@ export function SupplierBranchesView() {
         <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-10">
           <EmptyState
             icon={Building2}
-            title="No Branches Registered"
-            description="No active branch or distribution depot found in the database. Click 'Create New Branch' to configure your first regional fulfillment hub."
-            actionLabel="Create New Branch"
+            title={tr("emptyTitle")}
+            description={tr("emptyDesc")}
+            actionLabel={tr("emptyAction")}
             onAction={handleOpenAddModal}
           />
         </div>
@@ -541,7 +552,7 @@ export function SupplierBranchesView() {
                     onClick={() => handleViewDetails(branch)}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
                   >
-                    <span>View Hub</span>
+                    <span>{tr("btnViewDetails")}</span>
                     <ChevronRight className="h-3.5 w-3.5 text-zinc-400" />
                   </button>
 

@@ -54,6 +54,11 @@ import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  CUSTOMER_TRANSLATIONS,
+  CustomerTranslationDictionary,
+} from "@/lib/i18n/customer-translations";
 import { CustomerCRM } from "@/types/supplier";
 import { toast } from "sonner";
 
@@ -75,6 +80,11 @@ export function SupplierCustomersView() {
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
+  const { language } = useTranslation();
+  const tr = (key: keyof CustomerTranslationDictionary): string => {
+    const dict = CUSTOMER_TRANSLATIONS[language] || CUSTOMER_TRANSLATIONS.en;
+    return dict[key] || CUSTOMER_TRANSLATIONS.en[key] || key;
+  };
 
   useEffect(() => {
     fetchOrders();
@@ -268,7 +278,7 @@ export function SupplierCustomersView() {
               className="inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-400 hover:text-indigo-300 transition-colors cursor-pointer mb-1"
             >
               <ArrowLeft className="h-4 w-4" />
-              <span>Back to All Customers</span>
+              <span>{tr("btnBack")}</span>
             </button>
 
             <div className="flex items-center gap-2 text-xs text-zinc-400 flex-wrap">
@@ -294,7 +304,7 @@ export function SupplierCustomersView() {
                 }`}
             >
               <MessageCircle className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Open Chat Desk</span>
+              <span>{tr("btnOpenChat")}</span>
             </button>
 
             <button
@@ -307,7 +317,7 @@ export function SupplierCustomersView() {
               className="inline-flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 px-4 py-2 text-xs font-bold text-white shadow-sm transition-all cursor-pointer"
             >
               <FileText className="h-3.5 w-3.5" />
-              <span>Create Quotation</span>
+              <span>{tr("btnCreateQuote")}</span>
             </button>
 
             <button
@@ -1284,13 +1294,13 @@ export function SupplierCustomersView() {
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
-        title="B2B Customer CRM & Buyer Accounts"
-        subtitle="Manage verified enterprise buyers, trade credit facilities, purchase frequency, and cross-module 360 customer profiles"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Customers" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbCustomers") }]}
         actions={
           <div className="flex items-center gap-2">
             <span className="rounded-lg border border-indigo-200/20 bg-indigo-500/10 px-3 py-1.5 text-xs font-bold text-indigo-400">
-              {effectiveCustomers.length} Enterprise Clients
+              {effectiveCustomers.length} {tr("badgeEnterpriseClients")}
             </span>
           </div>
         }
@@ -1300,13 +1310,13 @@ export function SupplierCustomersView() {
       <DataFilterBar
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
-        searchPlaceholder="Search customer company, contact person, TIN number, Fayda ID, or sector..."
+        searchPlaceholder={tr("searchPlaceholder")}
         statusFilter={statusFilter}
         onStatusChange={setStatusFilter}
         statusOptions={[
-          { value: "vip", label: "VIP High-Volume" },
-          { value: "active", label: "Active Recurring" },
-          { value: "pending_credit", label: "Pending Credit Review" },
+          { value: "vip", label: tr("filterVip") },
+          { value: "active", label: tr("filterActive") },
+          { value: "pending_credit", label: tr("filterPendingCredit") },
         ]}
         onReset={() => {
           setSearchQuery("");
@@ -1320,8 +1330,8 @@ export function SupplierCustomersView() {
         {paginated.length === 0 ? (
           <div className="p-8">
             <EmptyState
-              title="No Customers Found"
-              description="No buyer corporate accounts match your search filters."
+              title={tr("emptyTitle")}
+              description={tr("emptyDescription")}
             />
           </div>
         ) : (
@@ -1335,15 +1345,15 @@ export function SupplierCustomersView() {
                       : "border-white/10 text-zinc-400"
                   }`}
               >
-                <th className="py-3 px-3">Company & TIN</th>
-                <th className="py-3 px-3">Contact Person</th>
-                <th className="py-3 px-3">Location & Sector</th>
-                <th className="py-3 px-3">Orders With You</th>
-                <th className="py-3 px-3">Total Spend (ETB)</th>
-                <th className="py-3 px-3">Outstanding</th>
-                <th className="py-3 px-3">Credit Limit</th>
-                <th className="py-3 px-3">Status</th>
-                <th className="py-3 px-3 text-right">Actions</th>
+                <th className="py-3 px-3">{tr("thCompanyTin")}</th>
+                <th className="py-3 px-3">{tr("thContactPerson")}</th>
+                <th className="py-3 px-3">{tr("thLocationSector")}</th>
+                <th className="py-3 px-3">{tr("thOrdersWithYou")}</th>
+                <th className="py-3 px-3">{tr("thTotalSpend")}</th>
+                <th className="py-3 px-3">{tr("thOutstanding")}</th>
+                <th className="py-3 px-3">{tr("thCreditLimit")}</th>
+                <th className="py-3 px-3">{tr("thStatus")}</th>
+                <th className="py-3 px-3 text-right">{tr("thActions")}</th>
               </tr>
             </thead>
             <tbody
@@ -1481,7 +1491,7 @@ export function SupplierCustomersView() {
                               }`}
                           >
                             <Eye className="h-3.5 w-3.5 text-indigo-400" />
-                            <span>Customer 360</span>
+                            <span>{tr("btnView360")}</span>
                           </button>
 
                           {/* Chat Desk */}

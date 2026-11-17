@@ -44,11 +44,22 @@ import {
 import { StatusBadge } from "../shared/status-badge";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  WAREHOUSE_TRANSLATIONS,
+  type WarehouseTranslationDictionary,
+} from "@/lib/i18n/warehouse-translations";
 import { Warehouse, WarehouseTransfer } from "@/types/supplier";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
 
 export function SupplierWarehouseView() {
+  const { language } = useTranslation();
+  const tr = (key: keyof WarehouseTranslationDictionary): string => {
+    const dict = WAREHOUSE_TRANSLATIONS[language] || WAREHOUSE_TRANSLATIONS.en;
+    return dict[key] || WAREHOUSE_TRANSLATIONS.en[key] || key;
+  };
+
   const {
     warehouses,
     transfers,
@@ -671,14 +682,14 @@ export function SupplierWarehouseView() {
                 isLight ? "text-slate-900" : "text-white"
               }`}
             >
-              Warehouse Management
+              {tr("title")}
             </h1>
             <span className="text-[11px] font-medium px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              Operational
+              {tr("badgeOperational")}
             </span>
           </div>
           <p className={`text-xs ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-            Manage registered hubs, inventory allocations, and inter-depot cargo transfers.
+            {tr("subtitle")}
           </p>
         </div>
 
@@ -686,8 +697,7 @@ export function SupplierWarehouseView() {
         <div className="flex items-center gap-1.5 flex-wrap">
           <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-xs">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-semibold">Depot Network:</span>
-            <span>Active</span>
+            <span className="font-semibold">{tr("depotNetworkActive")}</span>
           </div>
 
           <button
@@ -706,7 +716,7 @@ export function SupplierWarehouseView() {
             title="Refresh warehouse depots"
           >
             <RotateCcw className={`h-3.5 w-3.5 text-indigo-400 ${isLoadingWarehouses ? "animate-spin" : ""}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <span className="hidden sm:inline">{tr("btnRefresh")}</span>
           </button>
 
           <button
@@ -714,7 +724,7 @@ export function SupplierWarehouseView() {
             className="inline-flex items-center gap-1.5 h-8.5 px-3 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-xs transition-colors cursor-pointer"
           >
             <Plus className="h-3.5 w-3.5" />
-            <span>+ Add Warehouse</span>
+            <span>{tr("btnAddWarehouse")}</span>
           </button>
 
           <button
@@ -726,7 +736,7 @@ export function SupplierWarehouseView() {
             }`}
           >
             <Boxes className="h-3.5 w-3.5 text-indigo-400" />
-            <span>Receive / Adjust</span>
+            <span>{tr("btnReceiveAdjust")}</span>
           </button>
 
           <button
@@ -738,7 +748,7 @@ export function SupplierWarehouseView() {
             }`}
           >
             <ArrowRightLeft className="h-3.5 w-3.5 text-cyan-400" />
-            <span>Transfer</span>
+            <span>{tr("btnTransfer")}</span>
           </button>
 
           <button
@@ -750,7 +760,7 @@ export function SupplierWarehouseView() {
             }`}
           >
             <Download className="h-3.5 w-3.5 text-zinc-400" />
-            <span>Export CSV</span>
+            <span>{tr("btnExportCsv")}</span>
           </button>
         </div>
       </div>
@@ -761,7 +771,7 @@ export function SupplierWarehouseView() {
         <div className={`p-3 rounded-lg border flex flex-col justify-between ${cardBgClass}`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-medium ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Total Warehouses
+              {tr("kpiTotalWarehouses")}
             </span>
             <Building className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
           </div>
@@ -770,7 +780,7 @@ export function SupplierWarehouseView() {
               {warehouses.length}
             </span>
             <span className="text-[10px] text-emerald-400 font-medium block">
-              {warehouses.length} Active Depots
+              {warehouses.length} {tr("kpiActiveDepots")}
             </span>
           </div>
         </div>
@@ -779,14 +789,14 @@ export function SupplierWarehouseView() {
         <div className={`p-3 rounded-lg border flex flex-col justify-between ${cardBgClass}`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-medium ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Depot Capacity
+              {tr("kpiDepotCapacity")}
             </span>
             <span
               className={`text-[10px] font-mono font-bold ${
                 aggregateCapacityPercent >= 80 ? "text-amber-400" : "text-emerald-400"
               }`}
             >
-              {aggregateCapacityPercent}% Used
+              {aggregateCapacityPercent}% {tr("kpiUsed")}
             </span>
           </div>
           <div>
@@ -813,7 +823,7 @@ export function SupplierWarehouseView() {
               />
             </div>
             <span className="text-[10px] text-zinc-400 font-mono block mt-1">
-              {Math.max(0, totalCapacityM2 - usedCapacityM2).toLocaleString()} m² Available
+              {Math.max(0, totalCapacityM2 - usedCapacityM2).toLocaleString()} m² {tr("kpiAvailable")}
             </span>
           </div>
         </div>
@@ -822,7 +832,7 @@ export function SupplierWarehouseView() {
         <div className={`p-3 rounded-lg border flex flex-col justify-between ${cardBgClass}`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-medium ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Stock Value
+              {tr("kpiStockValue")}
             </span>
             <Boxes className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
           </div>
@@ -831,7 +841,7 @@ export function SupplierWarehouseView() {
               {(totalCommodityValuationETB / 1000000).toFixed(2)}M ETB
             </span>
             <span className={`text-[10px] block ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              {totalActiveStockUnits.toLocaleString()} Stock Units
+              {totalActiveStockUnits.toLocaleString()} {tr("kpiStockUnits")}
             </span>
           </div>
         </div>
@@ -840,7 +850,7 @@ export function SupplierWarehouseView() {
         <div className={`p-3 rounded-lg border flex flex-col justify-between ${cardBgClass}`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-medium ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Loading Docks
+              {tr("kpiLoadingDocks")}
             </span>
             <Truck className="h-3.5 w-3.5 text-cyan-400 shrink-0" />
           </div>
@@ -850,8 +860,8 @@ export function SupplierWarehouseView() {
             </span>
             <span className="text-[10px] text-cyan-400 font-medium block">
               {totalLoadingDocksCount > 0
-                ? `${Math.round((totalActiveDocks / totalLoadingDocksCount) * 100)}% In-Use`
-                : "Operational Bays"}
+                ? `${Math.round((totalActiveDocks / totalLoadingDocksCount) * 100)}% ${tr("kpiInUse")}`
+                : tr("kpiOperationalBays")}
             </span>
           </div>
         </div>
@@ -860,7 +870,7 @@ export function SupplierWarehouseView() {
         <div className={`p-3 rounded-lg border flex flex-col justify-between ${cardBgClass}`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-medium ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Transfers
+              {tr("kpiTransfers")}
             </span>
             <ArrowRightLeft className="h-3.5 w-3.5 text-indigo-400 shrink-0" />
           </div>
@@ -869,7 +879,7 @@ export function SupplierWarehouseView() {
               {transfers.length} Total
             </span>
             <span className="text-[10px] text-indigo-400 font-medium block">
-              {transfers.filter((t) => t.status === "in_transit").length} In-Transit
+              {transfers.filter((t) => t.status === "in_transit").length} {tr("kpiInTransit")}
             </span>
           </div>
         </div>
@@ -878,7 +888,7 @@ export function SupplierWarehouseView() {
         <div className={`p-3 rounded-lg border flex flex-col justify-between ${cardBgClass}`}>
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-medium ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Stock Alerts
+              {tr("kpiStockAlerts")}
             </span>
             <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
           </div>
@@ -888,10 +898,10 @@ export function SupplierWarehouseView() {
                 lowStockProductsList.length > 0 ? "text-amber-400" : "text-emerald-400"
               }`}
             >
-              {lowStockProductsList.length} Items Low
+              {lowStockProductsList.length} {tr("kpiItemsLow")}
             </span>
             <span className="text-[10px] text-zinc-400 font-medium block">
-              {lowStockProductsList.length > 0 ? "Reorder Threshold" : "Stock Levels Healthy"}
+              {lowStockProductsList.length > 0 ? "Reorder Threshold" : tr("kpiStockHealthy")}
             </span>
           </div>
         </div>
@@ -956,10 +966,10 @@ export function SupplierWarehouseView() {
               isLight ? "text-slate-800" : "text-zinc-200"
             }`}
           >
-            My Warehouses ({warehouses.length})
+            {tr("myWarehousesTitle")} ({warehouses.length})
           </h2>
           <span className={`text-[11px] ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-            Click card to switch active depot
+            {tr("switchActiveDepotHint")}
           </span>
         </div>
 
@@ -969,7 +979,7 @@ export function SupplierWarehouseView() {
               <RotateCcw className="h-5 w-5" />
             </div>
             <h3 className={`text-sm font-bold ${isLight ? "text-slate-900" : "text-white"}`}>
-              Loading Warehouse Network...
+              {tr("loadingWarehouseNetwork")}
             </h3>
             <p className="text-xs text-zinc-400 max-w-sm mx-auto">
               Connecting to secure enterprise logistics network.
@@ -990,15 +1000,15 @@ export function SupplierWarehouseView() {
         ) : warehouses.length === 0 ? (
           <div className={`p-8 text-center rounded-xl border ${cardBgClass} space-y-3`}>
             <Building className="h-8 w-8 text-indigo-400 mx-auto opacity-75" />
-            <h3 className="text-sm font-bold">No Warehouse Depots Found</h3>
+            <h3 className="text-sm font-bold">{tr("noDepotsTitle")}</h3>
             <p className="text-xs text-zinc-400 max-w-sm mx-auto">
-              You do not have any registered warehouse locations yet. Click below to register your first depot.
+              {tr("noDepotsDesc")}
             </p>
             <button
               onClick={() => setIsAddWarehouseModalOpen(true)}
               className="h-8.5 px-3.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-xs font-semibold text-white shadow-xs cursor-pointer"
             >
-              + Add Warehouse Depot
+              {tr("btnAddDepot")}
             </button>
           </div>
         ) : (
@@ -1145,16 +1155,16 @@ export function SupplierWarehouseView() {
             }`}
           >
             {[
-              { id: "overview", label: "Overview", icon: Building },
-              { id: "stock", label: `Stock (${activeWarehouse.stockDistribution?.length || 0})`, icon: Boxes },
-              { id: "locations", label: `Locations (${bayLocations.length})`, icon: MapPin },
-              { id: "receiving", label: `Receiving (${inboundTransfers.length})`, icon: CheckCircle2 },
-              { id: "dispatch", label: `Dispatch (${outboundTransfers.length})`, icon: Truck },
-              { id: "transfers", label: `Transfers (${filteredTransfers.length})`, icon: ArrowRightLeft },
-              { id: "returns", label: `Returns (${(returns || []).length})`, icon: RotateCcw },
-              { id: "damaged", label: "Damaged", icon: AlertOctagon },
-              { id: "activity", label: `Activity (${warehouseActivity.length})`, icon: Activity },
-              { id: "reports", label: "Reports", icon: BarChart3 },
+              { id: "overview", label: tr("tabOverview"), icon: Building },
+              { id: "stock", label: `${tr("tabStock")} (${activeWarehouse.stockDistribution?.length || 0})`, icon: Boxes },
+              { id: "locations", label: `${tr("tabLocations")} (${bayLocations.length})`, icon: MapPin },
+              { id: "receiving", label: `${tr("tabReceiving")} (${inboundTransfers.length})`, icon: CheckCircle2 },
+              { id: "dispatch", label: `${tr("tabDispatch")} (${outboundTransfers.length})`, icon: Truck },
+              { id: "transfers", label: `${tr("tabTransfers")} (${filteredTransfers.length})`, icon: ArrowRightLeft },
+              { id: "returns", label: `${tr("tabReturns")} (${(returns || []).length})`, icon: RotateCcw },
+              { id: "damaged", label: tr("tabDamaged"), icon: AlertOctagon },
+              { id: "activity", label: `${tr("tabActivity")} (${warehouseActivity.length})`, icon: Activity },
+              { id: "reports", label: tr("tabReports"), icon: BarChart3 },
             ].map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;

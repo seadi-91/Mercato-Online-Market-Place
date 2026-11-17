@@ -40,6 +40,11 @@ import {
   Loader2,
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  PROFILE_TRANSLATIONS,
+  ProfileTranslationDictionary,
+} from "@/lib/i18n/profile-translations";
 import { toast } from "sonner";
 
 export function SupplierProfileView() {
@@ -53,6 +58,12 @@ export function SupplierProfileView() {
     settlementAccounts,
     setActiveTab: setStoreActiveTab,
   } = useSupplierStore();
+
+  const { language } = useTranslation();
+  const tr = (key: keyof ProfileTranslationDictionary): string => {
+    const dict = PROFILE_TRANSLATIONS[language] || PROFILE_TRANSLATIONS.en;
+    return dict[key] || PROFILE_TRANSLATIONS.en[key] || key;
+  };
 
   const [activeTab, setActiveTab] = useState<"dossier" | "catalog" | "compliance" | "logistics" | "commercial">("dossier");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -322,11 +333,11 @@ export function SupplierProfileView() {
       {/* ───────────────────────────────────────────────────────────── */}
       <div className="flex items-center gap-1 p-1 rounded-lg bg-slate-100/90 dark:bg-white/[0.04] border border-slate-200/80 dark:border-white/5 overflow-x-auto text-[11.5px]">
         {[
-          { id: "dossier", label: "Company Dossier", icon: Building2 },
-          { id: "catalog", label: "Commodities & Inventory", icon: Package },
-          { id: "compliance", label: "Quality Seals & Tax", icon: Award },
-          { id: "logistics", label: "Depots & Corridors", icon: Truck },
-          { id: "commercial", label: "Wholesale Terms", icon: Briefcase },
+          { id: "dossier", label: tr("tabDossier"), icon: Building2 },
+          { id: "catalog", label: tr("tabCatalog"), icon: Package },
+          { id: "compliance", label: tr("tabCompliance"), icon: Award },
+          { id: "logistics", label: tr("tabLogistics"), icon: Truck },
+          { id: "commercial", label: tr("tabCommercial"), icon: Briefcase },
         ].map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;

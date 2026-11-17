@@ -31,6 +31,8 @@ import { StatusBadge } from "../shared/status-badge";
 import { useAuthStore } from "@/store/auth-store";
 import { useSupplierStore } from "@/store/supplier-store";
 import { toast } from "sonner";
+import { useTranslation } from "@/store/language-store";
+import { PRODUCT_TRANSLATIONS, ProductTranslationDictionary } from "@/lib/i18n/product-translations";
 
 interface ProductDetailModalProps {
   product: B2BProduct | null;
@@ -45,6 +47,11 @@ export function ProductDetailModal({
   onClose,
   onEdit,
 }: ProductDetailModalProps) {
+  const { language } = useTranslation();
+  const tr = (key: keyof ProductTranslationDictionary): string => {
+    return PRODUCT_TRANSLATIONS[language]?.[key] ?? PRODUCT_TRANSLATIONS.en[key] ?? "";
+  };
+
   const { user } = useAuthStore();
   const { orders, currentStaffUser } = useSupplierStore();
   const [activeImageIndex, setActiveImageIndex] = useState(0);
@@ -169,7 +176,7 @@ export function ProductDetailModal({
                 className="hidden sm:inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-xs font-semibold text-zinc-200 hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
               >
                 <Edit className="h-3.5 w-3.5" />
-                <span>Edit Product</span>
+                <span>{tr("editProduct")}</span>
               </button>
             )}
             <button
@@ -233,7 +240,7 @@ export function ProductDetailModal({
               {/* Description preview */}
               <div className="rounded-xl border border-white/[0.08] bg-black/30 p-3 text-xs text-zinc-300">
                 <span className="font-semibold text-zinc-100 block mb-1">
-                  Wholesale Description:
+                  {tr("descriptionLabel")}:
                 </span>
                 <p className="text-zinc-400 text-[11px] leading-relaxed line-clamp-4">
                   {product.description || "High-grade commercial wholesale supply available for verified buyers."}
@@ -250,7 +257,7 @@ export function ProductDetailModal({
                     <div className="h-6 w-6 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center">
                       <DollarSign className="h-3.5 w-3.5" />
                     </div>
-                    <span className="text-xs font-semibold text-white">Wholesale Pricing & MOQ</span>
+                    <span className="text-xs font-semibold text-white">{tr("colPriceMoq")}</span>
                   </div>
                   <span className="text-[11px] font-mono text-zinc-400">
                     Currency: <strong className="text-white">ETB</strong>
@@ -259,7 +266,7 @@ export function ProductDetailModal({
 
                 <div className="grid grid-cols-2 gap-2.5 pt-1">
                   <div className="rounded-lg bg-black/40 border border-white/5 p-2.5">
-                    <span className="text-[10px] text-zinc-400 uppercase font-medium">Base Price</span>
+                    <span className="text-[10px] text-zinc-400 uppercase font-medium">{tr("basePriceLabel")}</span>
                     <p className="text-sm sm:text-base font-mono font-bold text-emerald-400 mt-0.5">
                       ETB {product.basePrice.toLocaleString()}{" "}
                       <span className="text-xs font-normal text-zinc-400">/ {product.unit}</span>
@@ -267,7 +274,7 @@ export function ProductDetailModal({
                   </div>
 
                   <div className="rounded-lg bg-black/40 border border-white/5 p-2.5">
-                    <span className="text-[10px] text-zinc-400 uppercase font-medium">Min. Order (MOQ)</span>
+                    <span className="text-[10px] text-zinc-400 uppercase font-medium">{tr("moqInputLabel")}</span>
                     <p className="text-sm sm:text-base font-mono font-bold text-white mt-0.5">
                       {product.moq.toLocaleString()}{" "}
                       <span className="text-xs font-normal text-zinc-400">{product.unit}</span>
@@ -583,7 +590,7 @@ export function ProductDetailModal({
                 }}
                 className="rounded-lg bg-indigo-600 hover:bg-indigo-500 px-3.5 py-1.5 text-xs font-semibold text-white shadow-sm transition-colors cursor-pointer"
               >
-                Edit Specifications
+                {tr("editProduct")}
               </button>
             )}
             <button
@@ -591,7 +598,7 @@ export function ProductDetailModal({
               onClick={onClose}
               className="rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white transition-colors cursor-pointer"
             >
-              Close
+              {tr("cancelBtn")}
             </button>
           </div>
         </div>

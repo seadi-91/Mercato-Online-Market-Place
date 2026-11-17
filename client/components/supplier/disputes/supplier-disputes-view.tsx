@@ -22,6 +22,11 @@ import { StatusBadge } from "../shared/status-badge";
 import { ModalDialog } from "../shared/modal-dialog";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  DISPUTE_TRANSLATIONS,
+  DisputeTranslationDictionary,
+} from "@/lib/i18n/dispute-translations";
 import { DisputeCase } from "@/types/supplier";
 import { toast } from "sonner";
 
@@ -32,6 +37,12 @@ export function SupplierDisputesView() {
   const isLight = theme === "light";
   const isSystem = theme === "system";
   const isDark = theme === "dark";
+  const { language } = useTranslation();
+
+  const tr = (key: keyof DisputeTranslationDictionary): string => {
+    const dict = DISPUTE_TRANSLATIONS[language] || DISPUTE_TRANSLATIONS.en;
+    return dict[key] || DISPUTE_TRANSLATIONS.en[key] || key;
+  };
 
   // Local state for disputes list
   const [disputesList, setDisputesList] = useState<DisputeCase[]>(storeDisputes);
@@ -193,11 +204,11 @@ export function SupplierDisputesView() {
     <div className="space-y-6">
       {/* 1. Page Header with Actions */}
       <PageHeader
-        title="Commercial Dispute Center & Escrow Arbitration"
-        subtitle="Manage buyer quality discrepancy claims, submit independent ECAE certificates, and resolve Commercial Bank of Ethiopia escrow hearings"
+        title={tr("title")}
+        subtitle={tr("subtitle")}
         breadcrumbs={[
-          { label: "Dashboard", onClick: () => setActiveTab("dashboard") },
-          { label: "Disputes & Mediation" },
+          { label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") },
+          { label: tr("breadcrumbDisputes") },
         ]}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -212,7 +223,7 @@ export function SupplierDisputesView() {
             >
               <Scale className="h-3.5 w-3.5 text-indigo-500" />
               <span>
-                {openCasesCount} Active Mediation Hearing{openCasesCount !== 1 ? "s" : ""}
+                {openCasesCount} {tr("badgeActiveMediation")}
               </span>
             </span>
 
@@ -229,7 +240,7 @@ export function SupplierDisputesView() {
               }`}
             >
               <FileCheck className="h-3.5 w-3.5" />
-              <span>Arbitration Guidelines</span>
+              <span>{tr("btnArbitrationGuidelines")}</span>
             </button>
           </div>
         }

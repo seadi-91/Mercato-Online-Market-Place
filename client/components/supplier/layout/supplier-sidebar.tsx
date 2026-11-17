@@ -36,6 +36,11 @@ import {
 } from "lucide-react";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  SUPPLIER_TRANSLATIONS,
+  type SupplierTranslationDictionary,
+} from "@/lib/i18n/supplier-translations";
 import { SupplierTab } from "@/types/supplier";
 
 interface NavItem {
@@ -80,6 +85,12 @@ export function SupplierSidebar() {
   } = useSupplierStore();
 
   const { user } = useAuthStore();
+  const { language } = useTranslation();
+
+  const tr = (key: keyof SupplierTranslationDictionary): string => {
+    const dict = SUPPLIER_TRANSLATIONS[language] || SUPPLIER_TRANSLATIONS.en;
+    return dict[key] || SUPPLIER_TRANSLATIONS.en[key] || key;
+  };
 
   const unreadRFQs = rfqs.filter((r) => r.status === "new").length;
   const pendingOrders = orders.filter((o) => o.orderStatus === "pending").length;
@@ -113,99 +124,100 @@ export function SupplierSidebar() {
       : currentStaffUser?.role || "Staff Member"
     : "Enterprise Owner";
 
-  const navGroups: NavGroup[] = [
+  const navGroups: NavGroup[] = React.useMemo(() => [
     {
-      groupTitle: "Core Operations",
+      groupTitle: tr("navGroupCore"),
       items: [
-        { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-        { id: "products", label: "Products", icon: Package },
-        { id: "inventory", label: "Manage Inventory", icon: Boxes },
-        { id: "pricing", label: "Set MOQ & Wholesale Pricing", icon: DollarSign },
+        { id: "dashboard", label: tr("navDashboard"), icon: LayoutDashboard },
+        { id: "products", label: tr("navProducts"), icon: Package },
+        { id: "inventory", label: tr("navInventory"), icon: Boxes },
+        { id: "pricing", label: tr("navPricing"), icon: DollarSign },
       ],
     },
     {
-      groupTitle: "B2B Trade & Sourcing",
+      groupTitle: tr("navGroupB2B"),
       items: [
         {
           id: "sourcing",
-          label: "Sourcing Marketplace",
+          label: tr("navSourcing"),
           icon: ShoppingBag,
           badge: counterOfferBargains || undefined,
           badgeColor: "bg-indigo-500/20 text-indigo-300",
         },
         {
           id: "my-orders",
-          label: "My Orders (Purchases)",
+          label: tr("navMyOrders"),
           icon: PackageCheck,
           badge: activePurchases || undefined,
           badgeColor: "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-400",
         },
         {
           id: "rfqs",
-          label: "Receive RFQs",
+          label: tr("navRFQs"),
           icon: FileQuestion,
           badge: unreadRFQs,
           badgeColor: "bg-emerald-100 text-emerald-800",
         },
-        { id: "quotations", label: "Send Quotations", icon: FileText },
-        { id: "negotiations", label: "Negotiate Price", icon: MessagesSquare },
+        { id: "quotations", label: tr("navQuotations"), icon: FileText },
+        { id: "negotiations", label: tr("navNegotiations"), icon: MessagesSquare },
         {
           id: "orders",
-          label: "Orders",
+          label: tr("navOrders"),
           icon: ShoppingCart,
           badge: pendingOrders,
           badgeColor: "bg-amber-100 text-amber-800",
         },
-        { id: "customers", label: "Customers & Buyers (CRM)", icon: Users },
+        { id: "customers", label: tr("navCustomers"), icon: Users },
       ],
     },
     {
-      groupTitle: "Logistics & Fulfillment",
+      groupTitle: tr("navGroupLogistics"),
       items: [
-        { id: "warehouse", label: "Warehouses & Depots", icon: Warehouse },
-        { id: "branches", label: "Branch Management (Hubs)", icon: GitBranch },
-        { id: "shipments", label: "Prepare Shipments", icon: Truck },
+        { id: "warehouse", label: tr("navWarehouse"), icon: Warehouse },
+        { id: "branches", label: tr("navBranches"), icon: GitBranch },
+        { id: "shipments", label: tr("navShipments"), icon: Truck },
       ],
     },
     {
-      groupTitle: "Finance & Sales",
+      groupTitle: tr("navGroupFinance"),
       items: [
-        { id: "invoices", label: "Create Invoices", icon: Receipt },
-        { id: "payments", label: "Payments", icon: CreditCard },
-        { id: "subscriptions", label: "Subscriptions & Tiers", icon: Sparkles },
-        { id: "promotions", label: "Promotions", icon: Tag },
+        { id: "invoices", label: tr("navInvoices"), icon: Receipt },
+        { id: "payments", label: tr("navPayments"), icon: CreditCard },
+        { id: "subscriptions", label: tr("navSubscriptions"), icon: Sparkles },
+        { id: "promotions", label: tr("navPromotions"), icon: Tag },
       ],
     },
     {
-      groupTitle: "Support & Mediation",
+      groupTitle: tr("navGroupSupport"),
       items: [
         {
           id: "disputes",
-          label: "Disputes",
+          label: tr("navDisputes"),
           icon: AlertTriangle,
           badge: activeDisputes,
           badgeColor: "bg-rose-100 text-rose-800",
         },
-        { id: "messages", label: "Messages", icon: MessageCircle },
+        { id: "messages", label: tr("navMessages"), icon: MessageCircle },
         {
           id: "notifications",
-          label: "Notifications",
+          label: tr("navNotifications"),
           icon: Bell,
           badge: unreadNotifications,
           badgeColor: "bg-rose-500/20 text-rose-300 border border-rose-500/30",
         },
-        { id: "analytics", label: "Analytics", icon: BarChart3 },
+        { id: "analytics", label: tr("navAnalytics"), icon: BarChart3 },
       ],
     },
     {
-      groupTitle: "Business Management",
+      groupTitle: tr("navGroupBusiness"),
       items: [
-        { id: "team", label: "Staff & Team (Create Staff)", icon: Users, badge: staffList.length },
-        { id: "profile", label: "Company Profile & Verification", icon: Building2 },
-        { id: "settings", label: "Settings", icon: Settings },
+        { id: "team", label: tr("navTeam"), icon: Users, badge: staffList.length },
+        { id: "profile", label: tr("navProfile"), icon: Building2 },
+        { id: "settings", label: tr("navSettings"), icon: Settings },
       ],
     },
-  ];
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  ], [language, counterOfferBargains, activePurchases, unreadRFQs, pendingOrders, activeDisputes, unreadNotifications, staffList.length]);
 
   const handleSelectTab = (tabId: SupplierTab) => {
     setActiveTab(tabId);

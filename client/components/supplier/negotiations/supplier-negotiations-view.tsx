@@ -35,6 +35,11 @@ import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  NEGOTIATION_TRANSLATIONS,
+  NegotiationTranslationDictionary,
+} from "@/lib/i18n/negotiation-translations";
 import { NegotiationSession } from "@/types/supplier";
 import { toast } from "sonner";
 
@@ -56,6 +61,12 @@ export function SupplierNegotiationsView() {
   const { theme } = useThemeStore();
   const isLight = theme === "light";
   const isSystem = theme === "system";
+  const { language } = useTranslation();
+
+  const tr = (key: keyof NegotiationTranslationDictionary): string => {
+    const dict = NEGOTIATION_TRANSLATIONS[language] || NEGOTIATION_TRANSLATIONS.en;
+    return dict[key] || NEGOTIATION_TRANSLATIONS.en[key] || key;
+  };
 
   useEffect(() => {
     fetchNegotiations();
@@ -163,9 +174,9 @@ export function SupplierNegotiationsView() {
     <div className="space-y-4">
       {/* 1. Header (Compact & Light) */}
       <PageHeader
-        title="Customer Price Negotiations"
-        subtitle="Real-time commercial discussions, counter-offers, and CBE Escrow agreements with your buyers"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Negotiations" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbNegotiations") }]}
         actions={
           <div className="flex items-center gap-2">
             <button
@@ -192,7 +203,7 @@ export function SupplierNegotiationsView() {
               }`}
             >
               <MessagesSquare className="h-3.5 w-3.5 text-indigo-400" />
-              <span>{negotiations.length} Active Deals</span>
+              <span>{negotiations.length} {tr("badgeActiveDeals")}</span>
             </span>
 
             {actionRequiredCount > 0 && (

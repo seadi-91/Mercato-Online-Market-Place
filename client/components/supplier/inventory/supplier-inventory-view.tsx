@@ -46,6 +46,11 @@ import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  INVENTORY_TRANSLATIONS,
+  type InventoryTranslationDictionary,
+} from "@/lib/i18n/inventory-translations";
 import { toast } from "sonner";
 import { sellerService } from "@/services/seller/seller.service";
 import {
@@ -79,6 +84,17 @@ type InventoryTab =
   | "reports";
 
 export function SupplierInventoryView() {
+  const { language } = useTranslation();
+  const tr = (key: keyof InventoryTranslationDictionary, params?: Record<string, string | number>): string => {
+    const dict = INVENTORY_TRANSLATIONS[language] || INVENTORY_TRANSLATIONS.en;
+    let text = dict[key] || INVENTORY_TRANSLATIONS.en[key] || key;
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        text = text.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+      });
+    }
+    return text;
+  };
   const {
     products,
     isLoadingProducts,
@@ -704,16 +720,16 @@ export function SupplierInventoryView() {
     <div className="space-y-6 max-w-7xl mx-auto min-w-0">
       {/* 1. Header with B2B Live Actions */}
       <PageHeader
-        title="Inventory Management"
-        subtitle="Real-time multi-depot allocations, commodity inventory movements, and transfers."
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Inventory" }]}
+        title={tr("inventoryTitle")}
+        subtitle={tr("inventorySubtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbInventory") }]}
         actions={
           <div className="flex items-center gap-2 flex-wrap">
             {/* Live Ledger Status Indicator */}
             <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              <span className="font-semibold">Live Ledger:</span>
-              <span>Synchronized</span>
+              <span className="font-semibold">{tr("liveLedgerLabel")}</span>
+              <span>{tr("synchronizedLabel")}</span>
             </div>
 
             {/* Refresh Data Button */}
@@ -725,10 +741,10 @@ export function SupplierInventoryView() {
                   ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                   : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200"
               }`}
-              title="Synchronize inventory data"
+              title={tr("refreshBtn")}
             >
               <RotateCcw className={`h-3.5 w-3.5 text-indigo-400 ${isSyncing || isLoadingProducts ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <span className="hidden sm:inline">{tr("refreshBtn")}</span>
             </button>
 
             {/* Warning Alert Icon */}
@@ -741,7 +757,7 @@ export function SupplierInventoryView() {
                   ? "border-blue-500/30 bg-[#0f1b3b] text-blue-200 hover:bg-blue-500/20"
                   : "border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/10"
               }`}
-              title="Inventory Warnings & Alerts"
+              title={tr("tabAlerts")}
             >
               <Bell className="h-4 w-4" />
               {unreadAlertsCount > 0 && (
@@ -763,7 +779,7 @@ export function SupplierInventoryView() {
               }`}
             >
               <Download className="h-3.5 w-3.5" />
-              <span>Export CSV</span>
+              <span>{tr("exportCsvBtn")}</span>
             </button>
 
             {/* Adjust Stock */}
@@ -778,7 +794,7 @@ export function SupplierInventoryView() {
               }`}
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-400" />
-              <span>Adjust Stock</span>
+              <span>{tr("adjustStockBtn")}</span>
             </button>
 
             {/* Transfer Stock */}
@@ -793,7 +809,7 @@ export function SupplierInventoryView() {
               }`}
             >
               <ArrowRightLeft className="h-3.5 w-3.5 text-cyan-400" />
-              <span>Transfer Stock</span>
+              <span>{tr("transferStockBtn")}</span>
             </button>
 
             {/* + Add Stock (Primary Green #2E7D32) */}
@@ -802,7 +818,7 @@ export function SupplierInventoryView() {
               className="inline-flex items-center gap-2 rounded-xl bg-[#2E7D32] hover:bg-[#388E3C] px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-700/25 transition-all cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>+ Add Stock</span>
+              <span>{tr("addStockBtn")}</span>
             </button>
           </div>
         }
@@ -822,7 +838,7 @@ export function SupplierInventoryView() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? "text-slate-500" : "text-zinc-400"}`}>
-              Total Stock
+              {tr("kpiTotalStock")}
             </span>
             <div className="h-6 w-6 rounded-md bg-indigo-500/10 text-indigo-400 flex items-center justify-center">
               <Boxes className="h-3.5 w-3.5" />
@@ -830,10 +846,10 @@ export function SupplierInventoryView() {
           </div>
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
             {totalStockQty.toLocaleString()}{" "}
-            <span className="text-[10px] font-normal opacity-70">Units</span>
+            <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
           <p className="text-[10px] text-emerald-500 font-mono font-medium truncate mt-0.5">
-            ETB {(totalValuation / 1000000).toFixed(2)}M Val.
+            ETB {(totalValuation / 1000000).toFixed(2)}M {tr("kpiValuationPrefix")}
           </p>
         </div>
 
@@ -849,7 +865,7 @@ export function SupplierInventoryView() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? "text-emerald-900" : "text-cyan-300"}`}>
-              Available Stock
+              {tr("kpiAvailableStock")}
             </span>
             <div className="h-6 w-6 rounded-md bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
               <CheckCircle2 className="h-3.5 w-3.5" />
@@ -857,10 +873,10 @@ export function SupplierInventoryView() {
           </div>
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
             {totalAvailableQty.toLocaleString()}{" "}
-            <span className="text-[10px] font-normal opacity-70">Units</span>
+            <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
           <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
-            Currently available for sale
+            {tr("kpiAvailableDesc")}
           </p>
         </div>
 
@@ -876,7 +892,7 @@ export function SupplierInventoryView() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? "text-blue-900" : "text-blue-300"}`}>
-              Reserved Stock
+              {tr("kpiReservedStock")}
             </span>
             <div className="h-6 w-6 rounded-md bg-blue-500/20 text-blue-400 flex items-center justify-center">
               <Lock className="h-3.5 w-3.5" />
@@ -884,10 +900,10 @@ export function SupplierInventoryView() {
           </div>
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
             {totalReservedQty.toLocaleString()}{" "}
-            <span className="text-[10px] font-normal opacity-70">Units</span>
+            <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
           <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
-            {reservations.length} Active Escrow Allocations
+            {tr("kpiReservedDesc", { count: reservations.length })}
           </p>
         </div>
 
@@ -907,17 +923,17 @@ export function SupplierInventoryView() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? "text-amber-900" : "text-amber-300"}`}>
-              Low Stock
+              {tr("kpiLowStock")}
             </span>
             <div className="h-6 w-6 rounded-md bg-amber-500/20 text-amber-400 flex items-center justify-center">
               <AlertTriangle className="h-3.5 w-3.5" />
             </div>
           </div>
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
-            {lowStockCount} <span className="text-[10px] font-normal opacity-70">Items</span>
+            {lowStockCount} <span className="text-[10px] font-normal opacity-70">{tr("itemsUnit")}</span>
           </p>
           <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-amber-800" : "text-amber-300/80"}`}>
-            Below safety buffer
+            {tr("kpiLowStockDesc")}
           </p>
         </div>
 
@@ -937,17 +953,17 @@ export function SupplierInventoryView() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? "text-rose-900" : "text-rose-300"}`}>
-              Out of Stock
+              {tr("kpiOutOfStock")}
             </span>
             <div className="h-6 w-6 rounded-md bg-rose-500/20 text-rose-400 flex items-center justify-center">
               <X className="h-3.5 w-3.5" />
             </div>
           </div>
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
-            {outOfStockCount} <span className="text-[10px] font-normal opacity-70">Items</span>
+            {outOfStockCount} <span className="text-[10px] font-normal opacity-70">{tr("itemsUnit")}</span>
           </p>
           <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-rose-800" : "text-rose-300/80"}`}>
-            Zero available inventory
+            {tr("kpiOutOfStockDesc")}
           </p>
         </div>
 
@@ -964,17 +980,17 @@ export function SupplierInventoryView() {
         >
           <div className="flex items-center justify-between">
             <span className={`text-[11px] font-semibold uppercase tracking-wider ${isLight ? "text-purple-900" : "text-indigo-300"}`}>
-              Warehouses
+              {tr("kpiWarehouses")}
             </span>
             <div className="h-6 w-6 rounded-md bg-purple-500/20 text-purple-400 flex items-center justify-center">
               <WarehouseIcon className="h-3.5 w-3.5" />
             </div>
           </div>
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
-            {warehouses.length} <span className="text-[10px] font-normal opacity-70">Depots</span>
+            {warehouses.length} <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
           <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
-            Live Regional Logistics Hubs
+            {tr("kpiWarehousesDesc", { count: warehouses.length })}
           </p>
         </div>
       </div>
@@ -986,16 +1002,16 @@ export function SupplierInventoryView() {
         }`}
       >
         {[
-          { id: "overview", label: "Overview", icon: BarChart3 },
-          { id: "products", label: "Products", icon: Package, badge: inventory.length },
-          { id: "warehouses", label: "Warehouses", icon: WarehouseIcon, badge: warehouses.length },
-          { id: "movements", label: "Movements", icon: History, badge: inventoryMovements.length },
-          { id: "transfers", label: "Transfers", icon: Truck, badge: transfers.length },
-          { id: "reservations", label: "Reservations", icon: Lock, badge: reservations.length },
-          { id: "damaged", label: "Damaged", icon: AlertTriangle, badge: damagedRecords.length },
-          { id: "adjustments", label: "Adjustments", icon: SlidersHorizontal, badge: auditAdjustments.length },
-          { id: "alerts", label: "Alerts", icon: Bell, badge: unreadAlertsCount, alert: unreadAlertsCount > 0 },
-          { id: "reports", label: "Reports", icon: FileText },
+          { id: "overview", label: tr("tabOverview"), icon: BarChart3 },
+          { id: "products", label: tr("tabProducts"), icon: Package, badge: inventory.length },
+          { id: "warehouses", label: tr("tabWarehouses"), icon: WarehouseIcon, badge: warehouses.length },
+          { id: "movements", label: tr("tabMovements"), icon: History, badge: inventoryMovements.length },
+          { id: "transfers", label: tr("tabTransfers"), icon: Truck, badge: transfers.length },
+          { id: "reservations", label: tr("tabReservations"), icon: Lock, badge: reservations.length },
+          { id: "damaged", label: tr("tabDamaged"), icon: AlertTriangle, badge: damagedRecords.length },
+          { id: "adjustments", label: tr("tabAdjustments"), icon: SlidersHorizontal, badge: auditAdjustments.length },
+          { id: "alerts", label: tr("tabAlerts"), icon: Bell, badge: unreadAlertsCount, alert: unreadAlertsCount > 0 },
+          { id: "reports", label: tr("tabReports"), icon: FileText },
         ].map((tab) => {
           const isActive = activeTabSub === tab.id;
           return (

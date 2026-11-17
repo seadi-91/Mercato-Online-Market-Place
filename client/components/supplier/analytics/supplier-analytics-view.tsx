@@ -20,6 +20,11 @@ import { PageHeader } from "../shared/page-header";
 import { StatCard } from "../shared/stat-card";
 import { useSupplierStore } from "@/store/supplier-store";
 import { useThemeStore } from "@/store/theme-store";
+import { useTranslation } from "@/store/language-store";
+import {
+  ANALYTICS_TRANSLATIONS,
+  type AnalyticsTranslationDictionary,
+} from "@/lib/i18n/analytics-translations";
 import { toast } from "sonner";
 
 type TimePeriod = "daily" | "weekly" | "monthly" | "quarterly" | "yearly";
@@ -38,6 +43,12 @@ interface ChartBucket {
 }
 
 export function SupplierAnalyticsView() {
+  const { language } = useTranslation();
+  const tr = (key: keyof AnalyticsTranslationDictionary): string => {
+    const dict = ANALYTICS_TRANSLATIONS[language] || ANALYTICS_TRANSLATIONS.en;
+    return dict[key] || ANALYTICS_TRANSLATIONS.en[key] || key;
+  };
+
   const {
     orders,
     rfqs,
@@ -311,9 +322,9 @@ export function SupplierAnalyticsView() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Enterprise B2B Business Analytics & Intelligence"
-        subtitle="In-depth gross sales trajectories, chronological trade graphs, quotation win rates, and regional logistics performance"
-        breadcrumbs={[{ label: "Dashboard", onClick: () => setActiveTab("dashboard") }, { label: "Analytics" }]}
+        title={tr("title")}
+        subtitle={tr("subtitle")}
+        breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbAnalytics") }]}
         actions={
           <div className="flex items-center gap-2">
             <div
@@ -325,23 +336,35 @@ export function SupplierAnalyticsView() {
                   : "border-white/10 bg-[#121215]"
               }`}
             >
-              {(["daily", "weekly", "monthly", "quarterly", "yearly"] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPeriod(p)}
-                  className={`rounded-lg px-2.5 py-1 text-xs font-semibold capitalize cursor-pointer transition-colors ${
-                    period === p
-                      ? "bg-indigo-600 text-white shadow-xs"
-                      : isLight
-                      ? "text-slate-600 hover:text-slate-900"
-                      : isSystem
-                      ? "text-slate-300 hover:text-white"
-                      : "text-zinc-400 hover:text-white"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
+              {(["daily", "weekly", "monthly", "quarterly", "yearly"] as const).map((p) => {
+                const pLabel =
+                  p === "daily"
+                    ? tr("periodDaily")
+                    : p === "weekly"
+                    ? tr("periodWeekly")
+                    : p === "monthly"
+                    ? tr("periodMonthly")
+                    : p === "quarterly"
+                    ? tr("periodQuarterly")
+                    : tr("periodYearly");
+                return (
+                  <button
+                    key={p}
+                    onClick={() => setPeriod(p)}
+                    className={`rounded-lg px-2.5 py-1 text-xs font-semibold capitalize cursor-pointer transition-colors ${
+                      period === p
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : isLight
+                        ? "text-slate-600 hover:text-slate-900"
+                        : isSystem
+                        ? "text-slate-300 hover:text-white"
+                        : "text-zinc-400 hover:text-white"
+                    }`}
+                  >
+                    {pLabel}
+                  </button>
+                );
+              })}
             </div>
 
             <button
@@ -355,7 +378,7 @@ export function SupplierAnalyticsView() {
               }`}
             >
               <Download className="h-3.5 w-3.5 text-indigo-500" />
-              <span>Export Report</span>
+              <span>{tr("btnExportReport")}</span>
             </button>
           </div>
         }
@@ -365,49 +388,49 @@ export function SupplierAnalyticsView() {
       <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         <StatCard
           compact={true}
-          title="Gross Revenue"
+          title={tr("kpiGrossRevenue")}
           value={grossRevenue > 0 ? `ETB ${(grossRevenue / 1000000).toFixed(2)}M` : "ETB 0.00"}
-          subtitle="Total volume"
+          subtitle={tr("kpiTotalVolume")}
           icon={DollarSign}
         />
 
         <StatCard
           compact={true}
-          title="Average Order Value"
+          title={tr("kpiAvgOrderValue")}
           value={avgOrderValue > 0 ? `ETB ${avgOrderValue.toLocaleString()}` : "ETB 0"}
-          subtitle="Per purchase order"
+          subtitle={tr("kpiPerOrder")}
           icon={TrendingUp}
         />
 
         <StatCard
           compact={true}
-          title="RFQ Win Rate"
+          title={tr("kpiRfqWinRate")}
           value={rfqWinRate}
-          subtitle="Tenders won"
+          subtitle={tr("kpiTendersWon")}
           icon={Percent}
         />
 
         <StatCard
           compact={true}
-          title="Quote Acceptance"
+          title={tr("kpiQuoteAcceptance")}
           value={quoteAcceptance}
-          subtitle="Accepted quotes"
+          subtitle={tr("kpiAcceptedQuotes")}
           icon={Percent}
         />
 
         <StatCard
           compact={true}
-          title="Repeat Buyer Rate"
+          title={tr("kpiRepeatBuyerRate")}
           value={repeatBuyerRate}
-          subtitle="Recurring clients"
+          subtitle={tr("kpiRecurringClients")}
           icon={Users}
         />
 
         <StatCard
           compact={true}
-          title="Return Rate"
+          title={tr("kpiReturnRate")}
           value="0.0%"
-          subtitle="Dispute free"
+          subtitle={tr("kpiDisputeFree")}
           icon={Percent}
         />
       </div>
@@ -426,7 +449,7 @@ export function SupplierAnalyticsView() {
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <BarChart3 className="h-4 w-4 text-indigo-500" />
-              <h3 className="text-sm font-bold tracking-tight">Wholesale Revenue & Order Trajectory</h3>
+              <h3 className="text-sm font-bold tracking-tight">{tr("chartTradeVelocity")}</h3>
               <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-400 capitalize">
                 {period} Timeline
               </span>
@@ -436,18 +459,18 @@ export function SupplierAnalyticsView() {
                 isLight ? "text-slate-500" : isSystem ? "text-slate-400" : "text-zinc-400"
               }`}
             >
-              Exact calendar date mappings for gross trade volume, purchase order counts, and order momentum
+              {tr("chartTradeSubtitle")}
             </p>
           </div>
 
           <div className="flex items-center gap-4 text-xs font-medium">
             <div className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-xs bg-indigo-600" />
-              <span className={isLight ? "text-slate-600" : "text-zinc-300"}>Gross Billed (ETB)</span>
+              <span className={isLight ? "text-slate-600" : "text-zinc-300"}>{tr("chartRevenueLegend")}</span>
             </div>
             <div className="flex items-center gap-2">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
-              <span className={isLight ? "text-slate-600" : "text-zinc-300"}>Orders</span>
+              <span className={isLight ? "text-slate-600" : "text-zinc-300"}>{tr("chartOrdersLegend")}</span>
             </div>
           </div>
         </div>
@@ -622,13 +645,13 @@ export function SupplierAnalyticsView() {
             }`}
           >
             <div>
-              <h3 className="text-sm font-bold">Regional Ethiopian Sales & Depot Distribution</h3>
+              <h3 className="text-sm font-bold">{tr("regionalBreakdownTitle")}</h3>
               <p
                 className={`text-xs mt-0.5 ${
                   isLight ? "text-slate-500" : isSystem ? "text-slate-400" : "text-zinc-400"
                 }`}
               >
-                Sales volume performance across major regional commercial centers
+                {tr("regionalBreakdownSubtitle")}
               </p>
             </div>
             <span
@@ -713,13 +736,13 @@ export function SupplierAnalyticsView() {
               isLight ? "border-slate-100" : isSystem ? "border-indigo-500/20" : "border-white/5"
             }`}
           >
-            <h3 className="text-sm font-bold">Commodity Category Share</h3>
+            <h3 className="text-sm font-bold">{tr("categoryDistributionTitle")}</h3>
             <p
               className={`text-xs mt-0.5 ${
                 isLight ? "text-slate-500" : isSystem ? "text-slate-400" : "text-zinc-400"
               }`}
             >
-              Catalog distribution across wholesale categories
+              {tr("categoryDistributionSubtitle")}
             </p>
           </div>
 
