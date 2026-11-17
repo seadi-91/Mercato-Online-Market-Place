@@ -51,6 +51,9 @@ import {
   Phone,
   Mail,
   MapPin,
+  MessageSquare,
+  Send,
+  Bot,
 } from "lucide-react";
 import { PageHeader } from "../shared/page-header";
 import { StatusBadge } from "../shared/status-badge";
@@ -58,26 +61,36 @@ import { Pagination } from "../shared/pagination";
 import { EmptyState } from "../shared/empty-state";
 import { ModalDialog } from "../shared/modal-dialog";
 import { useSupplierStore, getBankShortCode, getBankAccentColor } from "@/store/supplier-store";
+import { useAuthStore } from "@/store/auth-store";
 import { useThemeStore } from "@/store/theme-store";
 import { useTranslation } from "@/store/language-store";
 import {
   PAYMENT_PORTAL_TRANSLATIONS,
   type PaymentPortalDictionary,
 } from "@/lib/i18n/payment-portal-translations";
-import { PaymentTransaction, SettlementAccount } from "@/types/supplier";
+import { PaymentTransaction, SettlementAccount, SourcingOrder } from "@/types/supplier";
 import { toast } from "sonner";
 
 export function SupplierPaymentsView() {
   const { language } = useTranslation();
-  const tr = (key: keyof PaymentPortalDictionary): string => {
+  const tr = (key: keyof PaymentPortalDictionary, params?: Record<string, string | number>): string => {
     const dict = PAYMENT_PORTAL_TRANSLATIONS[language] || PAYMENT_PORTAL_TRANSLATIONS.en;
-    return dict[key] || PAYMENT_PORTAL_TRANSLATIONS.en[key] || key;
+    let val = dict[key] || PAYMENT_PORTAL_TRANSLATIONS.en[key] || (key as string);
+    if (params) {
+      Object.entries(params).forEach(([k, v]) => {
+        val = val.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
+      });
+    }
+    return val;
   };
 
   const {
     transactions,
     isLoadingTransactions,
     fetchTransactions,
+    payouts,
+    sourcingOrders,
+    fetchSourcingOrders,
     setActiveTab,
     requestWithdrawal,
     releaseEscrow,
@@ -94,6 +107,9 @@ export function SupplierPaymentsView() {
   const isDark = theme === "dark";
 
   // Primary navigation & view states
+  const [activeMainSection, setActiveMainSection] = useState<
+    "inflows" | "payouts" | "wholesale" | "banks"
+  >("inflows");
   const [activeViewMode, setActiveViewMode] = useState<"table" | "grid">("table");
   const [currencyMode, setCurrencyMode] = useState<"ETB" | "USD">("ETB");
   const [timeframe, setTimeframe] = useState<"7D" | "30D" | "90D">("30D");
@@ -114,7 +130,27 @@ export function SupplierPaymentsView() {
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
   const [selectedReceiptTx, setSelectedReceiptTx] = useState<PaymentTransaction | null>(null);
   const [selectedEscrowTx, setSelectedEscrowTx] = useState<PaymentTransaction | null>(null);
+  const [selectedPayoutSlip, setSelectedPayoutSlip] = useState<any | null>(null);
+  const [selectedWholesaleOrder, setSelectedWholesaleOrder] = useState<SourcingOrder | null>(null);
   const [copiedRef, setCopiedRef] = useState<string | null>(null);
+
+  // Official Admin settlement profile for 100% synchronization with /dashboard/admin?tab=sellers-suppliers
+  const [adminMerchantProfile, setAdminMerchantProfile] = useState<any | null>(null);
+  const [isLoadingAdminProfile, setIsLoadingAdminProfile] = useState(false);
+
+  // Chatbot state
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<
+    Array<{
+      id: string;
+      sender: "bot" | "user";
+      text: string;
+      timestamp: string;
+      actionType?: "withdraw_prompt" | "balance_card" | "commission_card" | "payout_card";
+    }>
+  >([]);
+  const [chatInput, setChatInput] = useState("");
+  const [botWithdrawAmount, setBotWithdrawAmount] = useState<number>(50000);
 
   // Withdrawal form state
   const [withdrawAmount, setWithdrawAmount] = useState<number>(50000);
@@ -129,10 +165,46 @@ export function SupplierPaymentsView() {
   const [newAccountType, setNewAccountType] = useState<string>("Primary Escrow");
   const [isDefaultAccount, setIsDefaultAccount] = useState(false);
 
-  // Load live supplier payments on mount
+  // Load live supplier payments, wholesale sourcing orders, and sync official Admin settlement metrics on mount
   useEffect(() => {
     fetchTransactions();
-  }, [fetchTransactions]);
+    fetchSourcingOrders();
+
+    async function syncOfficialAdminProfile() {
+      try {
+        setIsLoadingAdminProfile(true);
+        const user = useAuthStore.getState().user;
+        const targetId = (user as any)?.sellerId || user?.id;
+        const url = targetId
+          ? `/api/admin/sellers-suppliers?sellerId=${encodeURIComponent(targetId)}`
+          : `/api/admin/sellers-suppliers`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.merchant) {
+            setAdminMerchantProfile(json.merchant);
+          } else if (Array.isArray(json.data) && json.data.length > 0) {
+            const match = json.data.find(
+              (m: any) =>
+                (targetId && (String(m.id) === String(targetId) || String(m.userId) === String(targetId))) ||
+                (user?.email && m.email?.toLowerCase() === user.email.toLowerCase()) ||
+                (user?.shopName && m.shopName?.toLowerCase() === user.shopName.toLowerCase()) ||
+                (user?.name && (m.fullName?.toLowerCase() === user.name.toLowerCase() || m.shopName?.toLowerCase() === user.name.toLowerCase()))
+            ) || json.data[0];
+            if (match) {
+              setAdminMerchantProfile(match);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn("[SupplierPaymentsView] Sync admin profile warning:", err);
+      } finally {
+        setIsLoadingAdminProfile(false);
+      }
+    }
+
+    syncOfficialAdminProfile();
+  }, [fetchTransactions, fetchSourcingOrders]);
 
   // Keep destination auto-selected if empty
   useEffect(() => {
@@ -154,8 +226,11 @@ export function SupplierPaymentsView() {
 
   // Financial calculations
   const totalVolume = useMemo(() => {
-    return transactions.reduce((acc, tx) => acc + (tx.status !== "failed" ? tx.amount : 0), 0);
-  }, [transactions]);
+    if (adminMerchantProfile && typeof adminMerchantProfile.grossSales === "number" && adminMerchantProfile.grossSales > 0) {
+      return adminMerchantProfile.grossSales;
+    }
+    return transactions.reduce((acc, tx) => acc + (tx.status !== "failed" && tx.status !== "refunded" ? tx.amount : 0), 0);
+  }, [transactions, adminMerchantProfile]);
 
   const escrowBalance = useMemo(() => {
     return transactions
@@ -181,14 +256,64 @@ export function SupplierPaymentsView() {
       .reduce((acc, tx) => acc + tx.amount, 0);
   }, [transactions]);
 
-  // Available balance
-  const availableBalance = useMemo(() => {
-    const baseSettled = completedVolume;
-    const pendingWithdrawals = transactions
-      .filter((tx) => tx.status === "pending" && tx.buyerCompany.includes("Treasury Payout"))
+  // Total Platform Commission Deducted
+  const totalCommissionDeducted = useMemo(() => {
+    if (adminMerchantProfile && typeof adminMerchantProfile.platformCommission === "number" && adminMerchantProfile.platformCommission > 0) {
+      return adminMerchantProfile.platformCommission;
+    }
+    // Calculate matching admin standard platform rate (3.5%) or fallback to itemized fees
+    const standardCommission = Math.round(totalVolume * 0.035 * 100) / 100;
+    const txCommission = transactions.reduce((acc, tx) => {
+      const fee = tx.feeETB ?? Math.round(tx.amount * 0.035);
+      return acc + (tx.status !== "failed" ? fee : 0);
+    }, 0);
+    const payoutCommission = (payouts || []).reduce(
+      (acc, p) => acc + Number(p.platformFee || 0),
+      0
+    );
+    const sumCommission = txCommission + payoutCommission;
+    return sumCommission > 0 ? sumCommission : standardCommission;
+  }, [transactions, payouts, totalVolume, adminMerchantProfile]);
+
+  // Total Admin Payout Transfers Received
+  const totalAdminTransferred = useMemo(() => {
+    if (adminMerchantProfile && typeof adminMerchantProfile.totalPaidOut === "number" && adminMerchantProfile.totalPaidOut > 0) {
+      return adminMerchantProfile.totalPaidOut;
+    }
+    if (payouts && payouts.length > 0) {
+      return payouts.reduce((acc, p) => {
+        const net = Number(p.netPayoutAmount || p.amount || 0);
+        return acc + (p.status?.toUpperCase() !== "FAILED" ? net : 0);
+      }, 0);
+    }
+    return transactions
+      .filter((tx) => tx.status === "completed" && tx.buyerCompany?.includes("Treasury Payout"))
       .reduce((acc, tx) => acc + tx.amount, 0);
-    return Math.max(0, baseSettled - pendingWithdrawals);
-  }, [transactions, completedVolume]);
+  }, [payouts, transactions, adminMerchantProfile]);
+
+  // Total Wholesale Sourcing Orders Paid
+  const totalWholesaleSpend = useMemo(() => {
+    return (sourcingOrders || []).reduce((acc, order) => {
+      const amt = Number(order.totalETB || order.subtotal || 0);
+      return acc + (order.status !== "cancelled" ? amt : 0);
+    }, 0);
+  }, [sourcingOrders]);
+
+  const activeWholesaleEscrow = useMemo(() => {
+    return (sourcingOrders || [])
+      .filter((o) => o.status === "escrow_locked" || o.status === "in_transit")
+      .reduce((acc, o) => acc + Number(o.totalETB || o.subtotal || 0), 0);
+  }, [sourcingOrders]);
+
+  // Available balance (Net Platform Balance)
+  // Perfectly matches the official Admin API calculation:
+  // Math.max(0, Math.round((grossSales - platformCommission - totalPaidOut) * 100) / 100)
+  const availableBalance = useMemo(() => {
+    if (adminMerchantProfile && typeof adminMerchantProfile.availableBalance === "number") {
+      return adminMerchantProfile.availableBalance;
+    }
+    return Math.max(0, Math.round((totalVolume - totalCommissionDeducted - totalAdminTransferred) * 100) / 100);
+  }, [totalVolume, totalCommissionDeducted, totalAdminTransferred, adminMerchantProfile]);
 
   // Escrow Milestones breakdown
   const escrowStageStats = useMemo(() => {
@@ -278,9 +403,9 @@ export function SupplierPaymentsView() {
   const formatShortMoney = (amountETB: number) => {
     if (currencyMode === "USD") {
       const inUSD = amountETB / usdRate;
-      return `$${(inUSD / 1000).toFixed(1)}k`;
+      return `$${inUSD.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     }
-    return `ETB ${(amountETB / 1000000).toFixed(2)}M`;
+    return `ETB ${amountETB.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
   // Dynamically extract all available payment methods for filtering
@@ -388,6 +513,187 @@ export function SupplierPaymentsView() {
   const handleQuickPreset = (percent: number) => {
     const calculated = Math.floor((availableBalance * percent) / 100);
     setWithdrawAmount(calculated);
+  };
+
+  // Chatbot intelligence handler
+  const handleSendChatMessage = (customQuery?: string) => {
+    const q = (customQuery || chatInput).trim();
+    if (!q) return;
+
+    const userMsgId = `usr-${Date.now()}`;
+    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    const newHistory = [
+      ...chatMessages,
+      { id: userMsgId, sender: "user" as const, text: q, timestamp: now },
+    ];
+    setChatMessages(newHistory);
+    setChatInput("");
+
+    setTimeout(() => {
+      const lower = q.toLowerCase();
+      const botMsgId = `bot-${Date.now()}`;
+      let replyText = "";
+      let actionType: "withdraw_prompt" | "balance_card" | "commission_card" | "payout_card" | undefined;
+
+      if (
+        lower.includes("balance") ||
+        lower.includes("net") ||
+        lower.includes("ሂሳብ") ||
+        lower.includes("ስንት አለኝ") ||
+        lower.includes("ቀሪ") ||
+        lower.includes("hafteen") ||
+        lower.includes("ተረፍ")
+      ) {
+        replyText =
+          language === "am"
+            ? `በአሁኑ ሰዓት በፕላትፎርሙ ላይ ለወጪ ዝግጁ የሆነ የተጣራ ቀሪ ሂሳብዎ **${formatMoney(availableBalance)}** ነው።\n\n• አጠቃላይ ሽያጭ፡ ${formatMoney(totalVolume)}\n• የተቆረጠ የመድረክ ኮሚሽን፡ - ${formatMoney(totalCommissionDeducted)}\n• አድሚን ያስተላለፈው ክፍያ፡ - ${formatMoney(totalAdminTransferred)}\n• የተጣራ ቀሪ ሂሳብ፡ ${formatMoney(availableBalance)}\n\nገንዘቡን ወደ ባንክ ሂሳብዎ ለማውጣት ከታች 'ገንዘብ አውጣ' የሚለውን መጫን ይችላሉ።`
+            : language === "om"
+            ? `Hafteen qulqulluu herrega keessanii yeroo ammaa baasiif qophii ta'e **${formatMoney(availableBalance)}** dha.\n\n• Gurgurtaa waliigalaa: ${formatMoney(totalVolume)}\n• Komishinii platformii: - ${formatMoney(totalCommissionDeducted)}\n• Adimiin kan dabarfame: - ${formatMoney(totalAdminTransferred)}\n• Haftee Qulqulluu: ${formatMoney(availableBalance)}`
+            : language === "ti"
+            ? `ኣብዚ ሰዓት ኣብ ፕላትፎርም ንምውጻእ ድሉው ዝኾነ ዝተጻረየ ተረፍ ሕሳብኩም **${formatMoney(availableBalance)}** እዩ።\n\n• ጠቕላላ መሸጣ፡ ${formatMoney(totalVolume)}\n• ዝተቖርጸ ኮሚሽን፡ - ${formatMoney(totalCommissionDeducted)}\n• ኣድሚን ዘመሓላለፎ፡ - ${formatMoney(totalAdminTransferred)}\n• ዝተጻረየ ተረፍ: ${formatMoney(availableBalance)}`
+            : `Your net available treasury balance ready for immediate payout is **${formatMoney(availableBalance)}**.\n\n• Gross Sales Volume: ${formatMoney(totalVolume)}\n• Platform Commission Deducted: - ${formatMoney(totalCommissionDeducted)}\n• Admin Payouts Transferred: - ${formatMoney(totalAdminTransferred)}\n• Net Platform Balance: ${formatMoney(availableBalance)}`;
+        actionType = "withdraw_prompt";
+      } else if (
+        lower.includes("commission") ||
+        lower.includes("fee") ||
+        lower.includes("ኮሚሽን") ||
+        lower.includes("ተቆረጠ") ||
+        lower.includes("hir'ifame") ||
+        lower.includes("ዝተቖርጸ")
+      ) {
+        replyText =
+          language === "am"
+            ? `ከሽያጭዎ ላይ የተቆረጠው አጠቃላይ የመድረክ ኮሚሽን **- ${formatMoney(totalCommissionDeducted)}** ነው።\n• መደበኛ የመድረክ የኢስክሮው ተመን፡ 3.5%\n• የተጣራ የተከፈለዎት ገቢ፡ ${formatMoney(Math.max(0, totalVolume - totalCommissionDeducted))}`
+            : language === "om"
+            ? `Komishiniin platformii gurgurtaa keessan irraa hir'ifame waliigalaan **- ${formatMoney(totalCommissionDeducted)}** dha (Gatii Eeskirawuu 1.5%).`
+            : language === "ti"
+            ? `ካብ መሸጣኹም ዝተቖርጸ ናይ መድረኽ ኮሚሽን ጠቕላላ **- ${formatMoney(totalCommissionDeducted)}** እዩ (ናይ ኢስክሮው ክፍሊት 1.5%)።`
+            : `Total platform escrow and technology commission deducted from your sales is **- ${formatMoney(totalCommissionDeducted)}** (Fixed 1.5% - 2.5% escrow fee rate).`;
+      } else if (
+        lower.includes("admin") ||
+        lower.includes("transfer") ||
+        lower.includes("አድሚን") ||
+        lower.includes("ዝውውር") ||
+        lower.includes("ተላከ") ||
+        lower.includes("dabarse") ||
+        lower.includes("ኣድሚን") ||
+        lower.includes("ምስግጋር")
+      ) {
+        const lastPayout = payouts && payouts.length > 0 ? payouts[0] : null;
+        const lastPayoutDate = lastPayout
+          ? new Date(lastPayout.processedAt || lastPayout.createdAt).toLocaleDateString()
+          : "N/A";
+        const lastBank = lastPayout?.bankName || "Commercial Bank of Ethiopia";
+
+        replyText =
+          language === "am"
+            ? `አድሚኑ እስካሁን ድረስ **${payouts?.length || 0}** ጊዜ አጠቃላይ **${formatMoney(totalAdminTransferred)}** ወደ ባንክ/ቴሌብር ሂሳብዎ አስተላልፏል።\n• የመጨረሻው ዝውውር፡ ${lastPayoutDate} በ ${lastBank}\n• ሁኔታ፡ የተረጋገጠ (RTGS Confirmed)\nሙሉ ዝርዝሩን 'ከአድሚን የተላለፉ ክፍያዎች' ታብ ላይ ማየት ይችላሉ።`
+            : language === "om"
+            ? `Adimiin hamma yoonaatti yeroo **${payouts?.length || 0}** waliigalaan **${formatMoney(totalAdminTransferred)}** gara herreega baankii/Telebirr keessaniitti dabarseera.`
+            : language === "ti"
+            ? `ኣድሚን ክሳብ ሕዚ ን **${payouts?.length || 0}** ግዜ ጠቕላላ **${formatMoney(totalAdminTransferred)}** ናብ ባንክ/ቴሌብር ሕሳብኩም ኣመሓላሊፉ ኣሎ።`
+            : `Platform administration has executed **${payouts?.length || 0}** payout transfers totaling **${formatMoney(totalAdminTransferred)}** to your verified bank accounts & mobile wallets via Chapa & CBE RTGS clearing rails.`;
+      } else if (
+        lower.includes("escrow") ||
+        lower.includes("ኢስክሮው") ||
+        lower.includes("የተያዘ") ||
+        lower.includes("ዋስትና") ||
+        lower.includes("eeskirawuu") ||
+        lower.includes("ውሕስነት")
+      ) {
+        const escrowCount = transactions.filter((t) => t.status === "escrow_held").length;
+        replyText =
+          language === "am"
+            ? `በኢትዮጵያ ንግድ ባንክ ባለሦስት ወገን ኢስክሮው (CBE Tripartite Escrow) የተቆለፈ ዋስትና መጠን **${formatMoney(escrowBalance)}** (${escrowCount} ትዕዛዞች) ነው። ደንበኛው ዕቃውን ተረክቦ የዲጂታል ርክክብ ሲያረጋግጥ ገንዘቡ ወዲያውኑ ወደሚገኝ ሂሳብዎ ይለቀቃል!`
+            : language === "om"
+            ? `Kuusaa Eeskirawuu CBE keessatti maallaqni wabiidhaan hidhame **${formatMoney(escrowBalance)}** (${escrowCount} ajajoota) dha.`
+            : language === "ti"
+            ? `ኣብ ንግዲ ባንኪ ኢስክሮው ዝተታሕዘ መጠን ገንዘብ **${formatMoney(escrowBalance)}** (${escrowCount} ትእዛዛት) እዩ። ዓማዊል ኣቑሑቶም ተረኪቦም ምስ ኣረጋገጹ ብቐጥታ ይልቀቕ።`
+            : `Buyer deposits locked under Commercial Bank of Ethiopia (CBE) Tripartite Escrow total **${formatMoney(escrowBalance)}** (${escrowCount} active orders). Released immediately upon electronic delivery POD signoff.`;
+      } else if (
+        lower.includes("wholesale") ||
+        lower.includes("sourcing") ||
+        lower.includes("ጅምላ") ||
+        lower.includes("ግዢ") ||
+        lower.includes("bittaa") ||
+        lower.includes("ዕደጋ")
+      ) {
+        replyText =
+          language === "am"
+            ? `ከሌሎች ጅምላ አቅራቢዎች እና ፋብሪካዎች ለገዟቸው ሸቀጦች የከፈሉት አጠቃላይ ወጪ **${formatMoney(totalWholesaleSpend)}** (${sourcingOrders?.length || 0} የጅምላ ትዕዛዞች) ነው።`
+            : language === "om"
+            ? `Baasiin bittaa jumlaa oomishaalee dhiyeessitoota biroo irraa bittan waliigalaan **${formatMoney(totalWholesaleSpend)}** (${sourcingOrders?.length || 0} ajajoota) dha.`
+            : language === "ti"
+            ? `ካብ ካልኦት ናይ ጅምላ ኣቕረብቲ ዝተዓደገ ናይ ጅምላ ሸቐጥ ወጻኢታት ጠቕላላ **${formatMoney(totalWholesaleSpend)}** (${sourcingOrders?.length || 0} ትእዛዛት) እዩ።`
+            : `Outbound procurement spend for wholesale commodities sourced from other platform producers totals **${formatMoney(totalWholesaleSpend)}** (${sourcingOrders?.length || 0} wholesale purchase orders).`;
+      } else if (
+        lower.includes("withdraw") ||
+        lower.includes("payout") ||
+        lower.includes("አውጣ") ||
+        lower.includes("ማውጣት") ||
+        lower.includes("ክፍያ") ||
+        lower.includes("baasi") ||
+        lower.includes("ኣውጽእ")
+      ) {
+        replyText =
+          language === "am"
+            ? `የክፍያ ማውጣት ጥያቄ ለማቅረብ ተዘጋጅቷል። በአሁኑ ሰዓት ለወጪ ዝግጁ የሆነ ሂሳብዎ **${formatMoney(availableBalance)}** ነው። ማውጣት የሚፈልጉትን የብር መጠን ይምረጡ ወይም ያስገቡ፡`
+            : language === "om"
+            ? `Gaaffii kaffaltii baasii dhiyeessuuf qophii dha. Hafteen keessan **${formatMoney(availableBalance)}** dha. Hamma baasuu barbaaddan filadhaa:`
+            : language === "ti"
+            ? `ናይ ክፍሊት ምውጻእ ሕቶ ንምቕራብ ድሉው እዩ። ዘሎ ዝተረፈ ገንዘብኩም **${formatMoney(availableBalance)}** እዩ። ክተውጽእዎ ዝደለኹም መጠን ምረጹ፡`
+            : `Ready to dispatch a treasury payout request. Your available balance is **${formatMoney(availableBalance)}**. Select or enter the amount you wish to withdraw:`;
+        actionType = "withdraw_prompt";
+      } else {
+        replyText =
+          language === "am"
+            ? `ሰላም! እኔ የክፍያ እና ግምጃ ቤት ረዳትዎ ነኝ። ስለ ቀሪ ሂሳብዎ (**${formatMoney(availableBalance)}**), ስለተቆረጠ ኮሚሽን (**- ${formatMoney(totalCommissionDeducted)}**), ከአድሚን ስለተላለፈ ክፍያ (**${formatMoney(totalAdminTransferred)}**), ወይም ገንዘብ ስለማውጣት የሚፈልጉትን መጠየቅ ይችላሉ።`
+            : `Hello! I am your Treasury & Payout Assistant. You can ask about your available balance (${formatMoney(availableBalance)}), commission deducted (- ${formatMoney(totalCommissionDeducted)}), admin payouts (${formatMoney(totalAdminTransferred)}), or request a payout right now.`;
+        actionType = "withdraw_prompt";
+      }
+
+      setChatMessages((prev) => [
+        ...prev,
+        {
+          id: botMsgId,
+          sender: "bot",
+          text: replyText,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+          actionType,
+        },
+      ]);
+    }, 350);
+  };
+
+  // Bot quick withdrawal dispatcher
+  const handleBotQuickWithdraw = (amount: number) => {
+    if (amount <= 0 || amount > availableBalance) {
+      toast.error("Withdrawal amount cannot exceed available treasury balance.");
+      return;
+    }
+    const def = settlementAccounts.find((a) => a.isDefault) || settlementAccounts[0];
+    const destination = def
+      ? `${def.bankName} (${def.shortCode} - ${def.accountNumber})`
+      : "Commercial Bank of Ethiopia (CBE)";
+
+    requestWithdrawal(amount, destination, "Dispatched via Treasury AI Assistant");
+
+    const botMsgId = `bot-${Date.now()}`;
+    const confirmationText =
+      language === "am"
+        ? `✓ የ **${formatMoney(amount)}** የክፍያ ማውጣት ጥያቄ በተሳካ ሁኔታ ተልኳል!\n• መድረሻ፡ ${destination}\n• የማጣሪያ ጊዜ፡ RTGS 1-3 ሰዓታት\nአድሚኑ ማስተላለፉን እንዳጠናቀቀ ማሳወቂያ ይደርስዎታል።`
+        : `✓ Payout request of **${formatMoney(amount)}** successfully dispatched to ${destination}! RTGS interbank clearing initiated.`;
+
+    setChatMessages((prev) => [
+      ...prev,
+      {
+        id: botMsgId,
+        sender: "bot",
+        text: confirmationText,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+    toast.success(`Payout of ${formatMoney(amount)} requested successfully.`);
   };
 
   // Add new account submit
@@ -740,9 +1046,9 @@ export function SupplierPaymentsView() {
         />
         <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(#ffffff0a_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
 
-        <div className="relative z-10 grid grid-cols-1 gap-7 lg:grid-cols-12 lg:items-center">
+        <div className="relative z-10 grid grid-cols-1 gap-6 lg:grid-cols-12 lg:items-center">
           {/* Left Column: Primary Available Balance & Quick Actions */}
-          <div className="space-y-4 lg:col-span-6">
+          <div className="space-y-3.5 lg:col-span-7">
             <div className="flex flex-wrap items-center gap-2">
               <span
                 className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-0.5 text-[11px] font-bold backdrop-blur-xs ${
@@ -767,8 +1073,8 @@ export function SupplierPaymentsView() {
               <p className="text-[11px] font-semibold uppercase tracking-wider text-white/80">
                 {tr("availableForImmediate")}
               </p>
-              <div className="mt-1 flex flex-wrap items-baseline gap-3">
-                <span className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight font-mono text-white drop-shadow-xs">
+              <div className="mt-1 flex flex-wrap items-baseline gap-2.5">
+                <span className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight font-mono text-white drop-shadow-xs">
                   {formatMoney(availableBalance)}
                 </span>
                 {currencyMode === "ETB" && (
@@ -777,19 +1083,19 @@ export function SupplierPaymentsView() {
                   </span>
                 )}
               </div>
-              <p className="mt-1.5 text-xs text-white/80 max-w-xl leading-relaxed">
+              <p className="mt-1 text-xs text-white/80 max-w-xl leading-relaxed">
                 {tr("settledNetDescription")}
               </p>
             </div>
 
             {/* Primary Action Buttons inside Hero */}
-            <div className="flex flex-wrap items-center gap-2.5 pt-1">
+            <div className="flex flex-wrap items-center gap-2 pt-1">
               <button
                 onClick={() => {
                   setWithdrawAmount(Math.min(1000000, availableBalance));
                   setIsWithdrawModalOpen(true);
                 }}
-                className={`inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold shadow-lg transition-all cursor-pointer active:scale-98 ${
+                className={`inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold shadow-lg transition-all cursor-pointer active:scale-98 ${
                   isLight
                     ? "bg-white text-emerald-950 hover:bg-slate-100 shadow-emerald-950/20"
                     : isSystem
@@ -802,11 +1108,19 @@ export function SupplierPaymentsView() {
               </button>
 
               <button
+                onClick={() => setIsChatbotOpen(true)}
+                className="inline-flex items-center gap-2 rounded-xl border border-amber-400/50 bg-amber-500/20 hover:bg-amber-500/30 px-3.5 py-2 text-xs font-bold text-amber-200 transition-all cursor-pointer shadow-lg shadow-amber-950/20 backdrop-blur-xs"
+              >
+                <Bot className="h-4 w-4 text-amber-300 animate-pulse" />
+                <span>{tr("botOpenAssistant")}</span>
+              </button>
+
+              <button
                 onClick={() => {
                   setMilestoneFilter("deposit_confirmed");
                   toast.success("Filtered table to active Escrow transactions.");
                 }}
-                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3.5 py-2.5 text-xs font-semibold text-white transition-all cursor-pointer backdrop-blur-xs"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 hover:bg-white/15 px-3 py-2 text-xs font-semibold text-white transition-all cursor-pointer backdrop-blur-xs"
               >
                 <ShieldCheck className="h-4 w-4 text-emerald-300" />
                 <span>{tr("btnViewLockedEscrow")}</span>
@@ -814,7 +1128,7 @@ export function SupplierPaymentsView() {
 
               <button
                 onClick={() => setShowAnalyticsStrip(!showAnalyticsStrip)}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2.5 text-xs font-medium text-white/90 transition-all cursor-pointer"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2 text-xs font-medium text-white/90 transition-all cursor-pointer"
               >
                 <TrendingUp className="h-3.5 w-3.5" />
                 <span>{showAnalyticsStrip ? tr("btnHideTrends") : tr("btnShowTrends")}</span>
@@ -827,7 +1141,7 @@ export function SupplierPaymentsView() {
                   toast.info("Refreshing live payment & escrow ledger...");
                 }}
                 disabled={isLoadingTransactions}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2.5 text-xs font-medium text-white/90 transition-all cursor-pointer disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 px-3 py-2 text-xs font-medium text-white/90 transition-all cursor-pointer disabled:opacity-60"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isLoadingTransactions ? "animate-spin" : ""}`} />
                 <span>{isLoadingTransactions ? tr("btnSyncing") : tr("btnRefresh")}</span>
@@ -835,87 +1149,264 @@ export function SupplierPaymentsView() {
             </div>
           </div>
 
-          {/* Right Column: 4 Frosted High-Impact Micro Metric Tiles */}
-          <div className="grid grid-cols-2 gap-3 lg:col-span-6">
-            {/* 1. Secured in Escrow */}
-            <div
-              onClick={() => {
-                setStatusFilter("escrow_held");
-                setMilestoneFilter(null);
-              }}
-              className="group rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-emerald-400/40 hover:bg-white/10 cursor-pointer"
-            >
-              <div className="flex items-center justify-between text-emerald-300">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80 group-hover:text-white">
-                  {tr("cardSecuredEscrow")}
-                </span>
-                <ShieldCheck className="h-4 w-4 text-emerald-400 group-hover:scale-110 transition-transform" />
+          {/* Right Column: Transparent Net Settlement Formula Card */}
+          <div className="lg:col-span-5">
+            <div className="rounded-2xl border border-white/20 bg-black/35 p-3.5 sm:p-4 backdrop-blur-md shadow-xl">
+              <div className="flex items-center justify-between pb-2 border-b border-white/10">
+                <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-emerald-300">
+                  <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+                  <span>{tr("formulaTitle")}</span>
+                </div>
+                <span className="text-[10px] font-mono text-white/60 uppercase">NBE RTGS</span>
               </div>
-              <p className="mt-2 text-xl font-bold font-mono text-white">
-                {formatShortMoney(escrowBalance)}
-              </p>
-              <div className="mt-1 flex items-center gap-1.5 text-[11px] text-white/80">
-                <span>{transactions.filter((t) => t.status === "escrow_held").length} Orders</span>
-                <span className="text-white/40">•</span>
-                <span className="text-[10px] text-emerald-300 font-medium">{tr("cardGuaranteed")}</span>
-              </div>
-            </div>
 
-            {/* 2. 30-Day Gross Volume */}
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-blue-400/40 hover:bg-white/10">
-              <div className="flex items-center justify-between text-blue-300">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                  {tr("cardGrossVolume")}
-                </span>
-                <TrendingUp className="h-4 w-4 text-blue-400" />
-              </div>
-              <p className="mt-2 text-xl font-bold font-mono text-white">
-                {formatShortMoney(totalVolume)}
-              </p>
-              <div className="mt-1 flex items-center gap-1 text-[11px] text-emerald-300">
-                <span className="font-semibold">+18.4%</span>
-                <span className="text-white/60 text-[10px]">{tr("cardVsCycle")}</span>
-              </div>
-            </div>
+              <div className="mt-2.5 space-y-1.5 text-xs">
+                {/* 1. Gross Sales */}
+                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-white/5 border border-white/10">
+                  <span className="text-white/80 font-medium text-[11px] sm:text-xs">{tr("formulaGrossSales")}</span>
+                  <span className="font-mono font-bold text-white text-xs sm:text-sm">+{formatMoney(totalVolume)}</span>
+                </div>
 
-            {/* 3. Clearing Speed & SLA */}
-            <div className="rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-amber-400/40 hover:bg-white/10">
-              <div className="flex items-center justify-between text-amber-300">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80">
-                  {tr("cardSettlementSla")}
-                </span>
-                <Clock className="h-4 w-4 text-amber-400" />
-              </div>
-              <p className="mt-2 text-xl font-bold font-mono text-white">Instant – 2.4 hrs</p>
-              <div className="mt-1 flex items-center gap-1 text-[11px] text-white/80">
-                <span className="text-emerald-400 font-medium">99.8%</span>
-                <span className="text-white/60 text-[10px]">{tr("cardRtgsSpeed")}</span>
-              </div>
-            </div>
+                {/* 2. Platform Commission */}
+                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-rose-500/15 border border-rose-400/25 text-rose-200">
+                  <span className="text-rose-200/90 font-medium text-[11px] sm:text-xs">{tr("formulaCommission")}</span>
+                  <span className="font-mono font-bold text-xs sm:text-sm">- {formatMoney(totalCommissionDeducted)}</span>
+                </div>
 
-            {/* 4. Total Disbursed / Settled */}
-            <div
-              onClick={() => {
-                setStatusFilter("completed");
-                setMilestoneFilter(null);
-              }}
-              className="group rounded-xl border border-white/10 bg-white/5 p-4 backdrop-blur-xs transition-all hover:border-purple-400/40 hover:bg-white/10 cursor-pointer"
-            >
-              <div className="flex items-center justify-between text-purple-300">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-white/80 group-hover:text-white">
-                  {tr("cardPaidOut")}
-                </span>
-                <BadgeCheck className="h-4 w-4 text-purple-400 group-hover:scale-110 transition-transform" />
-              </div>
-              <p className="mt-2 text-xl font-bold font-mono text-white">
-                {formatShortMoney(completedVolume)}
-              </p>
-              <div className="mt-1 flex items-center gap-1 text-[11px] text-white/80">
-                <span className="text-white/60 text-[10px]">
-                  {transactions.filter((t) => t.status === "completed").length} {tr("cardDisbursedVouchers")}
-                </span>
+                {/* 3. Admin Transferred */}
+                <div className="flex items-center justify-between px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-400/25 text-emerald-200">
+                  <span className="text-emerald-200/90 font-medium text-[11px] sm:text-xs">{tr("formulaAdminTransferred")}</span>
+                  <span className="font-mono font-bold text-xs sm:text-sm">- {formatMoney(totalAdminTransferred)}</span>
+                </div>
+
+                {/* 4. Net Platform Balance */}
+                <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-emerald-400/25 border border-emerald-300/50 text-white shadow-md">
+                  <span className="text-emerald-200 font-bold text-[11px] sm:text-xs">{tr("formulaNetAvailable")}</span>
+                  <span className="font-mono font-black text-sm sm:text-base text-emerald-300">{formatMoney(availableBalance)}</span>
+                </div>
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 2.5 Expanded High-Impact Metric Cards (Spacious Full-Width Grid with Balanced Typography) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 sm:gap-4">
+        {/* 1. Gross Volume */}
+        <div
+          onClick={() => {
+            setActiveMainSection("inflows");
+            setStatusFilter("all");
+            setMilestoneFilter(null);
+          }}
+          className={`group rounded-2xl border p-4 sm:p-4.5 transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between ${
+            isLight
+              ? "border-slate-200/90 bg-white text-slate-900 hover:border-blue-500/50"
+              : isSystem
+              ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-blue-950/20 hover:border-blue-400/50"
+              : "border-white/10 bg-[#12161f] text-white hover:border-blue-500/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isLight ? "text-slate-600 group-hover:text-slate-900" : "text-white/80 group-hover:text-white"
+            }`}>
+              {tr("cardGrossVolume")}
+            </span>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${
+              isLight ? "bg-blue-50 text-blue-600 border border-blue-200" : "bg-blue-500/20 text-blue-300 border border-blue-400/30"
+            }`}>
+              <TrendingUp className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2.5 text-base sm:text-lg font-bold font-mono tracking-tight">
+            {formatShortMoney(totalVolume)}
+          </p>
+          <div className={`mt-2 flex items-center gap-1.5 text-xs ${
+            isLight ? "text-blue-700" : "text-blue-300"
+          }`}>
+            <span className="font-semibold">{transactions.length}</span>
+            <span className={isLight ? "text-slate-500" : "text-white/60"}>{tr("tabAll")}</span>
+          </div>
+        </div>
+
+        {/* 2. Secured in Escrow */}
+        <div
+          onClick={() => {
+            setActiveMainSection("inflows");
+            setStatusFilter("escrow_held");
+            setMilestoneFilter(null);
+          }}
+          className={`group rounded-2xl border p-4 sm:p-4.5 transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between ${
+            isLight
+              ? "border-slate-200/90 bg-white text-slate-900 hover:border-emerald-500/50"
+              : isSystem
+              ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-blue-950/20 hover:border-emerald-400/50"
+              : "border-white/10 bg-[#12161f] text-white hover:border-emerald-500/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isLight ? "text-slate-600 group-hover:text-slate-900" : "text-white/80 group-hover:text-white"
+            }`}>
+              {tr("cardSecuredEscrow")}
+            </span>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${
+              isLight ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
+            }`}>
+              <ShieldCheck className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2.5 text-base sm:text-lg font-bold font-mono tracking-tight">
+            {formatShortMoney(escrowBalance)}
+          </p>
+          <div className={`mt-2 flex items-center gap-1.5 text-xs ${
+            isLight ? "text-emerald-700" : "text-emerald-300"
+          }`}>
+            <span className="font-semibold">{transactions.filter((t) => t.status === "escrow_held").length} Orders</span>
+            <span className={isLight ? "text-slate-400" : "text-white/40"}>•</span>
+            <span className="font-semibold">{tr("cardGuaranteed")}</span>
+          </div>
+        </div>
+
+        {/* 3. Platform Commission Deducted */}
+        <div
+          className={`group rounded-2xl border p-4 sm:p-4.5 transition-all shadow-xs flex flex-col justify-between ${
+            isLight
+              ? "border-slate-200/90 bg-white text-slate-900 hover:border-rose-500/50"
+              : isSystem
+              ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-blue-950/20 hover:border-rose-400/50"
+              : "border-white/10 bg-[#12161f] text-white hover:border-rose-500/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isLight ? "text-slate-600 group-hover:text-slate-900" : "text-white/80 group-hover:text-white"
+            }`}>
+              {tr("cardCommissionDeducted")}
+            </span>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${
+              isLight ? "bg-rose-50 text-rose-600 border border-rose-200" : "bg-rose-500/20 text-rose-300 border border-rose-400/30"
+            }`}>
+              <Percent className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2.5 text-base sm:text-lg font-bold font-mono text-rose-600 dark:text-rose-400 tracking-tight">
+            - {formatShortMoney(totalCommissionDeducted)}
+          </p>
+          <div className={`mt-2 flex items-center gap-1.5 text-xs ${
+            isLight ? "text-slate-500" : "text-white/70"
+          }`}>
+            <span>{tr("cardCommissionRate")}</span>
+          </div>
+        </div>
+
+        {/* 4. Admin Transfers Received */}
+        <div
+          onClick={() => setActiveMainSection("payouts")}
+          className={`group rounded-2xl border p-4 sm:p-4.5 transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between ${
+            isLight
+              ? "border-slate-200/90 bg-white text-slate-900 hover:border-emerald-500/50"
+              : isSystem
+              ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-blue-950/20 hover:border-blue-400/50"
+              : "border-white/10 bg-[#12161f] text-white hover:border-emerald-500/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isLight ? "text-slate-600 group-hover:text-slate-900" : "text-white/80 group-hover:text-white"
+            }`}>
+              {tr("cardAdminTransferred")}
+            </span>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${
+              isLight ? "bg-emerald-50 text-emerald-600 border border-emerald-200" : "bg-emerald-500/20 text-emerald-300 border border-emerald-400/30"
+            }`}>
+              <BadgeCheck className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2.5 text-base sm:text-lg font-bold font-mono tracking-tight">
+            {formatShortMoney(totalAdminTransferred)}
+          </p>
+          <div className={`mt-2 flex items-center gap-1.5 text-xs ${
+            isLight ? "text-emerald-700" : "text-emerald-300"
+          }`}>
+            <span>
+              {tr("cardAdminTransfersCount", { count: payouts?.length || 0 })}
+            </span>
+          </div>
+        </div>
+
+        {/* 5. Wholesale Sourcing Orders Paid */}
+        <div
+          onClick={() => setActiveMainSection("wholesale")}
+          className={`group rounded-2xl border p-4 sm:p-4.5 transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between ${
+            isLight
+              ? "border-slate-200/90 bg-white text-slate-900 hover:border-purple-500/50"
+              : isSystem
+              ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-blue-950/20 hover:border-purple-400/50"
+              : "border-white/10 bg-[#12161f] text-white hover:border-purple-500/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isLight ? "text-slate-600 group-hover:text-slate-900" : "text-white/80 group-hover:text-white"
+            }`}>
+              {tr("cardWholesaleSpend")}
+            </span>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${
+              isLight ? "bg-purple-50 text-purple-600 border border-purple-200" : "bg-purple-500/20 text-purple-300 border border-purple-400/30"
+            }`}>
+              <Package className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2.5 text-base sm:text-lg font-bold font-mono text-purple-600 dark:text-purple-300 tracking-tight">
+            {formatShortMoney(totalWholesaleSpend)}
+          </p>
+          <div className={`mt-2 flex items-center gap-1.5 text-xs ${
+            isLight ? "text-purple-700" : "text-purple-300"
+          }`}>
+            <span>
+              {tr("cardWholesaleOrdersCount", { count: sourcingOrders?.length || 0 })}
+            </span>
+          </div>
+        </div>
+
+        {/* 6. Total Disbursed / Settled */}
+        <div
+          onClick={() => {
+            setActiveMainSection("inflows");
+            setStatusFilter("completed");
+            setMilestoneFilter(null);
+          }}
+          className={`group rounded-2xl border p-4 sm:p-4.5 transition-all cursor-pointer shadow-xs hover:shadow-md flex flex-col justify-between ${
+            isLight
+              ? "border-slate-200/90 bg-white text-slate-900 hover:border-cyan-500/50"
+              : isSystem
+              ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-blue-950/20 hover:border-cyan-400/50"
+              : "border-white/10 bg-[#12161f] text-white hover:border-cyan-500/40"
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wider ${
+              isLight ? "text-slate-600 group-hover:text-slate-900" : "text-white/80 group-hover:text-white"
+            }`}>
+              {tr("cardPaidOut")}
+            </span>
+            <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform ${
+              isLight ? "bg-cyan-50 text-cyan-600 border border-cyan-200" : "bg-cyan-500/20 text-cyan-300 border border-cyan-400/30"
+            }`}>
+              <CheckCircle2 className="h-4 w-4" />
+            </div>
+          </div>
+          <p className="mt-2.5 text-base sm:text-lg font-bold font-mono tracking-tight">
+            {formatShortMoney(completedVolume)}
+          </p>
+          <div className={`mt-2 flex items-center gap-1.5 text-xs ${
+            isLight ? "text-slate-600" : "text-white/80"
+          }`}>
+            <span className={isLight ? "text-slate-500" : "text-white/70"}>
+              {transactions.filter((t) => t.status === "completed").length} {tr("cardDisbursedVouchers")}
+            </span>
           </div>
         </div>
       </div>
@@ -1117,8 +1608,86 @@ export function SupplierPaymentsView() {
         </div>
       )}
 
-      {/* 4. Verified Settlement Accounts & Banking Rails Shelf (Tailored per Theme & Method) */}
-      {showAccountsStrip && (
+      {/* 4. Multi-Dimensional Primary Treasury Section Switcher */}
+      <div
+        className={`flex flex-wrap items-center gap-2 rounded-2xl border p-1.5 shadow-xs ${
+          isLight
+            ? "border-slate-200 bg-white"
+            : isSystem
+            ? "border-blue-500/25 bg-[#0f1b3b]"
+            : "border-white/10 bg-[#12161f]"
+        }`}
+      >
+        {[
+          {
+            id: "inflows",
+            label: tr("sectionCustomerInflows"),
+            icon: TrendingUp,
+            count: transactions.length,
+            badgeColor: "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20",
+          },
+          {
+            id: "payouts",
+            label: tr("sectionAdminPayouts"),
+            icon: BadgeCheck,
+            count: payouts?.length || 0,
+            badgeColor: "bg-blue-500/15 text-blue-400 border border-blue-500/20",
+          },
+          {
+            id: "wholesale",
+            label: tr("sectionWholesaleSourcing"),
+            icon: Package,
+            count: sourcingOrders?.length || 0,
+            badgeColor: "bg-purple-500/15 text-purple-400 border border-purple-500/20",
+          },
+          {
+            id: "banks",
+            label: tr("sectionBankingRails"),
+            icon: Building2,
+            count: settlementAccounts.length,
+            badgeColor: "bg-amber-500/15 text-amber-400 border border-amber-500/20",
+          },
+        ].map((sec) => {
+          const isActive = activeMainSection === sec.id;
+          const Icon = sec.icon;
+          return (
+            <button
+              key={sec.id}
+              onClick={() => setActiveMainSection(sec.id as any)}
+              className={`flex items-center gap-2 rounded-xl px-3.5 py-2 text-xs font-bold transition-all cursor-pointer ${
+                isActive
+                  ? isLight
+                    ? "bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600"
+                    : isSystem
+                    ? "bg-blue-600 text-white shadow-md ring-1 ring-blue-400"
+                    : "bg-emerald-400 text-slate-950 shadow-md font-black"
+                  : isLight
+                  ? "text-slate-600 hover:bg-slate-100 hover:text-slate-900"
+                  : isSystem
+                  ? "text-blue-200/70 hover:bg-blue-900/40 hover:text-white"
+                  : "text-zinc-400 hover:bg-white/5 hover:text-white"
+              }`}
+            >
+              <Icon className="h-4 w-4 shrink-0" />
+              <span>{sec.label}</span>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-mono font-bold ${
+                  isActive
+                    ? isLight || isSystem
+                      ? "bg-white/25 text-white"
+                      : "bg-slate-950/25 text-slate-950 font-black"
+                    : sec.badgeColor
+                }`}
+              >
+                {sec.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* 5. Verified Settlement Accounts & Banking Rails Shelf (Tailored per Theme & Method) */}
+      {(activeMainSection === "banks" || (activeMainSection === "inflows" && showAccountsStrip)) && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
@@ -1321,9 +1890,12 @@ export function SupplierPaymentsView() {
         </div>
       )}
 
-      {/* 5. Interactive CBE Tripartite Escrow Protocol & Milestone Engine */}
-      <div
-        className={`rounded-2xl border p-4.5 shadow-xs space-y-3.5 transition-colors ${
+      {/* 6. Customer Inflows & CBE Escrow Management Section */}
+      {activeMainSection === "inflows" && (
+        <div className="space-y-6">
+          {/* Interactive CBE Tripartite Escrow Protocol & Milestone Engine */}
+          <div
+            className={`rounded-2xl border p-4.5 shadow-xs space-y-3.5 transition-colors ${
           isLight
             ? "border-slate-200 bg-slate-50/70 text-slate-900"
             : isSystem
@@ -1839,8 +2411,9 @@ export function SupplierPaymentsView() {
                   <th className="py-3.5 px-5 min-w-[190px] whitespace-nowrap">{tr("colPaymentIdDate")}</th>
                   <th className="py-3.5 px-4 min-w-[215px] whitespace-nowrap">{tr("colPayer")}</th>
                   <th className="py-3.5 px-4 min-w-[235px] whitespace-nowrap">{tr("colOrderPurpose")}</th>
-                  <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">{tr("colAmountPaid")}</th>
-                  <th className="py-3.5 px-4 min-w-[155px] whitespace-nowrap">{tr("colNetPayout")}</th>
+                  <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">{tr("colGrossAmount")}</th>
+                  <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">{tr("colCommissionFee")}</th>
+                  <th className="py-3.5 px-4 min-w-[155px] whitespace-nowrap">{tr("colNetDisbursed")}</th>
                   <th className="py-3.5 px-4 min-w-[165px] whitespace-nowrap">{tr("colChannel")}</th>
                   <th className="py-3.5 px-4 min-w-[170px] whitespace-nowrap">{tr("colGatewayRef")}</th>
                   <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">{tr("colStatus")}</th>
@@ -1979,21 +2552,28 @@ export function SupplierPaymentsView() {
                         )}
                       </td>
 
-                      {/* 5. Net Payout & Fee */}
+                      {/* 5. Platform Commission Fee Deducted */}
                       <td className="py-4 px-4 whitespace-nowrap">
-                        <div
-                          className={`font-mono font-semibold text-xs ${
-                            isSystem ? "text-blue-400" : "text-emerald-600 dark:text-emerald-400"
-                          }`}
-                        >
-                          {formatMoney(net)}
+                        <div className="font-mono font-semibold text-xs text-rose-500">
+                          - {formatMoney(fee)}
                         </div>
                         <div
                           className={`text-[10px] mt-0.5 ${
                             isLight ? "text-slate-400" : isSystem ? "text-blue-300/60" : "text-zinc-500"
                           }`}
                         >
-                          Fee: ETB {fee.toLocaleString()} (1.5%)
+                          1.5% Escrow
+                        </div>
+                      </td>
+
+                      {/* 6. Net Disbursed */}
+                      <td className="py-4 px-4 whitespace-nowrap">
+                        <div
+                          className={`font-mono font-bold text-xs ${
+                            isSystem ? "text-blue-400" : "text-emerald-600 dark:text-emerald-400"
+                          }`}
+                        >
+                          {formatMoney(net)}
                         </div>
                       </td>
 
@@ -2294,6 +2874,455 @@ export function SupplierPaymentsView() {
               onPageChange={setCurrentPage}
             />
           </div>
+        </div>
+      )}
+        </div>
+      )}
+
+      {/* 7. Admin Payout Transfers Received Section */}
+      {activeMainSection === "payouts" && (
+        <div className="space-y-4">
+          {/* Admin Payouts Banner */}
+          <div
+            className={`rounded-2xl border p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${
+              isLight
+                ? "border-emerald-200 bg-emerald-50/70 text-slate-900"
+                : isSystem
+                ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-md shadow-blue-950/20"
+                : "border-emerald-500/20 bg-emerald-950/20 text-white"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-xs ${
+                  isSystem ? "bg-blue-600" : "bg-emerald-600"
+                }`}
+              >
+                <BadgeCheck className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider">{tr("adminTransfersTitle")}</h4>
+                  <span
+                    className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                      isLight
+                        ? "bg-emerald-100 text-emerald-800 border-emerald-300"
+                        : isSystem
+                        ? "bg-blue-500/20 text-blue-300 border-blue-400/30"
+                        : "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
+                    }`}
+                  >
+                    Chapa & CBE RTGS
+                  </span>
+                </div>
+                <p
+                  className={`text-[11px] mt-0.5 ${
+                    isLight ? "text-slate-600" : isSystem ? "text-blue-200/70" : "text-zinc-400"
+                  }`}
+                >
+                  {tr("adminTransfersSubtitle")}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div
+                className={`rounded-xl border px-3.5 py-2 text-right ${
+                  isLight
+                    ? "border-slate-200 bg-white"
+                    : isSystem
+                    ? "border-blue-500/30 bg-[#0c1630]"
+                    : "border-white/10 bg-white/5"
+                }`}
+              >
+                <span className="text-[10px] uppercase font-semibold opacity-70 block">
+                  {tr("cardAdminTransferred")}
+                </span>
+                <span className="font-mono font-bold text-sm text-emerald-500">
+                  {formatMoney(totalAdminTransferred)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Table of Admin Transfers */}
+          {payouts.length === 0 ? (
+            <div
+              className={`rounded-2xl border p-10 text-center shadow-xs ${
+                isLight
+                  ? "border-slate-200 bg-white"
+                  : isSystem
+                  ? "border-blue-500/25 bg-[#0f1b3b]"
+                  : "border-white/10 bg-[#12161f]"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 mx-auto mb-3">
+                <BadgeCheck className="w-6 h-6" />
+              </div>
+              <h4 className="font-bold text-sm">{tr("noAdminTransfersTitle")}</h4>
+              <p
+                className={`text-xs max-w-md mx-auto mt-1 mb-4 ${
+                  isLight ? "text-slate-500" : "text-zinc-400"
+                }`}
+              >
+                {tr("noAdminTransfersDesc")}
+              </p>
+              <button
+                onClick={() => {
+                  setWithdrawAmount(Math.min(1000000, availableBalance));
+                  setIsWithdrawModalOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Wallet className="w-4 h-4" />
+                <span>{tr("btnWithdrawToBank")}</span>
+              </button>
+            </div>
+          ) : (
+            <div
+              className={`rounded-2xl border shadow-xs overflow-hidden transition-colors ${
+                isLight
+                  ? "border-slate-200 bg-white text-slate-900"
+                  : isSystem
+                  ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-md shadow-blue-950/20"
+                  : "border-white/10 bg-[#12161f] text-white"
+              }`}
+            >
+              <div className="overflow-x-auto pb-2">
+                <table className="w-full min-w-[1060px] text-left text-xs">
+                  <thead>
+                    <tr
+                      className={`border-b font-semibold uppercase text-[10px] tracking-wider select-none ${
+                        isLight
+                          ? "border-slate-200 bg-slate-50 text-slate-600"
+                          : isSystem
+                          ? "border-blue-500/20 bg-[#0c1630] text-blue-200/80"
+                          : "border-white/10 bg-white/5 text-zinc-400"
+                      }`}
+                    >
+                      <th className="py-3.5 px-5 min-w-[180px] whitespace-nowrap">{tr("colTransferRef")}</th>
+                      <th className="py-3.5 px-4 min-w-[160px] whitespace-nowrap">{tr("colTransferDate")}</th>
+                      <th className="py-3.5 px-4 min-w-[220px] whitespace-nowrap">{tr("colTargetAccount")}</th>
+                      <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">{tr("colGrossAmount")}</th>
+                      <th className="py-3.5 px-4 min-w-[140px] whitespace-nowrap">{tr("colCommissionFee")}</th>
+                      <th className="py-3.5 px-4 min-w-[150px] whitespace-nowrap">{tr("colTransferAmount")}</th>
+                      <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">{tr("colTransferStatus")}</th>
+                      <th className="py-3.5 px-5 min-w-[130px] text-right whitespace-nowrap">{tr("colActions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    className={`divide-y ${
+                      isLight ? "divide-slate-100" : isSystem ? "divide-blue-500/15" : "divide-white/5"
+                    }`}
+                  >
+                    {payouts.map((payout: any) => {
+                      const pId = payout.id || "";
+                      const txRef = payout.txRef || payout.transactionReference || `TXN-PAY-${String(pId).slice(0, 8).toUpperCase()}`;
+                      const gross = Number(payout.amount || 0);
+                      const fee = Number(payout.platformFee || 0);
+                      const net = Number(payout.netPayoutAmount || (gross - fee));
+                      const dateStr = payout.processedAt || payout.createdAt || new Date().toISOString();
+                      const dateObj = new Date(dateStr);
+                      const formattedDate = !isNaN(dateObj.getTime())
+                        ? dateObj.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })
+                        : "—";
+                      const formattedTime = !isNaN(dateObj.getTime())
+                        ? dateObj.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })
+                        : "—";
+                      const status = payout.status?.toUpperCase() === "PROCESSED" || payout.status?.toUpperCase() === "COMPLETED"
+                        ? "completed"
+                        : payout.status?.toUpperCase() === "FAILED"
+                        ? "failed"
+                        : "pending";
+
+                      return (
+                        <tr
+                          key={payout.id}
+                          className={`transition-colors group cursor-pointer ${
+                            isLight ? "hover:bg-slate-50" : isSystem ? "hover:bg-blue-900/20" : "hover:bg-white/[0.02]"
+                          }`}
+                          onClick={() => setSelectedPayoutSlip(payout)}
+                        >
+                          <td className="py-4 px-5 whitespace-nowrap">
+                            <div className="font-mono font-bold flex items-center gap-1.5">
+                              <span>{txRef}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopy(txRef, `payout-${payout.id}`);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              >
+                                {copiedRef === `payout-${payout.id}` ? (
+                                  <Check className="h-3 w-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="text-[10px] font-mono opacity-60 mt-0.5">ID: {pId}</div>
+                          </td>
+                          <td className="py-4 px-4 whitespace-nowrap font-mono">
+                            <div className="flex items-center gap-1.5 font-semibold text-xs">
+                              <Calendar className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                              <span>{formattedDate}</span>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-[11px] opacity-75 mt-1 text-emerald-400 font-mono">
+                              <Clock className="h-3 w-3 shrink-0" />
+                              <span>{formattedTime}</span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="font-bold">{payout.bankName || "Commercial Bank of Ethiopia"}</div>
+                            <div className="text-[11px] font-mono opacity-70">
+                              A/C: {payout.bankAccountNumber || "••••••••"}
+                            </div>
+                            {payout.bankAccountHolderName && (
+                              <div className="text-[10px] opacity-60 truncate max-w-[180px]">
+                                {payout.bankAccountHolderName}
+                              </div>
+                            )}
+                          </td>
+                          <td className="py-4 px-4 font-mono font-bold whitespace-nowrap">
+                            {formatMoney(gross)}
+                          </td>
+                          <td className="py-4 px-4 font-mono font-medium text-rose-500 whitespace-nowrap">
+                            - {formatMoney(fee)}
+                          </td>
+                          <td className="py-4 px-4 font-mono font-bold text-emerald-600 dark:text-emerald-400 whitespace-nowrap">
+                            {formatMoney(net)}
+                          </td>
+                          <td className="py-4 px-4 whitespace-nowrap">
+                            <StatusBadge status={status} size="sm" />
+                          </td>
+                          <td className="py-4 px-5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => setSelectedPayoutSlip(payout)}
+                              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold cursor-pointer shadow-xs ${
+                                isLight
+                                  ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                  : isSystem
+                                  ? "border-blue-500/25 bg-[#0c1630] text-blue-100 hover:bg-[#122045]"
+                                  : "border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
+                              }`}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              <span>{tr("btnViewTransferVoucher")}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 8. Wholesale Sourcing Orders & Purchases Paid Section */}
+      {activeMainSection === "wholesale" && (
+        <div className="space-y-4">
+          {/* Wholesale Orders Banner */}
+          <div
+            className={`rounded-2xl border p-4.5 flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors ${
+              isLight
+                ? "border-purple-200 bg-purple-50/70 text-slate-900"
+                : isSystem
+                ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-md shadow-blue-950/20"
+                : "border-purple-500/20 bg-purple-950/20 text-white"
+            }`}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl text-white shadow-xs ${
+                  isSystem ? "bg-blue-600" : "bg-purple-600"
+                }`}
+              >
+                <Package className="h-6 w-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-xs font-bold uppercase tracking-wider">{tr("wholesaleOrdersTitle")}</h4>
+                  <span className="rounded-full bg-purple-500/20 text-purple-300 border border-purple-400/30 px-2 py-0.5 text-[10px] font-bold">
+                    B2B Sourcing Rails
+                  </span>
+                </div>
+                <p
+                  className={`text-[11px] mt-0.5 ${
+                    isLight ? "text-slate-600" : isSystem ? "text-blue-200/70" : "text-zinc-400"
+                  }`}
+                >
+                  {tr("wholesaleOrdersSubtitle")}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div
+                className={`rounded-xl border px-3.5 py-2 text-right ${
+                  isLight
+                    ? "border-slate-200 bg-white"
+                    : isSystem
+                    ? "border-blue-500/30 bg-[#0c1630]"
+                    : "border-white/10 bg-white/5"
+                }`}
+              >
+                <span className="text-[10px] uppercase font-semibold opacity-70 block">
+                  {tr("cardWholesaleSpend")}
+                </span>
+                <span className="font-mono font-bold text-sm text-purple-400">
+                  {formatMoney(totalWholesaleSpend)}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Table of Wholesale Orders */}
+          {sourcingOrders.length === 0 ? (
+            <div
+              className={`rounded-2xl border p-10 text-center shadow-xs ${
+                isLight
+                  ? "border-slate-200 bg-white"
+                  : isSystem
+                  ? "border-blue-500/25 bg-[#0f1b3b]"
+                  : "border-white/10 bg-[#12161f]"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-500 mx-auto mb-3">
+                <Package className="w-6 h-6" />
+              </div>
+              <h4 className="font-bold text-sm">{tr("noWholesaleOrdersTitle")}</h4>
+              <p
+                className={`text-xs max-w-md mx-auto mt-1 mb-4 ${
+                  isLight ? "text-slate-500" : "text-zinc-400"
+                }`}
+              >
+                {tr("noWholesaleOrdersDesc")}
+              </p>
+              <button
+                onClick={() => setActiveTab("sourcing")}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white px-4 py-2 text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Search className="w-4 h-4" />
+                <span>{tr("btnExploreWholesale")}</span>
+              </button>
+            </div>
+          ) : (
+            <div
+              className={`rounded-2xl border shadow-xs overflow-hidden transition-colors ${
+                isLight
+                  ? "border-slate-200 bg-white text-slate-900"
+                  : isSystem
+                  ? "border-blue-500/25 bg-[#0f1b3b] text-white shadow-md shadow-blue-950/20"
+                  : "border-white/10 bg-[#12161f] text-white"
+              }`}
+            >
+              <div className="overflow-x-auto pb-2">
+                <table className="w-full min-w-[1060px] text-left text-xs">
+                  <thead>
+                    <tr
+                      className={`border-b font-semibold uppercase text-[10px] tracking-wider select-none ${
+                        isLight
+                          ? "border-slate-200 bg-slate-50 text-slate-600"
+                          : isSystem
+                          ? "border-blue-500/20 bg-[#0c1630] text-blue-200/80"
+                          : "border-white/10 bg-white/5 text-zinc-400"
+                      }`}
+                    >
+                      <th className="py-3.5 px-5 min-w-[180px] whitespace-nowrap">{tr("colPoNumber")}</th>
+                      <th className="py-3.5 px-4 min-w-[200px] whitespace-nowrap">{tr("colSupplierName")}</th>
+                      <th className="py-3.5 px-4 min-w-[220px] whitespace-nowrap">{tr("colCommodityQuantity")}</th>
+                      <th className="py-3.5 px-4 min-w-[150px] whitespace-nowrap">{tr("colAmountPaidWholesale")}</th>
+                      <th className="py-3.5 px-4 min-w-[150px] whitespace-nowrap">{tr("colPaymentRail")}</th>
+                      <th className="py-3.5 px-4 min-w-[130px] whitespace-nowrap">{tr("colOrderStatus")}</th>
+                      <th className="py-3.5 px-5 min-w-[130px] text-right whitespace-nowrap">{tr("colActions")}</th>
+                    </tr>
+                  </thead>
+                  <tbody
+                    className={`divide-y ${
+                      isLight ? "divide-slate-100" : isSystem ? "divide-blue-500/15" : "divide-white/5"
+                    }`}
+                  >
+                    {sourcingOrders.map((order: SourcingOrder) => {
+                      const totalPaid = Number(order.totalETB || order.subtotal || 0);
+                      return (
+                        <tr
+                          key={order.id}
+                          className={`transition-colors group cursor-pointer ${
+                            isLight ? "hover:bg-slate-50" : isSystem ? "hover:bg-blue-900/20" : "hover:bg-white/[0.02]"
+                          }`}
+                          onClick={() => setSelectedWholesaleOrder(order)}
+                        >
+                          <td className="py-4 px-5 whitespace-nowrap">
+                            <div className="font-mono font-bold flex items-center gap-1.5">
+                              <span>{order.orderNumber}</span>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopy(order.orderNumber, `so-${order.id}`);
+                                }}
+                                className="opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                              >
+                                {copiedRef === `so-${order.id}` ? (
+                                  <Check className="h-3 w-3 text-emerald-500" />
+                                ) : (
+                                  <Copy className="h-3 w-3" />
+                                )}
+                              </button>
+                            </div>
+                            <div className="text-[10px] font-mono opacity-60 mt-0.5">{order.id}</div>
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="font-bold">{order.supplierName}</div>
+                            {order.supplierTin && (
+                              <div className="text-[10px] font-mono opacity-60">TIN: {order.supplierTin}</div>
+                            )}
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="font-semibold truncate max-w-[200px]">{order.productName}</div>
+                            <div className="text-[11px] font-mono opacity-70">
+                              {order.quantity} {order.unit} × ETB {order.unitPrice?.toLocaleString()}
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 font-mono font-bold whitespace-nowrap text-purple-400">
+                            {formatMoney(totalPaid)}
+                          </td>
+                          <td className="py-4 px-4 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                              <ShieldCheck className="h-3 w-3" />
+                              <span>{order.paymentMethod || "Chapa Escrow"}</span>
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 whitespace-nowrap">
+                            <StatusBadge status={order.status as any} size="sm" />
+                          </td>
+                          <td className="py-4 px-5 text-right whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              onClick={() => setSelectedWholesaleOrder(order)}
+                              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-semibold cursor-pointer shadow-xs ${
+                                isLight
+                                  ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                                  : isSystem
+                                  ? "border-blue-500/25 bg-[#0c1630] text-blue-100 hover:bg-[#122045]"
+                                  : "border-white/10 bg-white/5 text-zinc-200 hover:bg-white/10"
+                              }`}
+                            >
+                              <FileText className="h-3.5 w-3.5" />
+                              <span>{tr("btnDetails")}</span>
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -3264,6 +4293,647 @@ export function SupplierPaymentsView() {
           </div>
         </form>
       </ModalDialog>
+
+      {/* 12. Official Admin Payout Slip Modal */}
+      {selectedPayoutSlip && (
+        <ModalDialog
+          isOpen={!!selectedPayoutSlip}
+          onClose={() => setSelectedPayoutSlip(null)}
+          title={tr("modalVoucherTitle")}
+          subtitle={`National Bank of Ethiopia & Chapa RTGS record for ${selectedPayoutSlip.txRef || selectedPayoutSlip.id}`}
+          maxWidth="md"
+          footer={
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[11px] opacity-60 font-mono">
+                Ref: {selectedPayoutSlip.id}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.success("Printing admin payout voucher...");
+                    window.print();
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold cursor-pointer ${
+                    isLight
+                      ? "border-slate-200 text-slate-700 hover:bg-slate-50"
+                      : isSystem
+                      ? "border-blue-500/25 text-blue-200 hover:bg-blue-900/30"
+                      : "border-white/10 text-zinc-300 hover:bg-white/5"
+                  }`}
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Print Slip</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedPayoutSlip(null)}
+                  className={`rounded-xl px-4 py-2 text-xs font-bold shadow-xs cursor-pointer ${
+                    isLight
+                      ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                      : isSystem
+                      ? "bg-blue-600 hover:bg-blue-500 text-white"
+                      : "bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black"
+                  }`}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            {/* Header */}
+            <div className="flex items-start justify-between border-b border-current/10 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-base tracking-tight">
+                    MERCATO<span className="text-emerald-500">X</span>
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wider rounded-lg bg-emerald-500/20 text-emerald-500 px-2 py-0.5 font-bold">
+                    Admin Payout Transfer Slip
+                  </span>
+                </div>
+                <p className="text-[11px] opacity-75 mt-0.5">
+                  MercatoX Administrative Treasury & National Bank of Ethiopia Clearing Rail
+                </p>
+              </div>
+
+              <div className="text-right font-mono">
+                <p className="font-bold">{selectedPayoutSlip.txRef || selectedPayoutSlip.id.slice(0, 10)}</p>
+                <p className="text-[11px] opacity-75 mt-0.5">
+                  {(() => {
+                    const d = new Date(selectedPayoutSlip.processedAt || selectedPayoutSlip.createdAt || "");
+                    return !isNaN(d.getTime())
+                      ? `${d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })} • ${d.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true })}`
+                      : "Confirmed";
+                  })()}
+                </p>
+              </div>
+            </div>
+
+            {/* Target Account Info */}
+            <div
+              className={`rounded-2xl border p-3.5 space-y-2 ${
+                isLight
+                  ? "border-slate-200 bg-slate-50/70"
+                  : isSystem
+                  ? "border-blue-500/25 bg-[#0c1630]"
+                  : "border-white/10 bg-white/5"
+              }`}
+            >
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                Destination Settlement Account
+              </span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sm">{selectedPayoutSlip.bankName || "Commercial Bank of Ethiopia"}</p>
+                  <p className="font-mono text-xs opacity-75 mt-0.5">
+                    A/C: {selectedPayoutSlip.bankAccountNumber || "••••••••"}
+                  </p>
+                  {selectedPayoutSlip.bankAccountHolderName && (
+                    <p className="text-[11px] opacity-70">{selectedPayoutSlip.bankAccountHolderName}</p>
+                  )}
+                </div>
+                <StatusBadge
+                  status={
+                    selectedPayoutSlip.status?.toUpperCase() === "PROCESSED" ||
+                    selectedPayoutSlip.status?.toUpperCase() === "COMPLETED"
+                      ? "completed"
+                      : "pending"
+                  }
+                  size="sm"
+                />
+              </div>
+            </div>
+
+            {/* Financial Breakdown */}
+            <div className="rounded-2xl border border-current/10 overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-current/5 border-b border-current/10 text-[10px] uppercase font-semibold">
+                    <th className="py-2.5 px-3">Description</th>
+                    <th className="py-2.5 px-3 text-right">Calculation</th>
+                    <th className="py-2.5 px-3 text-right">Amount (ETB)</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-current/5 font-mono">
+                  <tr>
+                    <td className="py-2.5 px-3 font-sans font-medium">Gross Payout Requested</td>
+                    <td className="py-2.5 px-3 text-right opacity-70">100.0%</td>
+                    <td className="py-2.5 px-3 text-right font-bold">
+                      ETB {Number(selectedPayoutSlip.amount || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2.5 px-3 font-sans opacity-80">Platform Commission & Clearing Fee</td>
+                    <td className="py-2.5 px-3 text-right opacity-70">Fee</td>
+                    <td className="py-2.5 px-3 text-right text-rose-500">
+                      - ETB {Number(selectedPayoutSlip.platformFee || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                  <tr
+                    className={`font-bold ${
+                      isLight
+                        ? "bg-emerald-50 text-emerald-950"
+                        : isSystem
+                        ? "bg-blue-600/15 text-blue-300"
+                        : "bg-emerald-500/10 text-emerald-300"
+                    }`}
+                  >
+                    <td className="py-3 px-3 font-sans">Net Transferred to Destination Account</td>
+                    <td className="py-3 px-3 text-right">Transferred</td>
+                    <td className="py-3 px-3 text-right text-sm">
+                      ETB {Number(selectedPayoutSlip.netPayoutAmount || (selectedPayoutSlip.amount - (selectedPayoutSlip.platformFee || 0))).toLocaleString()}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              className={`rounded-2xl p-3 text-[11px] flex items-start gap-2 ${
+                isLight
+                  ? "bg-slate-50 text-slate-600"
+                  : isSystem
+                  ? "bg-[#0c1630] text-blue-200"
+                  : "bg-white/5 text-zinc-400"
+              }`}
+            >
+              <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500 mt-0.5" />
+              <p>
+                Transfer initiated and approved by MercatoX Administrative Treasury. Funds credited via National Bank of Ethiopia RTGS clearing channel.
+              </p>
+            </div>
+          </div>
+        </ModalDialog>
+      )}
+
+      {/* 13. Official Wholesale Purchase Voucher Modal */}
+      {selectedWholesaleOrder && (
+        <ModalDialog
+          isOpen={!!selectedWholesaleOrder}
+          onClose={() => setSelectedWholesaleOrder(null)}
+          title={tr("modalVoucherTitle")}
+          subtitle={`Wholesale Sourcing Order #${selectedWholesaleOrder.orderNumber}`}
+          maxWidth="md"
+          footer={
+            <div className="flex items-center justify-between w-full">
+              <span className="text-[11px] opacity-60 font-mono">
+                Vendor: {selectedWholesaleOrder.supplierName}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    toast.success("Printing wholesale purchase voucher...");
+                    window.print();
+                  }}
+                  className={`inline-flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-xs font-semibold cursor-pointer ${
+                    isLight
+                      ? "border-slate-200 text-slate-700 hover:bg-slate-50"
+                      : isSystem
+                      ? "border-blue-500/25 text-blue-200 hover:bg-blue-900/30"
+                      : "border-white/10 text-zinc-300 hover:bg-white/5"
+                  }`}
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  <span>Print Voucher</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedWholesaleOrder(null)}
+                  className="rounded-xl px-4 py-2 text-xs font-bold bg-purple-600 hover:bg-purple-500 text-white shadow-xs cursor-pointer"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          }
+        >
+          <div className="space-y-4 text-xs">
+            <div className="flex items-start justify-between border-b border-current/10 pb-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-base tracking-tight">
+                    MERCATO<span className="text-emerald-500">X</span>
+                  </span>
+                  <span className="text-[10px] uppercase tracking-wider rounded-lg bg-purple-500/20 text-purple-400 px-2 py-0.5 font-bold">
+                    Wholesale Purchase Voucher
+                  </span>
+                </div>
+                <p className="text-[11px] opacity-75 mt-0.5">
+                  B2B Commercial Procurement & Escrow Deposit Record
+                </p>
+              </div>
+              <div className="text-right font-mono">
+                <p className="font-bold">{selectedWholesaleOrder.orderNumber}</p>
+                <p className="text-[11px] opacity-70">
+                  {selectedWholesaleOrder.destinationWarehouseName || "Central Logistics Hub"}
+                </p>
+              </div>
+            </div>
+
+            {/* Vendor & Delivery info */}
+            <div
+              className={`grid grid-cols-2 gap-4 rounded-2xl border p-3.5 ${
+                isLight
+                  ? "border-slate-200 bg-slate-50/60"
+                  : isSystem
+                  ? "border-blue-500/25 bg-[#0c1630]"
+                  : "border-white/10 bg-white/5"
+              }`}
+            >
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                  Wholesale Vendor / Supplier
+                </span>
+                <p className="font-bold mt-1">{selectedWholesaleOrder.supplierName}</p>
+                {selectedWholesaleOrder.supplierTin && (
+                  <p className="text-[11px] font-mono opacity-70">TIN: {selectedWholesaleOrder.supplierTin}</p>
+                )}
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                  Payment & Escrow Status
+                </span>
+                <div className="mt-1 flex items-center gap-1.5 flex-wrap">
+                  <StatusBadge status={selectedWholesaleOrder.status as any} size="sm" />
+                  <span className="text-[11px] font-mono opacity-75">
+                    Rail: {selectedWholesaleOrder.paymentMethod || "Chapa Escrow"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* Commodity Details */}
+            <div className="rounded-2xl border border-current/10 p-3 space-y-2">
+              <span className="text-[10px] font-bold uppercase tracking-wider opacity-60">
+                Purchased Commodity Details
+              </span>
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="font-bold text-sm">{selectedWholesaleOrder.productName}</p>
+                  <p className="text-[11px] font-mono opacity-75 mt-0.5">
+                    SKU: {selectedWholesaleOrder.productSku} • Qty: {selectedWholesaleOrder.quantity} {selectedWholesaleOrder.unit}
+                  </p>
+                </div>
+                <p className="font-mono font-bold text-base text-purple-400">
+                  ETB {Number(selectedWholesaleOrder.totalETB || selectedWholesaleOrder.subtotal || 0).toLocaleString()}
+                </p>
+              </div>
+            </div>
+
+            {/* Financial Breakdown */}
+            <div className="rounded-2xl border border-current/10 overflow-hidden">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-current/5 border-b border-current/10 text-[10px] uppercase font-semibold">
+                    <th className="py-2.5 px-3">Item Breakdown</th>
+                    <th className="py-2.5 px-3 text-right">Calculation</th>
+                    <th className="py-2.5 px-3 text-right">ETB</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-current/5 font-mono">
+                  <tr>
+                    <td className="py-2 px-3 font-sans opacity-85">Subtotal</td>
+                    <td className="py-2 px-3 text-right opacity-70">
+                      {selectedWholesaleOrder.quantity} × {selectedWholesaleOrder.unitPrice?.toLocaleString()}
+                    </td>
+                    <td className="py-2 px-3 text-right">
+                      ETB {Number(selectedWholesaleOrder.subtotal || (selectedWholesaleOrder.quantity * selectedWholesaleOrder.unitPrice)).toLocaleString()}
+                    </td>
+                  </tr>
+                  {selectedWholesaleOrder.vatTax != null && selectedWholesaleOrder.vatTax > 0 && (
+                    <tr>
+                      <td className="py-2 px-3 font-sans opacity-85">VAT (15%)</td>
+                      <td className="py-2 px-3 text-right opacity-70">Tax</td>
+                      <td className="py-2 px-3 text-right">
+                        ETB {Number(selectedWholesaleOrder.vatTax).toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
+                  {selectedWholesaleOrder.freightCost != null && selectedWholesaleOrder.freightCost > 0 && (
+                    <tr>
+                      <td className="py-2 px-3 font-sans opacity-85">Freight & Logistics</td>
+                      <td className="py-2 px-3 text-right opacity-70">Shipping</td>
+                      <td className="py-2 px-3 text-right">
+                        ETB {Number(selectedWholesaleOrder.freightCost).toLocaleString()}
+                      </td>
+                    </tr>
+                  )}
+                  <tr
+                    className={`font-bold ${
+                      isLight
+                        ? "bg-purple-50 text-purple-950"
+                        : isSystem
+                        ? "bg-blue-600/15 text-blue-300"
+                        : "bg-purple-500/10 text-purple-300"
+                    }`}
+                  >
+                    <td className="py-3 px-3 font-sans">Total Amount Paid Out</td>
+                    <td className="py-3 px-3 text-right">Paid</td>
+                    <td className="py-3 px-3 text-right text-sm">
+                      ETB {Number(selectedWholesaleOrder.totalETB || selectedWholesaleOrder.subtotal || 0).toLocaleString()}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div
+              className={`rounded-2xl p-3 text-[11px] flex items-start gap-2 ${
+                isLight
+                  ? "bg-slate-50 text-slate-600"
+                  : isSystem
+                  ? "bg-[#0c1630] text-blue-200"
+                  : "bg-white/5 text-zinc-400"
+              }`}
+            >
+              <Info className="h-4 w-4 shrink-0 text-purple-500 mt-0.5" />
+              <p>
+                Funds held securely in MercatoX Buyer Escrow. Upon delivery inspection and OTP confirmation, funds will release to the seller.
+              </p>
+            </div>
+          </div>
+        </ModalDialog>
+      )}
+
+      {/* Floating Treasury AI Assistant Launcher & Interactive Drawer */}
+      <div className="fixed bottom-6 right-6 z-40 flex flex-col items-end">
+        {!isChatbotOpen && (
+          <button
+            type="button"
+            onClick={() => setIsChatbotOpen(true)}
+            className="group flex items-center gap-3 rounded-full bg-gradient-to-r from-emerald-600 via-teal-600 to-emerald-700 hover:from-emerald-500 hover:to-teal-500 px-4 py-3 text-white shadow-2xl shadow-emerald-950/40 hover:scale-105 active:scale-95 transition-all cursor-pointer border border-emerald-400/30 backdrop-blur-md"
+            title={tr("botTitle")}
+          >
+            <div className="relative">
+              <Bot className="h-5 w-5 text-white group-hover:rotate-12 transition-transform" />
+              <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-300 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-200"></span>
+              </span>
+            </div>
+            <div className="text-left hidden sm:block">
+              <p className="text-xs font-bold leading-tight">{tr("botTitle")}</p>
+              <p className="text-[10px] text-emerald-100 font-medium opacity-85 leading-tight">
+                {tr("botQuickPromptBalance")}
+              </p>
+            </div>
+          </button>
+        )}
+
+        {/* Chatbot Window / Popover */}
+        {isChatbotOpen && (
+          <div
+            className={`w-[95vw] sm:w-[440px] max-h-[640px] h-[85vh] rounded-2xl shadow-2xl border flex flex-col overflow-hidden backdrop-blur-xl animate-in fade-in slide-in-from-bottom-5 duration-200 z-50 ${
+              isLight
+                ? "border-slate-200 bg-white/95 text-slate-900 shadow-slate-900/20"
+                : isSystem
+                ? "border-blue-500/30 bg-[#0c1630]/95 text-white shadow-blue-950/50"
+                : "border-white/15 bg-[#12161f]/95 text-white shadow-black/60"
+            }`}
+          >
+            {/* Header */}
+            <div
+              className={`p-3.5 sm:p-4 border-b flex items-center justify-between ${
+                isLight
+                  ? "border-slate-200 bg-gradient-to-r from-emerald-700 to-teal-800 text-white"
+                  : isSystem
+                  ? "border-blue-500/30 bg-gradient-to-r from-blue-900 via-indigo-900 to-blue-950 text-white"
+                  : "border-white/10 bg-gradient-to-r from-emerald-950 via-teal-950 to-slate-950 text-white"
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="h-9 w-9 rounded-xl bg-white/10 border border-white/20 flex items-center justify-center shrink-0 shadow-xs">
+                  <Bot className="h-5 w-5 text-emerald-300" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-sm tracking-tight text-white leading-tight">
+                      {tr("botTitle")}
+                    </h3>
+                    <span className="flex h-2 w-2 relative">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400"></span>
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/80 leading-tight mt-0.5 truncate max-w-[240px]">
+                    {tr("botSubtitle")}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setIsChatbotOpen(false)}
+                  className="rounded-lg p-1.5 text-white/80 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+                  title={tr("botClose")}
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Quick Pills Bar */}
+            <div
+              className={`p-2 border-b overflow-x-auto flex items-center gap-1.5 scrollbar-thin ${
+                isLight ? "border-slate-200 bg-slate-50" : isSystem ? "border-blue-500/20 bg-[#091024]" : "border-white/5 bg-black/20"
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => handleSendChatMessage(tr("botQuickPromptBalance"))}
+                className="whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold bg-emerald-500/15 border border-emerald-400/30 text-emerald-400 hover:bg-emerald-500/25 transition-all cursor-pointer"
+              >
+                💰 {tr("botQuickPromptBalance")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendChatMessage(tr("botQuickPromptCommission"))}
+                className="whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold bg-rose-500/15 border border-rose-400/30 text-rose-400 hover:bg-rose-500/25 transition-all cursor-pointer"
+              >
+                📊 {tr("botQuickPromptCommission")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendChatMessage(tr("botQuickPromptAdminTransfers"))}
+                className="whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold bg-blue-500/15 border border-blue-400/30 text-blue-400 hover:bg-blue-500/25 transition-all cursor-pointer"
+              >
+                🏦 {tr("botQuickPromptAdminTransfers")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendChatMessage(tr("botQuickPromptEscrow"))}
+                className="whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold bg-amber-500/15 border border-amber-400/30 text-amber-400 hover:bg-amber-500/25 transition-all cursor-pointer"
+              >
+                🔒 {tr("botQuickPromptEscrow")}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendChatMessage(tr("botQuickPromptWithdraw"))}
+                className="whitespace-nowrap rounded-lg px-2.5 py-1 text-[11px] font-semibold bg-teal-500/15 border border-teal-400/30 text-teal-300 hover:bg-teal-500/25 transition-all cursor-pointer"
+              >
+                ⚡ {tr("botQuickPromptWithdraw")}
+              </button>
+            </div>
+
+            {/* Messages Area */}
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3.5 text-xs">
+              {chatMessages.map((msg) => {
+                const isUser = msg.sender === "user";
+                return (
+                  <div
+                    key={msg.id}
+                    className={`flex flex-col ${isUser ? "items-end" : "items-start"}`}
+                  >
+                    <div className="flex items-end gap-2 max-w-[88%]">
+                      {!isUser && (
+                        <div className="h-6 w-6 rounded-lg bg-emerald-500/20 border border-emerald-400/30 flex items-center justify-center shrink-0 mb-1">
+                          <Bot className="h-3.5 w-3.5 text-emerald-400" />
+                        </div>
+                      )}
+                      <div
+                        className={`rounded-2xl px-3.5 py-2.5 leading-relaxed ${
+                          isUser
+                            ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white rounded-br-xs shadow-md"
+                            : isLight
+                            ? "bg-slate-100 text-slate-800 rounded-bl-xs border border-slate-200"
+                            : isSystem
+                            ? "bg-[#14234b] text-blue-50 rounded-bl-xs border border-blue-500/30"
+                            : "bg-white/10 text-white rounded-bl-xs border border-white/10"
+                        }`}
+                      >
+                        <p className="whitespace-pre-line text-xs">{msg.text}</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] opacity-50 px-8 mt-1 font-mono">
+                      {msg.timestamp}
+                    </span>
+
+                    {/* Interactive Withdrawal Box if bot returned withdraw_prompt */}
+                    {!isUser && msg.actionType === "withdraw_prompt" && (
+                      <div
+                        className={`mt-2 ml-8 p-3 rounded-xl border space-y-2.5 max-w-[90%] shadow-lg ${
+                          isLight
+                            ? "bg-white border-slate-200"
+                            : isSystem
+                            ? "bg-[#0f1b3b] border-blue-500/30"
+                            : "bg-black/30 border-white/15"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">
+                            {tr("botQuickPromptWithdraw")}
+                          </span>
+                          <span className="text-[11px] font-mono opacity-80">
+                            Max: {formatMoney(availableBalance)}
+                          </span>
+                        </div>
+
+                        {/* Presets */}
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {[0.25, 0.5, 0.75, 1.0].map((ratio) => {
+                            const val = Math.floor(availableBalance * ratio);
+                            const label = `${Math.round(ratio * 100)}%`;
+                            return (
+                              <button
+                                key={ratio}
+                                type="button"
+                                onClick={() => setBotWithdrawAmount(val)}
+                                className={`rounded-lg py-1 px-1.5 text-[10px] font-bold border transition-all cursor-pointer ${
+                                  botWithdrawAmount === val
+                                    ? "bg-emerald-500 text-white border-emerald-400"
+                                    : "bg-white/5 border-current/15 hover:bg-white/10"
+                                }`}
+                              >
+                                {label}
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Amount Input */}
+                        <div className="relative">
+                          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 font-bold font-mono text-[11px] opacity-70">
+                            ETB
+                          </span>
+                          <input
+                            type="number"
+                            min="1"
+                            max={availableBalance}
+                            value={botWithdrawAmount || ""}
+                            onChange={(e) => setBotWithdrawAmount(Number(e.target.value))}
+                            placeholder="Enter amount..."
+                            className={`w-full rounded-lg border pl-10 pr-2.5 py-1.5 text-xs font-mono font-bold focus:outline-hidden ${
+                              isLight
+                                ? "border-slate-200 bg-slate-50 text-slate-900"
+                                : isSystem
+                                ? "border-blue-500/30 bg-[#0c1630] text-white"
+                                : "border-white/15 bg-white/5 text-white"
+                            }`}
+                          />
+                        </div>
+
+                        {/* Destination Bank display */}
+                        <div className="text-[10px] opacity-75 truncate">
+                          To: {settlementAccounts[0]?.bankName || "Commercial Bank of Ethiopia"} (
+                          {settlementAccounts[0]?.accountNumber || "••••••••"})
+                        </div>
+
+                        {/* Submit button */}
+                        <button
+                          type="button"
+                          onClick={() => handleBotQuickWithdraw(botWithdrawAmount)}
+                          disabled={botWithdrawAmount <= 0 || botWithdrawAmount > availableBalance}
+                          className="w-full rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-bold py-1.5 text-xs shadow-md cursor-pointer transition-all active:scale-98"
+                        >
+                          {tr("botWithdrawAction")}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Input Bar */}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSendChatMessage();
+              }}
+              className={`p-2.5 sm:p-3 border-t flex items-center gap-2 ${
+                isLight ? "border-slate-200 bg-white" : isSystem ? "border-blue-500/30 bg-[#0c1630]" : "border-white/10 bg-[#12161f]"
+              }`}
+            >
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder={tr("botAskPlaceholder")}
+                className={`flex-1 rounded-xl border px-3 py-2 text-xs focus:outline-hidden transition-colors ${
+                  isLight
+                    ? "border-slate-200 bg-slate-50 text-slate-900 focus:border-emerald-500"
+                    : isSystem
+                    ? "border-blue-500/30 bg-[#091024] text-white focus:border-blue-400"
+                    : "border-white/15 bg-white/5 text-white focus:border-emerald-400"
+                }`}
+              />
+              <button
+                type="submit"
+                disabled={!chatInput.trim()}
+                className="rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 text-slate-950 font-bold px-3.5 py-2 text-xs flex items-center gap-1.5 shadow-md cursor-pointer transition-all shrink-0"
+              >
+                <Send className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">{tr("botSend")}</span>
+              </button>
+            </form>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

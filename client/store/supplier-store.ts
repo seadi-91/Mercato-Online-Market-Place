@@ -655,6 +655,7 @@ interface SupplierState {
   shipments: Shipment[];
   invoices: Invoice[];
   transactions: PaymentTransaction[];
+  payouts: any[];
   isLoadingTransactions: boolean;
   transactionsError: string | null;
   fetchTransactions: () => Promise<void>;
@@ -873,6 +874,7 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
   shipments: [],
   invoices: [],
   transactions: [],
+  payouts: [],
   isLoadingTransactions: false,
   transactionsError: null,
   promotions: [],
@@ -1232,7 +1234,8 @@ export const useSupplierStore = create<SupplierState>((set, get) => ({
         };
       });
 
-      set({ transactions: mappedTransactions, isLoadingTransactions: false });
+      const rawPayouts: any[] = Array.isArray(data?.payouts) ? data.payouts : [];
+      set({ transactions: mappedTransactions, payouts: rawPayouts, isLoadingTransactions: false });
     } catch (err: any) {
       console.error("[SupplierStore] Error fetching transactions:", err);
       set({

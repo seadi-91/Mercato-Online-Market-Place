@@ -50,14 +50,17 @@ export function SupplierAnalyticsView() {
   };
 
   const {
+    profile,
     orders,
     rfqs,
     quotations,
     products,
+    transactions,
     fetchOrders,
     fetchRFQs,
     fetchQuotations,
     fetchProducts,
+    fetchTransactions,
     setActiveTab,
   } = useSupplierStore();
   const { theme } = useThemeStore();
@@ -65,23 +68,74 @@ export function SupplierAnalyticsView() {
   const isLight = theme === "light";
   const isSystem = theme === "system";
 
+  const [adminMerchantProfile, setAdminMerchantProfile] = useState<any>(null);
+
   useEffect(() => {
     fetchOrders();
     fetchRFQs();
     fetchQuotations();
     fetchProducts();
-  }, [fetchOrders, fetchRFQs, fetchQuotations, fetchProducts]);
+    fetchTransactions();
+  }, [fetchOrders, fetchRFQs, fetchQuotations, fetchProducts, fetchTransactions]);
+
+  useEffect(() => {
+    async function syncAdminData() {
+      try {
+        const storedUser = typeof window !== "undefined" ? localStorage.getItem("mercatox_user") : null;
+        const user = storedUser ? JSON.parse(storedUser) : null;
+        const currentUserId = user?.id || user?.userId || profile?.id;
+
+        const url = currentUserId
+          ? `/api/admin/sellers-suppliers?userId=${encodeURIComponent(currentUserId)}`
+          : "/api/admin/sellers-suppliers";
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.merchant) {
+            setAdminMerchantProfile(json.merchant);
+          } else if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const match =
+              json.data.find(
+                (m: any) =>
+                  m.id === currentUserId ||
+                  m.userId === currentUserId ||
+                  (user?.email && m.email?.toLowerCase() === user.email.toLowerCase()) ||
+                  (user?.shopName && m.shopName?.toLowerCase() === user.shopName.toLowerCase()) ||
+                  (user?.name &&
+                    (m.fullName?.toLowerCase() === user.name.toLowerCase() ||
+                      m.shopName?.toLowerCase() === user.name.toLowerCase()))
+              ) || json.data[0];
+            if (match) setAdminMerchantProfile(match);
+          }
+        }
+      } catch (err) {
+        console.warn("[SupplierAnalyticsView] Sync admin profile error:", err);
+      }
+    }
+    syncAdminData();
+  }, [profile?.id]);
 
   const [period, setPeriod] = useState<TimePeriod>("monthly");
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
 
-  // Dynamic calculations from live PostgreSQL records
+  // Dynamic calculations from live PostgreSQL records and synchronized backend state
   const grossRevenue = useMemo(() => {
-    return orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  }, [orders]);
+    if (adminMerchantProfile && typeof adminMerchantProfile.grossSales === "number" && adminMerchantProfile.grossSales > 0) {
+      return adminMerchantProfile.grossSales;
+    }
+    const orderSum = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+    const txSum = transactions
+      .filter((t) => t.status === "completed" || t.status === "cleared")
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    return Math.max(orderSum, txSum);
+  }, [orders, transactions, adminMerchantProfile]);
 
   const avgOrderValue = useMemo(() => {
-    return orders.length > 0 ? Math.round(grossRevenue / orders.length) : 0;
+    return orders.length > 0
+      ? Math.round(grossRevenue / orders.length)
+      : grossRevenue > 0
+      ? Math.round(grossRevenue)
+      : 0;
   }, [orders, grossRevenue]);
 
   const rfqWinRate = useMemo(() => {
@@ -224,14 +278,30 @@ export function SupplierAnalyticsView() {
       }
     }
 
-    // Populate actual order totals and counts
+    // Populate actual order totals and transaction counts
+    const dataEvents: Array<{ amt: number; dateObj: Date }> = [];
     orders.forEach((o) => {
-      const amt = Number(o.total) || 0;
-      const orderDateObj = o.orderDate ? new Date(o.orderDate) : new Date();
-      const orderMs = orderDateObj.getTime();
-      const orderDateStr = o.orderDate ? o.orderDate.split("T")[0] : new Date().toISOString().split("T")[0];
-      const orderYm = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, "0")}`;
-      const orderYear = orderDateObj.getFullYear();
+      dataEvents.push({
+        amt: Number(o.total) || 0,
+        dateObj: o.orderDate ? new Date(o.orderDate) : new Date(),
+      });
+    });
+    if (orders.length === 0 && transactions.length > 0) {
+      transactions.forEach((tx) => {
+        if (tx.type === "order_payment" && tx.status !== "failed" && tx.status !== "refunded") {
+          dataEvents.push({
+            amt: Number(tx.amount) || 0,
+            dateObj: tx.createdAt ? new Date(tx.createdAt) : new Date(),
+          });
+        }
+      });
+    }
+
+    dataEvents.forEach(({ amt, dateObj }) => {
+      const orderDateStr = dateObj.toISOString().split("T")[0];
+      const orderMs = dateObj.getTime();
+      const orderYm = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}`;
+      const orderYear = dateObj.getFullYear();
 
       if (period === "daily") {
         const match = buckets.find((b) => b.dateKey === orderDateStr);
@@ -265,7 +335,7 @@ export function SupplierAnalyticsView() {
     });
 
     return buckets;
-  }, [orders, period]);
+  }, [orders, transactions, period]);
 
   const maxRevenue = useMemo(() => {
     return Math.max(...timelineData.map((b) => b.revenue), 1);
@@ -389,7 +459,7 @@ export function SupplierAnalyticsView() {
         <StatCard
           compact={true}
           title={tr("kpiGrossRevenue")}
-          value={grossRevenue > 0 ? `ETB ${(grossRevenue / 1000000).toFixed(2)}M` : "ETB 0.00"}
+          value={grossRevenue > 0 ? `ETB ${grossRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "ETB 0.00"}
           subtitle={tr("kpiTotalVolume")}
           icon={DollarSign}
         />
@@ -397,7 +467,7 @@ export function SupplierAnalyticsView() {
         <StatCard
           compact={true}
           title={tr("kpiAvgOrderValue")}
-          value={avgOrderValue > 0 ? `ETB ${avgOrderValue.toLocaleString()}` : "ETB 0"}
+          value={avgOrderValue > 0 ? `ETB ${avgOrderValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "ETB 0.00"}
           subtitle={tr("kpiPerOrder")}
           icon={TrendingUp}
         />
@@ -437,7 +507,7 @@ export function SupplierAnalyticsView() {
 
       {/* Primary Chronological Sales & Order Velocity Timeline Chart */}
       <div
-        className={`rounded-2xl border p-5 shadow-xs space-y-4 transition-colors ${
+        className={`rounded-2xl border p-4 sm:p-5 shadow-xs space-y-4 transition-colors ${
           isLight
             ? "border-slate-200 bg-white text-slate-900"
             : isSystem
@@ -448,10 +518,10 @@ export function SupplierAnalyticsView() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b pb-4 border-slate-100 dark:border-white/5">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4 text-indigo-500" />
+              <BarChart3 className="h-4 w-4 text-indigo-500 shrink-0" />
               <h3 className="text-sm font-bold tracking-tight">{tr("chartTradeVelocity")}</h3>
               <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 text-[10px] font-semibold text-indigo-400 capitalize">
-                {period} Timeline
+                {period}
               </span>
             </div>
             <p
@@ -486,9 +556,9 @@ export function SupplierAnalyticsView() {
                 : "border-white/5 bg-white/[0.02]"
             }`}
           >
-            <span className="text-[11px] text-zinc-400 block font-medium">Period Trade Volume</span>
-            <span className="text-base font-bold font-mono text-indigo-400 mt-0.5 block">
-              ETB {periodTotalRevenue > 0 ? periodTotalRevenue.toLocaleString() : "0.00"}
+            <span className="text-[11px] text-zinc-400 block font-medium">{tr("periodTradeVolume")}</span>
+            <span className="text-sm sm:text-base font-bold font-mono text-indigo-400 mt-0.5 block break-words">
+              ETB {periodTotalRevenue > 0 ? periodTotalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
             </span>
           </div>
 
@@ -501,9 +571,9 @@ export function SupplierAnalyticsView() {
                 : "border-white/5 bg-white/[0.02]"
             }`}
           >
-            <span className="text-[11px] text-zinc-400 block font-medium">Period Orders</span>
-            <span className="text-base font-bold font-mono text-emerald-400 mt-0.5 block">
-              {periodTotalOrders} PO{periodTotalOrders === 1 ? "" : "s"}
+            <span className="text-[11px] text-zinc-400 block font-medium">{tr("periodOrders")}</span>
+            <span className="text-sm sm:text-base font-bold font-mono text-emerald-400 mt-0.5 block">
+              {periodTotalOrders} {tr("purchaseOrdersCount")}
             </span>
           </div>
 
@@ -516,10 +586,10 @@ export function SupplierAnalyticsView() {
                 : "border-white/5 bg-white/[0.02]"
             }`}
           >
-            <span className="text-[11px] text-zinc-400 block font-medium">Peak Performance</span>
-            <span className="text-base font-bold font-mono text-white mt-0.5 block truncate">
+            <span className="text-[11px] text-zinc-400 block font-medium">{tr("peakPerformance")}</span>
+            <span className="text-sm sm:text-base font-bold font-mono text-white mt-0.5 block truncate">
               {peakBucket && peakBucket.revenue > 0
-                ? `ETB ${peakBucket.revenue.toLocaleString()}`
+                ? `ETB ${peakBucket.revenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : "ETB 0.00"}
             </span>
             <span className="text-[10px] text-zinc-500 truncate block">
@@ -536,92 +606,94 @@ export function SupplierAnalyticsView() {
                 : "border-white/5 bg-white/[0.02]"
             }`}
           >
-            <span className="text-[11px] text-zinc-400 block font-medium">Fulfillment SLA</span>
-            <span className="text-base font-bold font-mono text-cyan-400 mt-0.5 block">
+            <span className="text-[11px] text-zinc-400 block font-medium">{tr("fulfillmentSla")}</span>
+            <span className="text-sm sm:text-base font-bold font-mono text-cyan-400 mt-0.5 block">
               100.0%
             </span>
-            <span className="text-[10px] text-zinc-500 block">CBE Escrow Verified</span>
+            <span className="text-[10px] text-zinc-500 block">{tr("cbeEscrowVerified")}</span>
           </div>
         </div>
 
-        {/* Responsive Timeline Bar Graph */}
-        <div className="pt-6 pb-2">
-          {/* Grid Scale Lines */}
-          <div className="relative h-60 sm:h-64 w-full">
-            {/* Horizontal Background Guides */}
-            <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
-              <div className="border-b border-dashed border-zinc-500 w-full" />
-              <div className="border-b border-dashed border-zinc-500 w-full" />
-              <div className="border-b border-dashed border-zinc-500 w-full" />
-              <div className="border-b border-zinc-600 w-full" />
-            </div>
+        {/* Responsive Timeline Bar Graph with horizontal scroll */}
+        <div className="pt-6 pb-2 overflow-x-auto scrollbar-thin scrollbar-thumb-white/10 -mx-1 px-1">
+          <div className="min-w-[440px] sm:min-w-0">
+            {/* Grid Scale Lines */}
+            <div className="relative h-60 sm:h-64 w-full">
+              {/* Horizontal Background Guides */}
+              <div className="absolute inset-0 flex flex-col justify-between pointer-events-none opacity-20">
+                <div className="border-b border-dashed border-zinc-500 w-full" />
+                <div className="border-b border-dashed border-zinc-500 w-full" />
+                <div className="border-b border-dashed border-zinc-500 w-full" />
+                <div className="border-b border-zinc-600 w-full" />
+              </div>
 
-            {/* Bars Container */}
-            <div className="absolute inset-0 flex items-end justify-between gap-1.5 sm:gap-2.5 px-2">
-              {timelineData.map((bucket, idx) => {
-                const heightPercent =
-                  bucket.revenue > 0 && maxRevenue > 0
-                    ? Math.max(14, Math.round((bucket.revenue / maxRevenue) * 100))
-                    : 6;
+              {/* Bars Container */}
+              <div className="absolute inset-0 flex items-end justify-between gap-1.5 sm:gap-2.5 px-2">
+                {timelineData.map((bucket, idx) => {
+                  const heightPercent =
+                    bucket.revenue > 0 && maxRevenue > 0
+                      ? Math.max(14, Math.round((bucket.revenue / maxRevenue) * 100))
+                      : 6;
 
-                const isHovered = hoveredIdx === idx;
+                  const isHovered = hoveredIdx === idx;
 
-                return (
-                  <div
-                    key={idx}
-                    onMouseEnter={() => setHoveredIdx(idx)}
-                    onMouseLeave={() => setHoveredIdx(null)}
-                    className="flex-1 flex flex-col items-center gap-2 group h-full justify-end relative cursor-pointer"
-                  >
-                    {/* Floating Tooltip */}
+                  return (
                     <div
-                      className={`transition-all duration-150 absolute -top-16 z-30 rounded-xl bg-zinc-950/95 border border-indigo-500/40 px-3 py-1.5 text-center pointer-events-none whitespace-nowrap shadow-2xl backdrop-blur-md ${
-                        isHovered ? "opacity-100 scale-100 -translate-y-1" : "opacity-0 scale-95 pointer-events-none"
-                      }`}
+                      key={idx}
+                      onMouseEnter={() => setHoveredIdx(idx)}
+                      onMouseLeave={() => setHoveredIdx(null)}
+                      className="flex-1 flex flex-col items-center gap-2 group h-full justify-end relative cursor-pointer"
                     >
-                      <p className="text-[10px] font-bold text-zinc-300">{bucket.fullDate}</p>
-                      <p className="text-xs font-mono font-bold text-indigo-400">
-                        ETB {bucket.revenue.toLocaleString()}
-                      </p>
-                      <p className="text-[9px] text-emerald-400 font-medium">
-                        {bucket.orders} purchase order{bucket.orders === 1 ? "" : "s"}
-                      </p>
-                    </div>
-
-                    {/* Order Count Indicator Dot on Active Bars */}
-                    {bucket.orders > 0 && (
-                      <span className="h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-indigo-900 shrink-0 mb-1" />
-                    )}
-
-                    {/* Bar Pillar */}
-                    <div className="w-full max-w-[48px] bg-white/[0.03] rounded-t-lg overflow-hidden flex flex-col justify-end h-full">
+                      {/* Floating Tooltip */}
                       <div
-                        style={{ height: `${heightPercent}%` }}
-                        className={`w-full rounded-t-lg transition-all duration-300 ${
-                          bucket.revenue > 0
-                            ? isHovered
-                              ? "bg-gradient-to-t from-indigo-500 to-indigo-300 shadow-lg shadow-indigo-500/20"
-                              : "bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-xs"
-                            : "bg-white/[0.06]"
+                        className={`transition-all duration-150 absolute -top-16 z-30 rounded-xl bg-zinc-950/95 border border-indigo-500/40 px-3 py-1.5 text-center pointer-events-none whitespace-nowrap shadow-2xl backdrop-blur-md ${
+                          isHovered ? "opacity-100 scale-100 -translate-y-1" : "opacity-0 scale-95 pointer-events-none"
                         }`}
-                      />
-                    </div>
+                      >
+                        <p className="text-[10px] font-bold text-zinc-300">{bucket.fullDate}</p>
+                        <p className="text-xs font-mono font-bold text-indigo-400">
+                          ETB {bucket.revenue.toLocaleString()}
+                        </p>
+                        <p className="text-[9px] text-emerald-400 font-medium">
+                          {bucket.orders} {tr("purchaseOrdersCount")}
+                        </p>
+                      </div>
 
-                    {/* Date Label */}
-                    <span
-                      className={`text-[10px] sm:text-[11px] font-medium text-center truncate w-full transition-colors ${
-                        isHovered
-                          ? "text-indigo-400 font-bold"
-                          : isLight
-                          ? "text-slate-600"
-                          : "text-zinc-400"
-                      }`}
-                    >
-                      {bucket.label}
-                    </span>
-                  </div>
-                );
-              })}
+                      {/* Order Count Indicator Dot on Active Bars */}
+                      {bucket.orders > 0 && (
+                        <span className="h-2 w-2 rounded-full bg-emerald-400 ring-2 ring-indigo-900 shrink-0 mb-1" />
+                      )}
+
+                      {/* Bar Pillar */}
+                      <div className="w-full max-w-[48px] bg-white/[0.03] rounded-t-lg overflow-hidden flex flex-col justify-end h-full">
+                        <div
+                          style={{ height: `${heightPercent}%` }}
+                          className={`w-full rounded-t-lg transition-all duration-300 ${
+                            bucket.revenue > 0
+                              ? isHovered
+                                ? "bg-gradient-to-t from-indigo-500 to-indigo-300 shadow-lg shadow-indigo-500/20"
+                                : "bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-xs"
+                              : "bg-white/[0.06]"
+                          }`}
+                        />
+                      </div>
+
+                      {/* Date Label */}
+                      <span
+                        className={`text-[10px] sm:text-[11px] font-medium text-center truncate w-full transition-colors ${
+                          isHovered
+                            ? "text-indigo-400 font-bold"
+                            : isLight
+                            ? "text-slate-600"
+                            : "text-zinc-400"
+                        }`}
+                      >
+                        {bucket.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
@@ -663,14 +735,14 @@ export function SupplierAnalyticsView() {
                   : "border-indigo-500/30 bg-indigo-950/40 text-indigo-300"
               }`}
             >
-              {regionalSales.length} Active Regions
+              {regionalSales.length} {tr("activeRegions")}
             </span>
           </div>
 
           <div className="space-y-4">
             {regionalSales.length === 0 ? (
               <div className="py-12 text-center text-xs text-zinc-500">
-                No regional order distributions recorded yet. When orders are processed, geographic breakdown will appear here.
+                {tr("noRegionalData")}
               </div>
             ) : (
               regionalSales.map((r, idx) => (
@@ -749,7 +821,7 @@ export function SupplierAnalyticsView() {
           <div className="space-y-4 pt-2">
             {categorySplit.length === 0 ? (
               <div className="py-12 text-center text-xs text-zinc-500">
-                No catalog categories registered yet.
+                {tr("noCategoryData")}
               </div>
             ) : (
               categorySplit.map((c, idx) => (

@@ -26,6 +26,7 @@ import {
   Landmark,
   Package,
   Info,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/store/language-store";
@@ -105,6 +106,10 @@ export function AdminSellersSuppliers() {
 
   // Merchant details modal
   const [detailMerchant, setDetailMerchant] = useState<SellerSupplierItem | null>(null);
+
+  // Delete merchant modal state
+  const [deleteMerchant, setDeleteMerchant] = useState<SellerSupplierItem | null>(null);
+  const [isDeletingMerchant, setIsDeletingMerchant] = useState(false);
 
   // Verification states for Chapa return
   const [verifyingPayout, setVerifyingPayout] = useState(false);
@@ -909,6 +914,21 @@ export function AdminSellersSuppliers() {
                                 <FileText className="h-3.5 w-3.5 text-zinc-400 shrink-0" />
                                 <span>{tr("viewProfile")}</span>
                               </button>
+
+                              <div className="my-1 border-t border-white/10" />
+
+                              {/* Option 4: Delete Supplier / Merchant */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setDeleteMerchant(merchant);
+                                  setActiveMenuId(null);
+                                }}
+                                className="flex items-center gap-2.5 w-full px-3 py-2 rounded-xl hover:bg-rose-500/10 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                              >
+                                <Trash2 className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                                <span>{language === "am" ? "አቅራቢውን / ሻጩን ሰርዝ" : language === "om" ? "Dhiheessaa Balleessi" : language === "ti" ? "ኣቕራቢ ሰርዝ" : "Delete Supplier"}</span>
+                              </button>
                             </div>
                           </>
                         )}
@@ -1348,6 +1368,98 @@ export function AdminSellersSuppliers() {
               >
                 <Send className="h-3.5 w-3.5" />
                 <span>{tr("initiatePayout")}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deleteMerchant && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs animate-in fade-in">
+          <div className="relative w-full max-w-md rounded-2xl border border-rose-500/30 bg-[#121829] p-6 space-y-4 shadow-2xl shadow-rose-950/40 text-zinc-100 animate-in zoom-in-95">
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/15 text-rose-400 shrink-0 border border-rose-500/30">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-base font-bold text-white">
+                  {language === "am"
+                    ? "አቅራቢውን በቋሚነት ሰርዝ"
+                    : language === "om"
+                    ? "Dhiheessaa Balleessi"
+                    : language === "ti"
+                    ? "ኣቕራቢ ብቀዋምነት ሰርዝ"
+                    : "Permanently Delete Supplier"}
+                </h3>
+                <p className="text-xs text-zinc-400">
+                  {language === "am"
+                    ? "ይህን የአቅራቢ መለያ በቋሚነት መሰረዝ ይፈልጋሉ? ይህ እርምጃ አቅራቢውን ከዳታቤዝ ሙሉ በሙሉ ያስወግዳል፤ ሊመለስ አይችልም።"
+                    : "Are you sure you want to permanently delete this merchant account? This action cannot be undone."}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl border border-white/10 bg-black/40 text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-zinc-400">{language === "am" ? "የድርጅት ስም" : "Shop Name"}:</span>
+                <span className="font-semibold text-white">{deleteMerchant.shopName || deleteMerchant.fullName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">{language === "am" ? "ሚና" : "Role"}:</span>
+                <span className="font-semibold text-emerald-400">{deleteMerchant.role}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">{language === "am" ? "ኢሜይል / ስልክ" : "Contact"}:</span>
+                <span className="text-zinc-300">{deleteMerchant.email || deleteMerchant.phoneNumber || "—"}</span>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingMerchant}
+                onClick={() => setDeleteMerchant(null)}
+                className="px-4 py-2 rounded-xl text-xs font-medium border border-white/10 bg-white/5 hover:bg-white/10 text-zinc-300 transition-colors cursor-pointer"
+              >
+                {language === "am" ? "ተመለስ" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingMerchant}
+                onClick={async () => {
+                  if (!deleteMerchant) return;
+                  setIsDeletingMerchant(true);
+                  try {
+                    const res = await fetch(
+                      `/api/admin/sellers-suppliers?id=${encodeURIComponent(deleteMerchant.id)}&userId=${encodeURIComponent(deleteMerchant.userId)}`,
+                      { method: "DELETE" }
+                    );
+                    if (!res.ok) throw new Error("Failed to delete record");
+                    setMerchants((prev) =>
+                      prev.filter((m) => m.id !== deleteMerchant.id && m.userId !== deleteMerchant.userId)
+                    );
+                    toast.success(`${deleteMerchant.shopName || deleteMerchant.fullName} removed.`);
+                    setDeleteMerchant(null);
+                  } catch (err: any) {
+                    toast.error(err.message || "Failed to delete supplier");
+                  } finally {
+                    setIsDeletingMerchant(false);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingMerchant ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>{language === "am" ? "በመሰረዝ ላይ..." : "Deleting..."}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>{language === "am" ? "ሰርዝ" : "Delete"}</span>
+                  </>
+                )}
               </button>
             </div>
           </div>

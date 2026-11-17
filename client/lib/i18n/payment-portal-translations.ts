@@ -116,6 +116,74 @@ export interface PaymentPortalDictionary {
   modalEscrowTitle: string;
   modalLinkBankTitle: string;
   modalLinkBankSubtitle: string;
+
+  // Main Section Navigation Tabs
+  sectionCustomerInflows: string;
+  sectionAdminPayouts: string;
+  sectionWholesaleSourcing: string;
+  sectionBankingRails: string;
+
+  // Additional Financial KPIs
+  cardCommissionDeducted: string;
+  cardCommissionRate: string;
+  cardAdminTransferred: string;
+  cardAdminTransfersCount: string;
+  cardWholesaleSpend: string;
+  cardWholesaleOrdersCount: string;
+  colGrossAmount: string;
+  colCommissionFee: string;
+  colNetDisbursed: string;
+
+  // Admin Transfers Tab
+  adminTransfersTitle: string;
+  adminTransfersSubtitle: string;
+  colTransferRef: string;
+  colTransferDate: string;
+  colTargetAccount: string;
+  colPreviousBal: string;
+  colRemainingBal: string;
+  colTransferAmount: string;
+  colTransferStatus: string;
+  noAdminTransfersTitle: string;
+  noAdminTransfersDesc: string;
+  btnViewTransferVoucher: string;
+
+  // Wholesale Sourcing Orders Tab
+  wholesaleOrdersTitle: string;
+  wholesaleOrdersSubtitle: string;
+  colPoNumber: string;
+  colSupplierName: string;
+  colCommodityQuantity: string;
+  colAmountPaidWholesale: string;
+  colPaymentRail: string;
+  colOrderStatus: string;
+  noWholesaleOrdersTitle: string;
+  noWholesaleOrdersDesc: string;
+  btnExploreWholesale: string;
+
+  // Chatbot & Treasury Assistant
+  botTitle: string;
+  botSubtitle: string;
+  botGreeting: string;
+  botAskPlaceholder: string;
+  botSend: string;
+  botQuickPromptBalance: string;
+  botQuickPromptCommission: string;
+  botQuickPromptAdminTransfers: string;
+  botQuickPromptEscrow: string;
+  botQuickPromptWholesale: string;
+  botQuickPromptWithdraw: string;
+  botWithdrawAction: string;
+  botWithdrawSuccess: string;
+  botClose: string;
+  botOpenAssistant: string;
+
+  // Transparent Equation Labels
+  formulaTitle: string;
+  formulaGrossSales: string;
+  formulaCommission: string;
+  formulaAdminTransferred: string;
+  formulaNetAvailable: string;
 }
 
 export const PAYMENT_PORTAL_TRANSLATIONS: Record<
@@ -219,6 +287,68 @@ export const PAYMENT_PORTAL_TRANSLATIONS: Record<
     modalEscrowTitle: "CBE Escrow Milestone Tracker",
     modalLinkBankTitle: "Link Verified Settlement Account",
     modalLinkBankSubtitle: "Connect an authorized Ethiopian commercial bank or mobile money terminal for automated treasury payouts",
+
+    sectionCustomerInflows: "Customer Sales & Escrow Ledger",
+    sectionAdminPayouts: "Admin Payout Transfers Received",
+    sectionWholesaleSourcing: "Wholesale Orders & Purchases Paid",
+    sectionBankingRails: "Settlement Bank & Wallet Rails",
+
+    cardCommissionDeducted: "Platform Commission Deducted",
+    cardCommissionRate: "Avg. 1.5% - 2.5% platform fee",
+    cardAdminTransferred: "Admin Payouts Transferred",
+    cardAdminTransfersCount: "{count} Disbursements Received",
+    cardWholesaleSpend: "Wholesale Sourcing Spend",
+    cardWholesaleOrdersCount: "{count} Wholesale Purchase Orders",
+    colGrossAmount: "Gross Sales",
+    colCommissionFee: "Platform Fee",
+    colNetDisbursed: "Net Received",
+
+    adminTransfersTitle: "Admin Payout Disbursements Received",
+    adminTransfersSubtitle: "Official bank wire and Chapa disbursements transferred by platform administration to your verified account",
+    colTransferRef: "Transfer Reference",
+    colTransferDate: "Transfer Date & Time",
+    colTargetAccount: "Destination Bank / Account",
+    colPreviousBal: "Previous Balance",
+    colRemainingBal: "Remaining Balance",
+    colTransferAmount: "Transferred Net",
+    colTransferStatus: "Transfer Status",
+    noAdminTransfersTitle: "No Admin Payout Transfers Yet",
+    noAdminTransfersDesc: "When platform administration transfers payouts to your bank account or Telebirr, official disbursement records will appear here.",
+    btnViewTransferVoucher: "View Transfer Slip",
+
+    wholesaleOrdersTitle: "Wholesale Sourcing Orders & Purchases Paid",
+    wholesaleOrdersSubtitle: "Outbound wholesale expenses paid when ordering bulk commodities and inventory from other suppliers",
+    colPoNumber: "Purchase Order #",
+    colSupplierName: "Wholesale Vendor",
+    colCommodityQuantity: "Commodity & Quantity",
+    colAmountPaidWholesale: "Amount Paid (ETB)",
+    colPaymentRail: "Payment Rail",
+    colOrderStatus: "Order Status",
+    noWholesaleOrdersTitle: "No Wholesale Purchases Recorded",
+    noWholesaleOrdersDesc: "You have not placed any wholesale purchase orders with other suppliers yet. Sourcing purchases will be tracked here.",
+    btnExploreWholesale: "Explore Wholesale Catalog",
+
+    botTitle: "Treasury & Payout AI Assistant",
+    botSubtitle: "Ask about your balances, commission deductions, admin transfers, or request a payout instantly",
+    botGreeting: "Hello! I am your MercatoX Treasury Assistant. You can ask about your platform balance, commission deducted, admin payouts, or submit a withdrawal request right here.",
+    botAskPlaceholder: "Ask about your money, transfers, commission, or type 'withdraw 10000'...",
+    botSend: "Send",
+    botQuickPromptBalance: "What is my Net Balance?",
+    botQuickPromptCommission: "How much Commission was deducted?",
+    botQuickPromptAdminTransfers: "How much did Admin transfer to me?",
+    botQuickPromptEscrow: "How much is locked in Escrow?",
+    botQuickPromptWholesale: "My Wholesale Sourcing Spend?",
+    botQuickPromptWithdraw: "Request a Payout / Withdrawal",
+    botWithdrawAction: "Confirm Payout Request",
+    botWithdrawSuccess: "Payout request of ETB {amount} submitted successfully! Ref: {ref}",
+    botClose: "Close Assistant",
+    botOpenAssistant: "Treasury & Payout AI Assistant",
+
+    formulaTitle: "Platform Net Balance Settlement Formula",
+    formulaGrossSales: "Gross Sales",
+    formulaCommission: "Platform Commission",
+    formulaAdminTransferred: "Admin Payouts Transferred",
+    formulaNetAvailable: "Net Platform Balance",
   },
   am: {
     title: "የግምጃ ቤት ክፍያዎች እና የኢስክሮው ሞተር",
@@ -317,6 +447,68 @@ export const PAYMENT_PORTAL_TRANSLATIONS: Record<
     modalEscrowTitle: "የኢስክሮው የደረጃ መከታተያ",
     modalLinkBankTitle: "የተረጋገጠ የባንክ ሂሳብ አገናኝ",
     modalLinkBankSubtitle: "ለራስ-ሰር ክፍያዎች የንግድ ባንክ ወይም የሞባይል ተርሚናል ያገናኙ",
+
+    sectionCustomerInflows: "የደንበኞች ሽያጭና የክፍያ መዝገብ",
+    sectionAdminPayouts: "ከአድሚን የተላለፉ ክፍያዎች",
+    sectionWholesaleSourcing: "ለጅምላ ግዢ የተከፈሉ ወጪዎች",
+    sectionBankingRails: "የባንክ እና የቴሌብር ሂሳቦች",
+
+    cardCommissionDeducted: "ለኮሚሽን የተቀነሰ ክፍያ",
+    cardCommissionRate: "አማካይ 1.5% - 2.5% የፕላትፎርም ኮሚሽን",
+    cardAdminTransferred: "ከአድሚን የተላለፈ ገንዘብ",
+    cardAdminTransfersCount: "{count} ወደ ባንክ/ቴሌብር የተላለፉ",
+    cardWholesaleSpend: "የጅምላ ግዢ ወጪዎች",
+    cardWholesaleOrdersCount: "{count} የጅምላ ግዢ ትዕዛዞች",
+    colGrossAmount: "ጠቅላላ ሽያጭ",
+    colCommissionFee: "የተቀነሰ ኮሚሽን",
+    colNetDisbursed: "የተጣራ ገቢ",
+
+    adminTransfersTitle: "ከአድሚን የተላለፉ የክፍያ ዝውውሮች",
+    adminTransfersSubtitle: "በፕላትፎርሙ አስተዳዳሪ (Admin) በቻፓ እና በባንክ የተላለፉልዎ ይፋዊ የክፍያ ማስተላለፊያዎች",
+    colTransferRef: "የዝውውር ማመሳከሪያ",
+    colTransferDate: "የተላለፈበት ቀን እና ሰዓት",
+    colTargetAccount: "የተላከበት ባንክ / ሂሳብ",
+    colPreviousBal: "የቀድሞ ሂሳብ",
+    colRemainingBal: "ቀሪ ሂሳብ",
+    colTransferAmount: "የተላለፈ ገንዘብ",
+    colTransferStatus: "የዝውውር ሁኔታ",
+    noAdminTransfersTitle: "እስካሁን ከአድሚን የተላለፈ ክፍያ የለም",
+    noAdminTransfersDesc: "አስተዳዳሪው ወደ ባንክ ሂሳብዎ ወይም ቴሌብር ክፍያ ሲያስተላልፍ ይፋዊ ዝውውሮች እዚህ ይመዘገባሉ።",
+    btnViewTransferVoucher: "የዝውውር ደረሰኝ እይ",
+
+    wholesaleOrdersTitle: "ለጅምላ ግዢ የተከፈሉ ወጪዎች",
+    wholesaleOrdersSubtitle: "ከሌሎች አቅራቢዎች እና ፋብሪካዎች ሸቀጦችን በጅምላ ሲገዙ የተከፈሉ ክፍያዎች እና የትዕዛዝ መረጃዎች",
+    colPoNumber: "የትዕዛዝ ቁጥር (PO #)",
+    colSupplierName: "የጅምላ ሻጭ / አቅራቢ",
+    colCommodityQuantity: "ሸቀጥ እና ብዛት",
+    colAmountPaidWholesale: "የተከፈለ ገንዘብ (ETB)",
+    colPaymentRail: "የክፍያ መንገድ",
+    colOrderStatus: "የትዕዛዝ ሁኔታ",
+    noWholesaleOrdersTitle: "ምንም የጅምላ ግዢ አልተመዘገበም",
+    noWholesaleOrdersDesc: "እስካሁን ከሌሎች አቅራቢዎች የተገዛ የጅምላ ሸቀጥ የለም። ግዢ ሲፈጽሙ እዚህ ዝርዝሩ ይታያል።",
+    btnExploreWholesale: "የጅምላ ገበያውን አስስ",
+
+    botTitle: "የግምጃ ቤት እና የክፍያ ረዳት ቦት",
+    botSubtitle: "ስለ ቀሪ ሂሳብዎ፣ ስለተቆረጠ ኮሚሽን፣ ከአድሚን ስለተላለፈ ክፍያ ይጠይቁ ወይም እዚሁ የገንዘብ ማውጣት ጥያቄ ያቅርቡ",
+    botGreeting: "ሰላም! እኔ የመርካቶ ኤክስ የግምጃ ቤት ረዳትዎ ነኝ። በፕላትፎርሙ ላይ ስላለዎት ገንዘብ፣ ስለተቆረጠ ኮሚሽን፣ አድሚን ስላስተላለፈላቸው ክፍያዎች መጠየቅ ወይም በቀጥታ የክፍያ ማውጣት ጥያቄ (Payout Request) እዚሁ ማቅረብ ይችላሉ።",
+    botAskPlaceholder: "ስለ ቀሪ ሂሳብ፣ ኮሚሽን፣ አድሚን ዝውውር ይጠይቁ ወይም 'ገንዘብ አውጣ' ብለው ይጻፉ...",
+    botSend: "ላክ",
+    botQuickPromptBalance: "በፕላትፎርሙ ላይ ምን ያህል የተጣራ ገንዘብ አለኝ?",
+    botQuickPromptCommission: "ምን ያህል የመድረክ ኮሚሽን ተቆርጦብኛል?",
+    botQuickPromptAdminTransfers: "አድሚኑ ያስተላለፈልኝ አጠቃላይ ገንዘብ ስንት ነው?",
+    botQuickPromptEscrow: "በኢስክሮው የተቆለፈ ዋስትና ስንት ነው?",
+    botQuickPromptWholesale: "የጅምላ ዕቃ ግዢ ወጪዬ ስንት ነው?",
+    botQuickPromptWithdraw: "የክፍያ ማውጣት ጥያቄ አቅርብ",
+    botWithdrawAction: "የክፍያ ጥያቄውን አረጋግጥና ላክ",
+    botWithdrawSuccess: "የ ETB {amount} የክፍያ ማውጣት ጥያቄ በተሳካ ሁኔታ ተልኳል! መለያ፡ {ref}",
+    botClose: "ረዳቱን ዝጋ",
+    botOpenAssistant: "የክፍያ ረዳት ቦት",
+
+    formulaTitle: "የመድረኩ የተጣራ ቀሪ ሂሳብ ስሌት ቀመር",
+    formulaGrossSales: "አጠቃላይ ሽያጭ",
+    formulaCommission: "የተቆረጠ ኮሚሽን",
+    formulaAdminTransferred: "አድሚን ያስተላለፈው",
+    formulaNetAvailable: "በመድረኩ ላይ ያለ የተጣራ ሂሳብ",
   },
   om: {
     title: "Kaffaltii Baankii fi Tajaajila Eeskirawuu",
@@ -415,6 +607,68 @@ export const PAYMENT_PORTAL_TRANSLATIONS: Record<
     modalEscrowTitle: "Hordoffii Sadarkaa Eeskirawuu",
     modalLinkBankTitle: "Herreega Baankii Mirkanaa'e Walqabsiisi",
     modalLinkBankSubtitle: "Kaffaltiiwwan ofumaan fudhachuuf herreega baankii ykn moobaayilaa galchaa",
+
+    sectionCustomerInflows: "Gurgurtaa fi Galii Maamiltootaa",
+    sectionAdminPayouts: "Kaffaltiiwwan Admin Irraa Dabarfaman",
+    sectionWholesaleSourcing: "Baasiiwwan Bittaa Jumlaaf Kaffalaman",
+    sectionBankingRails: "Sarara Baankii fi Telebirr",
+
+    cardCommissionDeducted: "Koomishiinii Kaffaltii Irraa Hir'ate",
+    cardCommissionRate: "Giddu-galeessaan koomishiinii 1.5% - 2.5%",
+    cardAdminTransferred: "Kaffaltii Admin Irraa Fudhatame",
+    cardAdminTransfersCount: "Dabarsa gara baankii {count}",
+    cardWholesaleSpend: "Baasii Bittaa Jumlaa",
+    cardWholesaleOrdersCount: "Ajajawwan Bittaa {count}",
+    colGrossAmount: "Gurgurtaa Waliigalaa",
+    colCommissionFee: "Koomishiinii",
+    colNetDisbursed: "Galii Qulqulluu",
+
+    adminTransfersTitle: "Kaffaltiiwwan Admin Irraa Dabarfaman",
+    adminTransfersSubtitle: "Kaffaltiiwwan mootummaa fi Chapa'n Admin irraa gara herreega baankii keessaniitti dabarfaman",
+    colTransferRef: "Lakk. Wabiiti Dabarsaa",
+    colTransferDate: "Guyyaa fi Sa'aatii",
+    colTargetAccount: "Baankii / Herreega Fudhataa",
+    colPreviousBal: "Haftee Duraanii",
+    colRemainingBal: "Haftee Hafe",
+    colTransferAmount: "Maallaqa Dabarfame",
+    colTransferStatus: "Haala Dabarsaa",
+    noAdminTransfersTitle: "Kaffaltiin Admin Irraa Dabarfame Hin Jiru",
+    noAdminTransfersDesc: "Admin gara herreega baankii keessaniitti yeroo maallaqa dabarsu galmeen asirratti mul'ata.",
+    btnViewTransferVoucher: "Nagahee Dabarsaa Ilaali",
+
+    wholesaleOrdersTitle: "Baasii Bittaa Jumlaaf Kaffalame",
+    wholesaleOrdersSubtitle: "Oomishaalee fi meeshaalee dhiyeessitoota biroo irraa jumlaadhaan yeroo bittan kaffaltiiwwan raawwataman",
+    colPoNumber: "Lakk. Ajaja Bittaa (PO #)",
+    colSupplierName: "Dhiyeessaa Jumlaa",
+    colCommodityQuantity: "Oomishaa fi Hamma",
+    colAmountPaidWholesale: "Maallaqa Kaffalame (ETB)",
+    colPaymentRail: "Karaa Kaffaltii",
+    colOrderStatus: "Haala Ajajaa",
+    noWholesaleOrdersTitle: "Bittaani Jumlaa Hin Galmoofne",
+    noWholesaleOrdersDesc: "Hamma yoonaatti dhiyeessitoota biroo irraa bittaani jumlaa hin raawwatamne.",
+    btnExploreWholesale: "Gabaa Jumlaa Sakatta'i",
+
+    botTitle: "Gargaaraa Baasii fi Qabeenya AI",
+    botSubtitle: "Waa'ee haftee herregaa keessanii, komishinii hir'ifame, kaffaltii adimiin dabarse gaafadhaa ykn kaffaltii gaafadhaa",
+    botGreeting: "Akkam! Ani gargaaraa qabeenya MercatoX ti. Waa'ee maallaqa keessan, komishinii hir'ifame, kaffaltii adimiin dabarse gaafachuu ykn asumaan gaaffii kaffaltii dhiyeessuu dandeessu.",
+    botAskPlaceholder: "Waa'ee haftee herregaa, komishinii gaafadhaa ykn 'maallaqa baasi' jedhaa barreessaa...",
+    botSend: "Ergi",
+    botQuickPromptBalance: "Hafteen herrega koo meeqa?",
+    botQuickPromptCommission: "Komishiniin platformii meeqa hir'ifame?",
+    botQuickPromptAdminTransfers: "Adimiin maallaqa meeqa naaf dabarse?",
+    botQuickPromptEscrow: "Escrow keessatti maallaqa meeqatu hidhame?",
+    botQuickPromptWholesale: "Baasiin bitta jumlaa koo meeqa?",
+    botQuickPromptWithdraw: "Gaaffii Kaffaltii Baasii Dhiyeessi",
+    botWithdrawAction: "Gaaffii Kaffaltii Mirkaneessi",
+    botWithdrawSuccess: "Gaaffiin kaffaltii ETB {amount} milkaa'inaan ergameera! Ref: {ref}",
+    botClose: "Gargaaraa Cufi",
+    botOpenAssistant: "Gargaaraa Kaffaltii AI",
+
+    formulaTitle: "Hisaaba Qulqulluu Platformii Yeroo Qabatamaa",
+    formulaGrossSales: "Gurgurtaa Waliigalaa",
+    formulaCommission: "Komishinii Platformii",
+    formulaAdminTransferred: "Adimiin Kan Dabarfame",
+    formulaNetAvailable: "Haftee Qulqulluu Platformii",
   },
   ti: {
     title: "ክፍሊታት ግምጃ ቤት ከምኡውን ሞተር ኢስክሮው",
@@ -513,5 +767,67 @@ export const PAYMENT_PORTAL_TRANSLATIONS: Record<
     modalEscrowTitle: "ናይ ኢስክሮው ብርኪ መከታተሊ",
     modalLinkBankTitle: "ዝተረጋገጸ ናይ ባንኪ ሕሳብ ኣተኣሳስር",
     modalLinkBankSubtitle: "ንኣውቶማቲክ ክፍሊታት ናይ ንግዲ ባንኪ ወይ ሞባይል ተርሚናል ኣተኣሳስሩ",
+
+    sectionCustomerInflows: "ናይ ዓማዊል መሸጣን እቶትን",
+    sectionAdminPayouts: "ካብ ኣድሚን ዝተመሓላለፉ ክፍሊታት",
+    sectionWholesaleSourcing: "ንጅምላ ዕደጋ ዝተኸፍሉ ወጻኢታት",
+    sectionBankingRails: "ናይ ባንክን ቴሌብርን ሕሳባት",
+
+    cardCommissionDeducted: "ንኮሚሽን ዝተቖርጸ ክፍሊት",
+    cardCommissionRate: "ማእከላይ 1.5% - 2.5% ናይ ፕላትፎርም ኮሚሽን",
+    cardAdminTransferred: "ካብ ኣድሚን ዝተመሓላለፈ ገንዘብ",
+    cardAdminTransfersCount: "{count} ናብ ባንኪ/ቴሌብር ዝተመሓላለፉ",
+    cardWholesaleSpend: "ናይ ጅምላ ዕደጋ ወጻኢታት",
+    cardWholesaleOrdersCount: "{count} ናይ ጅምላ ዕደጋ ትእዛዛት",
+    colGrossAmount: "ሓፈሻዊ መሸጣ",
+    colCommissionFee: "ዝተቖርጸ ኮሚሽን",
+    colNetDisbursed: "ጽሩይ እቶት",
+
+    adminTransfersTitle: "ካብ ኣድሚን ዝተመሓላለፉ ክፍሊታት",
+    adminTransfersSubtitle: "ብናይ ፕላትፎርም ኣመሓዳሪ (Admin) ብቻፓን ባንክን ዝተመሓላለፉልኩም ወግዓዊ ናይ ክፍሊት ምስግጋራት",
+    colTransferRef: "መለለዪ ምስግጋር",
+    colTransferDate: "ዝተመሓላለፈሉ ዕለትን ሰዓትን",
+    colTargetAccount: "ዝተላእከሉ ባንክ / ሕሳብ",
+    colPreviousBal: "ናይ ቀደም ዝተረፈ",
+    colRemainingBal: "ዝተረፈ ሕሳብ",
+    colTransferAmount: "ዝተመሓላለፈ ገንዘብ",
+    colTransferStatus: "ኩነታት ምስግጋር",
+    noAdminTransfersTitle: "ክሳብ ሕዚ ካብ ኣድሚን ዝተመሓላለፈ ክፍሊት የለን",
+    noAdminTransfersDesc: "ኣመሓዳሪ ናብ ናይ ባንኪ ሕሳብኩም ወይ ቴሌብር ክፍሊት ምስ ዘመሓላልፍ ወግዓዊ መዛግብቲ ኣብዚ ክርአ እዩ።",
+    btnViewTransferVoucher: "ቅብሊት ምስግጋር ርአ",
+
+    wholesaleOrdersTitle: "ንጅምላ ዕደጋ ዝተኸፍሉ ወጻኢታት",
+    wholesaleOrdersSubtitle: "ካብ ካልኦት ኣቕረብትን ፋብሪካታትን ብጅምላ ኣቑሑት ክትዕድጉ ከለኹም ዝተኸፍሉ ክፍሊታትን ሓበሬታ ትእዛዛትን",
+    colPoNumber: "ቁጽሪ ትእዛዝ (PO #)",
+    colSupplierName: "ጅምላ ነጋዳይ / ኣቕራቢ",
+    colCommodityQuantity: "ዓይነት ሸቐጥን መጠንን",
+    colAmountPaidWholesale: "ዝተኸፍለ ገንዘብ (ETB)",
+    colPaymentRail: "ናይ ክፍሊት መንገዲ",
+    colOrderStatus: "ኩነታት ትእዛዝ",
+    noWholesaleOrdersTitle: "ዝተመዝገበ ናይ ጅምላ ዕደጋ የለን",
+    noWholesaleOrdersDesc: "ክሳብ ሕዚ ካብ ካልኦት ኣቕረብቲ ዝተዓደገ ናይ ጅምላ ሸቐጥ የለን። ዕደጋ ምስ ዝፍጸም ኣብዚ ክዝርዘር እዩ።",
+    btnExploreWholesale: "ናይ ጅምላ ዕዳጋ ዳህስስ",
+
+    botTitle: "ሓጋዚ ባጀት ምስ ክፍሊት AI",
+    botSubtitle: "ብዛዕባ ተረፍ ሕሳብኩም፣ ዝተቖርጸ ኮሚሽን፣ ኣድሚን ዘመሓላለፎ ክፍሊት ሕተቱ ወይ ናይ ምውጻእ ሕቶ ኣቕርቡ",
+    botGreeting: "ሰላም! ኣነ ናይ መርካቶ ኤክስ ናይ ባጀት ሓጋዚኹም እየ። ብዛዕባ ኣብ ፕላትፎርም ዘለኩም ገንዘብ፣ ዝተቖርጸ ኮሚሽን፣ ኣድሚን ዘመሓላለፎ ክፍሊት ክትሓቱ ወይ ብቐጥታ ናይ ምውጻእ ሕቶ ከተቕርቡ ትኽእሉ ኢኹም።",
+    botAskPlaceholder: "ብዛዕባ ተረፍ ሕሳብ፣ ኮሚሽን ሕተቱ ወይ 'ገንዘብ ኣውጽእ' ኢልኩም ጸሓፉ...",
+    botSend: "ስደድ",
+    botQuickPromptBalance: "ኣብ ፕላትፎርም ክንደይ ዝተረፈ ገንዘብ ኣለኒ?",
+    botQuickPromptCommission: "ክንደይ ናይ መድረኽ ኮሚሽን ተቖሪጹኒ?",
+    botQuickPromptAdminTransfers: "ኣድሚን ዘመሓላለፈልኝ ጠቕላላ ገንዘብ ክንደይ እዩ?",
+    botQuickPromptEscrow: "ኣብ ኢስክሮው ዝተታሕዘ ውሕስነት ክንደይ እዩ?",
+    botQuickPromptWholesale: "ናይ ጅምላ ዕዳጋ ወጻኢታተይ ክንደይ እዩ?",
+    botQuickPromptWithdraw: "ናይ ክፍሊት ምውጻእ ሕቶ ኣቕርብ",
+    botWithdrawAction: "ናይ ምውጻእ ሕቶ ኣረጋግጽ",
+    botWithdrawSuccess: "ናይ ETB {amount} ናይ ምውጻእ ሕቶ ብዓወት ተላኢኹ ኣሎ! Ref: {ref}",
+    botClose: "ሓጋዚ ዕጾ",
+    botOpenAssistant: "ሓጋዚ ክፍሊት AI",
+
+    formulaTitle: "ናይ መድረኽ ዝተጻረየ ተረፍ ሕሳብ ቀመር",
+    formulaGrossSales: "ጠቕላላ መሸጣ",
+    formulaCommission: "ዝተቖርጸ ኮሚሽን",
+    formulaAdminTransferred: "ኣድሚን ዘመሓላለፎ",
+    formulaNetAvailable: "ኣብ መድረኽ ዘሎ ዝተጻረየ ሕሳብ",
   },
 };

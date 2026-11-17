@@ -35,6 +35,15 @@ export interface AnalyticsTranslationDictionary {
   regionalBreakdownSubtitle: string;
   categoryDistributionTitle: string;
   categoryDistributionSubtitle: string;
+  periodTradeVolume: string;
+  periodOrders: string;
+  peakPerformance: string;
+  fulfillmentSla: string;
+  cbeEscrowVerified: string;
+  activeRegions: string;
+  noRegionalData: string;
+  noCategoryData: string;
+  purchaseOrdersCount: string;
 }
 
 export const ANALYTICS_TRANSLATIONS: Record<
@@ -72,6 +81,15 @@ export const ANALYTICS_TRANSLATIONS: Record<
     regionalBreakdownSubtitle: "Logistics corridor revenue distribution across Ethiopian regions",
     categoryDistributionTitle: "Catalog Category Distribution",
     categoryDistributionSubtitle: "Commodity inventory breakdown by active product categories",
+    periodTradeVolume: "Period Trade Volume",
+    periodOrders: "Period Orders",
+    peakPerformance: "Peak Performance",
+    fulfillmentSla: "Fulfillment SLA",
+    cbeEscrowVerified: "CBE Escrow Verified",
+    activeRegions: "Active Regions",
+    noRegionalData: "No regional order distributions recorded yet. When orders are processed, geographic breakdown will appear here.",
+    noCategoryData: "No catalog categories registered yet.",
+    purchaseOrdersCount: "purchase orders",
   },
   am: {
     title: "የኮርፖሬት ንግድ ትንታኔ እና መረጃ (Analytics)",
@@ -104,6 +122,15 @@ export const ANALYTICS_TRANSLATIONS: Record<
     regionalBreakdownSubtitle: "በኢትዮጵያ ክልሎች የገቢ ክፍፍል እና ሎጂስቲክስ",
     categoryDistributionTitle: "የምርት ምድቦች ስርጭት",
     categoryDistributionSubtitle: "በአክቲቭ የምርት ምድቦች የተከፋፈለ የክምችት ዝርዝር",
+    periodTradeVolume: "የወቅቱ የግብይት መጠን",
+    periodOrders: "የወቅቱ ትዕዛዞች",
+    peakPerformance: "ከፍተኛው አፈጻጸም",
+    fulfillmentSla: "የትዕዛዝ ማድረስ SLA",
+    cbeEscrowVerified: "በCBE ኤስክሮው የተረጋገጠ",
+    activeRegions: "ንቁ ክልሎች",
+    noRegionalData: "እስካሁን የተመዘገበ የክልል የትዕዛዝ ስርጭት የለም። ትዕዛዞች ሲሰሩ እዚህ ይዘረዘራሉ።",
+    noCategoryData: "እስካሁን የተመዘገበ የምርት ምድብ የለም።",
+    purchaseOrdersCount: "ትዕዛዞች",
   },
   om: {
     title: "Xiinxala Daldalaa fi Odeeffannoo Korporeetii",
@@ -136,6 +163,15 @@ export const ANALYTICS_TRANSLATIONS: Record<
     regionalBreakdownSubtitle: "Kutaalee Itoophiyaa keessatti qoodiinsa galii loojistiksii",
     categoryDistributionTitle: "Qoodiinsa Gosoota Oomishaa",
     categoryDistributionSubtitle: "Qoodiinsa kuusaa gosoota oomishaatiin",
+    periodTradeVolume: "Hamma Daldala Yeroo",
+    periodOrders: "Ajajawwan Yeroo",
+    peakPerformance: "Raawwii Olaanaa",
+    fulfillmentSla: "SLA Raawwii Ajajaa",
+    cbeEscrowVerified: "Eskiroo CBEtiin Mirkanaa'e",
+    activeRegions: "Naannolee Hojjataa Jiran",
+    noRegionalData: "Hamma ammaatti qoodiinsi ajaja naannoo hin galmoofne.",
+    noCategoryData: "Gosoonni oomishaa ammatti hin galmoofne.",
+    purchaseOrdersCount: "ajajawwan",
   },
   ti: {
     title: "ትንታነ ንግድን ሓበሬታን ትካላት (Analytics)",
@@ -168,5 +204,14 @@ export const ANALYTICS_TRANSLATIONS: Record<
     regionalBreakdownSubtitle: "ኣብ ክልላት ኢትዮጵያ ዘሎ ናይ እቶትን ሎጂስቲክስን ምደባ",
     categoryDistributionTitle: "ናይ ፍርያት ምድባት ክፍፍል",
     categoryDistributionSubtitle: "ንጡፋት ዝኾኑ ናይ ፍርያት ምድባት ዝርዝር ክምችት",
+    periodTradeVolume: "ናይቲ እዋን ናይ ንግዲ መጠን",
+    periodOrders: "ናይቲ እዋን ትእዛዛት",
+    peakPerformance: "ዝለዓለ ኣፈጻጽማ",
+    fulfillmentSla: "SLA ምብፃሕ ትእዛዝ",
+    cbeEscrowVerified: "ብCBE ኤስክሮው ዝተረጋገጸ",
+    activeRegions: "ንጡፋት ዞባታት",
+    noRegionalData: "ክሳብ ሕዚ ዝተመዝገበ ናይ ዞባ ትእዛዝ ክፍፍል የለን።",
+    noCategoryData: "ክሳብ ሕዚ ዝተመዝገበ ናይ ፍርያት ምድብ የለን።",
+    purchaseOrdersCount: "ትእዛዛት",
   },
 };

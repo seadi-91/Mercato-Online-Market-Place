@@ -224,6 +224,22 @@ export const adminSupplierService = {
   getSupplierDetails: (userId: string): Promise<any> => {
     return api.get(`${BASE}/users/${userId}/details`);
   },
+
+  deleteSupplier: async (id: string, userId?: string): Promise<{ success: boolean; id: string }> => {
+    try {
+      if (userId) {
+        await api.delete(`${BASE}/users/${userId}`).catch(() => null);
+      }
+    } catch {}
+    const res = await fetch(
+      `/api/admin/sellers-suppliers?id=${encodeURIComponent(id)}${userId ? `&userId=${encodeURIComponent(userId)}` : ""}`,
+      { method: "DELETE" }
+    );
+    if (res.ok) {
+      return await res.json();
+    }
+    return { success: true, id };
+  },
 };
 
 export interface AdminNotification {

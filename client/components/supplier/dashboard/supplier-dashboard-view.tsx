@@ -48,15 +48,19 @@ export function SupplierDashboardView() {
     orders,
     rfqs,
     quotations,
+    transactions,
     fetchProducts,
     fetchOrders,
     fetchRFQs,
     fetchQuotations,
     fetchNegotiations,
+    fetchTransactions,
     setActiveTab,
     setSubView,
     openModal,
   } = useSupplierStore();
+
+  const [adminMerchantProfile, setAdminMerchantProfile] = useState<any>(null);
 
   useEffect(() => {
     fetchProducts();
@@ -64,25 +68,77 @@ export function SupplierDashboardView() {
     fetchRFQs();
     fetchQuotations();
     fetchNegotiations();
-  }, [fetchProducts, fetchOrders, fetchRFQs, fetchQuotations, fetchNegotiations]);
+    fetchTransactions();
+  }, [fetchProducts, fetchOrders, fetchRFQs, fetchQuotations, fetchNegotiations, fetchTransactions]);
+
+  // Synchronize official admin/payout profile to ensure 100% data parity across pages
+  useEffect(() => {
+    async function syncAdminData() {
+      try {
+        const storedUser = typeof window !== "undefined" ? localStorage.getItem("mercatox_user") : null;
+        const user = storedUser ? JSON.parse(storedUser) : null;
+        const currentUserId = user?.id || user?.userId || profile?.id;
+
+        const url = currentUserId
+          ? `/api/admin/sellers-suppliers?userId=${encodeURIComponent(currentUserId)}`
+          : "/api/admin/sellers-suppliers";
+        const res = await fetch(url);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.merchant) {
+            setAdminMerchantProfile(json.merchant);
+          } else if (json.success && Array.isArray(json.data) && json.data.length > 0) {
+            const match =
+              json.data.find(
+                (m: any) =>
+                  m.id === currentUserId ||
+                  m.userId === currentUserId ||
+                  (user?.email && m.email?.toLowerCase() === user.email.toLowerCase()) ||
+                  (user?.shopName && m.shopName?.toLowerCase() === user.shopName.toLowerCase()) ||
+                  (user?.name &&
+                    (m.fullName?.toLowerCase() === user.name.toLowerCase() ||
+                      m.shopName?.toLowerCase() === user.name.toLowerCase()))
+              ) || json.data[0];
+            if (match) setAdminMerchantProfile(match);
+          }
+        }
+      } catch (err) {
+        console.warn("[SupplierDashboardView] Sync admin profile error:", err);
+      }
+    }
+    syncAdminData();
+  }, [profile?.id]);
 
   const [timeframe, setTimeframe] = useState<"7D" | "30D" | "12M" | "All">("30D");
 
   // Real Financial & Operational Figures calculated purely from live backend state
   const totalRevenue = useMemo(() => {
-    return orders
+    if (adminMerchantProfile && typeof adminMerchantProfile.grossSales === "number" && adminMerchantProfile.grossSales > 0) {
+      return adminMerchantProfile.grossSales;
+    }
+    const orderSum = orders
       .filter((o) => o.orderStatus === "delivered" || o.paymentStatus === "released")
       .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  }, [orders]);
+    const txSum = transactions
+      .filter((t) => t.status === "completed" || t.status === "cleared")
+      .reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+    return Math.max(orderSum, txSum);
+  }, [orders, transactions, adminMerchantProfile]);
 
   const availableBalance = useMemo(() => {
-    return orders
-      .filter((o) => o.paymentStatus === "released")
-      .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  }, [orders]);
+    if (adminMerchantProfile && typeof adminMerchantProfile.availableBalance === "number") {
+      return adminMerchantProfile.availableBalance;
+    }
+    const commission = Math.round(totalRevenue * 0.035 * 100) / 100;
+    const paidOut = adminMerchantProfile?.totalPaidOut ?? 0;
+    return Math.max(0, Math.round((totalRevenue - commission - paidOut) * 100) / 100);
+  }, [adminMerchantProfile, totalRevenue]);
 
   const pendingPayments = useMemo(() => {
-    return orders
+    const txPending = transactions
+      .filter((tx) => tx.status === "escrow_held" || tx.status === "pending")
+      .reduce((acc, tx) => acc + (Number(tx.amount) || 0), 0);
+    const orderPending = orders
       .filter(
         (o) =>
           o.paymentStatus === "escrow_secured" ||
@@ -90,7 +146,8 @@ export function SupplierDashboardView() {
           o.orderStatus === "confirmed"
       )
       .reduce((sum, o) => sum + (Number(o.total) || 0), 0);
-  }, [orders]);
+    return Math.max(txPending, orderPending);
+  }, [transactions, orders]);
 
   const pendingOrders = useMemo(
     () => orders.filter((o) => o.orderStatus === "pending" || o.orderStatus === "processing").length,
@@ -108,11 +165,13 @@ export function SupplierDashboardView() {
   const avgOrderValue = useMemo(() => {
     return orders.length > 0
       ? Math.round(orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0) / orders.length)
+      : totalRevenue > 0
+      ? Math.round(totalRevenue / Math.max(1, orders.length))
       : 0;
-  }, [orders]);
+  }, [orders, totalRevenue]);
 
   const settlementRate = useMemo(() => {
-    if (orders.length === 0) return "0.0%";
+    if (orders.length === 0) return "100.0%";
     const settled = orders.filter((o) => o.paymentStatus === "released").length;
     return `${((settled / orders.length) * 100).toFixed(1)}%`;
   }, [orders]);
@@ -207,14 +266,30 @@ export function SupplierDashboardView() {
       { label: String(currentYear), fullDate: `Year ${currentYear} (Current)`, year: currentYear, value: 0, orders: 0 },
     ];
 
-    // Populate from real orders
+    // Populate from real orders and completed transactions
+    const dataEvents: Array<{ amt: number; dateObj: Date }> = [];
     orders.forEach((o) => {
-      const amt = Number(o.total) || 0;
-      const orderDateObj = o.orderDate ? new Date(o.orderDate) : new Date();
-      const orderDateStr = o.orderDate ? o.orderDate.split("T")[0] : new Date().toISOString().split("T")[0];
-      const orderMs = orderDateObj.getTime();
-      const orderYm = `${orderDateObj.getFullYear()}-${String(orderDateObj.getMonth() + 1).padStart(2, "0")}`;
-      const orderYear = orderDateObj.getFullYear();
+      dataEvents.push({
+        amt: Number(o.total) || 0,
+        dateObj: o.orderDate ? new Date(o.orderDate) : new Date(),
+      });
+    });
+    if (orders.length === 0 && transactions.length > 0) {
+      transactions.forEach((tx) => {
+        if (tx.type === "order_payment" && tx.status !== "failed" && tx.status !== "refunded") {
+          dataEvents.push({
+            amt: Number(tx.amount) || 0,
+            dateObj: tx.createdAt ? new Date(tx.createdAt) : new Date(),
+          });
+        }
+      });
+    }
+
+    dataEvents.forEach(({ amt, dateObj }) => {
+      const orderDateStr = dateObj.toISOString().split("T")[0];
+      const orderMs = dateObj.getTime();
+      const orderYm = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, "0")}`;
+      const orderYear = dateObj.getFullYear();
 
       // 7D match
       const bucket7 = d7.find((b) => b.dateKey === orderDateStr);
@@ -249,7 +324,7 @@ export function SupplierDashboardView() {
     });
 
     return { "7D": d7, "30D": d30, "12M": d12, All: dAll };
-  }, [orders]);
+  }, [orders, transactions]);
 
   const chartData = chartDatasets[timeframe];
   const maxVal = Math.max(...chartData.map((d) => d.value), 1);
@@ -341,18 +416,18 @@ export function SupplierDashboardView() {
       />
 
       {/* 2. Linear-Style Minimal Stat Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         {/* Metric 1: Revenue */}
         <div
           onClick={() => setActiveTab("analytics")}
-          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
+          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-3.5 sm:p-4 transition-all hover:border-white/20 cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
             <span>{tr("statTotalRevenue")}</span>
-            <TrendingUp className="h-4 w-4 text-emerald-400" />
+            <TrendingUp className="h-4 w-4 text-emerald-400 shrink-0" />
           </div>
-          <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
-            ETB {totalRevenue > 0 ? (totalRevenue / 1000000).toFixed(2) + "M" : "0.00"}
+          <div className="mt-2 text-sm sm:text-base lg:text-lg font-bold font-mono tracking-tight text-white break-words">
+            ETB {totalRevenue > 0 ? totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
           </div>
           <div className="mt-2 flex items-center gap-1.5 text-[11px] text-zinc-400">
             <span>{tr("statRevenueSub")}</span>
@@ -362,17 +437,17 @@ export function SupplierDashboardView() {
         {/* Metric 2: Available Escrow */}
         <div
           onClick={() => setActiveTab("payments")}
-          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
+          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-3.5 sm:p-4 transition-all hover:border-white/20 cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
             <span>{tr("statAvailableBalance")}</span>
-            <Wallet className="h-4 w-4 text-indigo-400" />
+            <Wallet className="h-4 w-4 text-indigo-400 shrink-0" />
           </div>
-          <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
-            ETB {availableBalance > 0 ? (availableBalance / 1000000).toFixed(2) + "M" : "0.00"}
+          <div className="mt-2 text-sm sm:text-base lg:text-lg font-bold font-mono tracking-tight text-white break-words">
+            ETB {availableBalance > 0 ? availableBalance.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-emerald-400 font-medium">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shrink-0" />
             <span>{tr("statReadyPayout")}</span>
           </div>
         </div>
@@ -380,14 +455,14 @@ export function SupplierDashboardView() {
         {/* Metric 3: Held in Escrow */}
         <div
           onClick={() => setActiveTab("payments")}
-          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
+          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-3.5 sm:p-4 transition-all hover:border-white/20 cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
             <span>{tr("statInEscrow")}</span>
-            <Clock className="h-4 w-4 text-amber-400" />
+            <Clock className="h-4 w-4 text-amber-400 shrink-0" />
           </div>
-          <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
-            ETB {pendingPayments > 0 ? (pendingPayments / 1000000).toFixed(2) + "M" : "0.00"}
+          <div className="mt-2 text-sm sm:text-base lg:text-lg font-bold font-mono tracking-tight text-white break-words">
+            ETB {pendingPayments > 0 ? pendingPayments.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0.00"}
           </div>
           <div className="mt-2 text-[11px] text-zinc-400">
             <span>
@@ -401,13 +476,13 @@ export function SupplierDashboardView() {
         {/* Metric 4: Pending Orders */}
         <div
           onClick={() => setActiveTab("orders")}
-          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer"
+          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-3.5 sm:p-4 transition-all hover:border-white/20 cursor-pointer shadow-xs"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
             <span>{tr("statPendingOrders")}</span>
-            <ShoppingCart className="h-4 w-4 text-blue-400" />
+            <ShoppingCart className="h-4 w-4 text-blue-400 shrink-0" />
           </div>
-          <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
+          <div className="mt-2 text-sm sm:text-base lg:text-lg font-bold font-mono tracking-tight text-white">
             {pendingOrders}
           </div>
           <div className="mt-2 flex items-center gap-1 text-[11px] text-blue-400">
@@ -418,13 +493,13 @@ export function SupplierDashboardView() {
         {/* Metric 5: Active RFQs */}
         <div
           onClick={() => setActiveTab("rfqs")}
-          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 transition-all hover:border-white/20 cursor-pointer col-span-2 sm:col-span-1"
+          className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-3.5 sm:p-4 transition-all hover:border-white/20 cursor-pointer shadow-xs col-span-1 sm:col-span-2 lg:col-span-1"
         >
           <div className="flex items-center justify-between text-zinc-400 text-xs font-medium">
             <span>{tr("statBuyerRfqs")}</span>
-            <FileQuestion className="h-4 w-4 text-purple-400" />
+            <FileQuestion className="h-4 w-4 text-purple-400 shrink-0" />
           </div>
-          <div className="mt-2 text-xl sm:text-2xl font-bold font-mono tracking-tight text-white">
+          <div className="mt-2 text-sm sm:text-base lg:text-lg font-bold font-mono tracking-tight text-white">
             {pendingRFQs}
           </div>
           <div className="mt-2 text-[11px] text-zinc-400">
@@ -436,7 +511,7 @@ export function SupplierDashboardView() {
       {/* 3. Middle Section: Revenue Chart & Order Pipeline */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-6">
         {/* Revenue Chart */}
-        <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-5 lg:col-span-2 space-y-4">
+        <div className="rounded-xl border border-white/[0.08] bg-[#0d121c] p-4 sm:p-5 lg:col-span-2 space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/[0.06] pb-3">
             <div>
               <h3 className="text-sm font-semibold text-white">{tr("wholesaleTradeVolume")}</h3>
@@ -444,7 +519,7 @@ export function SupplierDashboardView() {
             </div>
 
             {/* Linear-style clean timeframe toggle */}
-            <div className="flex items-center rounded-lg border border-white/10 bg-white/[0.02] p-0.5 text-xs">
+            <div className="flex flex-wrap items-center rounded-lg border border-white/10 bg-white/[0.02] p-0.5 text-xs">
               {(["7D", "30D", "12M", "All"] as const).map((tf) => {
                 const tfLabel =
                   tf === "7D"
@@ -471,51 +546,53 @@ export function SupplierDashboardView() {
             </div>
           </div>
 
-          {/* Minimalist Bar Chart */}
-          <div className="pt-2">
-            <div className="flex items-end justify-between gap-2 sm:gap-3 h-48 sm:h-52 px-1">
-              {chartData.map((item, idx) => {
-                const heightPercent =
-                  item.value > 0 && maxVal > 0 ? Math.max(12, Math.round((item.value / maxVal) * 100)) : 6;
-                return (
-                  <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end relative">
-                    {/* Rich Interactive Hover Tag */}
-                    <div className="opacity-0 group-hover:opacity-100 transition-all duration-150 absolute -top-14 z-20 rounded-xl bg-zinc-950/95 border border-indigo-500/30 px-3 py-1.5 text-center pointer-events-none whitespace-nowrap shadow-xl backdrop-blur-md">
-                      <p className="text-[10px] font-bold text-zinc-300">{(item as any).fullDate || item.label}</p>
-                      <p className="text-xs font-mono font-bold text-indigo-400">
-                        ETB {item.value.toLocaleString()}
-                      </p>
-                      <p className="text-[9px] text-zinc-400">
-                        {item.orders} {tr("ordersCountUnit")}
-                      </p>
-                    </div>
+          {/* Minimalist Bar Chart with horizontal mobile scroll */}
+          <div className="pt-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin scrollbar-thumb-white/10">
+            <div className="min-w-[340px] sm:min-w-0">
+              <div className="flex items-end justify-between gap-2 sm:gap-3 h-48 sm:h-52 px-1">
+                {chartData.map((item, idx) => {
+                  const heightPercent =
+                    item.value > 0 && maxVal > 0 ? Math.max(12, Math.round((item.value / maxVal) * 100)) : 6;
+                  return (
+                    <div key={idx} className="flex-1 flex flex-col items-center gap-2 group h-full justify-end relative">
+                      {/* Rich Interactive Hover Tag */}
+                      <div className="opacity-0 group-hover:opacity-100 transition-all duration-150 absolute -top-14 z-20 rounded-xl bg-zinc-950/95 border border-indigo-500/30 px-3 py-1.5 text-center pointer-events-none whitespace-nowrap shadow-xl backdrop-blur-md">
+                        <p className="text-[10px] font-bold text-zinc-300">{(item as any).fullDate || item.label}</p>
+                        <p className="text-xs font-mono font-bold text-indigo-400">
+                          ETB {item.value.toLocaleString()}
+                        </p>
+                        <p className="text-[9px] text-zinc-400">
+                          {item.orders} {tr("ordersCountUnit")}
+                        </p>
+                      </div>
 
-                    <div className="w-full max-w-[36px] bg-white/[0.03] rounded-t-md overflow-hidden flex flex-col justify-end h-full">
-                      <div
-                        style={{ height: `${heightPercent}%` }}
-                        className={`w-full rounded-t-md transition-all duration-300 ${
-                          item.value > 0
-                            ? "bg-gradient-to-t from-indigo-600 to-indigo-400 group-hover:from-indigo-500 group-hover:to-indigo-300 shadow-sm"
-                            : "bg-white/[0.05]"
-                        }`}
-                      />
-                    </div>
+                      <div className="w-full max-w-[36px] bg-white/[0.03] rounded-t-md overflow-hidden flex flex-col justify-end h-full">
+                        <div
+                          style={{ height: `${heightPercent}%` }}
+                          className={`w-full rounded-t-md transition-all duration-300 ${
+                            item.value > 0
+                              ? "bg-gradient-to-t from-indigo-600 to-indigo-400 group-hover:from-indigo-500 group-hover:to-indigo-300 shadow-sm"
+                              : "bg-white/[0.05]"
+                          }`}
+                        />
+                      </div>
 
-                    <span className="text-[11px] font-medium text-zinc-400 text-center truncate w-full">
-                      {item.label}
-                    </span>
-                  </div>
-                );
-              })}
+                      <span className="text-[11px] font-medium text-zinc-400 text-center truncate w-full">
+                        {item.label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </div>
 
           {/* Footer Sub-metrics */}
-          <div className="grid grid-cols-3 gap-2 pt-3 border-t border-white/[0.06] text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-3 border-t border-white/[0.06] text-xs">
             <div>
               <span className="text-zinc-400 block">{tr("avgOrderValue")}</span>
               <span className="font-mono font-semibold text-white mt-0.5 block">
-                ETB {avgOrderValue.toLocaleString()}
+                ETB {avgOrderValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </span>
             </div>
             <div>
@@ -594,9 +671,9 @@ export function SupplierDashboardView() {
             </button>
           </div>
 
-          {/* Clean Desktop Table */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
+          {/* Clean Desktop Table with smooth mobile horizontal scroll */}
+          <div className="overflow-x-auto pb-2 -mx-1 px-1 scrollbar-thin scrollbar-thumb-white/10">
+            <table className="w-full text-left text-xs min-w-[500px]">
               <thead>
                 <tr className="border-b border-white/[0.06] text-zinc-400 font-medium uppercase text-[10px] tracking-wider">
                   <th className="pb-2.5">{tr("colProduct")}</th>

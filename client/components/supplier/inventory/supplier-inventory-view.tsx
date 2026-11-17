@@ -107,6 +107,7 @@ export function SupplierInventoryView() {
     fetchTransfers,
     inventoryMovements,
     orders,
+    fetchOrders,
     adjustStock,
     transferStock,
     completeTransfer,
@@ -127,7 +128,8 @@ export function SupplierInventoryView() {
     fetchProducts();
     fetchWarehouses();
     fetchTransfers();
-  }, [fetchProducts, fetchWarehouses, fetchTransfers]);
+    fetchOrders();
+  }, [fetchProducts, fetchWarehouses, fetchTransfers, fetchOrders]);
 
   // Also fetch backend catalog inventory alerts
   const [backendAlerts, setBackendAlerts] = useState<any[]>([]);
@@ -166,8 +168,14 @@ export function SupplierInventoryView() {
   // Damaged stock state (tracks recorded damaged items during operations)
   const [damagedRecords, setDamagedRecords] = useState<DamagedStockRecord[]>([]);
 
+  // Live Movements List from backend store
+  const movementsList = useMemo(() => {
+    return inventoryMovements;
+  }, [inventoryMovements]);
+
   // 1. DYNAMIC MAPPING: Backend PostgreSQL Products -> B2B Inventory Items
   const inventory: B2BInventoryItem[] = useMemo(() => {
+    if (!products || products.length === 0) return [];
     return products.map((p) => {
       const unit = p.unit || "KG";
       const basePrice = Number(p.basePrice) || 0;
@@ -199,10 +207,10 @@ export function SupplierInventoryView() {
         )
         .reduce((sum, t) => sum + (Number(t.quantity) || 0), 0);
 
-      // Distribute across warehouses dynamically
-      const warehouseDistribution = warehouses.map((w) => {
+      // Distribute across live backend warehouses dynamically
+      const warehouseDistribution = warehouses.map((w: any) => {
         const itemInWh = (w.stockDistribution || []).find(
-          (s) => s.productName.toLowerCase() === p.name.toLowerCase()
+          (s: any) => s.productName.toLowerCase() === p.name.toLowerCase()
         );
         const distQty = itemInWh?.quantity ?? Math.round(totalStock / Math.max(1, warehouses.length));
         return {
@@ -222,8 +230,8 @@ export function SupplierInventoryView() {
         barcode: p.sku
           ? p.sku.replace(/[^0-9]/g, "").padEnd(12, "0").slice(0, 12)
           : "600129000000",
-        category: p.category || "Agricultural Commodities",
-        grade: p.grade || p.subcategory || "Export Grade",
+        category: p.category || "General",
+        grade: p.grade || p.subcategory || "Standard",
         origin: p.origin || "Ethiopia",
         unit,
         costPrice: Math.round(basePrice * 0.75),
@@ -237,10 +245,10 @@ export function SupplierInventoryView() {
         maximumLevel: Math.max(totalStock * 2, minLevel * 5, 200),
         primaryWarehouse,
         status,
-        images: p.images && p.images.length > 0 ? p.images : ["/images/placeholder-product.jpg"],
+        images: p.images && p.images.length > 0 ? p.images : ["https://images.unsplash.com/photo-1559525839-8f81ae7d3b5b?auto=format&fit=crop&w=600&q=80"],
         batchNumber: `LOT-${p.id.slice(0, 6).toUpperCase()}`,
         lastRestocked: p.createdAt || new Date().toISOString().split("T")[0],
-        supplier: p.brand || "Abyssinia Premium Exporters",
+        supplier: p.brand || "",
         warehouseDistribution,
       };
     });
@@ -248,6 +256,7 @@ export function SupplierInventoryView() {
 
   // 2. DYNAMIC MAPPING: Backend PostgreSQL Warehouses -> Warehouse Detail
   const warehousesDetail: WarehouseDetail[] = useMemo(() => {
+    if (!warehouses || warehouses.length === 0) return [];
     return warehouses.map((w) => {
       const totalCommodityUnits =
         (w.stockDistribution || []).reduce(
@@ -271,9 +280,9 @@ export function SupplierInventoryView() {
         location: w.address || w.city || "Ethiopia",
         city: w.city || "Addis Ababa",
         region: w.region || "Addis Ababa",
-        address: w.address || w.city || "Industrial Zone",
+        address: w.address || w.city || "",
         manager: w.managerName || "Warehouse Lead",
-        phone: w.phone || "+251 11 000 0000",
+        phone: w.phone || "",
         totalProducts: (w.stockDistribution || []).length || (products.length > 0 ? products.length : 0),
         totalStock: totalCommodityUnits,
         capacity: capM2,
@@ -286,6 +295,7 @@ export function SupplierInventoryView() {
 
   // 3. DYNAMIC MAPPING: Escrow Orders -> Stock Reservations
   const reservations: StockReservation[] = useMemo(() => {
+    if (!orders || orders.length === 0) return [];
     return orders
       .filter((o) =>
         ["confirmed", "processing", "pending"].includes(o.orderStatus) ||
@@ -296,13 +306,13 @@ export function SupplierInventoryView() {
           id: `res-${o.id}`,
           orderNumber: o.orderNumber,
           buyerCompany: o.buyerCompany,
-          buyerContact: o.buyerPhone || o.buyerEmail || o.contactPerson,
+          buyerContact: o.buyerPhone || o.buyerEmail || o.contactPerson || "B2B Buyer Representative",
           productId: o.productId || "prod-order",
           productName: o.productName || "Commodity Batch",
           quantity: o.quantity || 1,
-          unit: o.unit || "KG",
+          unit: o.unit || "Quintal",
           reservedDate: o.orderDate || new Date().toISOString().split("T")[0],
-          expiryDate: o.expectedDelivery || "2026-10-25",
+          expiryDate: o.expectedDelivery || "",
           status: (o.paymentStatus === "escrow_secured"
             ? "confirmed"
             : o.orderStatus === "processing"
@@ -402,7 +412,7 @@ export function SupplierInventoryView() {
 
   // 5. DYNAMIC ADJUSTMENTS: Derived from actual audit movements
   const auditAdjustments: StockAdjustmentRecord[] = useMemo(() => {
-    return inventoryMovements
+    const list = movementsList
       .filter((m) => m.type === "adjusted" || (m.reference && m.reference.includes("ADJ")))
       .map((m) => {
         const prod = inventory.find((p) => p.name === m.productName || p.id === m.productId);
@@ -421,10 +431,11 @@ export function SupplierInventoryView() {
           notes: `Verified by ${m.actor}`,
           date: m.date.split(" ")[0],
           auditor: m.actor,
-          status: "approved",
+          status: "approved" as const,
         };
       });
-  }, [inventoryMovements, inventory]);
+    return list;
+  }, [movementsList, inventory]);
 
   // KPI Calculations from Live Inventory Records
   const totalStockQty = useMemo(() => inventory.reduce((acc, p) => acc + p.totalStock, 0), [inventory]);
@@ -447,7 +458,7 @@ export function SupplierInventoryView() {
   const handleSyncDatabase = async () => {
     setIsSyncing(true);
     try {
-      await Promise.all([fetchProducts(), fetchWarehouses(), fetchTransfers()]);
+      await Promise.all([fetchProducts(), fetchWarehouses(), fetchTransfers(), fetchOrders()]);
       toast.success("Inventory, warehouses, and transfers synchronized successfully.");
     } catch {
       toast.error("Failed to synchronize inventory data.");
@@ -691,12 +702,12 @@ export function SupplierInventoryView() {
 
   // 6. EXPORT MOVEMENTS CSV
   const handleExportMovementsCSV = () => {
-    if (inventoryMovements.length === 0) {
+    if (movementsList.length === 0) {
       toast.info("No movement records found to export.");
       return;
     }
     const headers = ["Timestamp", "Product", "Movement Type", "Quantity Delta", "Unit", "Warehouse Depot", "Reference", "Actor"];
-    const rows = inventoryMovements.map((m) => [
+    const rows = movementsList.map((m) => [
       `"${m.date}"`,
       `"${m.productName.replace(/"/g, '""')}"`,
       `"${m.type}"`,
@@ -721,12 +732,11 @@ export function SupplierInventoryView() {
       {/* 1. Header with B2B Live Actions */}
       <PageHeader
         title={tr("inventoryTitle")}
-        subtitle={tr("inventorySubtitle")}
         breadcrumbs={[{ label: tr("breadcrumbDashboard"), onClick: () => setActiveTab("dashboard") }, { label: tr("breadcrumbInventory") }]}
         actions={
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
             {/* Live Ledger Status Indicator */}
-            <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-xs">
+            <div className="hidden sm:inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium border bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-xs">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
               <span className="font-semibold">{tr("liveLedgerLabel")}</span>
               <span>{tr("synchronizedLabel")}</span>
@@ -736,7 +746,7 @@ export function SupplierInventoryView() {
             <button
               onClick={handleSyncDatabase}
               disabled={isSyncing || isLoadingProducts}
-              className={`inline-flex items-center gap-1.5 px-3 py-2.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-2 sm:py-2.5 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
                 isLight
                   ? "border-slate-200 bg-white hover:bg-slate-50 text-slate-700"
                   : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08] text-zinc-200"
@@ -744,13 +754,13 @@ export function SupplierInventoryView() {
               title={tr("refreshBtn")}
             >
               <RotateCcw className={`h-3.5 w-3.5 text-indigo-400 ${isSyncing || isLoadingProducts ? "animate-spin" : ""}`} />
-              <span className="hidden sm:inline">{tr("refreshBtn")}</span>
+              <span className="hidden md:inline">{tr("refreshBtn")}</span>
             </button>
 
             {/* Warning Alert Icon */}
             <button
               onClick={() => setActiveTabSub("alerts")}
-              className={`relative p-2.5 rounded-xl border transition-colors cursor-pointer ${
+              className={`relative p-2 sm:p-2.5 rounded-xl border transition-colors cursor-pointer ${
                 isLight
                   ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                   : isSystem
@@ -770,52 +780,55 @@ export function SupplierInventoryView() {
             {/* Export CSV */}
             <button
               onClick={handleExportProductsCSV}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
                 isLight
                   ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                   : isSystem
                   ? "border-blue-500/30 bg-[#0f1b3b] text-blue-200 hover:bg-blue-500/20"
                   : "border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white/[0.08]"
               }`}
+              title={tr("exportCsvBtn")}
             >
               <Download className="h-3.5 w-3.5" />
-              <span>{tr("exportCsvBtn")}</span>
+              <span className="hidden sm:inline">{tr("exportCsvBtn")}</span>
             </button>
 
             {/* Adjust Stock */}
             <button
               onClick={() => setIsAdjustOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
                 isLight
                   ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                   : isSystem
                   ? "border-blue-500/30 bg-[#0f1b3b] text-blue-200 hover:bg-blue-500/20"
                   : "border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white/[0.08]"
               }`}
+              title={tr("adjustStockBtn")}
             >
               <SlidersHorizontal className="h-3.5 w-3.5 text-indigo-400" />
-              <span>{tr("adjustStockBtn")}</span>
+              <span className="hidden md:inline">{tr("adjustStockBtn")}</span>
             </button>
 
             {/* Transfer Stock */}
             <button
               onClick={() => setIsTransferOpen(true)}
-              className={`inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
+              className={`inline-flex items-center gap-1.5 px-2.5 sm:px-3.5 py-2 sm:py-2.5 rounded-xl border text-xs font-semibold transition-all cursor-pointer shadow-xs ${
                 isLight
                   ? "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
                   : isSystem
                   ? "border-blue-500/30 bg-[#0f1b3b] text-blue-200 hover:bg-blue-500/20"
                   : "border-white/10 bg-white/[0.04] text-zinc-200 hover:bg-white/[0.08]"
               }`}
+              title={tr("transferStockBtn")}
             >
               <ArrowRightLeft className="h-3.5 w-3.5 text-cyan-400" />
-              <span>{tr("transferStockBtn")}</span>
+              <span className="hidden md:inline">{tr("transferStockBtn")}</span>
             </button>
 
             {/* + Add Stock (Primary Green #2E7D32) */}
             <button
               onClick={() => setIsAddStockOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl bg-[#2E7D32] hover:bg-[#388E3C] px-4 py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-700/25 transition-all cursor-pointer"
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#2E7D32] hover:bg-[#388E3C] px-3.5 sm:px-4 py-2 sm:py-2.5 text-xs font-bold text-white shadow-md shadow-emerald-700/25 transition-all cursor-pointer"
             >
               <Plus className="h-4 w-4" />
               <span>{tr("addStockBtn")}</span>
@@ -825,10 +838,10 @@ export function SupplierInventoryView() {
       />
 
       {/* 2. Six Professional Inventory KPI Cards (Calculated directly from live database state) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
         {/* KPI 1: Total Stock */}
         <div
-          className={`rounded-xl border p-3 sm:p-3.5 transition-all ${
+          className={`rounded-xl border p-2.5 sm:p-3.5 transition-all ${
             isLight
               ? "border-slate-200 bg-white shadow-xs hover:border-slate-300"
               : isSystem
@@ -848,14 +861,14 @@ export function SupplierInventoryView() {
             {totalStockQty.toLocaleString()}{" "}
             <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
-          <p className="text-[10px] text-emerald-500 font-mono font-medium truncate mt-0.5">
-            ETB {(totalValuation / 1000000).toFixed(2)}M {tr("kpiValuationPrefix")}
+          <p className="hidden sm:block text-[10px] text-emerald-500 font-mono font-medium truncate mt-0.5">
+            ETB {totalValuation >= 1000000 ? `${(totalValuation / 1000000).toFixed(2)}M` : totalValuation.toLocaleString()} {tr("kpiValuationPrefix")}
           </p>
         </div>
 
         {/* KPI 2: Available Stock */}
         <div
-          className={`rounded-xl border p-3 sm:p-3.5 transition-all ${
+          className={`rounded-xl border p-2.5 sm:p-3.5 transition-all ${
             isLight
               ? "border-emerald-200 bg-emerald-50/70 shadow-xs"
               : isSystem
@@ -875,14 +888,14 @@ export function SupplierInventoryView() {
             {totalAvailableQty.toLocaleString()}{" "}
             <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
-          <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
+          <p className={`hidden sm:block text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
             {tr("kpiAvailableDesc")}
           </p>
         </div>
 
         {/* KPI 3: Reserved Stock */}
         <div
-          className={`rounded-xl border p-3 sm:p-3.5 transition-all ${
+          className={`rounded-xl border p-2.5 sm:p-3.5 transition-all ${
             isLight
               ? "border-blue-200 bg-blue-50/70 shadow-xs"
               : isSystem
@@ -902,7 +915,7 @@ export function SupplierInventoryView() {
             {totalReservedQty.toLocaleString()}{" "}
             <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
-          <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
+          <p className={`hidden sm:block text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
             {tr("kpiReservedDesc", { count: reservations.length })}
           </p>
         </div>
@@ -913,7 +926,7 @@ export function SupplierInventoryView() {
             setActiveTabSub("products");
             setStatusFilter("low_stock");
           }}
-          className={`rounded-xl border p-3 sm:p-3.5 transition-all cursor-pointer ${
+          className={`rounded-xl border p-2.5 sm:p-3.5 transition-all cursor-pointer ${
             isLight
               ? "border-amber-200 bg-amber-50/70 hover:border-amber-400"
               : isSystem
@@ -932,7 +945,7 @@ export function SupplierInventoryView() {
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
             {lowStockCount} <span className="text-[10px] font-normal opacity-70">{tr("itemsUnit")}</span>
           </p>
-          <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-amber-800" : "text-amber-300/80"}`}>
+          <p className={`hidden sm:block text-[10px] truncate mt-0.5 ${isLight ? "text-amber-800" : "text-amber-300/80"}`}>
             {tr("kpiLowStockDesc")}
           </p>
         </div>
@@ -943,7 +956,7 @@ export function SupplierInventoryView() {
             setActiveTabSub("products");
             setStatusFilter("out_of_stock");
           }}
-          className={`rounded-xl border p-3 sm:p-3.5 transition-all cursor-pointer ${
+          className={`rounded-xl border p-2.5 sm:p-3.5 transition-all cursor-pointer ${
             isLight
               ? "border-rose-200 bg-rose-50/70 hover:border-rose-400"
               : isSystem
@@ -962,7 +975,7 @@ export function SupplierInventoryView() {
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
             {outOfStockCount} <span className="text-[10px] font-normal opacity-70">{tr("itemsUnit")}</span>
           </p>
-          <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-rose-800" : "text-rose-300/80"}`}>
+          <p className={`hidden sm:block text-[10px] truncate mt-0.5 ${isLight ? "text-rose-800" : "text-rose-300/80"}`}>
             {tr("kpiOutOfStockDesc")}
           </p>
         </div>
@@ -970,7 +983,7 @@ export function SupplierInventoryView() {
         {/* KPI 6: Warehouses */}
         <div
           onClick={() => setActiveTabSub("warehouses")}
-          className={`rounded-xl border p-3 sm:p-3.5 transition-all cursor-pointer ${
+          className={`rounded-xl border p-2.5 sm:p-3.5 transition-all cursor-pointer ${
             isLight
               ? "border-purple-200 bg-purple-50/70 hover:border-purple-400"
               : isSystem
@@ -989,7 +1002,7 @@ export function SupplierInventoryView() {
           <p className={`text-base sm:text-lg font-bold font-mono mt-1 ${isLight ? "text-slate-900" : "text-white"}`}>
             {warehouses.length} <span className="text-[10px] font-normal opacity-70">{tr("kpiUnitsUnit")}</span>
           </p>
-          <p className={`text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
+          <p className={`hidden sm:block text-[10px] truncate mt-0.5 ${isLight ? "text-slate-600" : "text-zinc-400"}`}>
             {tr("kpiWarehousesDesc", { count: warehouses.length })}
           </p>
         </div>
@@ -997,15 +1010,16 @@ export function SupplierInventoryView() {
 
       {/* 3. Ten B2B Enterprise Tabs */}
       <div
-        className={`flex items-center gap-1.5 overflow-x-auto pb-1 border-b no-scrollbar ${
+        className={`flex items-center gap-1.5 overflow-x-auto pb-2 border-b no-scrollbar scroll-smooth ${
           isLight ? "border-slate-200" : isSystem ? "border-blue-500/20" : "border-white/10"
         }`}
+        style={{ WebkitOverflowScrolling: "touch" }}
       >
         {[
           { id: "overview", label: tr("tabOverview"), icon: BarChart3 },
           { id: "products", label: tr("tabProducts"), icon: Package, badge: inventory.length },
-          { id: "warehouses", label: tr("tabWarehouses"), icon: WarehouseIcon, badge: warehouses.length },
-          { id: "movements", label: tr("tabMovements"), icon: History, badge: inventoryMovements.length },
+          { id: "warehouses", label: tr("tabWarehouses"), icon: WarehouseIcon, badge: warehousesDetail.length },
+          { id: "movements", label: tr("tabMovements"), icon: History, badge: movementsList.length },
           { id: "transfers", label: tr("tabTransfers"), icon: Truck, badge: transfers.length },
           { id: "reservations", label: tr("tabReservations"), icon: Lock, badge: reservations.length },
           { id: "damaged", label: tr("tabDamaged"), icon: AlertTriangle, badge: damagedRecords.length },
@@ -1274,7 +1288,7 @@ export function SupplierInventoryView() {
             </div>
 
             {/* Filter Dropdowns Strip */}
-            <div className="flex flex-wrap items-center gap-2 text-xs">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:flex md:flex-wrap items-center gap-2 text-xs">
               {/* Dynamic Warehouse Dropdown from Database */}
               <select
                 value={warehouseFilter}
@@ -1811,7 +1825,7 @@ export function SupplierInventoryView() {
             </button>
           </div>
 
-          {inventoryMovements.length === 0 ? (
+          {movementsList.length === 0 ? (
             <div
               className={`rounded-2xl border p-12 text-center ${
                 isLight ? "bg-white border-slate-200" : "bg-[#141418] border-white/10"
@@ -1847,7 +1861,7 @@ export function SupplierInventoryView() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-white/5">
-                    {inventoryMovements.map((m) => (
+                    {movementsList.map((m) => (
                       <tr key={m.id} className="hover:bg-white/[0.02] transition-colors">
                         <td className="py-3.5 px-5 font-mono opacity-80 whitespace-nowrap">{m.date}</td>
                         <td className="py-3.5 px-4 font-bold">{m.productName}</td>
@@ -2404,13 +2418,13 @@ export function SupplierInventoryView() {
               },
               {
                 title: "Stock Movement Audit Ledger",
-                desc: `Complete immutable traceability log of ${inventoryMovements.length} transactions across warehouses.`,
+                desc: `Complete immutable traceability log of ${movementsList.length} transactions across warehouses.`,
                 format: "CSV",
                 action: handleExportMovementsCSV,
               },
               {
                 title: "Multi-Depot Warehouse Utilization",
-                desc: `Capacity breakdown across ${warehouses.length} active registered storage hubs.`,
+                desc: `Capacity breakdown across ${warehousesDetail.length} active registered storage hubs.`,
                 format: "CSV",
                 action: handleExportProductsCSV,
               },

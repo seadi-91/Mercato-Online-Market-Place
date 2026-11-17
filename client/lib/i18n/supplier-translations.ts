@@ -79,6 +79,11 @@ export interface SupplierTranslationDictionary {
   actionSuspendAccount: string;
   actionActivateAccount: string;
   actionViewFullDetail: string;
+  actionDeleteSupplier: string;
+  deleteSupplierModalTitle: string;
+  deleteSupplierModalDesc: string;
+  confirmDeleteSupplierBtn: string;
+  deletingSupplierBtn: string;
 
   // Empty State
   noSuppliersDb: string;
@@ -299,6 +304,11 @@ export const SUPPLIER_TRANSLATIONS: Record<LanguageCode, SupplierTranslationDict
     actionSuspendAccount: "Suspend Merchant Account",
     actionActivateAccount: "Activate Merchant Account",
     actionViewFullDetail: "View Full Supplier Page & Analytics",
+    actionDeleteSupplier: "Delete Supplier Account",
+    deleteSupplierModalTitle: "Permanently Delete Supplier",
+    deleteSupplierModalDesc: "Are you sure you want to delete this supplier account? This will permanently remove the supplier from the database.",
+    confirmDeleteSupplierBtn: "Delete Supplier",
+    deletingSupplierBtn: "Deleting...",
 
     noSuppliersDb: "No Suppliers in Database",
     noSuppliersFilter: "No Suppliers Match Current Search Filters",
@@ -511,6 +521,11 @@ export const SUPPLIER_TRANSLATIONS: Record<LanguageCode, SupplierTranslationDict
     actionSuspendAccount: "የነጋዴውን መለያ እገድ",
     actionActivateAccount: "የነጋዴውን መለያ አንቃ",
     actionViewFullDetail: "ሙሉ የአቅራቢውን ገጽ እና ትንታኔ ተመልከት",
+    actionDeleteSupplier: "አቅራቢውን ሰርዝ",
+    deleteSupplierModalTitle: "አቅራቢውን በቋሚነት ሰርዝ",
+    deleteSupplierModalDesc: "ይህን የአቅራቢ መለያ በቋሚነት መሰረዝ ይፈልጋሉ? ይህ እርምጃ አቅራቢውን ከዳታቤዝ ውስጥ ሙሉ በሙሉ ያስወግዳል፤ ሊመለስ አይችልም።",
+    confirmDeleteSupplierBtn: "አቅራቢውን ሰርዝ",
+    deletingSupplierBtn: "በመሰረዝ ላይ...",
 
     noSuppliersDb: "በዳታቤዝ ውስጥ ምንም አቅራቢ አልተገኘም",
     noSuppliersFilter: "ከፍለጋው ጋር የሚዛመድ አቅራቢ አልተገኘም",
@@ -723,6 +738,11 @@ export const SUPPLIER_TRANSLATIONS: Record<LanguageCode, SupplierTranslationDict
     actionSuspendAccount: "Herrega Daldalaa Cufi",
     actionActivateAccount: "Herrega Daldalaa Hojiirra Oolchi",
     actionViewFullDetail: "Fuula Dhiheessaa fi Xiinxala Guutuu Ilaali",
+    actionDeleteSupplier: "Dhiheessaa Balleessi",
+    deleteSupplierModalTitle: "Dhiheessaa Dhaabbatan Balleessi",
+    deleteSupplierModalDesc: "Herrega dhiheessaa kana kuusaa deetaa keessaa dhaabbataan balleessuu barbaadduu? Gochi kun hin deebi'u.",
+    confirmDeleteSupplierBtn: "Dhiheessaa Balleessi",
+    deletingSupplierBtn: "Balleessaa jira...",
 
     noSuppliersDb: "Dhiheessaan Kuusaa Deetaa Keessatti Hin Argamne",
     noSuppliersFilter: "Dhiheessaan Ulaagaa Barbaachaa Wajjin Wal Simu Hin Argamne",
@@ -935,6 +955,11 @@ export const SUPPLIER_TRANSLATIONS: Record<LanguageCode, SupplierTranslationDict
     actionSuspendAccount: "ናይ ነጋዳይ ሕሳብ ዕፀው",
     actionActivateAccount: "ናይ ነጋዳይ ሕሳብ ኣብርህ",
     actionViewFullDetail: "ምሉእ ናይ ኣቕራቢ ገፅን ትንተናን ርአ",
+    actionDeleteSupplier: "ኣቕራቢ ሰርዝ",
+    deleteSupplierModalTitle: "ኣቕራቢ ብቀዋምነት ሰርዝ",
+    deleteSupplierModalDesc: "ነዚ ናይ ኣቕራቢ ሕሳብ ብቀዋምነት ክትሰርዞ ትደሊ ዲኻ? እዚ ስጉምቲ ካብ ዳታቤዝ ምሉእ ብምሉእ የውፅኦ፤ ክምለስ ኣይኽእልን።",
+    confirmDeleteSupplierBtn: "ኣቕራቢ ሰርዝ",
+    deletingSupplierBtn: "ይስረዝ ኣሎ...",
 
     noSuppliersDb: "ኣብ ዳታቤዝ ዝኾነ ኣቕራቢ ኣይተረኸበን",
     noSuppliersFilter: "ምስ ዝተመረፀ መፃረዪ ዝሰማማዕ ኣቕራቢ የለን",

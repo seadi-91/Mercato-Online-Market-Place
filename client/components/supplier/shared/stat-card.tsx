@@ -78,7 +78,7 @@ export function StatCard({
           </div>
         </div>
 
-        <p className="mt-1 text-lg font-bold font-mono tracking-tight text-slate-900 dark:text-white leading-tight">
+        <p className="mt-1 text-sm sm:text-base lg:text-lg font-bold font-mono tracking-tight text-slate-900 dark:text-white leading-tight break-words">
           {value}
         </p>
 

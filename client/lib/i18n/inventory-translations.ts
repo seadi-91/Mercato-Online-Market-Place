@@ -51,12 +51,26 @@ export interface InventoryTranslationDictionary {
   statusLowStock: string;
   statusOutOfStock: string;
   clearFiltersBtn: string;
+
+  // Chart
+  chartTitle: string;
+  chartSubtitle: string;
+  chartNet: string;
+  chartStockIn: string;
+  chartStockOut: string;
+  chartReserved: string;
+  chartReconciliation: string;
+  chartAudited: string;
+  chartUnits: string;
+  chartViewBars: string;
+  chartViewTrend: string;
+  chartViewBoth: string;
 }
 
 export const INVENTORY_TRANSLATIONS: Record<LanguageCode, InventoryTranslationDictionary> = {
   en: {
     inventoryTitle: "Inventory Management",
-    inventorySubtitle: "Real-time multi-depot allocations, commodity inventory movements, and transfers.",
+    inventorySubtitle: "",
     breadcrumbDashboard: "Dashboard",
     breadcrumbInventory: "Inventory",
     liveLedgerLabel: "Live Ledger:",
@@ -101,11 +115,24 @@ export const INVENTORY_TRANSLATIONS: Record<LanguageCode, InventoryTranslationDi
     statusLowStock: "Low Stock",
     statusOutOfStock: "Out of Stock",
     clearFiltersBtn: "Clear Filters",
+
+    chartTitle: "Stock Movement & Velocity Overview",
+    chartSubtitle: "",
+    chartNet: "Net Movement:",
+    chartStockIn: "Stock In",
+    chartStockOut: "Stock Out",
+    chartReserved: "Escrow Reserved",
+    chartReconciliation: "Reconciliation",
+    chartAudited: "Audited",
+    chartUnits: "Units",
+    chartViewBars: "Grouped Bars",
+    chartViewTrend: "Velocity Trend",
+    chartViewBoth: "Combined View",
   },
 
   am: {
     inventoryTitle: "የመጋዘን ክምችት አስተዳደር",
-    inventorySubtitle: "የእውነተኛ ጊዜ የመጋዘኖች ክምችት፣ የሸቀጦች እንቅስቃሴ እና ዝውውር መቆጣጠሪያ።",
+    inventorySubtitle: "",
     breadcrumbDashboard: "ዳሽቦርድ",
     breadcrumbInventory: "ክምችት",
     liveLedgerLabel: "ቀጥታ መዝገብ፦",
@@ -150,11 +177,24 @@ export const INVENTORY_TRANSLATIONS: Record<LanguageCode, InventoryTranslationDi
     statusLowStock: "አነስተኛ ክምችት",
     statusOutOfStock: "ያለቀ ክምችት",
     clearFiltersBtn: "ማጣሪያዎችን አጽዳ",
+
+    chartTitle: "የክምችት እንቅስቃሴ እና የፍሰት ግራፍ",
+    chartSubtitle: "",
+    chartNet: "የተጣራ ለውጥ፦",
+    chartStockIn: "የገባ ክምችት",
+    chartStockOut: "የወጣ ክምችት",
+    chartReserved: "በእስክሮው የተያዘ",
+    chartReconciliation: "የኦዲት ማስታረቅ",
+    chartAudited: "የተረጋገጠ",
+    chartUnits: "መለኪያዎች",
+    chartViewBars: "የአምድ ግራፍ",
+    chartViewTrend: "የፍሰት መስመር",
+    chartViewBoth: "የተቀናጀ እይታ",
   },
 
   om: {
     inventoryTitle: "Bulchiinsa Kuusaa",
-    inventorySubtitle: "Hordoffii kuusaa manneen garaagaraa, sochii oomishaalee fi dabarsa kallattii.",
+    inventorySubtitle: "",
     breadcrumbDashboard: "Daashboordii",
     breadcrumbInventory: "Kuusaa",
     liveLedgerLabel: "Galmee Kallattii:",
@@ -199,11 +239,24 @@ export const INVENTORY_TRANSLATIONS: Record<LanguageCode, InventoryTranslationDi
     statusLowStock: "Kuusaa Xiqqaate",
     statusOutOfStock: "Kuusaan Dhumate",
     clearFiltersBtn: "Calaltuuwwan Qulqulleessi",
+
+    chartTitle: "Giraafii Sochii fi Dhangala'aa Kuusaa",
+    chartSubtitle: "",
+    chartNet: "Jijjiirama Qulqulluu:",
+    chartStockIn: "Kuusaa Gale",
+    chartStockOut: "Kuusaa Bahe",
+    chartReserved: "Escrow Kan Qabame",
+    chartReconciliation: "Walsimsiisa Ooditii",
+    chartAudited: "Kan Mirkanaa'e",
+    chartUnits: "Safartuu",
+    chartViewBars: "Giraafii Tarree",
+    chartViewTrend: "Adeemsa Dhangala'aa",
+    chartViewBoth: "Ilaalcha Walmakaa",
   },
 
   ti: {
     inventoryTitle: "ምሕደራ ክምችት መኽዘን",
-    inventorySubtitle: "ናይ ቀጥታ ናይ መኽዘናት ክምችት፣ ናይ ሸቐጣት ምንቅስቓስን ምትሕልላፍን መቆፃፀሪ።",
+    inventorySubtitle: "",
     breadcrumbDashboard: "ዳሽቦርድ",
     breadcrumbInventory: "ክምችት",
     liveLedgerLabel: "ቀጥታ መዝገብ፦",
@@ -248,5 +301,18 @@ export const INVENTORY_TRANSLATIONS: Record<LanguageCode, InventoryTranslationDi
     statusLowStock: "ትሑት ክምችት",
     statusOutOfStock: "ዝተወደአ ክምችት",
     clearFiltersBtn: "መፃረዪታት ኣጽሪ",
+
+    chartTitle: "ሓፈሻዊ ግራፍ ምንቅስቓስ ክምችት",
+    chartSubtitle: "",
+    chartNet: "ዝተጻረየ ለውጢ፦",
+    chartStockIn: "ዝኣተወ ክምችት",
+    chartStockOut: "ዝወጸ ክምችት",
+    chartReserved: "ብሕድሪ ዝተተሓዘ",
+    chartReconciliation: "ምጽራይ ኦዲት",
+    chartAudited: "ዝተረጋገጸ",
+    chartUnits: "መለክዒታት",
+    chartViewBars: "ናይ ዓንዲ ግራፍ",
+    chartViewTrend: "መስመር ፍሰት",
+    chartViewBoth: "ዝተዋደደ ምርኢት",
   },
 };

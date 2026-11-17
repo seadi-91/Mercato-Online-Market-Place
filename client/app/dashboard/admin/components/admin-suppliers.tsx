@@ -22,6 +22,7 @@ import {
   MoreVertical,
   Clock,
   ShieldAlert,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslation } from "@/store/language-store";
@@ -147,6 +148,10 @@ export function AdminSuppliers() {
   const [statusModalSupplier, setStatusModalSupplier] = useState<SupplierItem | null>(null);
   const [suspensionReason, setSuspensionReason] = useState("");
   const [submittingStatus, setSubmittingStatus] = useState(false);
+
+  // Delete supplier confirmation modal
+  const [deleteModalSupplier, setDeleteModalSupplier] = useState<SupplierItem | null>(null);
+  const [isDeletingSupplier, setIsDeletingSupplier] = useState(false);
 
   // Load suppliers directly from DB via backend
   const loadSuppliers = async () => {
@@ -871,6 +876,21 @@ export function AdminSuppliers() {
                                     </>
                                   )}
                                 </button>
+
+                                <div className={`my-1 border-t ${borderDivider}`} />
+
+                                {/* Delete Supplier Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setOpenMenuId(null);
+                                    setDeleteModalSupplier(supplier);
+                                  }}
+                                  className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-xs font-medium text-rose-600 dark:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5 text-rose-500 shrink-0" />
+                                  <span>{tr("actionDeleteSupplier")}</span>
+                                </button>
                               </div>
                             </>
                           )}
@@ -1273,6 +1293,84 @@ export function AdminSuppliers() {
                     : tr("confirmActivateBtn")}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Supplier Confirmation Modal */}
+      {deleteModalSupplier && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-xs animate-in fade-in">
+          <div className={`relative w-full max-w-md rounded-2xl border p-6 space-y-4 shadow-2xl animate-in zoom-in-95 ${modalBg}`}>
+            <div className="flex items-start gap-3">
+              <div className="p-2.5 rounded-xl bg-rose-500/15 text-rose-500 shrink-0 border border-rose-500/30">
+                <Trash2 className="h-5 w-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className={`text-base font-bold ${textHeading}`}>{tr("deleteSupplierModalTitle")}</h3>
+                <p className={`text-xs ${textMuted}`}>{tr("deleteSupplierModalDesc")}</p>
+              </div>
+            </div>
+
+            <div className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${subCardBg}`}>
+              <div className="flex justify-between">
+                <span className={textMuted}>{tr("colCompany")}:</span>
+                <span className={`font-semibold ${textHeading}`}>{deleteModalSupplier.shopName || deleteModalSupplier.fullName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className={textMuted}>{tr("colContact")}:</span>
+                <span className={textSub}>{deleteModalSupplier.email || deleteModalSupplier.phoneNumber || "—"}</span>
+              </div>
+              {deleteModalSupplier.tinNumber && (
+                <div className="flex justify-between">
+                  <span className={textMuted}>{tr("colTinNumber")}:</span>
+                  <span className="font-mono text-zinc-400">{deleteModalSupplier.tinNumber}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                disabled={isDeletingSupplier}
+                onClick={() => setDeleteModalSupplier(null)}
+                className={`px-4 py-2 rounded-xl text-xs font-medium border transition-colors cursor-pointer ${neutralBtn}`}
+              >
+                {tr("cancelBtn")}
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingSupplier}
+                onClick={async () => {
+                  if (!deleteModalSupplier) return;
+                  setIsDeletingSupplier(true);
+                  try {
+                    await adminSupplierService.deleteSupplier(deleteModalSupplier.id, deleteModalSupplier.userId);
+                    setSuppliers((prev) =>
+                      prev.filter((s) => s.id !== deleteModalSupplier.id && s.userId !== deleteModalSupplier.userId)
+                    );
+                    toast.success(`${deleteModalSupplier.shopName || deleteModalSupplier.fullName} was successfully deleted.`);
+                    setDeleteModalSupplier(null);
+                  } catch (err: any) {
+                    toast.error(err.message || "Failed to delete supplier");
+                  } finally {
+                    setIsDeletingSupplier(false);
+                  }
+                }}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/30 transition-all cursor-pointer disabled:opacity-50"
+              >
+                {isDeletingSupplier ? (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                    <span>{tr("deletingSupplierBtn")}</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="h-3.5 w-3.5" />
+                    <span>{tr("confirmDeleteSupplierBtn")}</span>
+                  </>
+                )}
+              </button>
             </div>
           </div>
         </div>

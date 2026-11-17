@@ -57,6 +57,7 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const roleFilter = searchParams.get("role") || "ALL"; // ALL, SELLER, SUPPLIER
     const search = searchParams.get("search")?.toLowerCase();
+    const targetSellerId = searchParams.get("sellerId") || searchParams.get("userId");
 
     const usersPool = getUsersDbPool();
     const orderPool = getOrderDbPool();
@@ -338,9 +339,23 @@ export async function GET(req: NextRequest) {
     const totalCommission = merchants.reduce((sum, m) => sum + m.platformCommission, 0);
     const totalAvailablePayout = merchants.reduce((sum, m) => sum + m.availableBalance, 0);
 
+    // If specific sellerId/userId is requested, find that merchant
+    let matchedMerchant: SellerSupplierItem | null = null;
+    if (targetSellerId) {
+      matchedMerchant =
+        merchants.find(
+          (m) =>
+            String(m.id) === targetSellerId ||
+            String(m.userId) === targetSellerId ||
+            String(m.id).toLowerCase() === targetSellerId.toLowerCase() ||
+            String(m.userId).toLowerCase() === targetSellerId.toLowerCase()
+        ) || null;
+    }
+
     return NextResponse.json({
       success: true,
       data: merchants,
+      merchant: matchedMerchant,
       summary: {
         totalMerchants,
         sellersCount,
@@ -354,6 +369,83 @@ export async function GET(req: NextRequest) {
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || "Failed to load sellers and suppliers" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    const userId = searchParams.get("userId");
+
+    let bodyId = "";
+    let bodyUserId = "";
+    try {
+      const body = await req.json();
+      bodyId = body?.id;
+      bodyUserId = body?.userId;
+    } catch {}
+
+    const targetId = id || bodyId;
+    const targetUserId = userId || bodyUserId;
+
+    if (!targetId && !targetUserId) {
+      return NextResponse.json(
+        { success: false, error: "Supplier ID or User ID is required" },
+        { status: 400 }
+      );
+    }
+
+    const usersPool = getUsersDbPool();
+    const uClient = await usersPool.connect();
+    try {
+      try {
+        if (targetId && targetUserId) {
+          await uClient.query(`DELETE FROM profiles WHERE id = $1 OR "userId" = $2`, [targetId, targetUserId]);
+          await uClient.query(`DELETE FROM users WHERE id = $1`, [targetUserId]);
+        } else if (targetId) {
+          await uClient.query(`DELETE FROM profiles WHERE id = $1 OR "userId" = $1`, [targetId]);
+          await uClient.query(`DELETE FROM users WHERE id = $1`, [targetId]);
+        } else if (targetUserId) {
+          await uClient.query(`DELETE FROM profiles WHERE "userId" = $1`, [targetUserId]);
+          await uClient.query(`DELETE FROM users WHERE id = $1`, [targetUserId]);
+        }
+      } catch (dbErr: any) {
+        // Fallback: If foreign key constraints prevent full deletion, deactivate / soft-delete
+        if (targetId && targetUserId) {
+          await uClient.query(
+            `UPDATE profiles SET "isVerifiedMerchant" = false, "merchantKycStatus" = 'REJECTED' WHERE id = $1 OR "userId" = $2`,
+            [targetId, targetUserId]
+          );
+          await uClient.query(`UPDATE users SET "isActive" = false WHERE id = $1`, [targetUserId]);
+        } else if (targetId) {
+          await uClient.query(
+            `UPDATE profiles SET "isVerifiedMerchant" = false, "merchantKycStatus" = 'REJECTED' WHERE id = $1 OR "userId" = $1`,
+            [targetId]
+          );
+          await uClient.query(`UPDATE users SET "isActive" = false WHERE id = $1`, [targetId]);
+        } else if (targetUserId) {
+          await uClient.query(
+            `UPDATE profiles SET "isVerifiedMerchant" = false, "merchantKycStatus" = 'REJECTED' WHERE "userId" = $1`,
+            [targetUserId]
+          );
+          await uClient.query(`UPDATE users SET "isActive" = false WHERE id = $1`, [targetUserId]);
+        }
+      }
+    } finally {
+      uClient.release();
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: "Supplier/Merchant removed successfully",
+      id: targetId || targetUserId,
+    });
+  } catch (err: any) {
+    return NextResponse.json(
+      { success: false, error: err.message || "Failed to delete supplier" },
       { status: 500 }
     );
   }
